@@ -1,0 +1,56 @@
+// Whole-practice archive and restore on Base portability, and file erasure that
+// fences older archives. Adapted from just-every/run-satchel src/satchel/archive.ts (MIT).
+import { createPortability, readArchive } from '@runeditrun/rer/modules/portability';
+import policy from './archive-policy.mjs';
+import { atomic, audit, human, insist, job, need, now, stmt, text, type Actor, type Data } from './model';
+
+export async function backup(db: D1Database, actor: Actor) {
+  human(actor); need(actor, 'owner');
+  const service = await createPortability({ db, policy }), exportId = await service.exports.create(actor.id);
+  try {
+    let status = await service.exports.advance(exportId);
+    while (status.phase !== 'complete') status = await service.exports.advance(exportId);
+    const bytes = await new Response(await service.exports.download(exportId)).arrayBuffer();
+    return new Response(bytes, { headers: { 'content-type': 'application/x-ndjson', 'content-disposition': 'attachment; filename="blotter.rer"', 'cache-control': 'no-store' } });
+  } finally { await service.exports.abort(exportId); }
+}
+
+export async function restore(db: D1Database, actor: Actor, body: Data) {
+  human(actor); need(actor, 'owner');
+  insist(body.confirm === 'RESTORE', 'Type RESTORE to confirm an empty-destination restore');
+  const source = text(body.archive, 'Archive', 24_000_000), service = await createPortability({ db, policy });
+  const records = [];
+  for await (const record of readArchive(new Response(source).body!)) records.push(record);
+  let laterJournal;
+  if (body.journal) {
+    for await (const part of readArchive(new Response(text(body.journal, 'Later archive', 24_000_000)).body!)) {
+      if (part.kind === 'manifest') laterJournal = { sourceIdentity: part.sourceIdentity, epoch: part.epoch, journal: part.journal };
+    }
+  }
+  let importId: string | undefined;
+  try {
+    for (const item of records) {
+      if (item.kind === 'manifest') importId = await service.imports.create(item, actor.id);
+      else if (item.kind === 'part') { insist(importId, 'Missing archive manifest'); await service.imports.uploadPart(importId, item.index, item); }
+      else { insist(importId, 'Missing archive manifest'); return await service.imports.finalize(importId, { archiveHash: item.archiveHash, contentHash: item.contentHash, laterJournal }); }
+    }
+    throw new Error('Incomplete archive');
+  } catch (error) { if (importId) await service.imports.abort(importId); throw error; }
+}
+
+/** Erase an uploaded file's bytes. Its name, hash and history remain; older archives are fenced. */
+export async function eraseFile(db: D1Database, actor: Actor, fileId: string, body: Data) {
+  human(actor); need(actor, 'owner');
+  const file = await stmt(db, 'SELECT * FROM b_files WHERE id=?', fileId).first<Data>();
+  insist(file, 'File not found', 404);
+  await job(db, actor, file.job_id);
+  insist(!file.erased_at, 'This file was already erased', 409);
+  insist(body.confirm === file.name, 'Type the file name to confirm erasing its bytes');
+  const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
+  await atomic(db, actor, [
+    stmt(db, 'UPDATE b_files SET content_base64=NULL,erased_at=?,erased_by=?,erase_reason=? WHERE id=? AND erased_at IS NULL', now(), actor.email, reason, file.id),
+    ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
+    audit(db, actor, 'file.erased', file.id, reason),
+  ]);
+  return { id: file.id, erased: true };
+}

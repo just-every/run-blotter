@@ -1,0 +1,10 @@
+{
+  "name": "blotter",
+  "repository": "https://github.com/just-every/run-blotter",
+  "clone": "git clone https://github.com/just-every/run-blotter.git",
+  "folder": "run-blotter",
+  "requirements": "Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.",
+  "licence": "MIT",
+  "docs": false,
+  "hosted": []
+}

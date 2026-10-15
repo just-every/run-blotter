@@ -1,0 +1,57 @@
+import { api, aud, Empty, Field, Form, type Row, type Run } from './common';
+
+const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
+const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and receipts', 'Purchase receipts and bills'].join('\n');
+
+export function Clients({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
+  const lead = state.actor.role !== 'preparer';
+  const people: Row[] = state.people;
+  return <div className="grid">
+    <section className="panel">
+      <h2>Clients</h2>
+      {!state.clients.length && <Empty>No clients yet. Add one here or bring your list in under Move in.</Empty>}
+      <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `ABN ${c.abn} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small></li>)}</ul>
+      {lead && <details><summary>Add a client</summary>
+        <Form label="Add client" submit={async (data, form) => run(async () => { await api('/clients', data); form.reset(); }, 'Client added')}>
+          <Field label="Client name" name="name" />
+          <Field label="ABN (optional)" name="abn" required={false} />
+          <Field label="Contact name" name="contactName" required={false} />
+          <Field label="Contact email (receives document reminders)" name="contactEmail" type="email" required={false} />
+        </Form>
+      </details>}
+    </section>
+    <section className="panel">
+      <h2>Job templates</h2>
+      {!state.templates.length && <Empty>No templates yet.</Empty>}
+      <ul className="list">{state.templates.map((t: Row) => <li key={t.id}><strong>{t.name}</strong> <small className="muted">{t.recurrence} · {JSON.parse(t.steps).length} steps · {JSON.parse(t.requests).length} document requests{t.fee_cents > 0 && ` · fee ${aud(t.fee_cents)}`}</small></li>)}</ul>
+      {lead && <details><summary>Add a template</summary>
+        <Form label="Save template" submit={async (data, form) => run(async () => { await api('/templates', { ...data, feeCents: Number(data.feeCents || 0) }); form.reset(); }, 'Template saved')}>
+          <Field label="Name" name="name" value="Quarterly BAS" />
+          <Field label="Repeats" name="recurrence"><select name="recurrence" defaultValue="quarterly"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></Field>
+          <Field label="Checklist steps (one per line)" name="steps"><textarea name="steps" rows={4} required defaultValue={BAS_STEPS} /></Field>
+          <Field label="Documents to request from the client (one per line)" name="requests"><textarea name="requests" rows={3} required defaultValue={BAS_REQUESTS} /></Field>
+          <Field label="Fixed fee in cents, ex GST (0 for none)" name="feeCents" type="number" value={0} />
+        </Form>
+      </details>}
+    </section>
+    {lead && <section className="panel wide">
+      <h2>Start a job</h2>
+      {!state.clients.length || !state.templates.length ? <Empty>Add a client and a template first.</Empty> :
+        <Form label="Start job" submit={async data => run(async () => { const j = await api('/jobs', data); open(j.id); }, 'Job started from the template')}>
+          <div className="row">
+            <Field label="Client" name="clientId"><select name="clientId" required>{state.clients.map((c: Row) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+            <Field label="Template" name="templateId"><select name="templateId" required>{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
+          </div>
+          <div className="row">
+            <Field label="Period starts" name="periodStart" type="date" />
+            <Field label="Due date (recorded, not computed)" name="dueDate" type="date" />
+          </div>
+          <Field label="Where the due date comes from" name="dueNote" value="ATO lodgement program, checked by the principal" />
+          <div className="row">
+            <Field label="Preparer" name="preparerEmail"><select name="preparerEmail" required>{people.map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
+            <Field label="Reviewer" name="reviewerEmail"><select name="reviewerEmail" required>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
+          </div>
+        </Form>}
+    </section>}
+  </div>;
+}

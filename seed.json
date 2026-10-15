@@ -1,0 +1,89 @@
+{
+  "id": "blotter",
+  "name": "blotter",
+  "version": "0.1.0",
+  "maturity": "first-release",
+  "category": "accounting",
+  "spine": {
+    "id": "job",
+    "record": "A client job rolled forward from a recurring template"
+  },
+  "description": "Recurring client jobs for small Australian bookkeeping and accounting practices: document requests with client upload links, reviewer sign-off and AUD time exported for billing.",
+  "capabilities": [
+    {
+      "id": "http-dispatch",
+      "clauses": [
+        "HTTP-001"
+      ]
+    }
+  ],
+  "nonGoals": [
+    "Lodgement with the ATO or SBR",
+    "Tax, GST or due-date calculation",
+    "Client bookkeeping, e-signature or advice",
+    "Invoice delivery or payments"
+  ],
+  "externals": [
+    {
+      "id": "cloudflare",
+      "required": true,
+      "why": "Worker hosting",
+      "data": [
+        "HTTP requests"
+      ],
+      "adapters": []
+    }
+  ],
+  "env": [],
+  "deploy": {
+    "healthPath": "/health",
+    "publicPaths": [
+      "/",
+      "/health",
+      "/signin",
+      "/portal/*",
+      "/api/blotter/portal/*"
+    ],
+    "notes": "Native sessions guard /app and every /api/blotter handler; client upload links authorise only /portal and its API; development mail is suppressed."
+  },
+  "extensionPoints": {
+    "contributions": [],
+    "policies": [],
+    "events": [],
+    "slots": [],
+    "adapters": []
+  },
+  "limits": {
+    "status": "unmeasured"
+  },
+  "accessibility": {
+    "level": "WCAG 2.2 AA",
+    "status": "target; unaudited"
+  },
+  "operatingCost": {
+    "status": "unmeasured"
+  },
+  "composition": {
+    "base": "base",
+    "family": "accounting",
+    "edition": "blotter",
+    "modules": [
+      "delivery-producer",
+      "job-queue",
+      "release",
+      "deploy-kit",
+      "container",
+      "demo-host",
+      "demo",
+      "integrations",
+      "mail",
+      "ai",
+      "portability",
+      "d1-transport",
+      "erasure",
+      "dependencies",
+      "operator-auth",
+      "owner-claim"
+    ]
+  }
+}
