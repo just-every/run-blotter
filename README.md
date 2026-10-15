@@ -94,9 +94,14 @@ the command line:
 
 ```sh
 rer export --output exports/practice.rer
-# On a new, empty checkout or installation:
+# In a new, empty checkout: copy the archive into its exports/ folder first;
+# --input must be a path inside the checkout.
 rer import --input exports/practice.rer --yes
+rer dev
 ```
+
+The restored checkout gets a new local owner; your practice data, exports and
+history come back unchanged.
 
 After erasing a file, make a new archive and retire older ones. An older
 archive is refused unless you also supply the newer archive that carries the
@@ -118,7 +123,7 @@ credentials in Git, commands, screenshots or chat.
    and `MAIL_API_KEY`. Generate the session and setup values as independent
    random strings of at least 32 characters, with your secret manager.
 3. Run `rer deploy --dry-run` to build and check the plan without provider
-   calls, then `rer deploy`. It creates or reuses the D1 database, applies the
+   calls (it already needs the variables from step 2), then `rer deploy`. It creates or reuses the D1 database, applies the
    migrations, deploys the Worker and its assets, checks health and prints the URL.
 4. Open the printed address's `/signin`, request a link for the owner email and
    follow it. Confirm **Finish setup**, then open `/app`.
