@@ -46,7 +46,9 @@ rer dev --as reviewer      # or: rer dev --as preparer
 
 Open the new `RER_OPEN` link. `rer dev` with no `--as` returns to the principal.
 
-The local run entrypoint is `/run` in the static site built by `rer build --site`.
+The run site is live at [https://run-blotter.com](https://run-blotter.com), and
+its run page is [https://run-blotter.com/run](https://run-blotter.com/run). The
+local run entrypoint is `/run` in the static site built by `rer build --site`.
 The [documentation](docs/README.md) is maintained as repository Markdown and
 ships as `/docs` and its guide pages in that same static build.
 
