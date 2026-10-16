@@ -4,7 +4,7 @@ Run Blotter on your computer and set up the people who will prepare and review t
 
 ## Run Blotter
 
-You need macOS, Linux or Windows with WSL2, and Node 22 or later to start. Follow the two steps on [Run Blotter](/run): install rer, then clone the source and run `rer dev` from the checkout.
+You need macOS, Linux or Windows with WSL2, and Node 22 or later to start. Run the one line on [Run Blotter](/run), `npx -y @runeditrun/rer dev just-every/run-blotter`, which installs rer, clones the source and starts the app; to start it again later, run `rer dev` from the checkout.
 
 The first launch installs the locked dependencies, selects the project's pinned runtime, prepares a local database and starts the app on a free port. It can take several minutes. If interrupted, run `rer dev` again to resume.
 

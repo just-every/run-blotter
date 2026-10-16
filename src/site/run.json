@@ -1,7 +1,7 @@
 {
   "name": "Blotter",
   "repository": "https://github.com/just-every/run-blotter",
-  "clone": "git clone https://github.com/just-every/run-blotter.git",
+  "clone": "npx -y @runeditrun/rer dev just-every/run-blotter",
   "folder": "run-blotter",
   "requirements": "Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.",
   "licence": "MIT",
@@ -11,22 +11,12 @@
     "title": "Run Blotter",
     "description": "Run Blotter on your computer. 100% free and open source.",
     "heading": "Run Blotter on your computer.",
-    "intro": "100% free and open source. Two steps, and Blotter opens in your browser.",
+    "intro": "100% free and open source. One line, and Blotter opens in your browser.",
     "steps": [
-      {
-        "title": "Install rer",
-        "body": "The Run Edit Run command. Once per computer.",
-        "commands": [
-          "curl -fsSL https://runeditrun.com/install.sh | sh",
-          "export PATH=\"$HOME/.local/bin:$PATH\""
-        ],
-        "alternativeLabel": "or",
-        "alternative": "npm install -g @runeditrun/rer"
-      },
       {
         "title": "Get Blotter and start it",
         "commands": [
-          "git clone https://github.com/just-every/run-blotter.git",
+          "npx -y @runeditrun/rer dev just-every/run-blotter",
           "cd run-blotter && rer dev"
         ],
         "note": "rer dev installs everything, makes you the owner and prints a link that opens Blotter signed in."

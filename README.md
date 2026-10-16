@@ -13,13 +13,10 @@ keep client books, or give advice. Due dates are recorded by people.
 You need macOS, Linux or Windows with WSL2, and Node 22 or later to start.
 
 ```sh
-npx -y @runeditrun/rer cli install
-# If rer is not yet on PATH in this shell:
-export PATH="$HOME/.local/bin:$PATH"
-git clone https://github.com/just-every/run-blotter.git
-cd run-blotter
-rer dev
+npx -y @runeditrun/rer dev just-every/run-blotter
 ```
+
+That one line clones Blotter, installs `rer` if you do not have it and starts the app. To start it again later, run `cd run-blotter && rer dev`.
 
 `rer dev` installs the locked dependencies, selects pinned Node 22.20.0 and
 pnpm 10.12.4, prepares a local D1 database and starts the app on a free port.

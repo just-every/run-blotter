@@ -16,9 +16,7 @@ export function RunPage() {
           <span className="run-number" aria-hidden="true">{index + 1}</span>
           <div>
             <h2>{step.title}</h2>
-            {'body' in step && <p>{step.body}</p>}
             <pre aria-label={step.title}><code>{step.commands.join('\n')}</code></pre>
-            {'alternative' in step && <p className="run-alternative">{step.alternativeLabel} <code>{step.alternative}</code></p>}
             {'note' in step && <p>{step.note}</p>}
           </div>
         </li>)}
