@@ -32,7 +32,7 @@
         "note": "rer dev installs everything, makes you the owner and prints a link that opens Blotter signed in."
       }
     ],
-    "next": "Open the RER_OPEN link on this computer and confirm Finish setup. Keep that sign-in link private.",
+    "next": "Open the link rer dev prints on this computer and confirm Finish setup. Keep that sign-in link private.",
     "guideLabel": "Set up your first job \u2192",
     "guideHref": "/docs/getting-started",
     "stopLabel": "Stop Blotter when you are done:",
