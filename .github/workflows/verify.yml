@@ -35,6 +35,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec rer check --profile first-party
       - run: pnpm run typecheck
+      - run: pnpm exec rer build --site
 
   verify:
     runs-on: ubuntu-24.04

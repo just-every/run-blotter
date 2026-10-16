@@ -13,11 +13,11 @@ keep client books, or give advice. Due dates are recorded by people.
 You need macOS, Linux or Windows with WSL2, and Node 22 or later to start.
 
 ```sh
-git clone https://github.com/just-every/run-blotter.git
-cd run-blotter
 npx -y @runeditrun/rer cli install
 # If rer is not yet on PATH in this shell:
 export PATH="$HOME/.local/bin:$PATH"
+git clone https://github.com/just-every/run-blotter.git
+cd run-blotter
 rer dev
 ```
 
@@ -45,6 +45,10 @@ rer dev --as reviewer      # or: rer dev --as preparer
 ```
 
 Open the new `RER_OPEN` link. `rer dev` with no `--as` returns to the principal.
+
+The local run entrypoint is `/run` in the static site built by `rer build --site`.
+The [documentation](docs/README.md) is maintained as repository Markdown and
+ships as `/docs` and its guide pages in that same static build.
 
 ## Do the first jobs
 

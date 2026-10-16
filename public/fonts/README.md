@@ -1,16 +1,12 @@
 # Fonts
 
-Outfit is self-hosted under the SIL Open Font License 1.1 in
-`outfit/LICENSE.txt`. The Latin and Latin Extended WOFF2 subsets come from
-Fontsource's Outfit distribution; upstream: https://github.com/Outfitio/Outfit-Fonts.
+Red Hat Display (headings) and Red Hat Text (body and controls) are self-hosted
+variable fonts from the Google Fonts repository. Their SIL Open Font License
+1.1 files are alongside the fonts in `red-hat-display/` and `red-hat-text/`.
 
-The root document links `/fonts/fonts.css` once, outside the temporary dev SSR
-stylesheet, and preloads only the primary Latin file. Do not import this CSS
-from a component. Every body-font stack uses `--font-body`, including the local
-`Outfit Fallback` before generic fallback fonts; controls inherit it.
+The shared theme imports `/fonts/fonts.css`. Native auth, setup and route
+heads also link that stylesheet; the body font is preloaded by `font-head.ts`.
+Every page uses the same files without a request to another origin.
 
-Fallback scales use Outfit/Arial advance-width ratios over A-Z, a-z and 0-9
-at weights 400, 500 and 700. Ascent, descent and line gap match Outfit's
-1000, -260 and 0 per 1000 units, divided by each scale. Matching metrics reduces
-layout movement; different glyph designs cannot have identical widths in every
-piece of text. Recalculate the fallback and preload when changing the brand font.
+Upstream: https://github.com/google/fonts/tree/main/ofl/redhatdisplay and
+https://github.com/google/fonts/tree/main/ofl/redhattext.

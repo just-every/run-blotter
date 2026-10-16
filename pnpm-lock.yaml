@@ -39,8 +39,8 @@ importers:
         specifier: 1.63.0
         version: 1.63.0
       '@runeditrun/rer':
-        specifier: 0.2.22
-        version: 0.2.22
+        specifier: 0.2.26
+        version: 0.2.26
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
@@ -53,6 +53,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 6.1.1
         version: 6.1.1(vite@8.2.2(@types/node@22.20.5)(esbuild@0.28.1)(jiti@2.7.0))
+      marked:
+        specifier: 17.0.1
+        version: 17.0.1
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -643,8 +646,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@runeditrun/rer@0.2.22':
-    resolution: {integrity: sha512-1jpDmyLomHOJhDxzu2Vj1DrJZb0FB+Du+iKPwgoglnD/DFlSrrTJ2ppiIBCGvfOsx/6nJ+wnS3Mmp6ggXZnvvA==}
+  '@runeditrun/rer@0.2.26':
+    resolution: {integrity: sha512-qf9z00ZqXXzzbiO5/Nb4IzK7IoJv8ROHkXzT7lc6Uvg9DJL+02HiJmF61Jbih8ILt+LD6I4EPao00BAdt2Irlw==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1032,6 +1035,11 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  marked@17.0.1:
+    resolution: {integrity: sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   miniflare@5.20260907.0-alpha:
     resolution: {integrity: sha512-56F13BeJQuDbTxcoGGN4MGxN8oNNIH3pK48VyJ1JGmjbzE9MMu6S2kxoON3nOBHlLdNjXyzg1Rz3jdHx+JpuZA==}
@@ -1762,7 +1770,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@runeditrun/rer@0.2.22': {}
+  '@runeditrun/rer@0.2.26': {}
 
   '@sindresorhus/is@7.2.0': {}
 
@@ -2175,6 +2183,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  marked@17.0.1: {}
 
   miniflare@5.20260907.0-alpha(@types/node@22.20.5):
     dependencies:

@@ -38,5 +38,11 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty"><p>{children}</p></div>;
 }
 export function Status({ value }: { value: string }) {
-  return <span className={`status status-${value}`}>{value.replace('_', ' ')}</span>;
+  const label = value.replaceAll('_', ' ');
+  return <span className={`status status-${value}`}>{label.charAt(0).toUpperCase() + label.slice(1)}</span>;
+}
+
+/** The one working sheet on a screen; cards and controls remain real children. */
+export function Blotter({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`blotter ${className}`}>{children}</div>;
 }

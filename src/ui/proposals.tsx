@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { api, Empty, Field, Form, Status, when, type Row, type Run } from './common';
+import { Blotter, api, Empty, Field, Form, Status, when, type Row, type Run } from './common';
 
 export function Proposals({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
   const proposals: Row[] = state.proposals;
   const [link, setLink] = useState<Row>();
-  return <section className="panel">
+  return <Blotter><section className="panel">
     <p className="muted">An agent with your key prepares roll-forwards, client reminders and billing exports. Nothing happens until you approve; every decision is recorded. Create a key under Team & safety and see API.md.</p>
     {link && <div className="notice"><p>Reminder delivery: {link.delivery}. The upload link is shown once and expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} aria-label="Client upload link" onFocus={e => e.currentTarget.select()} /></div>}
     {!proposals.length && <Empty>No preparations yet.</Empty>}
@@ -17,5 +17,5 @@ export function Proposals({ state, run, open }: { state: Row; run: Run; open: (i
         <details><summary>Decline</summary><Form danger label="Decline" submit={async data => run(() => api(`/proposals/${p.id}/decide`, { decision: 'decline', reason: data.reason }), 'Declined')}><Field label="Reason" name="reason" /></Form></details>
       </div>}
     </article>; })}
-  </section>;
+  </section></Blotter>;
 }

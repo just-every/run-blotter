@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, aud, Field, Form, readFile, Status, today, when, type Row, type Run } from './common';
+import { Blotter, api, aud, Field, Form, readFile, Status, today, when, type Row, type Run } from './common';
 
 export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: string; actor: Row; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
   const [detail, setDetail] = useState<Row>(), [link, setLink] = useState<Row>();
@@ -11,7 +11,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
   const selfReview = actor.email === job.preparer_email || actor.email === job.submitted_by;
   return <div className="stack">
     <button className="quiet back" onClick={back}>← All jobs</button>
-    <section className="panel">
+    <Blotter className="job-working"><section className="panel">
       <div className="split">
         <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {job.due_date} ({job.due_note})</p></div>
         <Status value={job.status} />
@@ -31,7 +31,14 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
       <section className="panel">
         <h2>Checklist</h2>
         <ul className="checklist">{detail.steps.map((s: Row) => <li key={s.ordinal}>
-          <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen} onChange={e => run(() => api(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done: e.target.checked }), e.target.checked ? 'Step done' : 'Step reopened')} />
+          <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen} onChange={e => {
+            const done = e.target.checked;
+            setDetail({ ...detail, steps: detail.steps.map((step: Row) => step.ordinal === s.ordinal ? { ...step, done_at: done ? new Date().toISOString() : null, done_by: done ? actor.email : null } : step) });
+            run(async () => {
+              try { await api(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done }); }
+              catch (error) { setDetail(detail); throw error; }
+            }, done ? 'Step done' : 'Step reopened');
+          }} />
             <span>{s.label}{s.done_at && <small className="muted"> — {s.done_by}, {when(s.done_at)}</small>}</span></label>
         </li>)}</ul>
         {isOpen && <button onClick={() => run(() => api(`/jobs/${job.id}/submit`, { revision: job.revision }), 'Submitted for review')}>Submit for review</button>}
@@ -68,7 +75,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
         {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
         {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}</li>)}</ul></details>}
       </section>
-    </div>
+    </div></Blotter>
     <section className="panel">
       <h2>Time</h2>
       {detail.time.length === 0 ? <p className="muted">No time recorded yet.</p> : <table className="table"><thead><tr><th>Date</th><th>Person</th><th>Description</th><th>Minutes</th><th>Rate</th><th>Amount</th><th></th></tr></thead>

@@ -24,5 +24,6 @@ Adapted MIT application source (Copyright (c) 2026 Run Edit Run):
 New in Blotter: recurring job templates and roll-forward (`jobs.ts`), document
 requests with the client upload link and reminders (`documents.ts`), reviewer
 sign-off, and the client list CSV v1 move-in kit (`imports/client-list.ts`).
-The screens use Base's theme tokens, font, auth/setup/lobby frames and
-hydration unit; product design is a later stage.
+The screens use Base's auth/setup/lobby frames and hydration unit, with
+Blotter's shared theme, self-hosted Red Hat fonts (OFL), SVG artwork and product
+components. The static run site compiles the repository's Markdown guides.

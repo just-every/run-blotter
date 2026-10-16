@@ -1,10 +1,42 @@
 {
-  "name": "blotter",
+  "name": "Blotter",
   "repository": "https://github.com/just-every/run-blotter",
   "clone": "git clone https://github.com/just-every/run-blotter.git",
   "folder": "run-blotter",
   "requirements": "Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.",
   "licence": "MIT",
-  "docs": false,
-  "hosted": []
+  "docs": true,
+  "hosted": [],
+  "page": {
+    "title": "Run Blotter",
+    "description": "Run Blotter on your computer. 100% free and open source.",
+    "heading": "Run Blotter on your computer.",
+    "intro": "100% free and open source. Two steps, and Blotter opens in your browser.",
+    "steps": [
+      {
+        "title": "Install rer",
+        "body": "The Run Edit Run command. Once per computer.",
+        "commands": [
+          "curl -fsSL https://runeditrun.com/install.sh | sh",
+          "export PATH=\"$HOME/.local/bin:$PATH\""
+        ],
+        "alternativeLabel": "or",
+        "alternative": "npm install -g @runeditrun/rer"
+      },
+      {
+        "title": "Get Blotter and start it",
+        "commands": [
+          "git clone https://github.com/just-every/run-blotter.git",
+          "cd run-blotter && rer dev"
+        ],
+        "note": "rer dev installs everything, makes you the owner and prints a link that opens Blotter signed in."
+      }
+    ],
+    "next": "Open the RER_OPEN link on this computer and confirm Finish setup. Keep that sign-in link private.",
+    "guideLabel": "Set up your first job \u2192",
+    "guideHref": "/docs/getting-started",
+    "stopLabel": "Stop Blotter when you are done:",
+    "stopCommand": "rer dev --stop",
+    "licenceLabel": "MIT licensed. Free and open source."
+  }
 }

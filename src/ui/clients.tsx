@@ -1,4 +1,4 @@
-import { api, aud, Empty, Field, Form, type Row, type Run } from './common';
+import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './common';
 
 const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
 const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and receipts', 'Purchase receipts and bills'].join('\n');
@@ -7,7 +7,7 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
   const lead = state.actor.role !== 'preparer';
   const people: Row[] = state.people;
   return <div className="grid">
-    <section className="panel">
+    <Blotter className="wide"><section className="panel">
       <h2>Clients</h2>
       {!state.clients.length && <Empty>No clients yet. Add one here or bring your list in under Move in.</Empty>}
       <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `ABN ${c.abn} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small></li>)}</ul>
@@ -19,7 +19,7 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
           <Field label="Contact email (receives document reminders)" name="contactEmail" type="email" required={false} />
         </Form>
       </details>}
-    </section>
+    </section></Blotter>
     <section className="panel">
       <h2>Job templates</h2>
       {!state.templates.length && <Empty>No templates yet.</Empty>}

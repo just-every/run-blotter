@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, aud, Empty, Field, Form, when, type Row, type Run } from './common';
+import { Blotter, api, aud, Empty, Field, Form, when, type Row, type Run } from './common';
 
 export function Team({ state, run, tick }: { state: Row; run: Run; tick: number }) {
   const [team, setTeam] = useState<Row>(), [key, setKey] = useState<Row>(), [archive, setArchive] = useState(''), [journal, setJournal] = useState('');
@@ -8,7 +8,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
   if (!team) return <p>Opening team…</p>;
   const ownRate = team.rates.find((r: Row) => r.email === state.actor.email);
   return <div className="grid">
-    {owner && <section className="panel">
+    {owner && <Blotter className="wide"><section className="panel">
       <h2>People and rates</h2>
       <table className="table"><thead><tr><th>Name</th><th>Role</th><th>Hourly rate</th><th>Status</th></tr></thead>
         <tbody>
@@ -34,8 +34,8 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
           <Field label="Hourly rate in cents, ex GST (15000 = $150.00)" name="rateCents" type="number" />
         </Form>
       </details>
-    </section>}
-    {!owner && <section className="panel"><h2>Your rate</h2><p>{ownRate ? `${aud(ownRate.rate_cents)} per hour` : 'The principal has not set your hourly rate yet.'}</p></section>}
+    </section></Blotter>}
+    {!owner && <Blotter className="wide"><section className="panel"><h2>Your rate</h2><p>{ownRate ? `${aud(ownRate.rate_cents)} per hour` : 'The principal has not set your hourly rate yet.'}</p></section></Blotter>}
     {state.actor.role !== 'preparer' && <section className="panel">
       <h2>Agent keys</h2>
       <p className="muted">A key lets an agent read context and prepare work for your approval. It cannot approve anything.</p>

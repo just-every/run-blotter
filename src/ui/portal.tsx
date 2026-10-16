@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { readFile, Status, when, type Row } from './common';
+import { Blotter, readFile, Status, when, type Row } from './common';
 
 /** The client's upload page. The link's secret is the only credential. */
 export function Portal({ token }: { token: string }) {
@@ -23,12 +23,12 @@ export function Portal({ token }: { token: string }) {
       {!view ? (!error && <p>Opening your request…</p>) : <>
         <h1>Documents for {view.job}</h1>
         <p className="muted">{view.client} · {view.period} · please upload by {view.dueDate}. This link expires {when(view.expiresAt).slice(0, 10)}. Files up to 1 MiB each.</p>
-        {view.requests.map((r: Row) => <section key={r.id} className="panel">
+        <Blotter className="requests">{view.requests.map((r: Row) => <section key={r.id} className="panel">
           <div className="split"><h2>{r.label}</h2><Status value={r.status} /></div>
           {r.note && <p className="notice">Your accountant asks: {r.note}</p>}
           {r.files.map((f: Row) => <p key={f.uploadedAt + f.name} className="muted">Uploaded {f.name} · {when(f.uploadedAt)}</p>)}
           {r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
-        </section>)}
+        </section>)}</Blotter>
       </>}
     </main>
   </div>;

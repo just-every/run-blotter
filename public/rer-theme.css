@@ -1,25 +1,77 @@
-/* This edition's declared theme. The installer, sign-in, confirmation, /setup
-   read these --rer-* tokens; the app serves this file and its fonts.
-   Buttons keep the colour chosen at setup (src/branding.json primaryColor)
-   because no --rer-accent is declared here; declare --rer-accent and
-   --rer-accent-text together to fix them instead. */
-@font-face {
-  font-family: Outfit;
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/outfit/outfit-latin-wght-normal.woff2') format('woff2');
-}
+/* Blotter's palette and shared surfaces. Native auth, setup, Lobby and site use
+   these same tokens; no screen declares a second palette. */
+@import url('/fonts/fonts.css');
 :root {
-  --rer-font-body: Outfit, Arial, sans-serif;
-  --rer-font-heading: Outfit, Arial, sans-serif;
-  --rer-page: #f4f6f5;
-  --rer-surface: #ffffff;
-  --rer-text: #1b2724;
-  --rer-muted: #4a5a55;
-  --rer-border: #6b7c76;
-  --rer-focus: #1b2724;
-  --rer-link: #1f5f52;
-  --rer-radius: 12px;
-  --rer-logo: url('/brand/mark.svg');
+  --paper:#FBFAF7; --surface:#FFFFFF; --ink:#14161C; --muted:#5B6070;
+  --hairline:#E6E3DD; --blotter:#EBB8B8; --blotter-tint:#F7E3E2;
+  --navy:#1F2D4A; --navy-hover:#2B3C60; --danger:#9E2B25;
+  --card-shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.06);
+  --blotter-shadow:0 2px 4px rgba(20,22,28,.08),0 22px 44px rgba(20,22,28,.14);
+  --rer-font-body:'Red Hat Text',Arial,sans-serif;
+  --rer-font-heading:'Red Hat Display',Arial,sans-serif;
+  --rer-page:var(--paper); --rer-surface:var(--surface); --rer-text:var(--ink);
+  --rer-muted:var(--muted); --rer-border:var(--hairline); --rer-focus:var(--navy);
+  --rer-link:var(--navy); --rer-accent:var(--navy); --rer-accent-text:var(--surface);
+  --rer-radius:12px; --rer-button-radius:999px; --rer-logo:url('/brand/mark.svg');
+}
+/* Four corner pockets stay square to the paper, regardless of its aspect ratio. */
+.blotter, html.rer-themed body > main, .door .door-card {
+  --corner:clamp(28px,4vw,56px);
+  position:relative; isolation:isolate; border-radius:3px;
+  background:var(--blotter) url('/brand/blotter.svg') repeat;
+  box-shadow:var(--blotter-shadow);
+}
+.blotter {padding:40px; min-width:0;}
+.blotter::after, html.rer-themed body > main::after, .door .door-card::after {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.055) 4px 5px),var(--navy);
+  mask:linear-gradient(135deg,#000 49%,transparent 50%) top left,
+    linear-gradient(225deg,#000 49%,transparent 50%) top right,
+    linear-gradient(315deg,#000 49%,transparent 50%) bottom right,
+    linear-gradient(45deg,#000 49%,transparent 50%) bottom left;
+  mask-size:var(--corner) var(--corner);mask-repeat:no-repeat;
+  filter:drop-shadow(0 1px 0 var(--ink));
+  border-radius:3px;
+}
+/* The shared native document's main is the sheet. Its single white card sits
+   behind its real form, preserving the module's CSP and no-JavaScript flow. */
+html.rer-themed body {display:grid;place-items:center;min-height:100vh;min-height:100dvh;padding:64px 16px;font-family:var(--rer-font-body);background:var(--paper);color:var(--ink);box-sizing:border-box;}
+html.rer-themed body > main {box-sizing:border-box;width:100%;max-width:680px;margin:0;padding:88px;border:0;overflow-wrap:anywhere;}
+html.rer-themed body > main::before, .door .door-card::before {
+  content:'';position:absolute;inset:40px;z-index:-1;border-radius:12px;
+  border:1px solid var(--hairline);background:var(--surface);box-shadow:var(--card-shadow);
+}
+html.rer-themed main .brand, html.rer-themed main .rer-brand {justify-content:center;font-size:26px;font-weight:700;gap:12px;margin:0 0 40px;color:var(--ink);}
+html.rer-themed main h1 {font-size:36px;line-height:1.15;letter-spacing:-.035em;margin:0 0 32px;font-family:var(--rer-font-heading);}
+html.rer-themed main:has(input[type=email]) h1 {text-align:center;}
+html.rer-themed main label {font-weight:500;color:var(--ink);}
+html.rer-themed main input:not([type=checkbox]):not([type=hidden]) {border:1px solid var(--hairline);border-radius:8px;min-height:44px;color:var(--ink);background:var(--surface);font:inherit;}
+html.rer-themed main button, html.rer-themed main .action {border-radius:999px;background:var(--navy);color:var(--surface);min-height:48px;font-family:var(--rer-font-body);font-weight:600;}
+html.rer-themed main button:hover {background:var(--navy-hover);box-shadow:none;}
+html.rer-themed main dl {display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 24px;border-block:1px solid var(--hairline);}
+html.rer-themed main dt, html.rer-themed main dd {padding:16px 0;border-bottom:1px solid var(--hairline);margin:0;}
+html.rer-themed main dt:last-of-type, html.rer-themed main dd:last-of-type {border:0;}
+html.rer-themed main dd {font-weight:500;}
+html.rer-themed main .notice {background:var(--surface);border-left:3px solid var(--navy);}
+html.rer-themed :focus-visible {outline:3px solid var(--navy);outline-offset:2px;}
+html.rer-themed input[type=checkbox] {accent-color:var(--navy);}
+.door .door-card {padding:88px;max-width:760px;}
+.door .door-card::before {inset:40px;}
+.door .door-art {display:none;}
+.door .door-card h1 {font-size:48px;}
+.door .door-card .line {font-size:20px;}
+@media(max-width:760px) {
+  .blotter {padding:24px;--corner:28px;}
+  html.rer-themed body {padding:32px 16px;}
+  html.rer-themed body > main {padding:48px 40px;--corner:32px;}
+  html.rer-themed body > main::before {inset:24px;}
+  html.rer-themed main .brand,html.rer-themed main .rer-brand {font-size:23px;margin-bottom:28px;justify-content:flex-start;}
+  html.rer-themed main h1 {font-size:30px;margin-bottom:24px;}
+  html.rer-themed main:has(input[type=email]) h1 {text-align:left;}
+  html.rer-themed main dl {gap:0 12px;font-size:14px;}
+  html.rer-themed main label {font-size:15px;}
+  .door .door-card {padding:48px 40px;}
+  .door .door-card::before {inset:24px;}
+  .door .door-card h1 {font-size:36px;}
+  .door .door-card .line {font-size:18px;}
 }

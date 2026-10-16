@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, aud, Empty, Field, Form, Status, when, type Row, type Run } from './common';
+import { Blotter, api, aud, Empty, Field, Form, Status, when, type Row, type Run } from './common';
 
 export function Billing({ run, tick }: { run: Run; tick: number }) {
   const [state, setState] = useState<Row>(), [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -8,7 +8,7 @@ export function Billing({ run, tick }: { run: Run; tick: number }) {
   const toggle = (key: string) => setChosen(previous => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const total = state.unbilled.filter((l: Row) => chosen.has(l.source_key)).reduce((sum: number, l: Row) => sum + Number(l.amount_cents), 0);
   return <div className="stack">
-    <section className="panel">
+    <Blotter><section className="panel">
       <h2>Ready to bill</h2>
       <p className="muted">Recorded time, and fixed fees of signed-off jobs. Each item can go into one export. Amounts are AUD ex GST; Blotter does not calculate GST or send invoices.</p>
       {!state.unbilled.length ? <Empty>Nothing waiting to be billed.</Empty> : <>
@@ -22,7 +22,7 @@ export function Billing({ run, tick }: { run: Run; tick: number }) {
           <Field label="Export title" name="title" value={`Billing ${new Date().toISOString().slice(0, 7)}`} />
         </Form>
       </>}
-    </section>
+    </section></Blotter>
     <section className="panel">
       <h2>Exports</h2>
       {!state.exports.length && <Empty>No exports yet.</Empty>}
