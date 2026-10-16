@@ -3,7 +3,7 @@
   "repository": "https://github.com/just-every/run-blotter",
   "clone": "npx -y @runeditrun/rer dev just-every/run-blotter",
   "folder": "run-blotter",
-  "requirements": "Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.",
+  "requirements": "Runs on macOS, Linux or Windows with WSL2, with git. The installer brings Node when it is missing, and rer brings pnpm.",
   "licence": "MIT",
   "docs": true,
   "hosted": [],
@@ -11,15 +11,21 @@
     "title": "Run Blotter",
     "description": "Run Blotter on your computer. 100% free and open source.",
     "heading": "Run Blotter on your computer.",
-    "intro": "100% free and open source. One line, and Blotter opens in your browser.",
+    "intro": "100% free and open source. Two lines, and Blotter opens in your browser.",
     "steps": [
       {
-        "title": "Get Blotter and start it",
+        "title": "Install rer",
         "commands": [
-          "npx -y @runeditrun/rer dev just-every/run-blotter",
-          "cd run-blotter && rer dev"
+          "curl -fsSL https://runeditrun.com/install.sh | sh"
         ],
-        "note": "rer dev installs everything, makes you the owner and prints a link that opens Blotter signed in."
+        "note": "It installs rer for you alone, with its own Node if you have none. It changes no shell settings: if it prints an export PATH=… line, run that line before step 2."
+      },
+      {
+        "title": "Start Blotter",
+        "commands": [
+          "rer dev just-every/run-blotter"
+        ],
+        "note": "rer gets Blotter, installs everything, makes you the owner and prints a link that opens Blotter signed in. To start it again later: cd run-blotter && rer dev. Already have Node 22 or later? npx -y @runeditrun/rer dev just-every/run-blotter does both steps in one line."
       }
     ],
     "next": "Open the link rer dev prints on this computer and confirm Finish setup. Keep that sign-in link private.",
