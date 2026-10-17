@@ -81,8 +81,8 @@ export async function practiceBilling(work: Work, now: Date, owner: { email: str
     propose('rollforward', { jobId: unrolled.id, dueDate: due, dueNote: unrolled.due_note, summary: `Roll ${unrolled.title} (${unrolled.period_label}) forward, due ${due}` }, clock - 3 * HOUR);
   }
   // Remind a client who still owes documents for open work.
-  const waiting = jobs.filter(j => j.status === 'open' && String(j.period_start) <= today && work.requests.some(r => r.job_id === j.id && r.status === 'requested')
-    && Object.values(clients).some(c => c.id === j.client_id && c.contactEmail));
+  // A job whose client was already asked once and still owes documents.
+  const waiting = jobs.filter(j => j.status === 'open' && work.reminders.some(r => r.job_id === j.id) && work.requests.some(r => r.job_id === j.id && r.status === 'requested'));
   const remind = waiting.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))[0];
   if (remind) propose('reminder', { jobId: remind.id, message: 'Nearly there: just the documents below, please, so we can finish before the due date.', summary: `Remind the client about ${remind.title} (${remind.period_label})` }, clock - 5 * HOUR);
   // Bill this month's recorded time for two clients.

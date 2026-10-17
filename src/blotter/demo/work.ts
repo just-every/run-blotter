@@ -54,6 +54,8 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
   const work = emptyWork(), clock = now.getTime(), today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(now);
   rates.set(owner.email, principal.rateCents);
   const who = (person: string) => person === 'owner' ? owner.email : person;
+  // People work office hours: a moment's place in its Sydney day maps into 8:30 to 17:30 (order kept).
+  const office = (ms: number) => { const midnight = Math.floor((ms + 10 * HOUR) / DAY) * DAY - 10 * HOUR, mapped = Math.round(midnight + (8.5 + (ms - midnight) / DAY * 9) * HOUR); return mapped < clock - 10 * 60_000 ? mapped : ms; };
   const audit = (actor: string, action: string, objectId: string, detail: string, ms: number) =>
     work.audit.push({ id: fixedId(`audit:${action}:${objectId}:${ms}`), actor, action, object_id: objectId, detail, at: iso(ms) });
   // Two jobs that tell a story: one stuck waiting on the client, one signed off but not yet rolled forward.
@@ -93,8 +95,8 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       if (workEnd - begin < 12 * HOUR) progress = 0;
       let submitted = 0, signed = 0;
       if (status !== 'open') {
-        submitted = Math.min(Math.max(begin + 2 * DAY, at(due, 11) - (2 + Math.floor(r * 4)) * DAY), workEnd - (status === 'review' ? 3 * HOUR : DAY));
-        if (status === 'signed_off') signed = Math.min(submitted + (5 + Math.floor(r * 30)) * HOUR, workEnd - 2 * HOUR);
+        submitted = office(Math.min(Math.max(begin + 2 * DAY, at(due, 11) - (2 + Math.floor(r * 4)) * DAY), workEnd - (status === 'review' ? 3 * HOUR : DAY)));
+        if (status === 'signed_off') signed = office(Math.min(submitted + (5 + Math.floor(r * 30)) * HOUR, workEnd - 2 * HOUR));
       }
       const finish = status === 'open' ? Math.max(begin, workEnd) : submitted;
       const job: Row = {
@@ -111,7 +113,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       audit(previous ? reviewer : owner.email, previous ? 'job.rolled_forward' : 'job.started', id, `${t.name} ${start}`, created);
 
       // Client documents: a reminder with an upload link, then uploads and acceptance.
-      const sent = Math.max(created + 20 * 60_000, at(day(iso(at(end) + DAY)), 9));
+      const sent = office(Math.max(created + 20 * 60_000, at(day(iso(at(end) + DAY)), 9)));
       const reminders: number[] = e.client.contactEmail && sent < finish ? [sent] : [];
       const states = t.requests.map((label, i) => {
         if (status !== 'open') return 'accepted';
@@ -136,13 +138,13 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
         let updatedBy = job.created_by as string, updated = created;
         if (state !== 'requested') {
           const viaPortal = reminders.length > 0 && chance(`${requestId}:channel`) < 0.8;
-          const uploaded = between(viaPortal ? reminders[0] + 2 * HOUR : begin, finish - 4 * HOUR, (i + 1) / (t.requests.length + 2) * 0.6);
+          const uploaded = office(between(viaPortal ? reminders[0] + 2 * HOUR : begin, finish - 4 * HOUR, (i + 1) / (t.requests.length + 2) * 0.6));
           const file = document(e, label, job.period_label as string, start, end, i);
           work.files.push({ id: fixedId(`file:${requestId}`), request_id: requestId, job_id: id, name: file.name, mime: file.mime, size: file.bytes.length,
             sha256: '', content_base64: base64(file.bytes), uploaded_by: viaPortal ? 'client' : preparer, channel: viaPortal ? 'portal' : 'person', uploaded_at: iso(uploaded) });
           audit(viaPortal ? 'client upload link' : preparer, 'file.uploaded', fixedId(`file:${requestId}`), label, uploaded);
           updatedBy = viaPortal ? 'client' : preparer; updated = uploaded;
-          if (state === 'accepted') { updated = uploaded + 3 * HOUR; updatedBy = preparer; audit(preparer, 'request.accepted', requestId, label, updated); }
+          if (state === 'accepted') { updated = office(uploaded + 3 * HOUR); updatedBy = preparer; audit(preparer, 'request.accepted', requestId, label, updated); }
         }
         work.requests.push({ id: requestId, job_id: id, ordinal: i + 1, label, status: state, note: '', updated_by: updatedBy, updated_at: iso(updated) });
       });
@@ -150,7 +152,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       // The checklist, worked in order across the window, with time recorded as it goes.
       const done = status === 'open' ? Math.floor(t.steps.length * progress) : t.steps.length;
       t.steps.forEach((label, i) => {
-        const doneAt = i < done ? between(begin, finish - HOUR, (i + 1) / (t.steps.length + 1)) : null;
+        const doneAt = i < done ? office(between(begin, finish - HOUR, (i + 1) / (t.steps.length + 1))) : null;
         work.steps.push({ job_id: id, ordinal: i + 1, label, done_by: doneAt ? preparer : null, done_at: doneAt ? iso(doneAt) : null });
         if (doneAt && chance(`${id}:time:${i}`) < 0.55) {
           const minutes = Math.max(10, Math.round(minutesFor[t.key] * (0.4 + chance(`${id}:minutes:${i}`)) / 5) * 5);
