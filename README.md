@@ -13,13 +13,12 @@ keep client books, or give advice. Due dates are recorded by people.
 You need macOS, Linux or Windows with WSL2, and Git.
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer dev just-every/run-blotter
+npx -y @runeditrun/rer dev just-every/run-blotter
 ```
 
-The first line installs `rer` for you alone, with its own Node if you have none. It changes no shell settings: if it prints an `export PATH=…` line, run that line before the second. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-blotter` does both lines in one.
+No Node? `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-blotter` brings its own Node and does the same.
 
-The second line clones Blotter and starts the app. To start it again later, run `cd run-blotter && rer dev`.
+That line clones Blotter and starts the app. To start it again later, run `cd run-blotter && rer dev`.
 
 `rer dev` installs the locked dependencies, selects pinned Node 22.20.0 and
 pnpm 10.12.4, prepares a local D1 database and starts the app on a free port.
