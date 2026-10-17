@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "projectId": "just-every/run-blotter",
+  "name": "blotter",
+  "sourceRepository": "https://github.com/just-every/run-blotter",
+  "license": "MIT"
+}
