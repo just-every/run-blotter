@@ -8,7 +8,7 @@ function SiteBrand() {
 }
 
 function SiteLinks({ sourceUrl = run.repository }: SiteChromeProps) {
-  return <nav className="site-links" aria-label="Site"><a href="/docs">Docs</a><a href={sourceUrl}>Source</a></nav>
+  return <nav className="site-links" aria-label="Site"><a href="/docs">Docs</a><a href="/contract">Contract</a><a href={sourceUrl}>Source</a></nav>
 }
 
 export function SiteHeader(props: SiteChromeProps) {

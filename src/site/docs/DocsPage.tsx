@@ -14,6 +14,7 @@ export function DocsPage({ page }: { page: DocPage }) {
         <ul>{docs.slice(1).map(doc => <li key={doc.path}>
           <a href={doc.path} aria-current={page.path === doc.path ? 'page' : undefined}>{doc.title}</a>
         </li>)}</ul>
+        <a className="docs-run" href="/contract">Contract</a>
         <a className="docs-run" href="/run">Run Blotter →</a>
       </nav>
       <div className="docs-content">

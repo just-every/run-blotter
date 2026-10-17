@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { SiteBuild, SiteContext } from '../base/run-site'
+import { contractPageHtml } from '../base/contract-page'
+import type { RunData, SiteBuild, SiteContext } from '../base/run-site'
+import { identity } from '../identity'
 import { Landing, SiteFrame } from './landing'
 import { DocsPage } from './docs/DocsPage'
 import { docs } from './docs/content'
@@ -28,11 +30,13 @@ function pageHtml(pageTitle: string, summary: string, content: ReactNode, styles
 
 // Entirely static: repository Markdown, React markup and local assets become
 // HTML/CSS at build time. The output has no client scripts or external loads.
-export function sitePages({ styles }: SiteContext): SiteBuild {
+export function sitePages({ styles, contract }: SiteContext): SiteBuild {
+  const data: RunData = run
   return {
     pages: [
       { path: '/', html: pageHtml(title, description, <Landing />, styles) },
       { path: '/run', html: pageHtml(run.page.title, run.page.description, <RunPage />, styles) },
+      ...(contract ? [{ path: '/contract', html: contractPageHtml(identity, data, contract) }] : []),
       ...docs.map(doc => ({ path: doc.path, html: pageHtml(`${doc.title} · Blotter`, doc.description, <DocsPage page={doc} />, styles) })),
       { path: '/404', html: pageHtml('Page not found · Blotter', 'This page is not part of the Blotter site.', <SiteFrame><main id="main" className="site-container docs-main"><div className="docs-prose"><h1>Page not found</h1><p><a href="/">Go to the homepage</a> or <a href="/docs">read the docs</a>.</p></div></main></SiteFrame>, styles) },
     ],
