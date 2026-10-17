@@ -2,6 +2,17 @@
   "schemaVersion": 1,
   "copies": [
     {
+      "path": "src/base/contract-style.ts",
+      "originPath": "foundation/runtime/contract-style.ts",
+      "revision": "48a25993963a4ce0c687afbe076c7d4676e93395",
+      "files": {
+        "src/base/contract-style.ts": "4325f4eeabac2bef722808576605d7b657858b918729097c3412393fc6e4941f"
+      },
+      "modes": {
+        "src/base/contract-style.ts": "100644"
+      }
+    },
+    {
       "path": "src/modules/d1-transport",
       "originPath": "modules/d1-transport",
       "revision": "a06bd065124c2b45fa879e62736fb5e1987efdaa",
