@@ -24,5 +24,5 @@ export function SiteFrame({ children, sourceUrl }: SiteChromeProps & { children:
 }
 
 export function RunActions() {
-  return <div className="landing-actions"><a className="landing-primary" href="/run">Run Blotter <span aria-hidden="true">→</span></a><a className="landing-docs-link" href="/docs">Read the docs</a></div>
+  return <div className="landing-actions"><a className="landing-primary" href="/run">Run Blotter <span aria-hidden="true">→</span></a><a className="landing-primary" href="https://demo.run-blotter.com/">Try the demo</a><a className="landing-docs-link" href="/docs">Read the docs</a></div>
 }
