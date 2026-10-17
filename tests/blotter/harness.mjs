@@ -10,11 +10,12 @@ import {randomBytes} from 'node:crypto';
 const require=createRequire(await realpath('node_modules/wrangler/package.json'));
 const {Miniflare,convertV4MiniflareOptions}=require('miniflare');
 const {unstable_splitSqlQuery:splitSql}=require('wrangler');
-export async function harness(){
+// `bindings` adds Worker bindings; with RER_DEMO the owner keeps the bootstrap session (demo mail sends nothing).
+export async function harness({bindings={}}={}){
  const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
  const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[];
  const config=JSON.parse(await readFile('dist/server/wrangler.json','utf8'));
- const vars={AUTH_LOCAL:'false',AUTH_ORIGIN:origin,OWNER_EMAIL:'owner@example.test',SESSION_SECRET:randomBytes(32).toString('hex'),SETUP_TOKEN:randomBytes(32).toString('hex'),MAIL_PROVIDER:'resend',MAIL_FROM:'auth@example.test',MAIL_API_KEY:'test-only-provider-key'};
+ const vars={AUTH_LOCAL:'false',AUTH_ORIGIN:origin,OWNER_EMAIL:'owner@example.test',SESSION_SECRET:randomBytes(32).toString('hex'),SETUP_TOKEN:randomBytes(32).toString('hex'),MAIL_PROVIDER:'resend',MAIL_FROM:'auth@example.test',MAIL_API_KEY:'test-only-provider-key',...bindings};
  const mf=new Miniflare({...convertV4MiniflareOptions({
   host:'127.0.0.1',port,https:true,modulesRoot:resolve('dist/server'),modules:[config.main,...(await readdir('dist/server/assets')).filter(f=>f.endsWith('.js')).map(f=>'assets/'+f)].map(f=>({type:'ESModule',path:resolve('dist/server',f)})),
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
@@ -38,7 +39,7 @@ export async function harness(){
   for(const file of (await readdir('migrations/core')).filter(f=>f.endsWith('.sql')).sort())for(const sql of splitSql(await readFile(join('migrations/core',file),'utf8')))await db.prepare(sql).run();
   assert.equal((await request('/health')).status,200);
   const boot=await request('/auth/bootstrap',{token:vars.SETUP_TOKEN,displayName:'Principal'});assert.equal(boot.status,303,await boot.text());
-  const owner=await login(vars.OWNER_EMAIL);
+  const owner=vars.RER_DEMO?boot.headers.getSetCookie().map(s=>s.split(';')[0]).join('; '):await login(vars.OWNER_EMAIL);
   return {origin,owner,request,json,login,mails,close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
  }catch(e){await mf.dispose();await rm(directory,{recursive:true,force:true});throw e;}
 }

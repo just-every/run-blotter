@@ -20,7 +20,7 @@ Under **Start a job**, choose the client and template. Enter the period start, t
 
 For example, a quarterly job starting `2026-07-01` is labelled Jul–Sep 2026. Record the applicable due date from the source you have checked; Blotter does not calculate it.
 
-The **Jobs** tab lists visible jobs by due date, with their status and outstanding checklist steps and documents. Open the job to do the work.
+The **Jobs** tab lists visible work in progress by due date, then signed-off jobs, most recent first, with their status and outstanding checklist steps and documents. Open the job to do the work.
 
 ## Work through the job
 

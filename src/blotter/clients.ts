@@ -45,7 +45,8 @@ export async function workspace(db: D1Database, actor: Actor) {
       (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.status<>'accepted') open_requests,
       (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND s.done_at IS NULL) open_steps
     FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id
-    WHERE (?='owner' OR ?='reviewer' OR b_jobs.preparer_email=?) ORDER BY b_jobs.due_date,c.name`, ...visibleJobParams(actor));
+    WHERE (?='owner' OR ?='reviewer' OR b_jobs.preparer_email=?)
+    ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...visibleJobParams(actor));
   return {
     actor: { email: actor.email, name: actor.name, role: actor.role },
     jobs,

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "domain": "run-blotter.com",
+  "name": "Blotter",
+  "ownerEmail": "jordan@morganco.example",
+  "settings": {
+    "MAIL_FROM": "practice@morganco.example"
+  }
+}

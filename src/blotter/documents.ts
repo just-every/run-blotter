@@ -1,6 +1,7 @@
 // Client document requests: uploads (portal or staff), acceptance, download,
 // reminders with a client upload link, and the public portal behind that link.
 import { operatorMail } from '../mail.server.mjs';
+import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
@@ -116,7 +117,8 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
     insist(bindings.MAIL_FROM, 'Set MAIL_FROM to send reminders', 500);
     try {
       const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)}</p>`).join('');
-      const result = await sender.send({ deliveryId: reminderId, from: bindings.MAIL_FROM!, to: [client.contact_email], subject: `Documents needed: ${j.title} ${j.period_label}`, text: message, html, headers: {} });
+      // A demo copy reports the provider's acceptance without sending anything.
+      const result = await demoEffect(() => sender.send({ deliveryId: reminderId, from: bindings.MAIL_FROM!, to: [client.contact_email], subject: `Documents needed: ${j.title} ${j.period_label}`, text: message, html, headers: {} }), { status: 'accepted', provider: 'demo mail', providerMessageId: null });
       delivery = result.status === 'development' ? 'suppressed in development (no email sent)' : result.status === 'accepted' ? `accepted by ${result.provider}` : `${result.status} by ${result.provider}`;
     } catch (error) { delivery = `failed: ${error instanceof Error ? error.message : 'mail error'}`; }
   }
