@@ -280,8 +280,8 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 11 | 35 | 60 | 106 |
-| All | 11 | 35 | 60 | 106 |
+| Target and push further | 12 | 34 | 60 | 106 |
+| All | 12 | 34 | 60 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -336,7 +336,7 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | `CAPACITY-003` | Capacity forecasts and hiring plans | target | missing |  | No historical workload forecast, confidence ranges or hiring scenario planning exists. |
 | `TIME-001` | Time budgets and activity suggestions | target | partial | `src/blotter/billing.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs` | Manual job time, integer amounts and rate snapshots exist; timers, budgets, cost/billable distinctions and activity-based suggestions are missing. |
 | `TIME-002` | Timesheet approval and period locks | target | partial | `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` | Live-export source reservations and approved-export time locks exist; timesheet approval, period close and adjustment records are missing. |
-| `TIME-003` | Billing rates and rate cards | target | partial | `src/blotter/team.ts`; `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` | Per-person hourly rates snapshotted into time entries exist; role, service and client rates, precedence and effective dates are missing. |
+| `TIME-003` | Billing rates and rate cards | target | done | `src/blotter/rates.ts`; `src/blotter/billing.ts`; `migrations/core/0017_rate_cards.sql`; `tests/blotter/flows.test.mjs` |  |
 | `TIME-004` | Expenses and disbursements | target | missing |  | No expense or disbursement record exists. |
 | `BILL-001` | Reviewed immutable billing exports | target | done | `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` |  |
 | `BILL-002` | Invoices retainers and recurring fees | target | partial | `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` | Time/fixed-fee reviewed AUD CSV drafts exist; invoice documents, delivery, recurring retainers, terms, deposits, taxes and invoice authority are missing. |

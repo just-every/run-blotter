@@ -2,6 +2,7 @@
 // Rates snapshot as in just-every/run-gauge src/gauge/time.ts; export review and
 // source reservations as in just-every/run-satchel src/satchel/billing.ts (MIT).
 import { atomic, audit, date, digest, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { resolveRate, stillResolves } from './rates';
 
 /** Whole cents, rounded half up: minutes × hourly cents ÷ 60. */
 export const amount = (minutes: number, rateCents: number) => Math.floor((minutes * rateCents + 30) / 60);
@@ -9,19 +10,20 @@ export const amount = (minutes: number, rateCents: number) => Math.floor((minute
 export async function addTime(db: D1Database, actor: Actor, jobId: string, body: Data) {
   human(actor);
   const j = await job(db, actor, jobId);
-  const rate = await stmt(db, 'SELECT rate_cents FROM b_rates WHERE email=?', actor.email).first<{ rate_cents: number }>();
-  insist(rate, 'Ask the principal to set your hourly rate first', 409);
+  const day = date(body.date), basis = { date: day, clientId: j.client_id, templateId: j.template_id, email: actor.email, role: actor.role };
+  const rate = await resolveRate(db, basis);
+  insist(rate, `Ask the principal to set a rate in force on ${day} for you, your role, this service or this client`, 409);
   const entry = {
-    id: id(), date: date(body.date), minutes: integer(body.minutes, 'Minutes', 1, 1440),
-    description: text(body.description, 'Description', 500), rateCents: rate.rate_cents,
+    id: id(), date: day, minutes: integer(body.minutes, 'Minutes', 1, 1440),
+    description: text(body.description, 'Description', 500), rateCents: rate.rateCents, rateSource: rate.source, rateCardId: rate.cardId,
   };
   const total = amount(entry.minutes, entry.rateCents);
-  // The rate is re-read inside the batch: a rate change between read and write fails the batch.
-  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_rates WHERE email=? AND rate_cents=?)', actor.email, entry.rateCents);
+  // The rate is resolved again inside the batch: a rate change between read and write fails the batch.
+  const held = stillResolves(basis, rate), [check, release] = guard(db, held.sql, ...held.params);
   await atomic(db, actor, [check,
-    stmt(db, 'INSERT INTO b_time(id,job_id,person_email,date,minutes,rate_cents,amount_cents,description,created_by,created_channel,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-      entry.id, j.id, actor.email, entry.date, entry.minutes, entry.rateCents, total, entry.description, actor.email, actor.channel, now()),
-    release, audit(db, actor, 'time.added', entry.id, `${entry.minutes} min`)]);
+    stmt(db, 'INSERT INTO b_time(id,job_id,person_email,date,minutes,rate_cents,amount_cents,description,created_by,created_channel,created_at,rate_source,rate_card_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      entry.id, j.id, actor.email, entry.date, entry.minutes, entry.rateCents, total, entry.description, actor.email, actor.channel, now(), entry.rateSource, entry.rateCardId),
+    release, audit(db, actor, 'time.added', entry.id, `${entry.minutes} min at ${entry.rateCents} (${entry.rateSource})`)]);
   return { ...entry, amountCents: total };
 }
 
@@ -37,11 +39,11 @@ export async function deleteTime(db: D1Database, actor: Actor, entryId: string) 
 
 /** Billable sources not yet in a live export: time, and fixed fees of signed-off jobs. */
 export async function unbilled(db: D1Database) {
-  const time = await rows(db, `SELECT 'time:'||t.id source_key,'time' kind,t.id source_id,t.job_id,t.date,t.person_email person,t.description,t.minutes,t.rate_cents,t.amount_cents,
+  const time = await rows(db, `SELECT 'time:'||t.id source_key,'time' kind,t.id source_id,t.job_id,t.date,t.person_email person,t.description,t.minutes,t.rate_cents,t.rate_source,t.amount_cents,
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_time t JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id
     WHERE NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='time:'||t.id) ORDER BY c.name,t.date,t.created_at`);
-  const fees = await rows(db, `SELECT 'fee:'||j.id source_key,'fee' kind,j.id source_id,j.id job_id,substr(j.signed_off_at,1,10) date,j.signed_off_by person,'Fixed fee' description,NULL minutes,NULL rate_cents,j.fee_cents amount_cents,
+  const fees = await rows(db, `SELECT 'fee:'||j.id source_key,'fee' kind,j.id source_id,j.id job_id,substr(j.signed_off_at,1,10) date,j.signed_off_by person,'Fixed fee' description,NULL minutes,NULL rate_cents,NULL rate_source,j.fee_cents amount_cents,
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_jobs j JOIN b_clients c ON c.id=j.client_id
     WHERE j.status='signed_off' AND j.fee_cents>0 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='fee:'||j.id) ORDER BY c.name,j.signed_off_at`);

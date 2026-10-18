@@ -114,10 +114,10 @@ test('roll forward creates the next period once, with a recorded due date', asyn
 
 test('time snapshots rates; exports reserve each item once and approved CSVs never change', async () => {
   await h.json(`/jobs/${job.id}/time`, { date: '2026-10-02', minutes: 50, description: 'Reconcile' }, preparer, 409);
-  await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 9500 }, h.owner);
+  await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 9500, effectiveFrom: '2026-10-01' }, h.owner);
   const t1 = await h.json(`/jobs/${job.id}/time`, { date: '2026-10-02', minutes: 50, description: 'Reconcile bank' }, preparer);
   assert.equal(t1.amountCents, 7917); // 50 × 9500 ÷ 60 = 7916.67, rounded half up
-  await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 12000 }, h.owner);
+  await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 12000, effectiveFrom: '2026-10-03' }, h.owner);
   const t2 = await h.json(`/jobs/${nextJob.id}/time`, { date: '2026-10-03', minutes: 30, description: '=HYPERLINK("x")' }, preparer);
   assert.equal(t2.amountCents, 6000);
   const billing = await h.json('/billing', undefined, reviewer);
@@ -145,6 +145,42 @@ test('time snapshots rates; exports reserve each item once and approved CSVs nev
   draft = await h.json('/exports', { title: 'Draft', sourceKeys: ['time:' + t3.id] }, reviewer);
   await h.json(`/exports/${draft.id}/void`, { reason: 'Wrong month' }, reviewer);
   assert.ok((await h.json('/billing', undefined, reviewer)).unbilled.some(l => l.source_id === t3.id));
+});
+
+test('TIME-003 rate cards resolve client and service, client, service, staff member, then role, each from its date', async () => {
+  const card = (body, cookie = h.owner, expected = 200) => h.json('/team/rates', body, cookie, expected);
+  await card({ scope: 'role', role: 'preparer', rateCents: 1, effectiveFrom: '2026-10-01' }, preparer, 403);
+  await card({ scope: 'client', clientId: 'missing', rateCents: 1, effectiveFrom: '2026-10-01' }, h.owner, 404);
+  await card({ scope: 'staff', email: 'preparer@example.test', rateCents: 1, effectiveFrom: '2026-02-30' }, h.owner, 400);
+  const individual = await h.json('/templates', { name: '1040 Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
+  const kestrel = await h.json('/clients', { name: 'Kestrel Dental LLC' }, h.owner);
+  const start = (clientId, templateId) => h.json('/jobs', { clientId, templateId, periodStart: '2026-01-01', dueDate: '2027-04-15', dueNote: 'IRS Form 1040 instructions', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+  const [harbour1040, kestrelBas, kestrel1040] = [await start(client.id, individual.id), await start(kestrel.id, template.id), await start(kestrel.id, individual.id)];
+  await card({ scope: 'service', templateId: individual.id, rateCents: 20000, effectiveFrom: '2026-10-01' });
+  await card({ scope: 'client', clientId: kestrel.id, rateCents: 15000, effectiveFrom: '2026-10-01' });
+  await card({ scope: 'client_service', clientId: kestrel.id, templateId: individual.id, rateCents: 25000, effectiveFrom: '2026-10-10' });
+  await card({ scope: 'role', role: 'reviewer', rateCents: 11000, effectiveFrom: '2026-10-01' });
+  const log = (j, date, who = preparer) => h.json(`/jobs/${j.id}/time`, { date, minutes: 60, description: 'Work' }, who);
+  const resolved = async (j, date, who) => { const t = await log(j, date, who); assert.equal(t.amountCents, t.rateCents); return [t.rateCents, t.rateSource]; };
+  assert.deepEqual(await resolved(nextJob, '2026-10-05'), [12000, 'staff']);
+  assert.deepEqual(await resolved(harbour1040, '2026-10-05'), [20000, 'service']);
+  assert.deepEqual(await resolved(kestrelBas, '2026-10-05'), [15000, 'client']);
+  assert.deepEqual(await resolved(kestrel1040, '2026-10-05'), [15000, 'client'], 'The client override beats the service rate');
+  assert.deepEqual(await resolved(kestrel1040, '2026-10-10'), [25000, 'client_service'], 'Client and service applies from its date');
+  assert.deepEqual(await resolved(nextJob, '2026-10-05', reviewer), [11000, 'role'], 'A person without a staff rate falls back to the role rate');
+  await h.json(`/jobs/${harbour1040.id}/time`, { date: '2026-09-30', minutes: 60, description: 'Before any rate' }, preparer, 409);
+  // A staff rate change effective next month applies from its date and never rewrites recorded time.
+  const before = (await h.json('/jobs/' + nextJob.id, undefined, preparer)).time;
+  await card({ scope: 'staff', email: 'preparer@example.test', rateCents: 13000, effectiveFrom: '2026-11-01' });
+  assert.deepEqual(await resolved(nextJob, '2026-10-31'), [12000, 'staff']);
+  assert.deepEqual(await resolved(nextJob, '2026-11-02'), [13000, 'staff']);
+  const after = (await h.json('/jobs/' + nextJob.id, undefined, preparer)).time;
+  for (const t of before) assert.deepEqual(after.find(a => a.id === t.id), t);
+  const kestrelTime = (await h.json('/jobs/' + kestrel1040.id, undefined, h.owner)).time.map(t => [t.date, t.rate_cents, t.rate_source]);
+  assert.deepEqual(kestrelTime, [['2026-10-05', 15000, 'client'], ['2026-10-10', 25000, 'client_service']]);
+  assert.ok((await h.json('/billing', undefined, h.owner)).unbilled.some(l => l.job_id === harbour1040.id && l.rate_source === 'service'));
+  assert.equal((await h.json('/team', undefined, h.owner)).rates.filter(r => r.scope === 'staff' && r.person_email === 'preparer@example.test').length, 3);
+  assert.ok((await h.json('/team', undefined, preparer)).rates.every(r => r.scope === 'staff' && r.person_email === 'preparer@example.test'), 'Preparers see only their own staff rates');
 });
 
 test('agent keys only prepare; a person approves or declines and the decision is recorded', async () => {

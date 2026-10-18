@@ -1,7 +1,8 @@
-// Practice members, hourly rates, invitations and agent keys.
+// Practice members, invitations and agent keys. Rate cards are in rates.ts.
 // Adapted from just-every/run-satchel src/satchel/team.ts (MIT).
 import { type Bindings, operatorAuth, runtimeBindings } from '../auth.server';
-import { atomic, audit, digest, email, human, id, insist, integer, need, now, rows, secret, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, email, human, id, insist, need, now, rows, secret, stmt, text, type Actor, type Data } from './model';
+import { rateCards, resolveRate } from './rates';
 
 export async function saveMember(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
@@ -13,18 +14,6 @@ export async function saveMember(db: D1Database, actor: Actor, body: Data) {
     audit(db, actor, active ? 'member.saved' : 'member.deactivated', address, body.role),
   ]);
   return { email: address, name, role: body.role, active: !!active };
-}
-
-export async function setRate(db: D1Database, actor: Actor, body: Data) {
-  human(actor); need(actor, 'owner');
-  const address = email(body.email), rate = integer(body.rateCents, 'Hourly rate in cents', 0, 1_000_000);
-  const known = address === actor.email || await stmt(db, 'SELECT 1 FROM b_members WHERE email=?', address).first();
-  insist(known, 'Add the person to the practice first', 404);
-  await atomic(db, actor, [
-    stmt(db, 'INSERT INTO b_rates(email,rate_cents,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET rate_cents=excluded.rate_cents,updated_by=excluded.updated_by,updated_at=excluded.updated_at', address, rate, actor.email, now()),
-    audit(db, actor, 'rate.set', address, String(rate)),
-  ]);
-  return { email: address, rateCents: rate };
 }
 
 export async function inviteMember(request: Request, env: Bindings, actor: Actor, body: Data) {
@@ -51,10 +40,14 @@ export async function revokeAgentKey(db: D1Database, actor: Actor, keyId: string
 }
 
 export async function teamState(db: D1Database, actor: Actor) {
-  const owner = actor.role === 'owner';
+  const owner = actor.role === 'owner', today = now().slice(0, 10);
+  // A person's own rate today, before any client or service override.
+  const ownRate = async (address: string, role: Data['role']) => (await resolveRate(db, { date: today, clientId: '', templateId: '', email: address, role }))?.rateCents ?? null;
+  const members = owner || actor.role === 'reviewer' ? await rows(db, 'SELECT * FROM b_members ORDER BY name') : [];
   return {
-    members: owner || actor.role === 'reviewer' ? await rows(db, 'SELECT m.*,r.rate_cents FROM b_members m LEFT JOIN b_rates r ON r.email=m.email ORDER BY m.name') : [],
-    rates: owner ? await rows(db, 'SELECT * FROM b_rates ORDER BY email') : await rows(db, 'SELECT * FROM b_rates WHERE email=?', actor.email),
+    members: await Promise.all(members.map(async m => ({ ...m, rate_cents: await ownRate(m.email, m.role) }))),
+    ownRateCents: await ownRate(actor.email, actor.role),
+    rates: await rateCards(db, actor),
     keys: await rows(db, 'SELECT id,label,revoked,created_at FROM b_agent_keys WHERE owner_id=? ORDER BY created_at DESC', actor.id),
     audit: owner ? await rows(db, 'SELECT * FROM b_audit ORDER BY at DESC LIMIT 100') : [],
   };

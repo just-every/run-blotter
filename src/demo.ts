@@ -39,7 +39,7 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
     db.prepare('INSERT INTO oa_first_run(singleton,completed_by,completed_at) VALUES(1,?,?) ON CONFLICT(singleton) DO NOTHING').bind(owner.id, clock),
     bulk(db, 'oa_operators', team.map(m => ({ id: m.id, email: m.email, display_name: m.name, role: 'member', status: 'active', created_at: opened + DAY }))),
     bulk(db, 'b_members', team.map(m => ({ email: m.email, name: m.name, role: m.role, active: 1 }))),
-    bulk(db, 'b_rates', people.map(p => ({ email: p.email, rate_cents: p.rateCents, updated_by: owner.email, updated_at: iso(opened + DAY) }))),
+    bulk(db, 'b_rate_cards', people.map(p => ({ id: fixedId('rate:' + p.email), scope: 'staff', person_email: p.email, rate_cents: p.rateCents, effective_from: iso(opened).slice(0, 10), created_by: owner.email, created_at: iso(opened + DAY) }))),
     bulk(db, 'b_clients', Object.values(clients).map((c, n) => ({ id: c.id, name: c.name, abn: c.abn, contact_name: c.contactName, contact_email: c.contactEmail, source: 'native', revision: fixedId('revision:' + c.id), created_at: iso(opened + (2 + n) * DAY) }))),
     bulk(db, 'b_templates', Object.values(templates).map(t => ({ id: t.id, name: t.name, recurrence: t.recurrence, steps: JSON.stringify(t.steps), requests: JSON.stringify(t.requests), fee_cents: t.feeCents, created_by: owner.email, created_at: iso(opened + DAY) }))),
     bulk(db, 'b_jobs', work.jobs),

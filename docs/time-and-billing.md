@@ -1,12 +1,14 @@
 # Time and billing
 
-Record each person's time at their own rate, then approve an export whose CSV stays fixed.
+Record time at the rate in force on its date, then approve an export whose CSV stays fixed.
 
 ## Set rates first
 
-As the principal, use **Team & safety → Set an hourly rate**. Enter AUD cents per hour, ex GST. For example, `15000` means $150.00 per hour.
+As the principal, use **Team & safety → Set an hourly rate**. Choose what the rate applies to: a staff member, a role, a service (an engagement template, such as a 1040 return), a client, or a client and service together. Enter cents per hour, ex tax, and the date it takes effect. For example, `15000` means $150.00 per hour.
 
-Each time entry snapshots the person's current rate. Changing the rate applies to new entries and does not rewrite earlier time.
+A time entry uses the first rate in force on the entry's date, in this order: client and service, then client, then service, then staff member, then role. **Rate cards** lists every rate with its start date.
+
+Each time entry snapshots the rate it resolved and where it came from; the job's **Time** table shows both. A new rate applies from its date and never rewrites recorded time.
 
 ## Record time on a job
 

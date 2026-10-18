@@ -14,7 +14,7 @@ Review your owner account on **Finish setup**, tick the confirmation and press *
 
 ## Set up your team
 
-In **Team & safety**, open **Add or change a person** to save a reviewer and a preparer. Set an hourly rate for yourself and each person under **Set an hourly rate**. Rates are integer AUD cents, ex GST: `15000` means $150.00 per hour. New time entries use the person's current rate.
+In **Team & safety**, open **Add or change a person** to save a reviewer and a preparer. Set an hourly rate for yourself and each person under **Set an hourly rate**. Rates are integer cents, ex tax, from an effective date: `15000` means $150.00 per hour. Service and client rates override a person's rate; see [Time and billing](time-and-billing.md).
 
 The principal manages people, approves billing exports, imports clients and handles archives. Reviewers can work across jobs. Preparers see only jobs assigned to them. Deactivating a person removes access immediately.
 

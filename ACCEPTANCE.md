@@ -174,9 +174,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Live-export source reservations and approved-export time locks exist; timesheet approval, period close and adjustment records are missing.
 
-52. **TIME-003 — Billing rates and rate cards.** Status: **partial**. Set a staff rate, a 1040 service rate and a client override. Record time across them and inspect each entry's resolved rate and source. Change the staff rate effective next month and confirm past entries are unchanged.
-   Current evidence: `src/blotter/team.ts`; `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Per-person hourly rates snapshotted into time entries exist; role, service and client rates, precedence and effective dates are missing.
+52. **TIME-003 — Billing rates and rate cards.** Status: **done**. Set a staff rate, a 1040 service rate and a client override. Record time across them and inspect each entry's resolved rate and source. Change the staff rate effective next month and confirm past entries are unchanged.
+   Current evidence: `src/blotter/rates.ts`; `src/blotter/billing.ts`; `migrations/core/0017_rate_cards.sql`; `tests/blotter/flows.test.mjs`.
 
 53. **TIME-004 — Expenses and disbursements.** Status: **missing**. Record a state filing fee with a receipt and a 10% markup, approve it, invoice it and inspect the invoice line and WIP. A non-billable expense stays off the invoice and appears in profitability. An unapproved expense cannot be invoiced.
    Remaining: No expense or disbursement record exists.

@@ -174,7 +174,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
 
 function addTime(work: Work, jobId: string, person: string, ms: number, minutes: number, description: string) {
   const rate = rates.get(person) ?? 0, entryId = fixedId(`time:${jobId}:${person}:${ms}`);
-  work.time.push({ id: entryId, job_id: jobId, person_email: person, date: day(iso(ms + 10 * HOUR)), minutes, rate_cents: rate, amount_cents: amount(minutes, rate),
+  work.time.push({ id: entryId, job_id: jobId, person_email: person, date: day(iso(ms + 10 * HOUR)), minutes, rate_cents: rate, amount_cents: amount(minutes, rate), rate_source: 'staff', rate_card_id: fixedId('rate:' + person),
     description, created_by: person, created_channel: 'person', created_at: iso(ms) });
   work.audit.push({ id: fixedId(`audit:time:${entryId}`), actor: person, action: 'time.added', object_id: entryId, detail: `${minutes} min`, at: iso(ms) });
 }

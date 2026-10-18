@@ -9,6 +9,8 @@ export async function api(path: string, body?: unknown) {
   if (!response.ok) throw new Error(result.error ?? 'The request could not be completed');
   return result;
 }
+/** Where a time entry's rate came from (TIME-003 rate cards). */
+export const SOURCE: Record<string, string> = { client_service: 'client and service', client: 'client', service: 'service', staff: 'staff member', role: 'role' };
 export const aud = (cents: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(Number(cents) / 100);
 const pad = (n: number) => String(n).padStart(2, '0');
 /** Dates and times in the viewer's own timezone (stored values stay UTC). */
