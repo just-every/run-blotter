@@ -12,6 +12,7 @@ import { decideRequest, downloadFile, portalUpload, portalView, sendReminder, st
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
+import { commitReassign, commitSchedule, previewReassign, previewSchedule } from './bulk';
 import { agentContext, decideProposal, propose } from './proposals';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
@@ -47,6 +48,10 @@ api.post(`${P}/clients`, as(async (a, c) => addClient(db(c), a, await body(c))))
 api.post(`${P}/templates`, as(async (a, c) => saveTemplate(db(c), a, await body(c))));
 api.post(`${P}/jobs`, as(async (a, c) => startJob(db(c), a, await body(c))));
 api.get(`${P}/jobs/:id`, as((a, c) => jobDetail(db(c), a, param(c))));
+api.post(`${P}/bulk/schedule/preview`, as(async (a, c) => previewSchedule(db(c), a, await body(c))));
+api.post(`${P}/bulk/schedule`, as(async (a, c) => commitSchedule(db(c), a, await body(c))));
+api.post(`${P}/bulk/reassign/preview`, as(async (a, c) => previewReassign(db(c), a, await body(c))));
+api.post(`${P}/bulk/reassign`, as(async (a, c) => commitReassign(db(c), a, await body(c))));
 api.post(`${P}/jobs/:id/roll-forward`, as(async (a, c) => rollForward(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/steps`, as(async (a, c) => setStep(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/submit`, as(async (a, c) => submitJob(db(c), a, param(c), await body(c))));

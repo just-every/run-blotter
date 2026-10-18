@@ -1,4 +1,5 @@
 import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './common';
+import { ScheduleBulk } from './bulk';
 
 const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
 const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and receipts', 'Purchase receipts and bills'].join('\n');
@@ -52,6 +53,11 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
             <Field label="Reviewer" name="reviewerEmail"><select name="reviewerEmail" required>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
           </div>
         </Form>}
+    </section>}
+    {lead && <section className="panel wide">
+      <h2>Schedule work in bulk</h2>
+      <p className="muted">Start one period's jobs for several clients. People come from an override, else the client's last period, else the default. Existing jobs are kept.</p>
+      <ScheduleBulk state={state} run={run} />
     </section>}
   </div>;
 }

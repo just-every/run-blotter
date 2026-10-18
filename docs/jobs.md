@@ -22,6 +22,14 @@ For example, a quarterly job starting `2026-07-01` is labelled Jul–Sep 2026. R
 
 The **Jobs** tab lists visible work in progress by due date, then signed-off jobs, most recent first, with their status and outstanding checklist steps and documents. Open the job to do the work.
 
+## Schedule work in bulk
+
+As the principal or a reviewer, use **Clients & templates → Schedule work in bulk** to start one period's jobs for several clients at once. Choose the template, period start, due date and its source, and a default preparer and reviewer. Mark each client **Include** or **Exclude**, and override its preparer or reviewer where needed, then press **Preview**.
+
+For each client, the preparer and reviewer come from your override, else the people on that client's last period of the template (while they are still active), else the defaults. The preview shows what will be created, which jobs already exist and are kept, and every conflict: an inactive person, someone who is not a reviewer, or a reviewer who would review their own work. Resolve or exclude each conflict, preview again and press **Commit this plan**. Blotter commits exactly the previewed plan, so if anything changed since the preview it asks you to preview again. Running the same batch again creates nothing new.
+
+To move work between people or dates, open **Jobs → Reassign or reschedule in bulk**, tick the jobs, choose a new preparer, reviewer or due date (with its source), preview and commit. Signed-off jobs are never changed, inactive people cannot be assigned, and a job in review cannot go to the person who submitted it.
+
 ## Work through the job
 
 The job records its client, template, people, period, due date and fixed fee. The checklist records who completed each step and when. Collect the [client documents and review the finished job](/docs/documents-and-review); record your time in the job's **Time** section.

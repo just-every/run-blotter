@@ -183,6 +183,59 @@ test('TIME-003 rate cards resolve client and service, client, service, staff mem
   assert.ok((await h.json('/team', undefined, preparer)).rates.every(r => r.scope === 'staff' && r.person_email === 'preparer@example.test'), 'Preparers see only their own staff rates');
 });
 
+test('WORK-004 bulk scheduling previews a client segment, keeps existing work and refuses inactive or self-review assignments', async () => {
+  const add = name => h.json('/clients', { name }, h.owner);
+  const [north, south, east, west, odd] = [await add('Northwind Books LLC'), await add('Southside Bakery'), await add('Eastgate Dental PC'), await add('Westfield Farms'), await add('Oddity Labs')];
+  const payroll = await h.json('/templates', { name: 'Payroll quarterly', recurrence: 'quarterly', steps: 'Reconcile Form 941', requests: 'Payroll register' }, h.owner);
+  await h.json('/jobs', { clientId: north.id, templateId: payroll.id, periodStart: '2026-07-01', dueDate: '2026-10-31', dueNote: 'Form 941 instructions', preparerEmail: 'reviewer@example.test', reviewerEmail: 'owner@example.test' }, h.owner);
+  const batch = { templateId: payroll.id, periodStart: '2026-10-01', dueDate: '2027-01-31', dueNote: 'Form 941 instructions', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test',
+    clients: [{ clientId: north.id }, { clientId: south.id, preparerEmail: 'owner@example.test' }, { clientId: east.id, reviewerEmail: 'owner@example.test' }, { clientId: west.id, exclude: true },
+      { clientId: odd.id, reviewerEmail: 'preparer@example.test' }] };
+  await h.json('/bulk/schedule/preview', batch, preparer, 403);
+  const count = async () => (await h.json('/state', undefined, h.owner)).jobs.filter(j => j.template_id === payroll.id).length;
+  let plan = await h.json('/bulk/schedule/preview', batch, h.owner);
+  assert.equal(await count(), 1, 'A preview changes nothing');
+  const line = id => plan.lines.find(l => l.clientId === id);
+  assert.deepEqual([line(north.id).action, line(north.id).preparer, line(north.id).preparerFrom, line(north.id).reviewer], ['create', 'reviewer@example.test', 'last period', 'owner@example.test']);
+  assert.deepEqual([line(south.id).preparer, line(south.id).preparerFrom, line(south.id).reviewer], ['owner@example.test', 'override', 'reviewer@example.test']);
+  assert.deepEqual([line(east.id).preparer, line(east.id).reviewer, line(east.id).reviewerFrom], ['preparer@example.test', 'owner@example.test', 'override']);
+  assert.equal(line(west.id).action, 'excluded');
+  assert.equal(line(odd.id).action, 'conflict');
+  assert.match(line(odd.id).reasons.join(' '), /not an active reviewer.*cannot review their own work/);
+  await h.json('/bulk/schedule', { ...batch, fingerprint: plan.fingerprint }, h.owner, 409);
+  assert.equal(await count(), 1, 'A plan with a conflict commits nothing');
+  const fixed = { ...batch, clients: batch.clients.map(c => c.clientId === odd.id ? { clientId: odd.id, exclude: true } : c) };
+  plan = await h.json('/bulk/schedule/preview', fixed, h.owner);
+  await h.json('/bulk/schedule', { ...fixed, fingerprint: 'stale' }, h.owner, 409);
+  const committed = await h.json('/bulk/schedule', { ...fixed, fingerprint: plan.fingerprint }, h.owner);
+  assert.equal(committed.created.length, 3);
+  assert.equal(await count(), 4);
+  // The same batch again creates nothing: its old preview is stale, and a fresh one keeps every existing job.
+  await h.json('/bulk/schedule', { ...fixed, fingerprint: plan.fingerprint }, h.owner, 409);
+  const again = await h.json('/bulk/schedule/preview', fixed, h.owner);
+  assert.deepEqual(again.lines.map(l => l.action), ['exists', 'exists', 'exists', 'excluded', 'excluded']);
+  assert.deepEqual((await h.json('/bulk/schedule', { ...fixed, fingerprint: again.fingerprint }, h.owner)).created, []);
+  assert.equal(await count(), 4);
+  // Bulk reassignment and rescheduling refuse inactive people, self-review and signed-off work.
+  await h.json('/team', { email: 'gone@example.test', name: 'Gone Person', role: 'preparer', active: false }, h.owner);
+  const made = Object.fromEntries(committed.created.map(c => [c.clientId, c.jobId]));
+  const inactive = await h.json('/bulk/reassign/preview', { jobIds: [made[south.id], made[east.id]], preparerEmail: 'gone@example.test' }, h.owner);
+  assert.ok(inactive.lines.every(l => l.action === 'conflict' && /not an active preparer/.test(l.reasons[0])));
+  await h.json('/bulk/reassign', { jobIds: [made[south.id], made[east.id]], preparerEmail: 'gone@example.test', fingerprint: inactive.fingerprint }, h.owner, 409);
+  const move = { jobIds: [made[north.id], made[south.id], made[east.id], job.id], reviewerEmail: 'reviewer@example.test', dueDate: '2027-02-15', dueNote: 'Extension filed' };
+  const mixed = await h.json('/bulk/reassign/preview', move, h.owner);
+  assert.deepEqual(mixed.lines.map(l => l.action), ['conflict', 'change', 'change', 'conflict']);
+  assert.match(mixed.lines[0].reasons[0], /cannot review their own work/);
+  assert.match(mixed.lines[3].reasons[0], /Signed-off work/);
+  await h.json('/bulk/reassign', { ...move, fingerprint: mixed.fingerprint }, h.owner, 409);
+  const ok = { ...move, jobIds: [made[south.id], made[east.id]] };
+  const okPlan = await h.json('/bulk/reassign/preview', ok, h.owner);
+  assert.deepEqual((await h.json('/bulk/reassign', { ...ok, fingerprint: okPlan.fingerprint }, h.owner)).changed, [made[south.id], made[east.id]]);
+  const eastJob = (await h.json('/jobs/' + made[east.id], undefined, h.owner)).job;
+  assert.deepEqual([eastJob.preparer_email, eastJob.reviewer_email, eastJob.due_date, eastJob.due_note], ['preparer@example.test', 'reviewer@example.test', '2027-02-15', 'Extension filed']);
+  assert.equal((await h.json('/jobs/' + made[north.id], undefined, h.owner)).job.reviewer_email, 'owner@example.test', 'A refused job is unchanged');
+});
+
 test('agent keys only prepare; a person approves or declines and the decision is recorded', async () => {
   const key = await h.json('/keys', { label: 'Practice assistant' }, h.owner), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/keys', { label: 'Nope' }, preparer, 403);

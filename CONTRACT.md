@@ -280,8 +280,8 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 12 | 34 | 60 | 106 |
-| All | 12 | 34 | 60 | 106 |
+| Target and push further | 13 | 33 | 60 | 106 |
+| All | 13 | 33 | 60 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -298,7 +298,7 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | `WORK-001` | Reusable engagement templates | target | done | `src/blotter/clients.ts`; `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-002` | Automatic recurring work and roll forward | target | partial | `src/blotter/jobs.ts`; `src/blotter/proposals.ts`; `tests/blotter/flows.test.mjs` | Manual/human-approved roll-forward copies monthly/quarterly/annual work once; scheduled generation, creation lead time, custom rules, end dates, budgets, claiming existing future periods and due-date calculation are missing. |
 | `WORK-003` | Dependencies and conditional workflow | target | partial | `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs` | Hard document/checklist/review gates exist; configurable dependencies, conditional branches and automatic advancement are missing. |
-| `WORK-004` | Bulk work scheduling and assignment | target | partial | `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs` | Single-job creation validates active preparer/reviewer assignments; bulk creation, role routing and rescheduling are missing. |
+| `WORK-004` | Bulk work scheduling and assignment | target | done | `src/blotter/bulk.ts`; `src/ui/bulk.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-005` | Firm work queues | target | done | `src/blotter/clients.ts`; `src/ui/jobs.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-006` | Personal plans boards and calendars | target | missing |  | No personal weekly plan, Kanban board or calendar view exists. |
 | `WORK-007` | Firm work types and status model | target | partial | `migrations/core/0016_blotter.sql`; `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs` | Fixed open/review/signed_off stages with database-enforced transitions exist; firm work types, job roles, sub-statuses with per-type limits, status history and status-driven boards, views, automation and reports are missing. |

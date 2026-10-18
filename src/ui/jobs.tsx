@@ -1,5 +1,6 @@
 import { Blotter, Empty, Status, type Row, type Run } from './common';
 import { JobDetail } from './job';
+import { ReassignBulk } from './bulk';
 
 export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: string; open: (id: string) => void; run: Run; tick: number }) {
   if (jobId) return <JobDetail jobId={jobId} actor={state.actor} back={() => open('')} open={open} run={run} tick={tick} />;
@@ -17,5 +18,6 @@ export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: str
         <td><button className="quiet text-action" onClick={() => open(j.id)}>Open <span aria-hidden="true">→</span></button></td>
       </tr>)}</tbody>
     </table>
+    {state.actor.role !== 'preparer' && <details><summary>Reassign or reschedule in bulk</summary><ReassignBulk state={state} run={run} /></details>}
   </section></Blotter>;
 }

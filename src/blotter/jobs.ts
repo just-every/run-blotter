@@ -20,15 +20,18 @@ export function periodLabel(start: string, recurrence: Recurrence) {
   return first.year === last.year ? `${first.month}–${last.month} ${last.year}` : `${first.month} ${first.year}–${last.month} ${last.year}`;
 }
 
+/** An active member in one of these roles, or the active principal. */
+export async function eligible(db: D1Database, address: string, roles: string[]) {
+  return !!await stmt(db, `SELECT 1 FROM b_members WHERE email=? AND active=1 AND role IN (SELECT value FROM json_each(?))
+    UNION ALL SELECT 1 FROM oa_operators WHERE email=? AND role='owner' AND status='active'`, address, JSON.stringify(roles), address).first();
+}
 async function assignee(db: D1Database, address: unknown, label: string, roles: string[]) {
   const value = text(address, label, 254).toLowerCase();
-  const found = await stmt(db, `SELECT 1 FROM b_members WHERE email=? AND active=1 AND role IN (SELECT value FROM json_each(?))
-    UNION ALL SELECT 1 FROM oa_operators WHERE email=? AND role='owner' AND status='active'`, value, JSON.stringify(roles), value).first();
-  insist(found, `${label} must be an active practice member who can do that work`);
+  insist(await eligible(db, value, roles), `${label} must be an active practice member who can do that work`);
   return value;
 }
 
-function createStatements(db: D1Database, actor: Actor, template: Data, values: Data) {
+export function createStatements(db: D1Database, actor: Actor, template: Data, values: Data) {
   const jobId = values.id;
   const statements = [
     stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at)

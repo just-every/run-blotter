@@ -46,9 +46,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Hard document/checklist/review gates exist; configurable dependencies, conditional branches and automatic advancement are missing.
 
-14. **WORK-004 — Bulk work scheduling and assignment.** Status: **partial**. Preview quarterly jobs for a client group, override two assignees, exclude one client and commit. Re-submit the same batch and inspect no duplicates, then bulk reassign work while refusing inactive or self-review assignments.
-   Current evidence: `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Single-job creation validates active preparer/reviewer assignments; bulk creation, role routing and rescheduling are missing.
+14. **WORK-004 — Bulk work scheduling and assignment.** Status: **done**. Preview quarterly jobs for a client group, override two assignees, exclude one client and commit. Re-submit the same batch and inspect no duplicates, then bulk reassign work while refusing inactive or self-review assignments.
+   Current evidence: `src/blotter/bulk.ts`; `src/ui/bulk.tsx`; `tests/blotter/flows.test.mjs`.
 
 15. **WORK-005 — Firm work queues.** Status: **done**. Create two jobs for different preparers, open the work queue as each role and inspect dates, assignees, status and outstanding counts. Directly requesting another preparer's hidden job is refused.
    Current evidence: `src/blotter/clients.ts`; `src/ui/jobs.tsx`; `tests/blotter/flows.test.mjs`.
