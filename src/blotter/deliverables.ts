@@ -6,7 +6,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { reviewRequested } from './notifications';
 import { decodeFile, fileResponse, issueLink, sendMail, portalJob } from './documents';
-import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, guard, human, id, insist, job, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const COLUMNS = `id,deliverable_id,version,name,mime,size,sha256,note,submit_on_approval,sent_by,sent_at,delivery,status,
   approver_name,approver_email,decided_at,decided_sha256,comment,moved_job`;
@@ -60,7 +60,7 @@ export async function sendDeliverable(env: Bindings, actor: Actor, jobId: string
 export async function downloadVersion(db: D1Database, actor: Actor, versionId: string) {
   const v = await stmt(db, 'SELECT * FROM b_deliverable_versions WHERE id=?', versionId).first<Data>();
   insist(v, 'Deliverable not found', 404);
-  await job(db, actor, v.job_id);
+  await readableJob(db, actor, v.job_id);
   return fileResponse(v);
 }
 

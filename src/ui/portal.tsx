@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Blotter, readFile, Status, when, type Row } from './common';
+import { ClientTasks } from './tasks';
 import { PortalDeliverables } from './deliverables';
 
 /** The client's upload page. The link's secret is the only credential. */
@@ -31,6 +32,7 @@ export function Portal({ token }: { token: string }) {
           {r.files.map((f: Row) => <p key={f.uploadedAt + f.name} className="muted">Uploaded {f.name} · {when(f.uploadedAt)}</p>)}
           {view.collecting && r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
         </section>)}</Blotter>
+        <ClientTasks tasks={view.tasks} />
         <PortalDeliverables path={path} busy={busy} act={act} />
       </>}
     </main>

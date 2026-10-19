@@ -1,6 +1,7 @@
 import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './common';
 import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
+import { TaskEditor, taskBody } from './tasks';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
 
 const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
@@ -9,7 +10,7 @@ const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and rec
 export function Clients({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
   const lead = state.actor.role !== 'preparer';
   const people: Row[] = state.people;
-  const [segment, setSegment] = useState<Row[]>();
+  const [segment, setSegment] = useState<Row[]>(), [tasks, setTasks] = useState<Row[]>([]);
   return <div className="grid">
     <Blotter className="wide"><section className="panel">
       <h2>Clients</h2>
@@ -33,10 +34,11 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
       {!state.templates.length && <Empty>No templates yet.</Empty>}
       <ul className="list">{state.templates.map((t: Row) => <li key={t.id}><strong>{t.name}</strong> <small className="muted">{t.recurrence} · {JSON.parse(t.steps).length} steps · {JSON.parse(t.requests).length} document requests{t.fee_cents > 0 && ` · fee ${aud(t.fee_cents)}`}</small></li>)}</ul>
       {lead && <details><summary>Add a template</summary>
-        <Form label="Save template" submit={async (data, form) => run(async () => { await api('/templates', { ...data, feeCents: Number(data.feeCents || 0) }); form.reset(); }, 'Template saved')}>
+        <Form label="Save template" submit={async (data, form) => run(async () => { await api('/templates', { ...data, feeCents: Number(data.feeCents || 0), ...(tasks.length ? { tasks: taskBody(tasks) } : {}) }); form.reset(); setTasks([]); }, 'Template saved')}>
           <Field label="Name" name="name" value="Quarterly BAS" />
           <Field label="Repeats" name="recurrence"><select name="recurrence" defaultValue="quarterly"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></Field>
           <Field label="Checklist steps (one per line)" name="steps"><textarea name="steps" rows={4} required defaultValue={BAS_STEPS} /></Field>
+          <TaskEditor people={people} tasks={tasks} setTasks={setTasks} />
           <Field label="Documents to request from the client (one per line)" name="requests"><textarea name="requests" rows={3} required defaultValue={BAS_REQUESTS} /></Field>
           <Field label="Fixed fee in cents, ex GST (0 for none)" name="feeCents" type="number" value={0} />
         </Form>
@@ -58,6 +60,7 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
           <div className="row">
             <Field label="Preparer" name="preparerEmail"><select name="preparerEmail" required>{people.map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
             <Field label="Reviewer" name="reviewerEmail"><select name="reviewerEmail" required>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
+            <Field label="Manager" name="managerEmail"><select name="managerEmail"><option value="">Same as the reviewer</option>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
           </div>
         </Form>}
     </section>}

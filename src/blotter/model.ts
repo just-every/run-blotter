@@ -59,6 +59,23 @@ export async function job(db: D1Database, actor: Actor, jobId: string) {
   return j;
 }
 
+/**
+ * Jobs a person may read: the jobs above, plus any job with a task assigned to
+ * them by name (WORK-009), the one named widening of ACCESS-001. Such a person
+ * reads the job and acts only on their own tasks; access ends when no task on
+ * the job is assigned to them.
+ */
+const readableJobSql = `(${visibleJobSql} OR EXISTS(SELECT 1 FROM b_job_steps t WHERE t.job_id=b_jobs.id AND t.assignee_email=?))`;
+export const readableJobParams = (actor: Actor) => [...visibleJobParams(actor), actor.email];
+export { readableJobSql };
+/** A job the actor may read; `access` is 'full', or 'task' when only a named task grants it. */
+export async function readableJob(db: D1Database, actor: Actor, jobId: string) {
+  const j = await stmt(db, `SELECT *,CASE WHEN ${visibleJobSql} THEN 'full' ELSE 'task' END access FROM b_jobs WHERE id=? AND ${readableJobSql}`,
+    ...visibleJobParams(actor), jobId, ...readableJobParams(actor)).first<Data>();
+  insist(j, 'Job not found', 404);
+  return j;
+}
+
 /** The actor's role is re-checked inside the same D1 batch as the write. */
 function authority(actor: Actor) {
   return {

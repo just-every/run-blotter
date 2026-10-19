@@ -1,6 +1,7 @@
 // Clients and recurring job templates.
 import { fieldDefs, groups, profileFields, tagList } from './profiles';
-import { atomic, audit, human, insist, id, integer, lines, need, now, optional, rows, stmt, text, email, visibleJobParams, type Actor, type Data } from './model';
+import { templateTasks } from './tasks';
+import { atomic, audit, human, insist, id, integer, lines, need, now, optional, rows, stmt, text, email, readableJobParams, readableJobSql, type Actor, type Data } from './model';
 
 export function abn(value: unknown) {
   const digits = optional(value, 'ABN', 20).replace(/\s/g, '');
@@ -30,7 +31,7 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
   insist(['monthly', 'quarterly', 'annual'].includes(recurrence), 'Choose monthly, quarterly or annual');
   const template = {
     id: id(), name: text(body.name, 'Template name', 120), recurrence,
-    steps: lines(body.steps, 'Checklist steps'), requests: lines(body.requests, 'Client document requests'),
+    steps: await templateTasks(db, body) ?? lines(body.steps, 'Checklist steps'), requests: lines(body.requests, 'Client document requests'),
     feeCents: integer(body.feeCents ?? 0, 'Fixed fee in cents', 0, 100_000_000),
   };
   await atomic(db, actor, [
@@ -47,8 +48,8 @@ export async function workspace(db: D1Database, actor: Actor) {
       (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.status<>'accepted') open_requests,
       (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND s.done_at IS NULL) open_steps
     FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id
-    WHERE (?='owner' OR ?='reviewer' OR b_jobs.preparer_email=?)
-    ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...visibleJobParams(actor));
+    WHERE ${readableJobSql}
+    ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...readableJobParams(actor));
   return {
     actor: { email: actor.email, name: actor.name, role: actor.role },
     jobs,

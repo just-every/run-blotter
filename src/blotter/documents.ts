@@ -3,7 +3,8 @@
 import { operatorMail } from '../mail.server.mjs';
 import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
-import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
+import { clientTasks } from './tasks';
+import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
 const SAFE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'text/csv', 'text/plain'];
@@ -70,7 +71,7 @@ export async function decideRequest(db: D1Database, actor: Actor, requestId: str
 export async function downloadFile(db: D1Database, actor: Actor, fileId: string) {
   const file = await stmt(db, 'SELECT * FROM b_files WHERE id=?', fileId).first<Data>();
   insist(file, 'File not found', 404);
-  await job(db, actor, file.job_id);
+  await readableJob(db, actor, file.job_id);
   insist(file.content_base64, 'This file was erased', 404);
   return fileResponse(file);
 }
@@ -160,6 +161,7 @@ export async function portalView(db: D1Database, token: string, practice: string
   return {
     practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
+    tasks: await clientTasks(db, j),
   };
 }
 

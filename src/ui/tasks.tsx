@@ -1,0 +1,75 @@
+import { useEffect, useState } from 'react';
+import { api, Empty, Field, Form, readFile, today, type Row, type Run } from './common';
+
+const ROLE: Record<string, string> = { preparer: 'Preparer', reviewer: 'Reviewer', manager: 'Manager' };
+const blank = { label: '', assignee: '', dueFrom: '', dueDays: '', startFrom: '', startDays: '', estimateMinutes: '', instructions: '', sopUrl: '', requiresAttachment: false, clientFacing: false };
+
+/** Template tasks (WORK-009): owner, relative dates, estimate, instructions, SOP link and flags per task. */
+export function TaskEditor({ people, tasks, setTasks }: { people: Row[]; tasks: Row[]; setTasks: (tasks: Row[]) => void }) {
+  const set = (n: number, patch: Row) => setTasks(tasks.map((t, i) => i === n ? { ...t, ...patch } : t));
+  const value = (n: number, key: string) => ({ value: tasks[n][key], onChange: (e: { target: { value: string } }) => set(n, { [key]: e.target.value }) });
+  return <fieldset className="stack">
+    <legend>Tasks with owners and dates (leave empty to use the checklist steps above)</legend>
+    {tasks.map((t, n) => <div key={n} className="record">
+      <div className="row">
+        <label>Task {n + 1}<input aria-label={`Task ${n + 1} label`} {...value(n, 'label')} required /></label>
+        <label>Owner<select aria-label={`Task ${n + 1} owner`} {...value(n, 'assignee')}><option value="">Unassigned</option>
+          {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v} (job role)</option>)}
+          {people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select></label>
+      </div>
+      <div className="row">
+        <label>Due, days from<select aria-label={`Task ${n + 1} due from`} {...value(n, 'dueFrom')}><option value="">No due date</option><option value="due">work's due date</option><option value="start">work's start</option></select></label>
+        <label>Due days (negative = before)<input type="number" aria-label={`Task ${n + 1} due days`} {...value(n, 'dueDays')} /></label>
+        <label>Start, days from<select aria-label={`Task ${n + 1} start from`} {...value(n, 'startFrom')}><option value="">No start date</option><option value="start">work's start</option><option value="due">work's due date</option></select></label>
+        <label>Start days<input type="number" aria-label={`Task ${n + 1} start days`} {...value(n, 'startDays')} /></label>
+        <label>Estimate (minutes)<input type="number" aria-label={`Task ${n + 1} estimate`} {...value(n, 'estimateMinutes')} /></label>
+      </div>
+      <label>Instructions<textarea rows={2} aria-label={`Task ${n + 1} instructions`} {...value(n, 'instructions')} /></label>
+      <label>SOP link<input type="url" aria-label={`Task ${n + 1} SOP link`} placeholder="https://" {...value(n, 'sopUrl')} /></label>
+      <label className="check"><input type="checkbox" checked={t.requiresAttachment} onChange={e => set(n, { requiresAttachment: e.target.checked })} /> Needs an attachment to complete</label>
+      <label className="check"><input type="checkbox" checked={t.clientFacing} onChange={e => set(n, { clientFacing: e.target.checked })} /> Client-facing (shown on the client's link)</label>
+      <button type="button" className="quiet" onClick={() => setTasks(tasks.filter((_, i) => i !== n))}>Remove task</button>
+    </div>)}
+    <button type="button" className="quiet" onClick={() => setTasks([...tasks, { ...blank }])}>Add a task</button>
+  </fieldset>;
+}
+export const taskBody = (tasks: Row[]) => tasks.map(t => ({ ...t, dueDays: t.dueFrom ? Number(t.dueDays || 0) : undefined, startDays: t.startFrom ? Number(t.startDays || 0) : undefined, estimateMinutes: t.estimateMinutes ? Number(t.estimateMinutes) : undefined }));
+
+/** One task on the job checklist: owner, dates, estimate, instructions, SOP link and attachment. */
+export function TaskInfo({ jobId, step }: { jobId: string; step: Row }) {
+  const bits = [step.owner && `${step.done_at ? 'Owner was' : 'Owner'} ${step.owner}${step.assignee_role && !step.done_at ? ` (${ROLE[step.assignee_role]})` : ''}`,
+    step.start_date && `starts ${step.start_date}`, step.due_date && `due ${step.due_date}`, step.estimate_minutes && `estimate ${step.estimate_minutes} min`,
+    step.client_facing ? 'client-facing' : '', step.requires_attachment ? 'needs an attachment' : ''].filter(Boolean);
+  return <>
+    {bits.length > 0 && <small className="muted"> · {bits.join(' · ')}</small>}
+    {step.instructions && <small className="hint">{step.instructions}</small>}
+    {step.sop_url && <small><a href={step.sop_url} target="_blank" rel="noreferrer noopener">Open SOP</a></small>}
+    {step.attachment_name && <small><a href={`/api/blotter/jobs/${jobId}/steps/${step.ordinal}/attachment`}>{step.attachment_name}</a></small>}
+  </>;
+}
+export async function attachmentBody(file: File | undefined) { return file ? { attachment: await readFile(file) } : {}; }
+
+const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
+
+/** The person's weekly plan: their tasks and jobs due in or before the week. */
+export function MyWeek({ open, run, tick }: { open: (id: string) => void; run: Run; tick: number }) {
+  const [week, setWeek] = useState(monday(today())), [plan, setPlan] = useState<Row>();
+  useEffect(() => { api('/plan?week=' + week).then(setPlan).catch(e => run(async () => { throw e; })); }, [week, tick]);
+  return <section className="panel">
+    <div className="split"><h2>My week</h2>
+      <Form label="Show week" submit={async data => setWeek(monday(String(data.week)))}><Field label="Week of" name="week" type="date" value={week} /></Form></div>
+    {!plan ? <p>Opening your plan…</p> : <>
+      <p className="muted">{plan.weekStart} to {plan.weekEnd}: open tasks and jobs due by then, including overdue ones.</p>
+      {!plan.tasks.length ? <Empty>No tasks for you this week.</Empty> : <ul className="list">{plan.tasks.map((t: Row) => <li key={t.job_id + t.ordinal}>
+        <button className="quiet text-action" onClick={() => open(t.job_id)}>{t.label}</button> <small className="muted">{t.client} · {t.job} {t.period}{t.due_date && ` · due ${t.due_date}`}{t.estimate_minutes && ` · ${t.estimate_minutes} min`}</small>
+        {t.sop_url && <> <a href={t.sop_url} target="_blank" rel="noreferrer noopener">SOP</a></>}</li>)}</ul>}
+      {plan.jobs.length > 0 && <><h3>Jobs due</h3><ul className="list">{plan.jobs.map((j: Row) => <li key={j.id}><button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} {j.period_label}</button> <small className="muted">due {j.due_date} · {j.status}</small></li>)}</ul></>}
+    </>}
+  </section>;
+}
+
+/** Client-facing tasks on the client's link: label, due date and whether it is done. */
+export function ClientTasks({ tasks }: { tasks: Row[] }) {
+  if (!tasks?.length) return null;
+  return <section className="panel"><h2>Progress</h2><ul className="list">{tasks.map((t: Row, n: number) => <li key={n}>{t.done ? '✓' : '○'} {t.label}{t.dueDate && <small className="muted"> · due {t.dueDate}</small>}</li>)}</ul></section>;
+}

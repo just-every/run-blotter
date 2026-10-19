@@ -3,6 +3,7 @@ import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, 
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { JobExpenses } from './expenses';
+import { attachmentBody, TaskInfo } from './tasks';
 import { EntryHistory } from './timesheet';
 
 export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: string; actor: Row; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
@@ -20,7 +21,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
         <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {job.due_date} ({job.due_note})</p></div>
         <Status value={job.status} />
       </div>
-      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}</p>
+      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}</p>
       {job.status === 'signed_off' && <p className="notice">Signed off by {job.signed_off_by} on {when(job.signed_off_at)}: {job.sign_off_note}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>
@@ -35,7 +36,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
       <section className="panel">
         <h2>Checklist</h2>
         <ul className="checklist">{detail.steps.map((s: Row) => <li key={s.ordinal}>
-          <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen} onChange={e => {
+          <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen || (!s.done_at && !!s.requires_attachment)} onChange={e => {
             const done = e.target.checked;
             setDetail({ ...detail, steps: detail.steps.map((step: Row) => step.ordinal === s.ordinal ? { ...step, done_at: done ? new Date().toISOString() : null, done_by: done ? actor.email : null } : step) });
             run(async () => {
@@ -43,7 +44,8 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
               catch (error) { setDetail(detail); throw error; }
             }, done ? 'Step done' : 'Step reopened');
           }} />
-            <span>{s.label}{s.done_at && <small className="muted"> — {s.done_by}, {when(s.done_at)}</small>}</span></label>
+            <span>{s.label}{s.done_at && <small className="muted"> — {s.done_by}, {when(s.done_at)}</small>}<TaskInfo jobId={job.id} step={s} /></span></label>
+          {isOpen && !s.done_at && !!s.requires_attachment && <label className="upload">Complete with the required attachment<input type="file" onChange={e => { const file = e.target.files?.[0]; if (file) run(async () => api(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done: true, ...await attachmentBody(file) }), 'Step done'); }} /></label>}
         </li>)}</ul>
         {isOpen && <button onClick={() => run(() => api(`/jobs/${job.id}/submit`, { revision: job.revision }), 'Submitted for review')}>Submit for review</button>}
         {canReview && <div className="review">

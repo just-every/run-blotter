@@ -291,6 +291,75 @@ test('TIME-004 expenses: a receipted filing fee with markup is approved and bill
   assert.equal(p.marginCents, p.billableValueCents - p.expenseCostCents);
 });
 
+test('WORK-009 tasks: role and named owners, dates relative to the due date that follow it, re-routing on a new preparer, SOP links, required attachments and the weekly plan', async () => {
+  await h.json('/team', { email: 'quinn@example.test', name: 'Quinn Preparer', role: 'preparer' }, h.owner);
+  await h.json('/team/invite', { email: 'quinn@example.test' }, h.owner);
+  const quinn = await h.login('quinn@example.test');
+  const sop = 'https://sops.example.test/1040/organizer';
+  const tasks = [
+    { label: 'Review organizer', assignee: 'preparer', dueFrom: 'due', dueDays: -10, startFrom: 'start', startDays: 0, estimateMinutes: 45, instructions: 'Check every schedule against last year', sopUrl: sop },
+    { label: 'Manager check', assignee: 'manager', dueFrom: 'due', dueDays: -5 },
+    { label: 'Partner sign-off memo', assignee: 'reviewer@example.test', dueFrom: 'due', dueDays: -2 },
+    { label: 'Upload signed 8879', assignee: 'preparer', dueFrom: 'due', dueDays: -1, requiresAttachment: true, clientFacing: true },
+    { label: 'Scan prior-year return', assignee: 'quinn@example.test', dueFrom: 'start', dueDays: 14 },
+  ];
+  const base = { name: '1040 return', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms' };
+  await h.json('/templates', { ...base, tasks: [{ label: 'x', assignee: 'nobody@example.test' }] }, h.owner, 400);
+  await h.json('/templates', { ...base, tasks: [{ label: 'x', sopUrl: 'javascript:alert(1)' }] }, h.owner, 400);
+  const t1040 = await h.json('/templates', { ...base, tasks }, h.owner);
+  const household = await h.json('/clients', { name: 'Rivera household', contactName: 'Ana Rivera', contactEmail: 'ana@rivera.example' }, h.owner);
+  const work = await h.json('/jobs', { clientId: household.id, templateId: t1040.id, periodStart: '2027-01-01', dueDate: '2027-03-15', dueNote: 'Federal filing deadline',
+    preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', managerEmail: 'owner@example.test' }, h.owner);
+  const view = async (who = h.owner) => (await h.json('/jobs/' + work.id, undefined, who)).steps;
+  let steps = await view();
+  assert.deepEqual(steps.map(s => [s.label, s.owner, s.due_date]), [
+    ['Review organizer', 'preparer@example.test', '2027-03-05'], ['Manager check', 'owner@example.test', '2027-03-10'],
+    ['Partner sign-off memo', 'reviewer@example.test', '2027-03-13'], ['Upload signed 8879', 'preparer@example.test', '2027-03-14'],
+    ['Scan prior-year return', 'quinn@example.test', '2027-01-15']]);
+  // A task assigned by name lets that preparer read the job and act only on their own task; the grant is audited.
+  assert.equal((await h.json('/jobs/' + work.id, undefined, quinn)).job.access, 'task');
+  assert.ok((await h.json('/state', undefined, quinn)).jobs.some(j => j.id === work.id));
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 1, done: true }, quinn, 403);
+  await h.json(`/jobs/${work.id}/time`, { date: '2027-01-04', minutes: 5, description: 'x' }, quinn, 404);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 5, done: true }, quinn);
+  assert.ok((await h.json('/team', undefined, h.owner)).audit.some(a => a.action === 'job.task_access' && a.object_id === work.id && a.detail.startsWith('quinn@example.test')));
+  assert.deepEqual([steps[0].start_date, steps[0].estimate_minutes, steps[0].instructions, steps[0].sop_url], ['2027-01-01', 45, 'Check every schedule against last year', sop]);
+  // The client sees only client-facing tasks, without internal instructions.
+  await h.json(`/jobs/${work.id}/reminders`, {}, h.owner);
+  const portal = await h.json('/portal/' + portalToken(h.mails.at(-1)), undefined);
+  assert.deepEqual(portal.tasks, [{ label: 'Upload signed 8879', dueDate: '2027-03-14', done: false }]);
+  // The preparer completes the first task; a required attachment is enforced.
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 1, done: true }, preparer);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 4, done: true }, preparer, 400);
+  const done = (await view(preparer))[0];
+  // Moving the work's due date moves open task dates; the completed task keeps its dates.
+  const reschedule = { jobIds: [work.id], dueDate: '2027-03-31', dueNote: 'Moved to the extension plan' };
+  await h.json('/bulk/reassign', { ...reschedule, fingerprint: (await h.json('/bulk/reassign/preview', reschedule, h.owner)).fingerprint }, h.owner);
+  steps = await view();
+  assert.deepEqual(steps.map(s => s.due_date), ['2027-03-05', '2027-03-26', '2027-03-29', '2027-03-30', '2027-01-15']);
+  // A new preparer takes the open Preparer task; the completed one keeps its completer and time.
+  const handover = { jobIds: [work.id], preparerEmail: 'quinn@example.test' };
+  await h.json('/bulk/reassign', { ...handover, fingerprint: (await h.json('/bulk/reassign/preview', handover, h.owner)).fingerprint }, h.owner);
+  steps = await view(quinn);
+  assert.deepEqual(steps.map(s => s.owner), ['preparer@example.test', 'owner@example.test', 'reviewer@example.test', 'quinn@example.test', 'quinn@example.test']);
+  assert.deepEqual([steps[0].done_by, steps[0].done_at], ['preparer@example.test', done.done_at]);
+  const plan = await h.json('/plan?week=2027-03-29', undefined, quinn);
+  assert.deepEqual(plan.tasks.map(t => [t.label, t.due_date, t.job_id]), [['Upload signed 8879', '2027-03-30', work.id]]);
+  assert.ok(plan.jobs.some(j => j.id === work.id));
+  assert.ok(!(await h.json('/plan?week=2027-03-29', undefined, preparer)).tasks.some(t => t.job_id === work.id));
+  await h.json('/plan?week=2027-03-30', undefined, quinn, 400);
+  assert.deepEqual((await h.json('/plan?week=2027-03-29', undefined, h.owner)).tasks.map(t => t.label), ['Manager check']);
+  assert.equal((await h.json('/plan?week=2027-03-29', undefined, h.owner)).tasks[0].sop_url, '');
+  assert.equal((await h.json('/plan?week=2027-02-22', undefined, h.owner)).tasks.length, 0);
+  // Completing with the attachment records it, and it can be downloaded.
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 4, done: true, attachment: { name: '8879.pdf', mime: 'application/pdf', contentBase64: b64('%PDF signed 8879') } }, quinn);
+  const last = (await view(quinn))[3];
+  assert.deepEqual([last.done_by, last.owner, last.attachment_name], ['quinn@example.test', 'quinn@example.test', '8879.pdf']);
+  assert.equal(await (await h.request(`/api/blotter/jobs/${work.id}/steps/4/attachment`, undefined, quinn)).text(), '%PDF signed 8879');
+  assert.ok(!(await h.json('/plan?week=2027-03-29', undefined, quinn)).tasks.length);
+  assert.ok((await h.json('/portal/' + portalToken(h.mails.at(-1)), undefined)).tasks[0].done);
+});
+
 test('WORK-004 bulk scheduling previews a client segment, keeps existing work and refuses inactive or self-review assignments', async () => {
   const add = name => h.json('/clients', { name }, h.owner);
   const [north, south, east, west, odd] = [await add('Northwind Books LLC'), await add('Southside Bakery'), await add('Eastgate Dental PC'), await add('Westfield Farms'), await add('Oddity Labs')];

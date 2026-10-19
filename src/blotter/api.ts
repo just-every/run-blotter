@@ -14,6 +14,7 @@ import { myNotifications } from './notifications';
 import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
 import { decideRequest, downloadFile, portalUpload, portalView, sendReminder, staffUpload } from './documents';
 import { decideExpense, downloadReceipt, recordExpense, reimburseExpense, setMileageRate } from './expenses';
+import { downloadAttachment, weeklyPlan } from './tasks';
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
@@ -65,6 +66,8 @@ api.post(`${P}/bulk/schedule`, as(async (a, c) => commitSchedule(db(c), a, await
 api.post(`${P}/bulk/reassign/preview`, as(async (a, c) => previewReassign(db(c), a, await body(c))));
 api.post(`${P}/bulk/reassign`, as(async (a, c) => commitReassign(db(c), a, await body(c))));
 api.post(`${P}/jobs/:id/roll-forward`, as(async (a, c) => rollForward(db(c), a, param(c), await body(c))));
+api.get(`${P}/plan`, as((a, c) => weeklyPlan(db(c), a, c.req.query())));
+api.get(`${P}/jobs/:id/steps/:ordinal/attachment`, as((a, c) => downloadAttachment(db(c), a, param(c), param(c, 'ordinal'))));
 api.post(`${P}/jobs/:id/steps`, as(async (a, c) => setStep(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/submit`, as(async (a, c) => submitJob(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/review`, as(async (a, c) => reviewJob(c.env, a, param(c), await body(c))));

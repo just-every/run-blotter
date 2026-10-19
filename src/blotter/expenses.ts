@@ -5,7 +5,7 @@
 // reimbursements are owed at cost, apart from the client charge.
 import { openPeriodSql } from './billing';
 import { decodeFile, fileResponse } from './documents';
-import { atomic, audit, date, digest, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, date, digest, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 export const KINDS = { filing_fee: 'Filing fee', postage: 'Postage', mileage: 'Mileage', software: 'Software pass-through', other: 'Other' } as const;
 type Kind = keyof typeof KINDS;
@@ -70,7 +70,7 @@ export async function recordExpense(db: D1Database, actor: Actor, jobId: string,
 async function visibleExpense(db: D1Database, actor: Actor, expenseId: string) {
   const e = await stmt(db, 'SELECT * FROM b_expenses WHERE id=?', expenseId).first<Data>();
   insist(e, 'Expense not found', 404);
-  await job(db, actor, e.job_id);
+  await readableJob(db, actor, e.job_id);
   return e;
 }
 

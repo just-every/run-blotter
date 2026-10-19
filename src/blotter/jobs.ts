@@ -3,8 +3,9 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { deliverablesFor } from './deliverables';
 import { jobExpenses } from './expenses';
+import { completion, jobTasks, stepInsert } from './tasks';
 import { notify, reviewRequested } from './notifications';
-import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const STEP = { monthly: 1, quarterly: 3, annual: 12 } as const;
@@ -38,11 +39,14 @@ async function assignee(db: D1Database, address: unknown, label: string, roles: 
 export function createStatements(db: D1Database, actor: Actor, template: Data, values: Data) {
   const jobId = values.id;
   const statements = [
-    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)`,
+    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)`,
       jobId, values.clientId, template.id, template.name, values.periodStart, periodLabel(values.periodStart, template.recurrence),
-      values.dueDate, values.dueNote, values.preparer, values.reviewer, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now()),
-    ...JSON.parse(template.steps).map((label: string, n: number) => stmt(db, 'INSERT INTO b_job_steps(job_id,ordinal,label) VALUES(?,?,?)', jobId, n + 1, label)),
+      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now()),
+    ...JSON.parse(template.steps).map((entry: Data, n: number) => stepInsert(db, jobId, entry as never, n)),
+    // A task assigned by name lets that person read this job (ACCESS-001); each grant is audited.
+    ...[...new Set(JSON.parse(template.steps).map((entry: Data) => entry?.assigneeEmail).filter(Boolean))].map(person =>
+      audit(db, actor, 'job.task_access', jobId, `${person} can read this job and act on their own tasks`)),
     ...JSON.parse(template.requests).map((label: string, n: number) => stmt(db, "INSERT INTO b_requests(id,job_id,ordinal,label,status,updated_by,updated_at) VALUES(?,?,?,?,'requested',?,?)", id(), jobId, n + 1, label, actor.email, now())),
     audit(db, actor, values.rolledFrom ? 'job.rolled_forward' : 'job.started', jobId, `${template.name} ${values.periodStart}`),
   ];
@@ -60,6 +64,8 @@ export async function startJob(db: D1Database, actor: Actor, body: Data) {
     dueNote: text(body.dueNote, 'Where the due date comes from', 300),
     preparer: await assignee(db, body.preparerEmail, 'Preparer', ['preparer', 'reviewer']),
     reviewer: await assignee(db, body.reviewerEmail, 'Reviewer', ['reviewer']),
+    // The manager job role (WORK-009) is the reviewer unless someone is named.
+    manager: body.managerEmail ? await assignee(db, body.managerEmail, 'Manager', ['reviewer']) : null,
   };
   await atomic(db, actor, createStatements(db, actor, template, values));
   return job(db, actor, values.id);
@@ -78,6 +84,7 @@ export async function rollForward(db: D1Database, actor: Actor, jobId: string, b
     dueDate: date(body.dueDate, 'Due date'), dueNote: text(body.dueNote, 'Where the due date comes from', 300),
     preparer: await assignee(db, previous.preparer_email, 'Preparer', ['preparer', 'reviewer']),
     reviewer: await assignee(db, previous.reviewer_email, 'Reviewer', ['reviewer']),
+    manager: previous.manager_email ? await assignee(db, previous.manager_email, 'Manager', ['reviewer']) : null,
   };
   insist(values.dueDate >= periodStart, 'The due date is before the period starts');
   const exists = await stmt(db, 'SELECT id FROM b_jobs WHERE client_id=? AND template_id=? AND period_start=?', previous.client_id, template.id, periodStart).first();
@@ -87,10 +94,10 @@ export async function rollForward(db: D1Database, actor: Actor, jobId: string, b
 }
 
 export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
-  const j = await job(db, actor, jobId);
+  const j = await readableJob(db, actor, jobId);
   const [client, steps, requests, files, reminders, time, links, deliverables, money] = await Promise.all([
     stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>(),
-    rows(db, 'SELECT * FROM b_job_steps WHERE job_id=? ORDER BY ordinal', j.id),
+    jobTasks(db, j),
     rows(db, 'SELECT * FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id),
     rows(db, 'SELECT id,request_id,name,mime,size,sha256,uploaded_by,channel,uploaded_at,erased_at,erased_by,erase_reason FROM b_files WHERE job_id=? ORDER BY uploaded_at', j.id),
     rows(db, 'SELECT * FROM b_reminders WHERE job_id=? ORDER BY sent_at DESC', j.id),
@@ -110,11 +117,14 @@ const openJob = (j: Data, revision: unknown) => {
 
 export async function setStep(db: D1Database, actor: Actor, jobId: string, body: Data) {
   human(actor);
-  const j = await job(db, actor, jobId); openJob(j, body.revision);
+  const j = await readableJob(db, actor, jobId); openJob(j, body.revision);
   const ordinal = integer(body.ordinal, 'Step', 1, 100), done = body.done === true;
+  const step = await stmt(db, 'SELECT * FROM b_job_steps WHERE job_id=? AND ordinal=?', j.id, ordinal).first<Data>();
+  insist(step, 'Checklist step not found', 404);
+  insist(j.access === 'full' || step.assignee_email === actor.email, 'You can act only on your own tasks on this job', 403);
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status='open')", j.id);
   await atomic(db, actor, [check,
-    stmt(db, 'UPDATE b_job_steps SET done_by=?,done_at=? WHERE job_id=? AND ordinal=?', done ? actor.email : null, done ? now() : null, j.id, ordinal),
+    await completion(db, j, step, done, actor.email, now(), body),
     stmt(db, 'UPDATE b_jobs SET revision=? WHERE id=?', id(), j.id), release,
     audit(db, actor, done ? 'step.done' : 'step.reopened', j.id, String(ordinal))]);
   return jobDetail(db, actor, j.id);
