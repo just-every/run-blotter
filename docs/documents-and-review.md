@@ -22,6 +22,16 @@ For each received request, inspect the files and choose **Accept**. If something
 
 If you received a document another way, use **Add a file received another way** on its request. The job keeps the file's name, size, upload channel and upload time.
 
+## Client approval of deliverables
+
+Send the client a finished deliverable, such as financial statements, a draft return copy or a management report, for approval. On an open job, open **Deliverables for client approval → Send a deliverable for approval**. Name the deliverable, choose its file (up to 1 MiB), add an optional note and press **Send for approval**. Tick **Submit the job for review when the client approves** to let the client's approval move the job to **Review**.
+
+Blotter mails the client a fresh link, which replaces earlier links, and shows it once so you can pass it on yourself. The client opens it, downloads the version and either approves it or requests changes with a comment. Each answer records the client's name, the contact email on file, the time and the SHA-256 of the exact version they reviewed. A version is answered once.
+
+To send a corrected file, open **Send a new version** on the deliverable. The new version becomes the one to decide on: an earlier approval no longer stands, earlier comments stay on their versions, and the client can no longer approve an older version.
+
+An approval moves the job to **Review** only when its checklist is finished and every requested document is accepted; otherwise the job stays open and the approval says so. The person who sent the version is recorded as the submitter, so the normal review rules still apply.
+
 ## Submit and review
 
 Finish every checklist step and accept every requested document, then press **Submit for review**. The job moves from **Open** to **Review**.

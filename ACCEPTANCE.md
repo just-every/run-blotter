@@ -134,8 +134,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/documents.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Assigned-job access and revocable job upload links exist; per-document visibility, selected-recipient downloads and download audit are missing.
 
-40. **DOC-003 — Client approval of deliverables.** Status: **missing**. Send version 1 of a set of financial statements. The client requests a change with a comment. Upload version 2 and have the client approve it. Inspect the approval bound to version 2's hash, the retained comment on version 1 and the resulting status change. Approving version 1 after version 2 exists is refused.
-   Remaining: Staff can accept or return client uploads, but no client-side approval of firm deliverables exists.
+40. **DOC-003 — Client approval of deliverables.** Status: **done**. Send version 1 of a set of financial statements. The client requests a change with a comment. Upload version 2 and have the client approve it. Inspect the approval bound to version 2's hash, the retained comment on version 1 and the resulting status change. Approving version 1 after version 2 exists is refused.
+   Current evidence: `src/blotter/deliverables.ts`; `src/blotter/documents.ts`; `migrations/core/0019_deliverables.sql`; `src/ui/deliverables.tsx`; `tests/blotter/flows.test.mjs`.
 
 41. **SEARCH-001 — Firm wide search.** Status: **missing**. Search for a client's last name, an invoice number, a phrase inside an uploaded PDF and an email subject, and open each result. A preparer without access to a client gets no result from that client, and a private thread never appears. Searching the last four digits of an SSN works only for an authorized role and shows the number masked.
    Remaining: No cross-record or full-text search exists.

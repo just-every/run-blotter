@@ -280,8 +280,8 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 14 | 32 | 60 | 106 |
-| All | 14 | 32 | 60 | 106 |
+| Target and push further | 15 | 32 | 59 | 106 |
+| All | 15 | 32 | 59 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -324,7 +324,7 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | `MOBILE-001` | Mobile client and practitioner work | target | partial | `src/ui/portal.tsx`; `src/ui/workspace.tsx` | Browser upload/workspace screens exist; camera scanning, native apps, mobile time entry and timers, push, offline handling and mobile/accessibility acceptance are missing. |
 | `DOC-001` | Client files versions and annotations | target | partial | `src/blotter/documents.ts`; `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs` | Job/request attachments retain hashes and custody metadata at a 1 MiB limit; folders, versions, annotations, search and resumable larger packets are missing. |
 | `DOC-002` | Document sharing and internal only custody | target | partial | `src/blotter/documents.ts`; `tests/blotter/flows.test.mjs` | Assigned-job access and revocable job upload links exist; per-document visibility, selected-recipient downloads and download audit are missing. |
-| `DOC-003` | Client approval of deliverables | target | missing |  | Staff can accept or return client uploads, but no client-side approval of firm deliverables exists. |
+| `DOC-003` | Client approval of deliverables | target | done | `src/blotter/deliverables.ts`; `src/blotter/documents.ts`; `migrations/core/0019_deliverables.sql`; `src/ui/deliverables.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `SEARCH-001` | Firm wide search | target | missing |  | No cross-record or full-text search exists. |
 | `FOLLOWUP-001` | Automatic document chasing and escalation | target | partial | `src/blotter/documents.ts`; `src/blotter/proposals.ts`; `tests/blotter/flows.test.mjs` | Manual/human-approved outstanding-document email exists; schedules, stop-on-response rules, escalation, Twilio and carrier outcomes are missing. |
 | `REVIEW-001` | Independent reviewer sign off | target | done | `src/blotter/jobs.ts`; `src/blotter/documents.ts`; `tests/blotter/flows.test.mjs` |  |

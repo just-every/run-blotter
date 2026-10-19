@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Blotter, readFile, Status, when, type Row } from './common';
+import { PortalDeliverables } from './deliverables';
 
 /** The client's upload page. The link's secret is the only credential. */
 export function Portal({ token }: { token: string }) {
@@ -7,14 +8,15 @@ export function Portal({ token }: { token: string }) {
   const path = `/api/blotter/portal/${encodeURIComponent(token)}`;
   const load = async () => { const r = await fetch(path); const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? 'This link cannot be opened'); setView(b); };
   useEffect(() => { load().catch(e => setError(e.message)); }, [token]);
-  const upload = async (requestId: string, file: File) => {
+  const act = async (work: () => Promise<string>) => {
     setBusy(true); setError(''); setNotice('');
-    try {
-      const r = await fetch(`${path}/requests/${requestId}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(await readFile(file)) });
-      const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? 'Upload failed');
-      await load(); setNotice(`Uploaded ${file.name}. Thank you.`);
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    try { setNotice(await work()); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
+  const upload = (requestId: string, file: File) => act(async () => {
+    const r = await fetch(`${path}/requests/${requestId}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(await readFile(file)) });
+    const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? 'Upload failed');
+    await load(); return `Uploaded ${file.name}. Thank you.`;
+  });
   return <div className="portal" aria-busy={busy}>
     <header className="topbar"><span className="brand"><img src="/brand/mark.svg" alt="" width="28" height="28" /><span>{view?.practice ?? 'Document upload'}</span></span></header>
     <main>
@@ -27,8 +29,9 @@ export function Portal({ token }: { token: string }) {
           <div className="split"><h2>{r.label}</h2><Status value={r.status} /></div>
           {r.note && <p className="notice">Your accountant asks: {r.note}</p>}
           {r.files.map((f: Row) => <p key={f.uploadedAt + f.name} className="muted">Uploaded {f.name} · {when(f.uploadedAt)}</p>)}
-          {r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
+          {view.collecting && r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
         </section>)}</Blotter>
+        <PortalDeliverables path={path} busy={busy} act={act} />
       </>}
     </main>
   </div>;

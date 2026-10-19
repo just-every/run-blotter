@@ -8,6 +8,7 @@ import { person, agent } from './session';
 import { Fault, insist, type Actor, type Data } from './model';
 import { addClient, saveTemplate, workspace } from './clients';
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
+import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, sendDeliverable } from './deliverables';
 import { decideRequest, downloadFile, portalUpload, portalView, sendReminder, staffUpload } from './documents';
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
@@ -67,6 +68,8 @@ api.post(`${P}/time/:id/adjust`, as(async (a, c) => adjustEntry(db(c), a, param(
 api.get(`${P}/timesheets`, as((a, c) => timesheets(db(c), a)));
 api.post(`${P}/timesheets/submit`, as(async (a, c) => submitWeek(db(c), a, await body(c))));
 api.post(`${P}/periods/close`, as(async (a, c) => closePeriod(db(c), a, await body(c))));
+api.post(`${P}/jobs/:id/deliverables`, as(async (a, c) => sendDeliverable(c.env, a, param(c), await body(c))));
+api.get(`${P}/deliverables/versions/:id/file`, as((a, c) => downloadVersion(db(c), a, param(c))));
 api.post(`${P}/requests/:id/files`, as(async (a, c) => staffUpload(db(c), a, param(c), await body(c))));
 api.post(`${P}/requests/:id/decide`, as(async (a, c) => decideRequest(db(c), a, param(c), await body(c))));
 api.get(`${P}/files/:id`, as((a, c) => downloadFile(db(c), a, param(c))));
@@ -94,8 +97,14 @@ api.post(`${P}/agent/:command`, asAgent(async (a, c) => propose(db(c), a, param(
 
 // Client portal: the link's secret is the only credential; same-origin uploads only.
 api.get(`${P}/portal/:token`, async c => c.json(await portalView(db(c), param(c, 'token'), branding.name)));
+const sameOrigin = (c: C) => insist(c.req.header('origin') === runtimeBindings(c.env).AUTH_ORIGIN && c.req.header('sec-fetch-site') !== 'cross-site', 'Invalid request origin', 403);
 api.post(`${P}/portal/:token/requests/:request`, async c => {
-  const origin = runtimeBindings(c.env).AUTH_ORIGIN;
-  insist(c.req.header('origin') === origin && c.req.header('sec-fetch-site') !== 'cross-site', 'Invalid request origin', 403);
+  sameOrigin(c);
   return c.json(await portalUpload(db(c), param(c, 'token'), param(c, 'request'), await body(c)));
+});
+api.get(`${P}/portal/:token/deliverables`, async c => c.json(await portalDeliverables(db(c), param(c, 'token'))));
+api.get(`${P}/portal/:token/deliverables/:version/file`, async c => portalVersionFile(db(c), param(c, 'token'), param(c, 'version')));
+api.post(`${P}/portal/:token/deliverables/:version/decide`, async c => {
+  sameOrigin(c);
+  return c.json(await portalDecide(db(c), param(c, 'token'), param(c, 'version'), await body(c)));
 });

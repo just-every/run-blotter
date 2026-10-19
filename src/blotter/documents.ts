@@ -72,12 +72,40 @@ export async function downloadFile(db: D1Database, actor: Actor, fileId: string)
   insist(file, 'File not found', 404);
   await job(db, actor, file.job_id);
   insist(file.content_base64, 'This file was erased', 404);
+  return fileResponse(file);
+}
+
+/** Stored bytes as a download: never rendered inline, never cached. */
+export function fileResponse(file: Data) {
   const bytes = Uint8Array.from(atob(file.content_base64), c => c.charCodeAt(0));
   return new Response(bytes, { headers: {
     'content-type': SAFE_TYPES.includes(file.mime) ? file.mime : 'application/octet-stream',
     'content-disposition': `attachment; filename="${file.name.replace(/[^A-Za-z0-9._ -]/g, '_')}"`,
     'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
   } });
+}
+
+/** A fresh client link for a job. Earlier links stop working; only the secret's digest is stored. */
+export async function issueLink(db: D1Database, actor: Actor, jobId: string, origin: string) {
+  const token = secret('up_'), at = now();
+  const expiresAt = new Date(Date.now() + LINK_DAYS * 86_400_000).toISOString();
+  return { url: `${origin}/portal/${token}`, expiresAt, statements: [
+    stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', at, jobId),
+    stmt(db, 'INSERT INTO b_portal_links(id,job_id,digest,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)', id(), jobId, await digest(token), actor.email, at, expiresAt),
+  ] };
+}
+
+/** Mails the client contact through the operator's provider and says what happened. */
+export async function mailClient(bindings: ReturnType<typeof runtimeBindings>, deliveryId: string, to: string, subject: string, message: string) {
+  const sender = operatorMail(bindings);
+  if (!sender) return 'not sent: no mail provider is configured';
+  insist(bindings.MAIL_FROM, 'Set MAIL_FROM to send client mail', 500);
+  try {
+    const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)}</p>`).join('');
+    // A demo copy reports the provider's acceptance without sending anything.
+    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {} }), { status: 'accepted', provider: 'demo mail', providerMessageId: null });
+    return result.status === 'development' ? 'suppressed in development (no email sent)' : result.status === 'accepted' ? `accepted by ${result.provider}` : `${result.status} by ${result.provider}`;
+  } catch (error) { return `failed: ${error instanceof Error ? error.message : 'mail error'}`; }
 }
 
 /**
@@ -94,9 +122,8 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   insist(client?.contact_email, 'Add a contact email for this client first', 409);
   const outstanding = (await rows(db, "SELECT label FROM b_requests WHERE job_id=? AND status='requested' ORDER BY ordinal", j.id)).map(r => r.label as string);
   insist(outstanding.length > 0, 'No documents are outstanding', 409);
-  const token = secret('up_'), linkId = id(), reminderId = actor.approval?.resultId ?? id(), at = now();
-  const expires = new Date(Date.now() + LINK_DAYS * 86_400_000).toISOString();
-  const url = `${bindings.AUTH_ORIGIN}/portal/${token}`;
+  const reminderId = actor.approval?.resultId ?? id(), at = now();
+  const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN);
   const note = optional(body.message, 'Message', 1000);
   const message = [
     `Hello ${client.contact_name || client.name},`, '',
@@ -105,35 +132,24 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
     `Upload them securely here: ${url}`, `This link expires on ${expires.slice(0, 10)}.`,
   ].join('\n');
   const [check, release] = openGuard(db, j.id);
-  await atomic(db, actor, [check,
-    stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', at, j.id),
-    stmt(db, 'INSERT INTO b_portal_links(id,job_id,digest,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)', linkId, j.id, await digest(token), actor.email, at, expires),
+  await atomic(db, actor, [check, ...statements,
     stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at) VALUES(?,?,?,?,?,?,?,?,?)',
       reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replace(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
-  const sender = operatorMail(bindings);
-  let delivery = 'not sent: no mail provider is configured';
-  if (sender) {
-    insist(bindings.MAIL_FROM, 'Set MAIL_FROM to send reminders', 500);
-    try {
-      const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)}</p>`).join('');
-      // A demo copy reports the provider's acceptance without sending anything.
-      const result = await demoEffect(() => sender.send({ deliveryId: reminderId, from: bindings.MAIL_FROM!, to: [client.contact_email], subject: `Documents needed: ${j.title} ${j.period_label}`, text: message, html, headers: {} }), { status: 'accepted', provider: 'demo mail', providerMessageId: null });
-      delivery = result.status === 'development' ? 'suppressed in development (no email sent)' : result.status === 'accepted' ? `accepted by ${result.provider}` : `${result.status} by ${result.provider}`;
-    } catch (error) { delivery = `failed: ${error instanceof Error ? error.message : 'mail error'}`; }
-  }
+  const delivery = await mailClient(bindings, reminderId, client.contact_email, `Documents needed: ${j.title} ${j.period_label}`, message);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();
   return { id: reminderId, delivery, portalUrl: url, expiresAt: expires };
 }
 
 // ---- Public client portal, authorised only by the link's secret ----
 
-async function portalJob(db: D1Database, token: string) {
+/** The link's job while it is open or in review; uploads additionally need an open job. */
+export async function portalJob(db: D1Database, token: string) {
   insist(/^up_[0-9a-f]{64}$/.test(token), 'This upload link is not valid', 404);
   const link = await stmt(db, 'SELECT * FROM b_portal_links WHERE digest=?', await digest(token)).first<Data>();
   insist(link && !link.revoked_at && link.expires_at > now(), 'This upload link has expired or been replaced. Ask your accountant for a new one.', 404);
-  const j = await stmt(db, 'SELECT b_jobs.*,c.name client_name FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE b_jobs.id=?', link.job_id).first<Data>();
-  insist(j && j.status === 'open', 'This job is no longer collecting documents', 410);
+  const j = await stmt(db, 'SELECT b_jobs.*,c.name client_name,c.contact_email FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE b_jobs.id=?', link.job_id).first<Data>();
+  insist(j && j.status !== 'signed_off', 'This job is no longer collecting documents', 410);
   return { link, job: j };
 }
 
@@ -142,13 +158,14 @@ export async function portalView(db: D1Database, token: string, practice: string
   const requests = await rows(db, 'SELECT id,label,status,note FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id);
   const files = await rows(db, 'SELECT request_id,name,uploaded_at FROM b_files WHERE job_id=? AND channel=? ORDER BY uploaded_at', j.id, 'portal');
   return {
-    practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at,
+    practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
   };
 }
 
 export async function portalUpload(db: D1Database, token: string, requestId: string, body: Data) {
   const { link, job: j } = await portalJob(db, token);
+  insist(j.status === 'open', 'This job is no longer collecting documents', 410);
   const request = await stmt(db, 'SELECT * FROM b_requests WHERE id=? AND job_id=?', requestId, j.id).first<Data>();
   insist(request, 'Request not found', 404);
   insist(request.status !== 'accepted', 'Your accountant has already accepted this document', 409);

@@ -1,5 +1,6 @@
 // Recurring client jobs: start from a template, roll forward, work the
 // checklist, submit for review and sign off.
+import { deliverablesFor } from './deliverables';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -84,7 +85,7 @@ export async function rollForward(db: D1Database, actor: Actor, jobId: string, b
 
 export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   const j = await job(db, actor, jobId);
-  const [client, steps, requests, files, reminders, time, links] = await Promise.all([
+  const [client, steps, requests, files, reminders, time, links, deliverables] = await Promise.all([
     stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>(),
     rows(db, 'SELECT * FROM b_job_steps WHERE job_id=? ORDER BY ordinal', j.id),
     rows(db, 'SELECT * FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id),
@@ -92,9 +93,10 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
     rows(db, 'SELECT * FROM b_reminders WHERE job_id=? ORDER BY sent_at DESC', j.id),
     rows(db, `SELECT t.*,s.export_id,st.status review_status,st.reason review_reason FROM b_time t LEFT JOIN b_export_sources s ON s.source_key='time:'||t.id LEFT JOIN b_time_status st ON st.entry_id=t.id WHERE t.job_id=? ORDER BY t.date,t.created_at`, j.id),
     rows(db, 'SELECT id,created_by,created_at,expires_at,revoked_at FROM b_portal_links WHERE job_id=? ORDER BY created_at DESC', j.id),
+    deliverablesFor(db, j.id),
   ]);
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
-  return { job: j, client, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, nextJobId: next?.id ?? null };
+  return { job: j, client, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {

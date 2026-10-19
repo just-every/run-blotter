@@ -2,6 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { harness } from './harness.mjs';
 
 let h, reviewer, preparer, client, template, job, nextJob, csv, oldArchive, newArchive, erasedFile, keptFile;
@@ -289,6 +290,71 @@ test('WORK-004 bulk scheduling previews a client segment, keeps existing work an
   const eastJob = (await h.json('/jobs/' + made[east.id], undefined, h.owner)).job;
   assert.deepEqual([eastJob.preparer_email, eastJob.reviewer_email, eastJob.due_date, eastJob.due_note], ['preparer@example.test', 'reviewer@example.test', '2027-02-15', 'Extension filed']);
   assert.equal((await h.json('/jobs/' + made[north.id], undefined, h.owner)).job.reviewer_email, 'owner@example.test', 'A refused job is unchanged');
+});
+
+test('DOC-003 client approval of deliverables: changes on version 1, approval bound to version 2, newer versions reset approval', async () => {
+  const sha = text => createHash('sha256').update(text).digest('hex');
+  const northwind = await h.json('/clients', { name: 'Northwind Studio LLC', contactName: 'Jordan Lee', contactEmail: 'jordan@northwind.example' }, h.owner);
+  const tpl = await h.json('/templates', { name: 'Annual financial statements', recurrence: 'annual', steps: 'Prepare statements', requests: 'Trial balance' }, h.owner);
+  const work = await h.json('/jobs', { clientId: northwind.id, templateId: tpl.id, periodStart: '2026-01-01', dueDate: '2027-03-15', dueNote: 'Engagement letter', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+  const send = body => h.json(`/jobs/${work.id}/deliverables`, { mime: 'application/pdf', submitOnApproval: true, ...body }, preparer);
+  const portal = token => ({
+    list: async () => (await h.request(`/api/blotter/portal/${token}/deliverables`)).json(),
+    decide: (versionId, body, extra) => h.request(`/api/blotter/portal/${token}/deliverables/${versionId}/decide`, body, '', extra),
+  });
+
+  // Version 1 goes to the client, who asks for a change with a comment.
+  const v1 = await send({ title: 'Financial statements FY2026', name: 'statements-v1.pdf', contentBase64: b64('FS v1'), note: 'Draft for your review' });
+  assert.deepEqual(h.mails.at(-1).to, ['jordan@northwind.example']);
+  assert.match(h.mails.at(-1).text, /Financial statements FY2026 \(version 1\)/);
+  assert.equal(v1.sha256, sha('FS v1'));
+  let client = portal(portalToken(h.mails.at(-1)));
+  const [listed] = await client.list();
+  assert.deepEqual([listed.title, listed.status, listed.versions[0].sha256], ['Financial statements FY2026', 'sent', v1.sha256]);
+  assert.equal(await (await h.request(`/api/blotter/portal/${portalToken(h.mails.at(-1))}/deliverables/${v1.id}/file`)).text(), 'FS v1');
+  assert.equal((await client.decide(v1.id, { decision: 'changes', name: 'Jordan Lee', sha256: v1.sha256, comment: 'x' }, { origin: 'https://outside.example.test' })).status, 403);
+  assert.equal((await client.decide(v1.id, { decision: 'changes', name: 'Jordan Lee', sha256: v1.sha256 })).status, 400, 'A change request needs a comment');
+  assert.equal((await client.decide(v1.id, { decision: 'approve', name: 'Jordan Lee', sha256: sha('something else') })).status, 409, 'The decision names the reviewed hash');
+  const changes = await client.decide(v1.id, { decision: 'changes', name: 'Jordan Lee', sha256: v1.sha256, comment: 'Please split owner draws from wages.' });
+  assert.equal((await changes.json()).status, 'changes_requested');
+  assert.equal((await client.decide(v1.id, { decision: 'approve', name: 'Jordan Lee', sha256: v1.sha256 })).status, 409, 'A version is answered once');
+
+  // A second deliverable shows a newer version resetting an approval; it moves nothing.
+  const r1 = await send({ title: 'Management report', name: 'report-v1.pdf', contentBase64: b64('MR v1'), submitOnApproval: false });
+  client = portal(portalToken(h.mails.at(-1)));
+  assert.equal((await (await client.decide(r1.id, { decision: 'approve', name: 'Jordan Lee', sha256: r1.sha256 })).json()).jobStatus, 'open');
+  await send({ deliverableId: r1.deliverableId, name: 'report-v2.pdf', contentBase64: b64('MR v2') });
+  let report = (await h.json('/jobs/' + work.id, undefined, preparer)).deliverables.find(d => d.id === r1.deliverableId);
+  assert.deepEqual([report.status, report.versions[1].status, report.versions[1].approver_name], ['sent', 'approved', 'Jordan Lee']);
+
+  // The job's checklist and documents are complete, so approval can submit it for review.
+  const detail = await h.json('/jobs/' + work.id, undefined, preparer);
+  await h.json(`/requests/${detail.requests[0].id}/files`, { name: 'tb.csv', mime: 'text/csv', contentBase64: b64('account,balance') }, preparer);
+  await h.json(`/requests/${detail.requests[0].id}/decide`, { decision: 'accept' }, preparer);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 1, done: true }, preparer);
+
+  // Version 2 replaces the link; approving version 1 now is refused; version 2 is approved.
+  const oldToken = portalToken(h.mails.at(-1));
+  const v2 = await send({ deliverableId: v1.deliverableId, name: 'statements-v2.pdf', contentBase64: b64('FS v2'), note: 'Owner draws now shown separately' });
+  assert.equal(v2.version, 2);
+  assert.equal((await h.request(`/api/blotter/portal/${oldToken}/deliverables`)).status, 404);
+  client = portal(portalToken(h.mails.at(-1)));
+  assert.equal((await client.decide(v1.id, { decision: 'approve', name: 'Jordan Lee', sha256: v1.sha256 })).status, 409, 'Version 1 cannot be approved after version 2');
+  const approved = await (await client.decide(v2.id, { decision: 'approve', name: 'Jordan Lee', sha256: v2.sha256 })).json();
+  assert.deepEqual(approved, { status: 'approved', jobStatus: 'review', movedJob: true });
+
+  const after = await h.json('/jobs/' + work.id, undefined, reviewer);
+  const statements = after.deliverables.find(d => d.id === v1.deliverableId);
+  const [second, first] = statements.versions;
+  assert.equal(statements.status, 'approved');
+  assert.deepEqual([second.approver_name, second.approver_email, second.decided_sha256, second.sha256], ['Jordan Lee', 'jordan@northwind.example', sha('FS v2'), sha('FS v2')]);
+  assert.ok(second.decided_at);
+  assert.deepEqual([first.status, first.comment], ['changes_requested', 'Please split owner draws from wages.']);
+  assert.deepEqual([after.job.status, after.job.submitted_by], ['review', 'preparer@example.test']);
+  assert.equal(await (await h.request(`/api/blotter/deliverables/versions/${v2.id}/file`, undefined, reviewer)).text(), 'FS v2');
+  await h.json(`/jobs/${work.id}/deliverables`, { deliverableId: v1.deliverableId, name: 'v3.pdf', contentBase64: b64('FS v3') }, preparer, 409);
+  // The approval took the job through the normal review gate: the preparer still cannot sign it off.
+  await h.json(`/jobs/${work.id}/review`, { revision: after.job.revision, decision: 'signoff', note: 'Self' }, preparer, 403);
 });
 
 test('agent keys only prepare; a person approves or declines and the decision is recorded', async () => {
