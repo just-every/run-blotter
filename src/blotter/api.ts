@@ -13,6 +13,7 @@ import { addTime, approveExport, billingState, deleteTime, downloadExport, prepa
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
 import { commitReassign, commitSchedule, previewReassign, previewSchedule } from './bulk';
+import { adjustEntry, closePeriod, correctEntry, entryHistory, reviewEntry, submitWeek, timesheets } from './timesheets';
 import { agentContext, decideProposal, propose } from './proposals';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
@@ -59,6 +60,13 @@ api.post(`${P}/jobs/:id/review`, as(async (a, c) => reviewJob(db(c), a, param(c)
 api.post(`${P}/jobs/:id/reminders`, as(async (a, c) => sendReminder(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/time`, as(async (a, c) => addTime(db(c), a, param(c), await body(c))));
 api.post(`${P}/time/:id/delete`, as((a, c) => deleteTime(db(c), a, param(c))));
+api.get(`${P}/time/:id/history`, as((a, c) => entryHistory(db(c), a, param(c))));
+api.post(`${P}/time/:id/review`, as(async (a, c) => reviewEntry(db(c), a, param(c), await body(c))));
+api.post(`${P}/time/:id/correct`, as(async (a, c) => correctEntry(db(c), a, param(c), await body(c))));
+api.post(`${P}/time/:id/adjust`, as(async (a, c) => adjustEntry(db(c), a, param(c), await body(c))));
+api.get(`${P}/timesheets`, as((a, c) => timesheets(db(c), a)));
+api.post(`${P}/timesheets/submit`, as(async (a, c) => submitWeek(db(c), a, await body(c))));
+api.post(`${P}/periods/close`, as(async (a, c) => closePeriod(db(c), a, await body(c))));
 api.post(`${P}/requests/:id/files`, as(async (a, c) => staffUpload(db(c), a, param(c), await body(c))));
 api.post(`${P}/requests/:id/decide`, as(async (a, c) => decideRequest(db(c), a, param(c), await body(c))));
 api.get(`${P}/files/:id`, as((a, c) => downloadFile(db(c), a, param(c))));

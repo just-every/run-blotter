@@ -120,6 +120,10 @@ test('time snapshots rates; exports reserve each item once and approved CSVs nev
   await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 12000, effectiveFrom: '2026-10-03' }, h.owner);
   const t2 = await h.json(`/jobs/${nextJob.id}/time`, { date: '2026-10-03', minutes: 30, description: '=HYPERLINK("x")' }, preparer);
   assert.equal(t2.amountCents, 6000);
+  // Only approved time is ready to bill (TIME-002).
+  assert.ok(!(await h.json('/billing', undefined, reviewer)).unbilled.some(l => l.source_id === t1.id));
+  await h.json('/timesheets/submit', { weekStart: '2026-09-28' }, preparer);
+  for (const t of [t1, t2]) await h.json(`/time/${t.id}/review`, { decision: 'approve' }, reviewer);
   const billing = await h.json('/billing', undefined, reviewer);
   assert.equal(billing.unbilled.find(l => l.source_id === t1.id).rate_cents, 9500);
   const fee = billing.unbilled.find(l => l.kind === 'fee');
@@ -142,6 +146,8 @@ test('time snapshots rates; exports reserve each item once and approved CSVs nev
   await h.json(`/time/${t1.id}/delete`, {}, h.owner, 409);
   // A voided draft releases its items for a later export.
   const t3 = await h.json(`/jobs/${nextJob.id}/time`, { date: '2026-10-04', minutes: 6, description: 'Call' }, preparer);
+  await h.json('/timesheets/submit', { weekStart: '2026-09-28' }, preparer);
+  await h.json(`/time/${t3.id}/review`, { decision: 'approve' }, reviewer);
   draft = await h.json('/exports', { title: 'Draft', sourceKeys: ['time:' + t3.id] }, reviewer);
   await h.json(`/exports/${draft.id}/void`, { reason: 'Wrong month' }, reviewer);
   assert.ok((await h.json('/billing', undefined, reviewer)).unbilled.some(l => l.source_id === t3.id));
@@ -178,9 +184,58 @@ test('TIME-003 rate cards resolve client and service, client, service, staff mem
   for (const t of before) assert.deepEqual(after.find(a => a.id === t.id), t);
   const kestrelTime = (await h.json('/jobs/' + kestrel1040.id, undefined, h.owner)).time.map(t => [t.date, t.rate_cents, t.rate_source]);
   assert.deepEqual(kestrelTime, [['2026-10-05', 15000, 'client'], ['2026-10-10', 25000, 'client_service']]);
-  assert.ok((await h.json('/billing', undefined, h.owner)).unbilled.some(l => l.job_id === harbour1040.id && l.rate_source === 'service'));
+  assert.deepEqual((await h.json('/jobs/' + harbour1040.id, undefined, preparer)).time.map(t => [t.rate_cents, t.rate_source]), [[20000, 'service']]);
   assert.equal((await h.json('/team', undefined, h.owner)).rates.filter(r => r.scope === 'staff' && r.person_email === 'preparer@example.test').length, 3);
   assert.ok((await h.json('/team', undefined, preparer)).rates.every(r => r.scope === 'staff' && r.person_email === 'preparer@example.test'), 'Preparers see only their own staff rates');
+});
+
+test('TIME-002 timesheets: submit a week, return and correct, approve, close the period, then only adjustments change it', async () => {
+  const log = (date, minutes, description, who = preparer, expected = 200) => h.json(`/jobs/${nextJob.id}/time`, { date, minutes, description }, who, expected);
+  const e1 = await log('2026-12-07', 60, 'Reconcile December bank'), e2 = await log('2026-12-08', 30, 'Client call');
+  await h.json('/timesheets/submit', { weekStart: '2026-12-08' }, preparer, 400);
+  assert.equal((await h.json('/timesheets/submit', { weekStart: '2026-12-07' }, preparer)).submitted, 2);
+  await h.json('/timesheets/submit', { weekStart: '2026-12-07' }, preparer, 409);
+  await h.json(`/time/${e1.id}/review`, { decision: 'approve' }, preparer, 403);
+  await h.json(`/time/${e1.id}/delete`, {}, preparer, 409);
+  await h.json(`/time/${e2.id}/review`, { decision: 'return' }, reviewer, 400);
+  await h.json(`/time/${e2.id}/review`, { decision: 'return', reason: 'The call was 20 minutes' }, reviewer);
+  await h.json(`/time/${e1.id}/review`, { decision: 'approve' }, reviewer);
+  const mine = (await h.json('/timesheets', undefined, preparer)).entries;
+  assert.deepEqual([e1.id, e2.id].map(id => mine.find(e => e.id === id).status), ['approved', 'returned']);
+  assert.equal(mine.find(e => e.id === e2.id).reason, 'The call was 20 minutes');
+  let ready = (await h.json('/billing', undefined, reviewer)).unbilled.map(l => l.source_id);
+  assert.ok(ready.includes(e1.id) && !ready.includes(e2.id), 'Returned time is not billable');
+  const close = { startDate: '2026-12-01', endDate: '2026-12-31', note: 'December closed' };
+  assert.match((await h.json('/periods/close', close, h.owner, 409)).error, /1 time entry in this period is not approved/);
+  await h.json(`/time/${e2.id}/correct`, { minutes: 20, description: 'Client call' }, reviewer, 403);
+  const fixed = await h.json(`/time/${e2.id}/correct`, { minutes: 20, description: 'Client call' }, preparer);
+  assert.deepEqual([fixed.status, fixed.minutes, fixed.replaces], ['submitted', 20, e2.id]);
+  await h.json(`/time/${e2.id}/history`, undefined, preparer, 404);
+  await h.json(`/time/${fixed.id}/review`, { decision: 'approve' }, reviewer);
+  await h.json('/periods/close', close, reviewer, 403);
+  await h.json('/periods/close', close, h.owner);
+  await h.json('/periods/close', { ...close, startDate: '2026-12-31', endDate: '2027-01-05' }, h.owner, 409);
+  // Closed time is locked: no new entries, deletions or corrections in the period.
+  await log('2026-12-15', 10, 'Late entry', preparer, 409);
+  await h.json(`/time/${e1.id}/delete`, {}, h.owner, 409);
+  await h.json(`/time/${e1.id}/correct`, { minutes: 50, description: 'x' }, preparer, 409);
+  // Reservations still bill each item once.
+  ready = (await h.json('/billing', undefined, reviewer)).unbilled.map(l => l.source_key);
+  await h.json('/exports', { title: 'December', sourceKeys: ['time:' + e1.id, 'time:' + fixed.id] }, reviewer);
+  await h.json('/exports', { title: 'December again', sourceKeys: ['time:' + e1.id] }, reviewer, 409);
+  // An authorized adjustment corrects locked time and keeps the original.
+  await h.json(`/time/${e1.id}/adjust`, { minutes: 15, reason: 'Missed review call' }, reviewer, 403);
+  await h.json(`/time/${e1.id}/adjust`, { minutes: -100, reason: 'Too much' }, h.owner, 400);
+  const adjustment = await h.json(`/time/${e1.id}/adjust`, { minutes: 15, reason: 'Missed review call' }, h.owner);
+  assert.equal(adjustment.amountCents, 3250); // 15 × 13000 ÷ 60
+  const history = await h.json(`/time/${e1.id}/history`, undefined, preparer);
+  assert.deepEqual([history.entry.minutes, history.entry.amount_cents, history.locked, history.review.status, history.review.decided_by], [60, 13000, true, 'approved', 'reviewer@example.test']);
+  assert.deepEqual(history.adjustments.map(a => [a.minutes, a.amount_cents, a.reason, a.created_by]), [[15, 3250, 'Missed review call', 'owner@example.test']]);
+  assert.deepEqual(history.audit.map(a => a.action), ['time.added', 'time.approved', 'time.adjusted']);
+  const line = (await h.json('/billing', undefined, reviewer)).unbilled.find(l => l.source_key === 'adj:' + adjustment.id);
+  assert.deepEqual([line.kind, line.amount_cents], ['adjustment', 3250]);
+  await h.json('/exports', { title: 'Adjustment', sourceKeys: [line.source_key] }, reviewer);
+  await h.json('/exports', { title: 'Adjustment again', sourceKeys: [line.source_key] }, reviewer, 409);
 });
 
 test('WORK-004 bulk scheduling previews a client segment, keeps existing work and refuses inactive or self-review assignments', async () => {

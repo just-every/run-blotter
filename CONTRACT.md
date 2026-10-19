@@ -280,8 +280,8 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 13 | 33 | 60 | 106 |
-| All | 13 | 33 | 60 | 106 |
+| Target and push further | 14 | 32 | 60 | 106 |
+| All | 14 | 32 | 60 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -335,7 +335,7 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | `CAPACITY-002` | Reassignment and dependency aware scheduling | target | missing |  | No capacity-based reassignment, absence coverage or scheduling plan exists. |
 | `CAPACITY-003` | Capacity forecasts and hiring plans | target | missing |  | No historical workload forecast, confidence ranges or hiring scenario planning exists. |
 | `TIME-001` | Time budgets and activity suggestions | target | partial | `src/blotter/billing.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs` | Manual job time, integer amounts and rate snapshots exist; timers, budgets, cost/billable distinctions and activity-based suggestions are missing. |
-| `TIME-002` | Timesheet approval and period locks | target | partial | `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` | Live-export source reservations and approved-export time locks exist; timesheet approval, period close and adjustment records are missing. |
+| `TIME-002` | Timesheet approval and period locks | target | done | `src/blotter/timesheets.ts`; `src/blotter/billing.ts`; `migrations/core/0018_timesheets.sql`; `src/ui/timesheet.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `TIME-003` | Billing rates and rate cards | target | done | `src/blotter/rates.ts`; `src/blotter/billing.ts`; `migrations/core/0017_rate_cards.sql`; `tests/blotter/flows.test.mjs` |  |
 | `TIME-004` | Expenses and disbursements | target | missing |  | No expense or disbursement record exists. |
 | `BILL-001` | Reviewed immutable billing exports | target | done | `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` |  |

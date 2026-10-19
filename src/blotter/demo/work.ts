@@ -5,6 +5,7 @@
 // computes a tax due date: each engagement's recorded due day is a person's note.
 import { addMonths, periodLabel } from '../jobs';
 import { amount } from '../billing';
+import { weekStart } from '../timesheets';
 import { chance, fixedId } from './ids';
 import { base64, csv, pdf } from './files';
 import { engagements, principal, team, type Engagement } from './practice';
@@ -42,7 +43,7 @@ export type Row = Record<string, unknown>;
 export type Work = ReturnType<typeof emptyWork>;
 const emptyWork = () => ({
   jobs: [] as Row[], steps: [] as Row[], requests: [] as Row[], files: [] as Row[], links: [] as Row[],
-  reminders: [] as Row[], time: [] as Row[], audit: [] as Row[],
+  reminders: [] as Row[], time: [] as Row[], timeStatus: [] as Row[], audit: [] as Row[],
 });
 
 const rates = new Map<string, number>(team.map(m => [m.email, m.rateCents]));
@@ -177,6 +178,9 @@ function addTime(work: Work, jobId: string, person: string, ms: number, minutes:
   work.time.push({ id: entryId, job_id: jobId, person_email: person, date: day(iso(ms + 10 * HOUR)), minutes, rate_cents: rate, amount_cents: amount(minutes, rate), rate_source: 'staff', rate_card_id: fixedId('rate:' + person),
     description, created_by: person, created_channel: 'person', created_at: iso(ms) });
   work.audit.push({ id: fixedId(`audit:time:${entryId}`), actor: person, action: 'time.added', object_id: entryId, detail: `${minutes} min`, at: iso(ms) });
+  // The sample practice's time is submitted and approved (by Riley, or Priya for Riley's own), so it is ready to bill.
+  const approver = person === 'riley@morganco.example' ? 'priya@morganco.example' : 'riley@morganco.example';
+  work.timeStatus.push({ entry_id: entryId, person_email: person, week_start: weekStart(String(work.time.at(-1)!.date)), status: 'approved', submitted_at: iso(ms), reason: '', decided_by: approver, decided_at: iso(ms) });
 }
 
 /** The file a client sends for a request: a CSV register or a one-page PDF. */

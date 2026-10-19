@@ -49,6 +49,7 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
     bulk(db, 'b_portal_links', work.links),
     bulk(db, 'b_reminders', work.reminders),
     bulk(db, 'b_time', work.time),
+    bulk(db, 'b_time_status', work.timeStatus),
     bulk(db, 'b_exports', billing.exports),
     ...(billing.sources.length ? [bulk(db, 'b_export_sources', billing.sources)] : []),
     bulk(db, 'b_agent_keys', [

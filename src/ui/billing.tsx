@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Blotter, api, aud, Empty, Field, Form, Status, when, type Row, type Run } from './common';
+import { TimeApprovals } from './timesheet';
 
-export function Billing({ run, tick }: { run: Run; tick: number }) {
+export function Billing({ actor, run, tick }: { actor: Row; run: Run; tick: number }) {
   const [state, setState] = useState<Row>(), [chosen, setChosen] = useState<Set<string>>(new Set());
   useEffect(() => { api('/billing').then(s => { setState(s); setChosen(new Set()); }).catch(e => run(async () => { throw e; })); }, [tick]);
   if (!state) return <p>Opening billing…</p>;
   const toggle = (key: string) => setChosen(previous => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const total = state.unbilled.filter((l: Row) => chosen.has(l.source_key)).reduce((sum: number, l: Row) => sum + Number(l.amount_cents), 0);
   return <div className="stack">
+    <TimeApprovals actor={actor} run={run} tick={tick} />
     <Blotter><section className="panel">
       <h2>Ready to bill</h2>
-      <p className="muted">Recorded time, and fixed fees of signed-off jobs. Each item can go into one export. Amounts are AUD ex GST; Blotter does not calculate GST or send invoices.</p>
+      <p className="muted">Approved time and adjustments, and fixed fees of signed-off jobs. Each item can go into one export. Amounts are AUD ex GST; Blotter does not calculate GST or send invoices.</p>
       {!state.unbilled.length ? <Empty>Nothing waiting to be billed.</Empty> : <>
         <table className="table"><thead><tr><th><span className="sr-only">Include</span></th><th>Client</th><th>Job</th><th>Item</th><th>Amount</th></tr></thead>
           <tbody>{state.unbilled.map((l: Row) => <tr key={l.source_key}>

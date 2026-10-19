@@ -14,13 +14,29 @@ Each time entry snapshots the rate it resolved and where it came from; the job's
 
 Open the job's **Time** section. Enter the date, minutes and description, then press **Record time**. The table shows the person, rate and amount.
 
-You can delete your own unexported entries; the principal can also delete unexported entries. An entry already included in an export is protected.
+You can delete your own entries until they are submitted (or after one is returned to you); the principal can also delete them. Submitted, approved and exported entries are protected.
+
+## Submit and approve timesheets
+
+Under **Jobs → My timesheet**, each week (Monday to Sunday) lists your entries. Press **Submit** to send the week's new entries for approval.
+
+As a reviewer or the principal, open **Time & billing → Timesheets to approve**. **Approve** each entry, or **Return** it with a reason. Nobody but the principal approves their own time. A returned entry shows its reason in the person's timesheet; they open **Correct**, fix the minutes or description and submit the correction, which replaces the returned entry.
+
+Only approved time is ready to bill.
+
+## Close a billing period
+
+As the principal, open **Close a billing period** under **Timesheets to approve**, enter the dates and a closing note and press **Close period**. Every entry in the period must be approved first. Once closed, time dated in the period cannot be added, deleted or corrected.
+
+## Adjust approved time
+
+To correct approved or closed time, the principal opens the entry's **History** on the job and posts an adjustment: minutes to add or remove, with a reason. The original entry stays exactly as recorded; the adjustment is billed as its own line at the entry's rate. **History** shows the entry's submission, approval, adjustments and audit trail.
 
 ## Prepare an export
 
-As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows recorded time and the fixed fees of signed-off jobs. Choose the items, give the export a title and press **Prepare export**.
+As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved time, adjustments and the fixed fees of signed-off jobs. Choose the items, give the export a title and press **Prepare export**.
 
-Each time entry or fixed fee can belong to one export. Amounts are AUD ex GST. Blotter does not calculate GST or send invoices.
+Each time entry, adjustment or fixed fee can belong to one export. Amounts are AUD ex GST. Blotter does not calculate GST or send invoices.
 
 ## Approve and download
 

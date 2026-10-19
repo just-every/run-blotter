@@ -169,9 +169,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/billing.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Manual job time, integer amounts and rate snapshots exist; timers, budgets, cost/billable distinctions and activity-based suggestions are missing.
 
-51. **TIME-002 — Timesheet approval and period locks.** Status: **partial**. Submit a weekly timesheet, return and correct one entry, approve it and close the period. Attempt direct edits and duplicate billing, then post an authorized adjustment and inspect its history.
-   Current evidence: `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Live-export source reservations and approved-export time locks exist; timesheet approval, period close and adjustment records are missing.
+51. **TIME-002 — Timesheet approval and period locks.** Status: **done**. Submit a weekly timesheet, return and correct one entry, approve it and close the period. Attempt direct edits and duplicate billing, then post an authorized adjustment and inspect its history.
+   Current evidence: `src/blotter/timesheets.ts`; `src/blotter/billing.ts`; `migrations/core/0018_timesheets.sql`; `src/ui/timesheet.tsx`; `tests/blotter/flows.test.mjs`.
 
 52. **TIME-003 — Billing rates and rate cards.** Status: **done**. Set a staff rate, a 1040 service rate and a client override. Record time across them and inspect each entry's resolved rate and source. Change the staff rate effective next month and confirm past entries are unchanged.
    Current evidence: `src/blotter/rates.ts`; `src/blotter/billing.ts`; `migrations/core/0017_rate_cards.sql`; `tests/blotter/flows.test.mjs`.
