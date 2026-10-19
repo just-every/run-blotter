@@ -2,12 +2,13 @@ import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './com
 import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
 import { TaskEditor, taskBody } from './tasks';
+import { MessageTemplates } from './messages';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
 
 const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
 const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and receipts', 'Purchase receipts and bills'].join('\n');
 
-export function Clients({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
+export function Clients({ state, run, open, tick }: { state: Row; run: Run; open: (id: string) => void; tick: number }) {
   const lead = state.actor.role !== 'preparer';
   const people: Row[] = state.people;
   const [segment, setSegment] = useState<Row[]>(), [tasks, setTasks] = useState<Row[]>([]);
@@ -64,6 +65,7 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
           </div>
         </Form>}
     </section>}
+    <MessageTemplates actor={state.actor} run={run} tick={tick} />
     {lead && <section className="panel wide">
       <h2>Schedule work in bulk</h2>
       <p className="muted">Start one period's jobs for several clients. People come from an override, else the client's last period, else the default. Existing jobs are kept.</p>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Security } from './security';
+import { MessageTemplates } from './messages';
 import { Blotter, api, aud, Empty, Field, Form, SOURCE, today, when, type Row, type Run } from './common';
 
 export function Team({ state, run, tick }: { state: Row; run: Run; tick: number }) {
@@ -73,6 +74,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
       {!team.audit.length ? <Empty>No activity yet.</Empty> : <ul className="list">{team.audit.map((a: Row) => <li key={a.id}><small className="muted">{when(a.at)}</small> {a.actor} · {a.action} {a.detail && `· ${a.detail}`}</li>)}</ul>}
     </section>}
     <Security actor={state.actor} run={run} tick={tick} />
+    {state.actor.role === 'preparer' && <MessageTemplates actor={state.actor} run={run} tick={tick} />}
   </div>;
 }
 

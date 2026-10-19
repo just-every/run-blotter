@@ -44,7 +44,7 @@ export function Workspace() {
         {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
           : !state ? (!error && <p>Opening your workspace…</p>) : <fieldset disabled={busy} className="content">
           {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
-          {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} />}
+          {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
           {tab === 'Time & billing' && <Billing actor={state.actor} run={run} tick={tick} />}
           {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
           {tab === 'Move in' && <MoveIn run={run} tick={tick} />}

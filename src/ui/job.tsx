@@ -3,6 +3,7 @@ import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, 
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { JobExpenses } from './expenses';
+import { ReminderComposer } from './messages';
 import { attachmentBody, TaskInfo } from './tasks';
 import { EntryHistory } from './timesheet';
 
@@ -74,9 +75,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
           </div>}
         </article>)}
         {isOpen && <details><summary>Send a reminder with an upload link</summary>
-          <Form label="Send reminder" submit={async data => run(async () => setLink(await api(`/jobs/${job.id}/reminders`, data)), 'Reminder recorded')}>
-            <Field label="Extra message (optional)" name="message" required={false}><textarea name="message" rows={2} /></Field>
-          </Form>
+          <ReminderComposer jobId={job.id} run={run} sent={setLink} />
         </details>}
         {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
         {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}</li>)}</ul></details>}

@@ -4,7 +4,11 @@ Collect the requested files through one private link, then record a review decis
 
 ## Send a document request
 
-Open a job in **Jobs**, then **Client documents → Send a reminder with an upload link**. Add an optional message and press **Send reminder**.
+Open a job in **Jobs**, then **Client documents → Send a reminder with an upload link**. Either keep **Standard reminder**, add an optional message and press **Send reminder**, or choose a message template: Blotter shows the subject and message exactly as this client will receive them. If a placeholder has no value (for example the client has no contact name), the preview names it; fill it in or choose another template, because Blotter will not send a message with a gap. Then press **Send this message**. The job's reminder history keeps the text as sent.
+
+### Message templates
+
+Under **Clients & templates → Message templates** (preparers: **Team & safety**), search templates or filter by category. The principal keeps firm templates and sets the **Firm name**; everyone can keep personal templates and **Save a personal copy** of a firm one. A template has a name, category, subject and message, with placeholders in double braces: `{{firm_name}}`, `{{sender_name}}`, `{{client_name}}`, `{{contact_first_name}}` (the first word of the contact's name), `{{work_item}}`, `{{work_type}}`, `{{period}}`, `{{due_date}}`, `{{outstanding_requests}}` (one line per document), `{{portal_link}}`, `{{invoice_amount}}` and `{{invoice_due_date}}` (no invoices exist yet, so these must be filled in by hand). Saving an edit creates a new version with its author; messages already sent never change, and deleting a template keeps what was sent.
 
 On a deployed installation, Blotter mails the client their outstanding requests and upload link. Locally, mail is suppressed and you can copy the link shown in the job. The link appears once, replaces earlier links and has a displayed expiry date. Treat it as a private credential.
 

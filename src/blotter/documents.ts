@@ -4,6 +4,7 @@ import { operatorMail } from '../mail.server.mjs';
 import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { clientTasks } from './tasks';
+import { LINK_PREVIEW, render, usable, valuesFor } from './messages';
 import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
@@ -114,30 +115,58 @@ export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, del
  * mails it to the client contact. The link is also returned once, so staff can
  * pass it on themselves; only its digest is stored.
  */
-export async function sendReminder(env: Bindings, actor: Actor, jobId: string, body: Data) {
-  human(actor);
-  const bindings = runtimeBindings(env), db = bindings.DB;
+async function reminderContext(db: D1Database, actor: Actor, jobId: string) {
   const j = await job(db, actor, jobId);
   insist(j.status === 'open', 'Reminders are only for open jobs', 409);
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
   insist(client?.contact_email, 'Add a contact email for this client first', 409);
   const outstanding = (await rows(db, "SELECT label FROM b_requests WHERE job_id=? AND status='requested' ORDER BY ordinal", j.id)).map(r => r.label as string);
   insist(outstanding.length > 0, 'No documents are outstanding', 409);
+  return { j, client: client!, outstanding };
+}
+
+/** A message template (MSG-001) rendered for this job: the template's current version, or the sender's edited text. */
+async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<typeof reminderContext>>, body: Data, link: string) {
+  const t = body.templateId ? await usable(db, actor, text(body.templateId, 'Template')) : null;
+  const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : t?.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : t?.body;
+  insist(subject && message, 'Choose a template or write the subject and message');
+  const rendered = render(subject, message, await valuesFor(db, actor, ctx.j, ctx.client, ctx.outstanding, link), body.values);
+  return { ...rendered, templateId: t?.id ?? null, version: t?.version ?? null, edited: body.subject !== undefined || body.body !== undefined };
+}
+
+/** Render a reminder without sending it; the secure link is created only when sending. */
+export async function previewReminder(db: D1Database, actor: Actor, jobId: string, body: Data) {
+  const ctx = await reminderContext(db, actor, jobId);
+  return { to: ctx.client.contact_email, ...await templated(db, actor, ctx, body, LINK_PREVIEW) };
+}
+
+export async function sendReminder(env: Bindings, actor: Actor, jobId: string, body: Data) {
+  human(actor);
+  const bindings = runtimeBindings(env), db = bindings.DB;
+  const ctx = await reminderContext(db, actor, jobId), { j, client, outstanding } = ctx;
   const reminderId = actor.approval?.resultId ?? id(), at = now();
   const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN);
-  const note = optional(body.message, 'Message', 1000);
-  const message = [
-    `Hello ${client.contact_name || client.name},`, '',
-    `We need the following documents for ${j.title} (${j.period_label}):`, ...outstanding.map(label => `- ${label}`), '',
-    ...(note ? [note, ''] : []),
-    `Upload them securely here: ${url}`, `This link expires on ${expires.slice(0, 10)}.`,
-  ].join('\n');
+  let subject = `Documents needed: ${j.title} ${j.period_label}`, message: string, template: { id: string | null; version: number | null } = { id: null, version: null };
+  if (body.templateId || body.subject !== undefined || body.body !== undefined) {
+    const r = await templated(db, actor, ctx, body, url);
+    insist(!r.missing.length, `Fill in or remove before sending: ${r.missing.map(m => m.label).join(', ')}`, 409);
+    subject = r.subject; message = r.body; template = { id: r.templateId, version: r.edited ? null : r.version };
+  } else {
+    const note = optional(body.message, 'Message', 1000);
+    message = [
+      `Hello ${client.contact_name || client.name},`, '',
+      `We need the following documents for ${j.title} (${j.period_label}):`, ...outstanding.map(label => `- ${label}`), '',
+      ...(note ? [note, ''] : []),
+      `Upload them securely here: ${url}`, `This link expires on ${expires.slice(0, 10)}.`,
+    ].join('\n');
+  }
   const [check, release] = openGuard(db, j.id);
   await atomic(db, actor, [check, ...statements,
-    stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at) VALUES(?,?,?,?,?,?,?,?,?)',
-      reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replace(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at),
+    stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+      reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
+      subject, template.id, template.version),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
-  const delivery = await sendMail(bindings, reminderId, client.contact_email, `Documents needed: ${j.title} ${j.period_label}`, message);
+  const delivery = await sendMail(bindings, reminderId, client.contact_email, subject, message);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();
   return { id: reminderId, delivery, portalUrl: url, expiresAt: expires };
 }
