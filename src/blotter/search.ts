@@ -1,3 +1,4 @@
+import { documentBytes } from './document-packets';
 // Firm-wide search (SEARCH-001). One query covers the clients, contacts, jobs,
 // tasks, client portal messages, discussion notes and documents (by name and
 // extracted text) the searcher may read: the principal and reviewers read the
@@ -50,10 +51,10 @@ type Hit = { type: string; id: string; title: string; detail: string; body: stri
 
 /** Extracts and keeps the text of readable documents that have none yet, so later searches match inside them. */
 async function indexDocuments(db: D1Database, actor: Actor) {
-  const pending = await rows(db, `SELECT f.id,f.name,f.mime,f.content_base64 FROM b_files f JOIN b_jobs ON b_jobs.id=f.job_id
+  const pending = await rows(db, `SELECT f.id,f.name,f.mime,f.content_base64,f.storage FROM b_files f JOIN b_jobs ON b_jobs.id=f.job_id
     WHERE f.erased_at IS NULL AND f.content_base64 IS NOT NULL AND NOT EXISTS(SELECT 1 FROM b_file_text x WHERE x.file_id=f.id) AND ${readableJobSql} LIMIT ?`, ...readableJobParams(actor), INDEX_PER_SEARCH);
   for (const f of pending) {
-    const bytes = Uint8Array.from(atob(f.content_base64), c => c.charCodeAt(0));
+    const bytes = await documentBytes(db,f);
     await stmt(db, 'INSERT OR IGNORE INTO b_file_text(file_id,text,extracted_at) VALUES(?,?,?)', f.id, (await documentText(f.mime, f.name, bytes)).slice(0, 200_000), now()).run();
   }
 }

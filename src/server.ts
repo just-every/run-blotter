@@ -1,3 +1,4 @@
+import { purgeDocumentUploads } from './blotter/document-packets'
 import { withDemo } from './modules/demo/index.mjs'
 import { rejectedResponse } from './base/rejected-response'
 import start from '@tanstack/react-start/server-entry'
@@ -43,6 +44,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
   // The hourly Cron Trigger creates recurring work (WORK-002).
   async scheduled(controller, env) {
     await clearIntakeChecks(env.DB)
+    await purgeDocumentUploads(env.DB,new Date(controller.scheduledTime).toISOString())
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await deliverAlerts(env, new Date(controller.scheduledTime))
   },

@@ -1,3 +1,4 @@
+import { DocumentPackets } from './document-packets';
 import { DocumentCustody } from './document-access';
 import { StarterJobSummary } from './starter-library';
 import { useEffect, useState } from 'react';
@@ -17,6 +18,7 @@ import { EntryHistory } from './timesheet';
 export function JobDetail({ jobId, actor, people, back, open, run, tick }: { jobId: string; actor: Row; people: Row[]; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
   const [detail, setDetail] = useState<Row>(), [link, setLink] = useState<Row>();
   useEffect(() => { api('/jobs/' + jobId).then(setDetail).catch(e => run(async () => { throw e; })); }, [jobId, tick]);
+  useEffect(()=>{if(detail && window.location.hash)document.getElementById(window.location.hash.slice(1))?.scrollIntoView();},[jobId,detail?.job.id]);
   if (!detail) return <p>Opening job…</p>;
   const { job, client } = detail, isOpen = job.status === 'open';
   const lead = actor.role !== 'preparer';
@@ -42,9 +44,10 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
           </Form>
         </details>)}
     </section>
+    <DocumentPackets detail={detail} run={run} tick={tick} />
     <div className="grid">
       <section className="panel">
-        <h2>Checklist</h2>
+        <h2 id="job-checklist">Checklist</h2>
         <Answers jobId={job.id} answers={detail.answers} open={isOpen && job.access === 'full'} run={run} />
         <ul className="checklist">{detail.steps.map((s: Row) => <li key={s.ordinal}>
           <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen || (!s.done_at && (!!s.requires_attachment || s.state !== 'ready'))} onChange={e => {

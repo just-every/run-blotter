@@ -1,3 +1,4 @@
+import { DocumentPackets } from './document-packets';
 import { useEffect, useState } from 'react';
 import { api, Field, Form, type Row, type Run } from './common';
 
@@ -22,6 +23,7 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
   useEffect(() => { if (opened) api(`/clients/${clientId}/detail`).then(setDetail).catch(e => run(async () => { throw e; })); }, [clientId,tick,opened]);
   return <details onToggle={e => setOpened(e.currentTarget.open)}><summary>Client details and contacts</summary>
     {detail && <div className="stack" key={detail.revision}>
+      <details><summary>Client document folders</summary><DocumentPackets clientId={clientId} run={run} tick={tick} /></details>
       <p>{detail.entity_type} · {detail.lifecycle}{detail.ssn_last4 && ` · SSN ${detail.ssn_last4}`}</p>
       <p className="muted">Contact permissions apply only to this entity. A job link proves possession of the link; it does not verify a person's identity.</p>
       <details><summary>Edit client</summary><Form label="Save client" submit={async data => run(() => api(`/clients/${clientId}/edit`, {

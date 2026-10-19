@@ -81,7 +81,13 @@ ships as `/docs` and its guide pages in that same static build.
    upload link.** Blotter mails the client the link (on a deployed
    installation) and shows it to you once. Open the link in a private window:
    that is the client's view. Upload a file for each request, then back in the
-   job **Accept** each one or **Ask again**.
+   job **Accept** each one or **Ask again**. For larger packets, staff use
+   **Document packets → Add a packet or corrected version**: up to 20 MiB and
+   2,000 declared pages, with confirmed-byte progress, pause/resume for seven
+   days, immutable prior versions, internal page notes and review. Select the
+   exact original to resume. Client details also expose searchable document
+   folders by client/period. New packets start internal; corrections retain
+   preceding contact grants and create no share links.
 4. **Checklist:** tick every step and **Submit for review**. As the assigned
    reviewer (or the principal, for someone else's work), choose **Sign off**
    with a note. Signing off closes the upload link.
@@ -96,9 +102,11 @@ ships as `/docs` and its guide pages in that same static build.
    your agent with [API.md](API.md). Its roll-forwards, reminders and exports
    wait here until you **Approve** or **Decline**; decisions are recorded.
 8. **Move in:** load [the documented fixture](fixtures/client-list.csv) or your
-   own list, **Preview (dry run)**, then **Import these clients**. **View
+   own list, map source columns, **Preview (dry run)**, review any duplicate
+   choices and preview again, then **Import these clients**. **View
    journal** shows the original file and progress; **Undo import** removes the
-   imported clients except those that already have jobs. See
+   untouched imported clients/contacts while keeping native work and edited
+   records. Native matches add source provenance without changing permissions. See
    [IMPORTING.md](IMPORTING.md) for the CSV shape.
 9. **Team & safety:** **Download practice archive**, and **Erase a client file**
    by typing its name and a reason.

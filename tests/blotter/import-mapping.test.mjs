@@ -38,6 +38,13 @@ test('BASE-001 / IMPORT-001 mapped entity/contact CSV: write-free errors and dup
   const prep=await h.login('prep@example.test');await h.json('/import/status',{id:jobId},prep,403);await h.json('/import/preview',reviewed,prep,403);
   const template=await h.json('/templates',{name:'Annual tax return',recurrence:'annual',tasks:[{label:'Prepare',assignee:'preparer'}],requests:'State return'},h.owner);
   const work=await h.json('/jobs',{clientId:imported.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Firm recorded',preparerEmail:'prep@example.test',reviewerEmail:'owner@example.test'},h.owner);
+  const request=(await h.json(`/jobs/${work.id}`,undefined,h.owner)).requests[0],original=Buffer.from('Imported client review packet');
+  const file=await h.json(`/requests/${request.id}/files`,{name:'Imported review packet.txt',mime:'text/plain',contentBase64:original.toString('base64')},h.owner);
+  const access=await h.json(`/documents/${file.id}/access`,{revision:null,visibility:'contacts',contactIds:[contacts[0].id]},h.owner);
+  const share=await h.json(`/documents/${file.id}/shares`,{revision:access.revision,contactId:contacts[0].id,days:1},h.owner);
+  assert.deepEqual(Buffer.from(await(await h.request('/api/blotter/shared-files/'+share.token)).arrayBuffer()),original,'Imported contact references work through the same private grant/share doors');
+  await h.json(`/jobs/${work.id}/deliverables`,{title:'Imported client packet',name:'Client packet.txt',mime:'text/plain',contentBase64:original.toString('base64'),contactId:contacts[0].id},h.owner);
+  assert.deepEqual(h.mails.at(-1).to,[contacts[0].email],'Imported contacts are routable without changing their identity or grants');
   const edited=state.clients.find(c=>c.name==='Client 1'),detail=await h.json(`/clients/${edited.id}/detail`,undefined,h.owner);
   await h.json(`/clients/${edited.id}/contacts`,{id:detail.contacts[0].id,revision:detail.contacts[0].revision,name:'Corrected Contact'},h.owner);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);

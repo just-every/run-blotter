@@ -12,7 +12,7 @@ function deliverableRef(ref: string) {
 export async function initialContactAccessStatements(db: D1Database, ref: string, hash: string, contactId: string, actor: Actor) {
   human(actor); need(actor,'owner','reviewer','preparer');
   const key = deliverableRef(ref), contact = await stmt(db, `SELECT c.id,c.client_id,c.revision FROM b_client_contacts c
-    JOIN b_clients e ON e.id=c.client_id WHERE c.id=? AND ${CONTACT_OK}`, text(contactId, 'Contact', 100)).first<Data>();
+    JOIN b_clients e ON e.id=c.client_id WHERE c.id=? AND ${CONTACT_OK}`, text(contactId, 'Contact', 200)).first<Data>();
   insist(contact, 'Choose an active authorized portal contact', 409);
   const revision = id(), at = now(), [check, release] = guard(db, `NOT EXISTS(SELECT 1 FROM b_document_access WHERE file_key=?)
     AND EXISTS(SELECT 1 FROM b_document_sources f JOIN b_client_contacts c ON c.client_id=f.client_id

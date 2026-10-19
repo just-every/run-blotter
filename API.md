@@ -38,3 +38,28 @@ curl -s https://YOUR-INSTALLATION/api/blotter/agent/context \
 Roll-forwards and exports need a principal's or reviewer's key. Each command
 returns `{"id", "kind", "status": "pending", "payload"}`. A revoked key, or a
 person who is deactivated, gets `401` or `403`.
+
+## Staff document packets (DOC-001)
+
+These doors use a signed-in native person, not an agent key. Mutations retain the
+job's full staff scope; task-only readers retain read access without annotation
+or review authority. Chunked uploads are staff-only; the client portal keeps
+its existing upload door. All completed originals use the normal permission-
+checked `/api/blotter/files/:id` and `/documents/:id/file` downloads.
+
+- `POST /api/blotter/requests/:id/packet-uploads`: `{name,mime,size,sha256,pageCount,source,author,previousFileId?}`. Returns upload id, confirmed byte offset, expiry and limits.
+- `GET /api/blotter/jobs/:id/packet-uploads` and `GET /api/blotter/packet-uploads/:id`: discover pending uploads and resume their confirmed offset.
+- `POST /api/blotter/packet-uploads/:id/chunks`: `{offset,chunkId,sha256,contentBase64}`. Full 256 KiB chunks except the final chunk; same id/offset/hash is idempotent.
+- `POST /api/blotter/packet-uploads/:id/complete` or `/cancel`: `{}`. Completion requires exact original size/hash; cancel removes staging only.
+- `GET /api/blotter/jobs/:id/document-packets?q=...` or `/clients/:id/document-packets?q=...`: authorized client/period folders, all versions, source/author/timestamps, annotations and review.
+- `GET` / `POST /api/blotter/document-packets/:id/annotations`: read notes or append `{page,note,pageCount?}`; a historical original with unknown page count requires a one-time staff declaration.
+- `POST /api/blotter/document-packets/:id/review`: `{revision,status,note?}`. Returned packets require a note.
+
+Originals are 1 byte–20 MiB and 1–2,000 declared pages; pending uploads expire
+after seven days. Every chunk rechecks staff/job/client scope. Original bytes
+and prior versions remain exact, with independent review state and internal
+notes. Corrected versions preserve exact contact grants without sharing tokens.
+Archives include final chunks and metadata, exclude pending chunks and bearer
+links, and retain the file-erasure fence. The existing JSON archive restore door
+accepts up to 64,000,000 JSON characters; larger firm-scale streaming restoration
+remains ARCHIVE-002.

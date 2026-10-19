@@ -39,7 +39,7 @@ export function Workspace() {
   // A session that still owes a second factor (ACCESS-004) sees only the factor screen.
   const owed = (e: unknown) => { const need = (e as { mfa?: 'enroll' | 'verify' }).mfa; if (need) setGate(need); return !!need; };
   const reload = async () => { setState(await api('/state')); setTick(t => t + 1); };
-  useEffect(() => { reload().catch(e => owed(e) || setError(e.message)); }, []);
+  useEffect(() => { const destination=new URLSearchParams(window.location.search); if(destination.has('job')||destination.has('notice')){setTab('Jobs');setJobId(destination.get('job')??'');} reload().catch(e => owed(e) || setError(e.message)); }, []);
   const run: Run = async (job, message = 'Saved') => {
     setError(''); setNotice(''); setBusy(true);
     try { await job(); await reload(); setNotice(message); } catch (e) { if (!owed(e)) setError((e as Error).message); } finally { setBusy(false); }

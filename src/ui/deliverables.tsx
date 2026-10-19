@@ -11,7 +11,7 @@ export function Deliverables({ job, deliverables, run, contacts = [] }: { job: R
     setLink(await api(`/jobs/${job.id}/deliverables`, { ...(await readFile(data.file)), contactId:data.contactId, note: data.note, submitOnApproval: data.submitOnApproval === 'on', ...extra }));
   }, 'Sent to the client for approval');
   return <section className="panel">
-    <h2>Deliverables for client approval</h2>
+    <h2 id="job-deliverables">Deliverables for client approval</h2>
     {deliverables.length === 0 && <p className="muted">No deliverables sent yet.</p>}
     {deliverables.map(d => <article key={d.id} className="record">
       <div className="split"><strong>{d.title}</strong><Status value={d.status} /></div>

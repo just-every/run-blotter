@@ -57,12 +57,14 @@ function NoticeDetail({ id, actor, run, tick }: { id: string; actor: Row; run: R
 /** Notices list: open first, by response date, with the next follow-up. Blotter tracks the work; it gives no tax advice. */
 export function Notices({ actor, run, tick }: { actor: Row; run: Run; tick: number }) {
   const [list, setList] = useState<Row[]>(), [open, setOpen] = useState('');
+  useEffect(()=>{setOpen(new URLSearchParams(window.location.search).get('notice')??'');},[]);
   useEffect(() => { api('/notices').then(setList).catch(e => run(async () => { throw e; })); }, [tick]);
+  useEffect(()=>{if(list && window.location.hash.startsWith('#notice-'))document.getElementById(window.location.hash.slice(1))?.scrollIntoView();},[Boolean(list)]);
   if (!list) return null;
   return <section className="panel">
     <h2>Tax notices</h2>
     <p className="muted">Open a notice from a client document on a job. Blotter tracks deadlines, work and evidence; it does not give tax advice.</p>
-    {!list.length ? <Empty>No notices.</Empty> : <ul className="list">{list.map(n => <li key={n.id}>
+    {!list.length ? <Empty>No notices.</Empty> : <ul className="list">{list.map(n => <li id={`notice-${n.id}`} key={n.id}>
       <button className="quiet text-action" onClick={() => setOpen(open === n.id ? '' : n.id)}>{n.client} · {n.agency} {n.notice_type} {n.tax_period}</button> <Status value={n.status} />
       <small className="muted"> respond by {day(n.response_due)}{!n.due_verified_at && ' (unverified)'} · {n.assignee_email}{n.next_follow_up && ` · follow up ${day(n.next_follow_up)}`}</small>
       {open === n.id && <NoticeDetail id={n.id} actor={actor} run={run} tick={tick} />}

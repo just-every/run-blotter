@@ -6,7 +6,7 @@ const miles = (tenths: number) => (tenths / 10).toFixed(1);
 /** A job's expenses (TIME-004): record with a receipt and markup, approve or reject, and the job's margin. */
 export function JobExpenses({ detail, actor, people, run }: { detail: Row; actor: Row; people?: Row[]; run: Run }) {
   const { job, expenses, profitability: p } = detail, lead = actor.role !== 'preparer';
-  return <section className="panel">
+  return <section className="panel" id="job-expenses">
     <h2>Expenses</h2>
     {expenses.length === 0 ? <p className="muted">No expenses recorded yet.</p> : <table className="table"><thead><tr><th>Date</th><th>Expense</th><th className="amount">Cost</th><th className="amount">Client charge</th><th>Paid by</th><th>Status</th></tr></thead>
       <tbody>{expenses.map((e: Row) => <tr key={e.id}>

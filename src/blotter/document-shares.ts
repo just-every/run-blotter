@@ -45,7 +45,7 @@ export async function saveAccess(db: D1Database, actor: Actor, fileId: string, b
   checkedRevision(body, access);
   insist(body.visibility === 'internal' || body.visibility === 'contacts', 'Choose internal or explicit contact access');
   insist(Array.isArray(body.contactIds) && body.contactIds.length <= 100, 'Choose up to 100 contacts');
-  const contactIds = [...new Set((body.contactIds as unknown[]).map(v => text(v, 'Contact', 100)))];
+  const contactIds = [...new Set((body.contactIds as unknown[]).map(v => text(v, 'Contact', 200)))];
   insist(body.visibility !== 'internal' || !contactIds.length, 'An internal file cannot have contact grants');
   insist(body.visibility !== 'contacts' || (file.client_id && contactIds.length), 'Choose at least one contact on this file’s client entity');
   const contacts = await Promise.all(contactIds.map(contactId => stmt(db, `SELECT c.id,c.revision FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id
@@ -87,7 +87,7 @@ async function issueShare(db: D1Database, actor: Actor, fileId: string, body: Da
   const previous = replacing ? await stmt(db, 'SELECT * FROM b_document_shares WHERE id=? AND file_key=?', replacing, file.file_key).first<Data>() : null;
   insist(!replacing || previous, 'Share not found', 404);
   insist(!previous?.revoked_at, 'This share was revoked. Create a new share instead.', 409);
-  const contactId = previous?.contact_id ?? text(body.contactId, 'Contact', 100);
+  const contactId = previous?.contact_id ?? text(body.contactId, 'Contact', 200);
   const contact = await stmt(db, `SELECT c.id,c.revision FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id
     JOIN b_document_grants g ON g.contact_id=c.id AND g.file_key=? WHERE c.id=? AND c.client_id=? AND ${CONTACT_OK}`, file.file_key, contactId, file.client_id).first<Data>();
   insist(contact, 'This contact no longer has permission for this file', 409);

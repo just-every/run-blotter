@@ -19,12 +19,12 @@ export async function backup(db: D1Database, actor: Actor) {
 export async function restore(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
   insist(body.confirm === 'RESTORE', 'Type RESTORE to confirm an empty-destination restore');
-  const source = text(body.archive, 'Archive', 24_000_000), service = await createPortability({ db, policy });
+  const source = text(body.archive, 'Archive', 64_000_000), service = await createPortability({ db, policy });
   const records = [];
   for await (const record of readArchive(new Response(source).body!)) records.push(record);
   let laterJournal;
   if (body.journal) {
-    for await (const part of readArchive(new Response(text(body.journal, 'Later archive', 24_000_000)).body!)) {
+    for await (const part of readArchive(new Response(text(body.journal, 'Later archive', 64_000_000)).body!)) {
       if (part.kind === 'manifest') laterJournal = { sourceIdentity: part.sourceIdentity, epoch: part.epoch, journal: part.journal };
     }
   }

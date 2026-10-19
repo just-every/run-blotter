@@ -1,11 +1,12 @@
+import { documentBytes } from './document-packets';
 // Audited staff, contact-portal and bearer download transports.
 import { atomic, audit, digest, Fault, guard, id, insist, now, stmt, type Actor, type Data } from './model';
 import { source, staffFile, scopeGuard, CONTACT_OK } from './document-source';
 
 /** No documents import: these headers also avoid a documents/share circular dependency. */
-function downloadResponse(file: Data) {
+async function downloadResponse(db: D1Database, file: Data) {
   const safeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'text/csv', 'text/plain'];
-  return new Response(Uint8Array.from(atob(file.content_base64), c => c.charCodeAt(0)), { headers: {
+  return new Response(await documentBytes(db,file), { headers: {
     'content-type': safeTypes.includes(file.mime) ? file.mime : 'application/octet-stream',
     'content-disposition': `attachment; filename="${String(file.name).replace(/[^A-Za-z0-9._ -]/g, '_')}"`,
     'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer',
@@ -16,7 +17,7 @@ function downloadResponse(file: Data) {
 export async function staffDownload(db: D1Database, actor: Actor, fileId: string) {
   const file = await staffFile(db, actor, fileId), [same, done] = scopeGuard(db, actor, file);
   await atomic(db, actor, [same, audit(db, actor, 'file.downloaded', file.file_key, JSON.stringify({ channel: 'staff', sha256: file.sha256 })), done]);
-  return downloadResponse(file);
+  return downloadResponse(db,file);
 }
 
 const sharedSql = `SELECT f.* FROM b_document_shares s JOIN b_document_access a ON a.file_key=s.file_key
@@ -45,7 +46,7 @@ export async function sharedDownload(db: D1Database, token: string) {
   }
   const file = result[1].results[0];
   insist(file, 'This file link is unavailable', 404);
-  return downloadResponse(file);
+  return downloadResponse(db,file);
 }
 
 const contactSql = `SELECT f.* FROM b_document_sources f JOIN b_document_access a ON a.file_key=f.file_key
@@ -78,5 +79,5 @@ export async function contactDownload(db: D1Database, fileRef: string, contactId
     throw error;
   }
   insist(result[1].results[0], 'This contact cannot access this file', 404);
-  return downloadResponse(result[1].results[0]);
+  return downloadResponse(db,result[1].results[0]);
 }

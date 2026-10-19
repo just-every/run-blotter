@@ -1,3 +1,5 @@
+import { startPacketUpload, jobPacketUploads, packetUploadStatus, appendPacketChunk, completePacketUpload, cancelPacketUpload } from './document-packets';
+import { documentCatalog, packetAnnotations, annotatePacket, reviewPacket } from './document-catalog';
 import { jobDocuments,staffDownload,staffAccess,saveAccess,createShare,rotateShare,revokeShare,sharedDownload,contactDownload } from './document-shares';
 import { portalJob } from './documents';
 import { publishStarter } from './starter-releases';
@@ -65,9 +67,9 @@ api.onError((e, c) => {
   return c.json({ error: 'The operation failed. Refresh before trying again.' }, 500);
 });
 
-async function body(c: C): Promise<Data> {
+async function body(c: C, maxCharacters = 24_000_000): Promise<Data> {
   const raw = await c.req.text();
-  insist(raw.length <= 24_000_000, 'Request too large', 413);
+  insist(raw.length <= maxCharacters, 'Request too large', 413);
   const parsed = JSON.parse(raw);
   insist(parsed && typeof parsed === 'object' && !Array.isArray(parsed), 'Supply a JSON object');
   return parsed;
@@ -106,6 +108,17 @@ api.post(`${P}/documents/:ref/shares/:share/rotate`, as(async(a,c) => rotateShar
 api.post(`${P}/documents/:ref/shares/:share/revoke`, as(async(a,c) => revokeShare(db(c),a,param(c,'ref'),param(c,'share'),await body(c))));
 api.get(`${P}/shared-files/:token`, c => sharedDownload(db(c),param(c,'token')));
 api.get(`${P}/portal/:token/files/:ref`, async c => { const {link,contact,job} = await portalJob(db(c),param(c,'token')); const preview = await db(c).prepare('SELECT job_id FROM b_document_sources WHERE file_key=?').bind(param(c,'ref')).first<{job_id:string}>(); insist(preview?.job_id === job.id,'File not found',404); return contactDownload(db(c),param(c,'ref'),contact.id,link.id); });
+api.post(`${P}/requests/:id/packet-uploads`, as(async(a,c)=>startPacketUpload(db(c),a,param(c),await body(c))));
+api.get(`${P}/jobs/:id/packet-uploads`, as((a,c)=>jobPacketUploads(db(c),a,param(c))));
+api.get(`${P}/packet-uploads/:id`, as((a,c)=>packetUploadStatus(db(c),a,param(c))));
+api.post(`${P}/packet-uploads/:id/chunks`, as(async(a,c)=>appendPacketChunk(db(c),a,param(c),await body(c))));
+api.post(`${P}/packet-uploads/:id/complete`, as((a,c)=>completePacketUpload(db(c),a,param(c))));
+api.post(`${P}/packet-uploads/:id/cancel`, as((a,c)=>cancelPacketUpload(db(c),a,param(c))));
+api.get(`${P}/jobs/:id/document-packets`, as((a,c)=>documentCatalog(db(c),a,{jobId:param(c),q:c.req.query('q')})));
+api.get(`${P}/clients/:id/document-packets`, as((a,c)=>documentCatalog(db(c),a,{clientId:param(c),q:c.req.query('q')})));
+api.get(`${P}/document-packets/:id/annotations`, as((a,c)=>packetAnnotations(db(c),a,param(c))));
+api.post(`${P}/document-packets/:id/annotations`, as(async(a,c)=>annotatePacket(db(c),a,param(c),await body(c))));
+api.post(`${P}/document-packets/:id/review`, as(async(a,c)=>reviewPacket(db(c),a,param(c),await body(c))));
 api.get(`${P}/state`, as((a, c) => workspace(db(c), a)));
 api.get(`${P}/inbox`, as((a, c) => inbox(db(c), a)));
 api.get(`${P}/mfa`, asOpen((a, c) => mfaState(db(c), a)));
@@ -263,7 +276,7 @@ api.post(`${P}/proposals/:id/decide`, as(async (a, c) => decideProposal(c.env, a
 api.get(`${P}/import`, as((a, c) => importState(db(c), a)));
 api.post(`${P}/import/:op`, as(async (a, c) => importAction(db(c), a, param(c, 'op'), await body(c))));
 api.get(`${P}/backup`, as((a, c) => backup(db(c), a)));
-api.post(`${P}/restore`, as(async (a, c) => restore(db(c), a, await body(c))));
+api.post(`${P}/restore`, as(async (a, c) => restore(db(c), a, await body(c, 64_000_000))));
 
 // Agent doors: read context, prepare proposals. Nothing here changes practice records.
 api.get(`${P}/agent/context`, asAgent((a, c) => agentContext(db(c), a)));
