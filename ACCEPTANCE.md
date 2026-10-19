@@ -162,8 +162,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Remaining: No historical workload forecast, confidence ranges or hiring scenario planning exists.
 
 50. **TIME-001 — Time budgets and activity suggestions.** Status: **partial**. Record time, change the rate and inspect unchanged prior amounts and budget variance. Stop/restart a timer, reject one activity suggestion and approve another; verify only approved minutes enter WIP and unauthorized edits are refused.
-   Current evidence: `src/blotter/billing.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Manual job time, integer amounts and rate snapshots exist; timers, budgets, cost/billable distinctions and activity-based suggestions are missing.
+   Current evidence: `src/blotter/billing.ts`; `src/blotter/timers.ts`; `src/blotter/team.ts`; `migrations/core/0031_timers.sql`; `src/ui/timer.tsx`; `tests/blotter/flows.test.mjs` ("TIME-001 timers and budgets").
+   Remaining: Manual job time and running timers with snapshotted rates, and approved job budgets with actual minutes, cost and variance, exist; per-entry billable status and consented activity suggestions are missing.
 
 51. **TIME-002 — Timesheet approval and period locks.** Status: **done**. Submit a weekly timesheet, return and correct one entry, approve it and close the period. Attempt direct edits and duplicate billing, then post an authorized adjustment and inspect its history.
    Current evidence: `src/blotter/timesheets.ts`; `src/blotter/billing.ts`; `migrations/core/0018_timesheets.sql`; `src/ui/timesheet.tsx`; `tests/blotter/flows.test.mjs`.

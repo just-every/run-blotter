@@ -6,6 +6,7 @@ import { jobExpenses } from './expenses';
 import { advance, dependents, flowSteps, jobAnswers, pendingStep, readyGuard } from './flow';
 import { completion, stepInsert } from './tasks';
 import { notify, reviewRequested } from './notifications';
+import { budget, myTimer } from './timers';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -73,7 +74,9 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
     // The manager job role (WORK-009) is the reviewer unless someone is named.
     manager: body.managerEmail ? await assignee(db, body.managerEmail, 'Manager', ['reviewer']) : null,
   };
-  await atomic(db, actor, createStatements(db, actor, template, values));
+  // An optional time budget, approved by the reviewer or principal who starts the job (TIME-001).
+  const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? null : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
+  await atomic(db, actor, [...createStatements(db, actor, template, values), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
   await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }
@@ -117,7 +120,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
     jobAnswers(db, j.id),
   ]);
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
-  return { job: j, client, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  return { job: j, client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {

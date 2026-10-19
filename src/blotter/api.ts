@@ -25,6 +25,7 @@ import { confirmPasskey, confirmTotp, enrollmentReport, mfaOverview, mfaState, n
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
+import { discardTimer, startTimer, stopTimer } from './timers';
 import { commitReassign, commitSchedule, previewReassign, previewSchedule } from './bulk';
 import { adjustEntry, closePeriod, correctEntry, entryHistory, reviewEntry, submitWeek, timesheets } from './timesheets';
 import { agentContext, decideProposal, propose } from './proposals';
@@ -134,6 +135,9 @@ api.post(`${P}/firm`, as(async (a, c) => setFirmName(db(c), a, await body(c))));
 api.post(`${P}/jobs/:id/reminders`, as(async (a, c) => sendReminder(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/time`, as(async (a, c) => addTime(db(c), a, param(c), await body(c))));
 api.post(`${P}/time/:id/delete`, as((a, c) => deleteTime(db(c), a, param(c))));
+api.post(`${P}/jobs/:id/timer`, as(async (a, c) => startTimer(db(c), a, param(c), await body(c))));
+api.post(`${P}/timer/stop`, as((a, c) => stopTimer(db(c), a)));
+api.post(`${P}/timer/discard`, as((a, c) => discardTimer(db(c), a)));
 api.get(`${P}/time/:id/history`, as((a, c) => entryHistory(db(c), a, param(c))));
 api.post(`${P}/time/:id/review`, as(async (a, c) => reviewEntry(db(c), a, param(c), await body(c))));
 api.post(`${P}/time/:id/correct`, as(async (a, c) => correctEntry(db(c), a, param(c), await body(c))));

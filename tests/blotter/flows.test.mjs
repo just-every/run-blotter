@@ -1046,6 +1046,38 @@ test('CRM-004 merge and undo: an imported duplicate keeps its source ID, takes s
   assert.equal((await h.json('/clients/merge', { ...join, authority: 'One company; the second EIN was a typo on the old engagement letter' }, h.owner)).authority, 'One company; the second EIN was a typo on the old engagement letter');
 });
 
+test('TIME-001 timers and budgets: a timer survives a new session, stops into snapshotted time, restarts once at a time, and the job shows actual against its approved budget', async () => {
+  const shop = await h.json('/clients', { name: 'Timber Yard Supplies', fields: { service_tier: 'Plus' } }, h.owner);
+  const start = { clientId: shop.id, templateId: template.id, periodStart: '2026-10-01', dueDate: '2026-11-20', dueNote: 'Client calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  await h.json('/jobs', { ...start, budgetMinutes: 0 }, reviewer, 400);
+  const work = await h.json('/jobs', { ...start, budgetMinutes: 60 }, reviewer);
+  await h.json('/team/rates', { scope: 'client', clientId: shop.id, rateCents: 18000, effectiveFrom: '2026-01-01' }, h.owner);
+  await h.json(`/jobs/${work.id}/timer`, { description: 'Bank reconciliation' }, '', 401);
+  await h.json(`/jobs/${work.id}/timer`, { description: 'Bank reconciliation' }, h.owner);
+  await h.json(`/jobs/${work.id}/timer`, { description: 'Second' }, h.owner, 409);
+  // The timer lives on the server: a fresh sign-in sees it running and stops it.
+  const later = await h.login('owner@example.test');
+  const running = (await h.json('/jobs/' + work.id, undefined, later)).timer;
+  assert.deepEqual([running.job_id, running.description], [work.id, 'Bank reconciliation']);
+  await h.json('/timer/stop', {}, reviewer, 404);
+  await new Promise(r => setTimeout(r, 1100));
+  const first = await h.json('/timer/stop', {}, later);
+  assert.deepEqual([first.minutes, first.date, first.amountCents], [1, running.started_at.slice(0, 10), Math.floor((first.rateCents + 30) / 60)]);
+  await h.json('/timer/stop', {}, later, 404);
+  // Restart, then discard: nothing is recorded for a discarded timer.
+  await h.json(`/jobs/${work.id}/timer`, { description: 'Payroll check' }, later);
+  await h.json('/timer/discard', {}, later);
+  await h.json(`/jobs/${work.id}/timer`, { description: 'Payroll check' }, later);
+  await h.json('/timer/stop', {}, later);
+  await h.json(`/jobs/${work.id}/time`, { date: '2026-10-20', minutes: 70, description: 'Accounts payable review' }, later);
+  const detail = await h.json('/jobs/' + work.id, undefined, reviewer);
+  assert.deepEqual(detail.time.map(t => t.minutes).sort((a, b) => a - b), [1, 1, 70]);
+  assert.deepEqual(detail.budget, { budgetMinutes: 60, actualMinutes: 72, actualCents: detail.time.reduce((s, t) => s + t.amount_cents, 0), varianceMinutes: 12 });
+  // A preparer cannot time a job they cannot see.
+  const hidden = await h.json('/jobs', { ...start, periodStart: '2026-07-01', preparerEmail: 'reviewer@example.test' }, h.owner);
+  await h.json(`/jobs/${hidden.id}/timer`, { description: 'x' }, preparer, 404);
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

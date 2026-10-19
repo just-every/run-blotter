@@ -64,6 +64,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
             <Field label="Due date (recorded, not computed)" name="dueDate" type="date" />
           </div>
           <Field label="Where the due date comes from" name="dueNote" value="ATO lodgement program, checked by the principal" />
+          <Field label="Time budget, minutes (optional)" name="budgetMinutes" type="number" required={false} />
           <div className="row">
             <Field label="Preparer" name="preparerEmail"><select name="preparerEmail" required>{people.map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
             <Field label="Reviewer" name="reviewerEmail"><select name="reviewerEmail" required>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
