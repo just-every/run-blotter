@@ -35,8 +35,8 @@ export async function deliverAlerts(env: Bindings, at = new Date()) {
   const bindings = runtimeBindings(env), db = bindings.DB;
   if (!localClock(await firmSettings(db), at).notificationsAllowed) return;
   const pending = await rows(db, `SELECT n.* FROM b_notifications n WHERE n.delivery='deferred: outside firm notification hours'
-    AND EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=n.to_email AND o.status='active'
-      AND (o.role='owner' OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=o.email AND m.active=1))) ORDER BY n.created_at LIMIT 100`);
+    AND (EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=n.to_email AND o.status='active' AND o.role='owner')
+      OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=n.to_email AND m.active=1)) ORDER BY n.created_at LIMIT 100`);
   for (const n of pending) {
     const claimed = await stmt(db, "UPDATE b_notifications SET delivery='pending' WHERE id=? AND delivery='deferred: outside firm notification hours'", n.id).run();
     if (!claimed.meta.changes) continue;

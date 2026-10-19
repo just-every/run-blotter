@@ -135,8 +135,10 @@ test('US-001 firm setup: US practice details, filing calendar, local DST clock a
     const hhmm = n => `${String(Math.floor((n % 1440) / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
     const narrow = { ...settings, notificationStart: hhmm(minute), notificationEnd: hhmm(minute + 1) };
     await h.json('/firm/settings', narrow, h.owner);
+    await h.json('/team', { email: 'pending-reviewer@example.test', name: 'Pending reviewer', role: 'reviewer' }, h.owner);
     const mailsBefore = h.mails.length;
-    await h.json(`/jobs/${jobs[0].id}/threads`, { title: 'Check payroll calendar', body: 'Please review the state filing dates.', mentions: ['reviewer@example.test'] }, h.owner);
+    await h.json(`/jobs/${jobs[0].id}/threads`, { title: 'Check payroll calendar', body: 'Please review the state filing dates.', mentions: ['reviewer@example.test', 'pending-reviewer@example.test'] }, h.owner);
+    await h.json('/team', { email: 'pending-reviewer@example.test', name: 'Pending reviewer', role: 'reviewer', active: false }, h.owner);
     assert.equal(h.mails.length, mailsBefore);
     let alerts = await h.json('/notifications', undefined, reviewer);
     assert.ok(alerts.some(n => n.delivery.startsWith('deferred:')));
@@ -146,6 +148,7 @@ test('US-001 firm setup: US practice details, filing calendar, local DST clock a
     alerts = await h.json('/notifications', undefined, reviewer);
     assert.ok(alerts.some(n => n.delivery.startsWith('accepted by')));
     assert.equal(h.mails.length, mailsBefore + 1);
+    assert.ok(!h.mails.slice(mailsBefore).some(m => m.to.includes('pending-reviewer@example.test')), 'deactivated recipients never receive a deferred alert');
     await h.scheduled(release.toISOString()); assert.equal(h.mails.length, mailsBefore + 1, 'cron never resends a completed notification');
     await h.json('/firm/settings', { ...settings, notificationStart: '22:00', notificationEnd: '06:00' }, h.owner);
     assert.equal((await h.json('/firm/time?at=2026-11-02T04:00:00Z', undefined, h.owner)).notificationsAllowed, true);
