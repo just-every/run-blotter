@@ -32,7 +32,7 @@ const answer = (value, confirmed = true) => ({ value, confirmed });
 const portal = token => `/portal/${token}/organizers`;
 const save = (h, token, o, answers, submit = false, expected = 200) => h.json(`${portal(token)}/${encodeURIComponent(o.id)}`, { revision: o.revision, answers, submit }, undefined, expected);
 
-test('PORTAL-004 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
+test('PORTAL-004 / WORK-003 / MSG-001 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
  const h = await harness();
  try {
   const s = await setup(h), { job, template, a, b, assignments, organizer } = s;
@@ -65,6 +65,14 @@ test('PORTAL-004 conditional organizers: explicit multi-contact responsibility, 
   oa = await save(h, ta, oa, {}, true);
   ob = (await h.json(portal(tb))).organizers[0]; ob = await save(h, tb, ob, { bookkeeping: answer('Reconcile the new bank account') }, true);
   let staff = (await h.json(`/jobs/${job.id}/organizers`, undefined, s.reviewer)).organizers[0];
+  for (const recipient of sent.recipients) {
+   const providerMail = h.mails.find(m => m.to.includes(recipient.to) && m.attachments?.length);
+   const stored = staff.deliveries.find(d => d.contact_id === recipient.contactId);
+   assert.ok(providerMail && stored, 'PORTAL-004 / MSG-001 retains each templated invitation alongside its provider request');
+   assert.ok(stored.subject === providerMail.subject, 'PORTAL-004 / MSG-001 keeps the exact rendered subject');
+   assert.ok(stored.message === providerMail.text.replaceAll(recipient.portalUrl, `${h.origin}/portal/…`), 'PORTAL-004 / MSG-001 keeps rendered text with its capability URL redacted');
+  }
+
   assert.deepEqual(staff.completeness.unresolved,[],'staff review sees confirmed completeness across both contacts');
   const original = structuredClone(staff.submissions[0]);
   assert.equal(original.answers.owners.value, 'Alex and Casey now share ownership');
