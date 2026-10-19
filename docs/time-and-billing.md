@@ -4,7 +4,7 @@ Record time at the rate in force on its date, then approve an export whose CSV s
 
 ## Set rates first
 
-As the principal, use **Team & safety → Set an hourly rate**. Choose what the rate applies to: a staff member, a role, a service (an engagement template, such as a 1040 return), a client, or a client and service together. Enter cents per hour, ex tax, and the date it takes effect. For example, `15000` means $150.00 per hour.
+As the principal, use **Team & safety → Set an hourly rate**. Choose what the rate applies to: a staff member, a role, a service (an engagement template, such as a 1040 return), a client, or a client and service together. Choose the currency (USD unless the rate is for first-release AUD work), enter cents per hour, before tax, and the date it takes effect. For example, `15000` means $150.00 per hour.
 
 A time entry uses the first rate in force on the entry's date, in this order: client and service, then client, then service, then staff member, then role. **Rate cards** lists every rate with its start date.
 
@@ -42,7 +42,7 @@ To correct approved or closed time, the principal opens the entry's **History** 
 
 ## Record expenses
 
-Open the job's **Expenses** section and press **Record an expense**. Choose the kind (filing fee, postage, mileage, software pass-through or other), the date and a description, and enter the cost in dollars. For mileage, enter the miles instead (one decimal place, such as `12.4`): Blotter uses the firm's mileage rate in force on that date. Tick **Billable to the client** and enter a markup percent (a whole number from 0 to 100) to charge the client cost plus markup, rounded to the cent. Attach the receipt if you have one (up to 1 MiB). If you paid it yourself, choose **Paid by: Me** so the firm reimburses you.
+Open the job's **Expenses** section and press **Record an expense**. Choose the kind (filing fee, postage, mileage, software pass-through or other), the date and a description, and enter the cost in the job's currency (US dollars unless the job is first-release AUD work). For mileage, enter the miles instead (one decimal place, such as `12.4`): Blotter uses the firm's mileage rate in force on that date. Tick **Billable to the client** and enter a markup percent (a whole number from 0 to 100) to charge the client cost plus markup, rounded to the cent. Attach the receipt if you have one (up to 1 MiB). If you paid it yourself, choose **Paid by: Me** so the firm reimburses you.
 
 A reviewer or the principal then presses **Approve**, or **Reject** with a reason. Nobody but the principal approves their own expense. An expense dated in a closed billing period cannot be recorded, and recorded expenses never change.
 
@@ -54,7 +54,7 @@ As the principal, set the firm's mileage rate (cents per mile and the date it ta
 
 As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved billable time and its adjustments, the fixed fees of signed-off jobs and approved billable expenses, with their total as work in progress. Choose the items, give the export a title and press **Prepare export**.
 
-Each time entry, adjustment, fixed fee or expense can belong to one export. Amounts are Australian dollars before tax. Blotter does not calculate sales tax or send invoices.
+Each time entry, adjustment, fixed fee or expense can belong to one export. Every amount keeps the currency it was recorded in, US dollars by default. Each export uses one currency, and amounts are never converted. Blotter does not calculate tax or send invoices.
 
 ## Approve and download
 

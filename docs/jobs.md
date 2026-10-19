@@ -4,15 +4,15 @@ Start a client's job from a template, then carry the same workflow into the next
 
 ## Add a client
 
-Open **Clients & templates → Add a client**. Enter the client name, an optional business number, contact name and contact email. Today that field takes an 11-digit Australian Business Number (ABN); the US EIN arrives with US firm setup. Document reminders go to this contact email.
+Open **Clients & templates → Add a client**. Enter the client name, an optional EIN (nine digits), contact name and contact email. Document reminders go to this contact email.
 
 You can also [bring in a client list](/docs/move-in) from a CSV.
 
 ## Save a template
 
-Under **Job templates → Add a template**, set the name, recurrence, checklist steps, document requests and fixed fee. Each checklist step and document request goes on its own line. The prefilled **Monthly close** template is a starting point; check it against how your practice works before saving.
+Under **Job templates → Add a template**, set the name, recurrence, checklist steps, document requests and fixed fee. Each checklist step and document request goes on its own line. The prefilled **Quarterly sales-tax return** template is a starting point; check it against how your practice works before saving.
 
-The fixed fee is in integer cents, before tax (amounts are recorded in Australian dollars today); use `0` for no fixed fee. Monthly, quarterly and annual recurrences describe the job's period. Due dates are recorded separately by a person.
+Choose the fee's currency (USD; AUD remains for records from the first release) and enter the fixed fee in integer cents; use `0` for no fixed fee. Monthly, quarterly and annual recurrences describe the job's period. Due dates are recorded separately by a person.
 
 ### Tasks with owners and dates
 

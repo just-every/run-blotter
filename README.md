@@ -12,9 +12,10 @@ Blotter's contract is the practice manager a US firm moves to from Karbon,
 TaxDome or Canopy: US firm setup in USD, calculated federal and state
 deadlines, IRS e-file signatures, invoices and payments. [CONTRACT.md](CONTRACT.md)
 and the run site's [/contract](https://run-blotter.com/contract) page show what
-the code does today and what is next. Today's release records amounts in
-Australian dollars, takes due dates entered by people with their source, and
-does not file returns, calculate tax, keep client books or give advice.
+the code does today and what is next. Today's release records new amounts in
+US dollars (records from the first release keep their Australian dollars),
+takes due dates entered by people with their source, and does not file
+returns, calculate tax, keep client books or give advice.
 
 ## Run Blotter
 
@@ -72,9 +73,9 @@ ships as `/docs` and its guide pages in that same static build.
    $150.00), add a reviewer and a preparer, and set their rates. On a deployed
    installation, **Send an invitation** emails them a sign-in link.
 2. **Clients & templates:** add a client with a contact email, and save the
-   prefilled **Monthly close** template (checklist, document requests, fixed
-   fee). Under **Start a job**, choose the client, template, period start
-   (for example `2026-09-01`), the due date you have checked, where it comes
+   prefilled **Quarterly sales-tax return** template (checklist, document
+   requests, fixed fee). Under **Start a job**, choose the client, template,
+   period start (for example `2026-07-01`), the due date you have checked, where it comes
    from, the preparer and the reviewer.
 3. **Jobs → open the job → Client documents:** **Send a reminder with an
    upload link.** Blotter mails the client the link (on a deployed
