@@ -10,8 +10,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/clients.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Only one contact name/email per client exists; entity relationships, multiple contacts, client editing/lifecycle and portal identities are missing.
 
-3. **CRM-002 — Client groups and custom fields.** Status: **missing**. Group a parent, subsidiary and household; add a fiscal-year and service-tier field, filter the group and schedule its annual work. Preview a bulk field change, reject one invalid value and confirm unrelated clients are unchanged.
-   Remaining: No related-client groups, tags or custom-field model exists.
+3. **CRM-002 — Client groups and custom fields.** Status: **done**. Group a parent, subsidiary and household; add a fiscal-year and service-tier field, filter the group and schedule its annual work. Preview a bulk field change, reject one invalid value and confirm unrelated clients are unchanged.
+   Current evidence: `src/blotter/profiles.ts`; `src/blotter/clients.ts`; `src/blotter/imports/client-list.ts`; `migrations/core/0021_client_profiles.sql`; `src/ui/profiles.tsx`; `tests/blotter/flows.test.mjs`.
 
 4. **CRM-003 — Engagement history and accountable ownership.** Status: **partial**. Open a client after two periods of work and trace a request from email through upload, review and payment. Filter unresolved items, change their owner and inspect authors, source links and timestamps; a preparer sees only authorized history.
    Current evidence: `src/blotter/jobs.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs`.

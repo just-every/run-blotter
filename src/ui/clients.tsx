@@ -1,5 +1,7 @@
 import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './common';
+import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
+import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
 
 const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
 const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and receipts', 'Purchase receipts and bills'].join('\n');
@@ -7,20 +9,25 @@ const BAS_REQUESTS = ['Bank statements for the quarter', 'Sales invoices and rec
 export function Clients({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
   const lead = state.actor.role !== 'preparer';
   const people: Row[] = state.people;
+  const [segment, setSegment] = useState<Row[]>();
   return <div className="grid">
     <Blotter className="wide"><section className="panel">
       <h2>Clients</h2>
       {!state.clients.length && <Empty>No clients yet. Add one here or bring your list in under Move in.</Empty>}
-      <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `ABN ${c.abn} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small></li>)}</ul>
+      <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `ABN ${c.abn} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small>{describe(c, state.fields) && <small className="muted"> · {describe(c, state.fields)}</small>}</li>)}</ul>
       {lead && <details><summary>Add a client</summary>
-        <Form label="Add client" submit={async (data, form) => run(async () => { await api('/clients', data); form.reset(); }, 'Client added')}>
+        <Form label="Add client" submit={async (data, form) => run(async () => { await api('/clients', { name: data.name, abn: data.abn, contactName: data.contactName, contactEmail: data.contactEmail, ...profileBody(data) }); form.reset(); }, 'Client added')}>
           <Field label="Client name" name="name" />
           <Field label="ABN (optional)" name="abn" required={false} />
           <Field label="Contact name" name="contactName" required={false} />
           <Field label="Contact email (receives document reminders)" name="contactEmail" type="email" required={false} />
+          <ProfileInputs fields={state.fields} />
         </Form>
       </details>}
     </section></Blotter>
+    {lead && <FieldsPanel state={state} run={run} />}
+    {lead && <GroupsPanel state={state} run={run} />}
+    {lead && <SegmentPanel state={state} run={run} segment={segment} setSegment={setSegment} />}
     <section className="panel">
       <h2>Job templates</h2>
       {!state.templates.length && <Empty>No templates yet.</Empty>}
@@ -57,7 +64,7 @@ export function Clients({ state, run, open }: { state: Row; run: Run; open: (id:
     {lead && <section className="panel wide">
       <h2>Schedule work in bulk</h2>
       <p className="muted">Start one period's jobs for several clients. People come from an override, else the client's last period, else the default. Existing jobs are kept.</p>
-      <ScheduleBulk state={state} run={run} />
+      <ScheduleBulk state={state} run={run} segment={segment} />
     </section>}
   </div>;
 }

@@ -15,6 +15,8 @@ Use UTF-8 CSV with one header row, 1–2,000 client rows and a maximum file size
 | `abn` | No | Empty or 11 digits; spaces allowed. The checksum is not checked. |
 | `contact_name` | No | Up to 200 characters. |
 | `contact_email` | No | Empty or one email address. Reminders go here. |
+| `tags` | No | Up to 20 tags separated by semicolons. |
+| `field:<key>` | When the field is required | One column per [client field](/docs/getting-started), named by its key, such as `field:service_tier`. Values follow the field's type and choices. A column for an unknown key stops the file. |
 
 Additional columns stay in the stored original file and produce a warning; they are not imported. Duplicate identities or invalid rows stop the whole file, with row numbers in the preview.
 

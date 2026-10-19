@@ -19,14 +19,16 @@ function Outcome({ plan, commit, run }: { plan: Row; commit: () => Promise<void>
   </>;
 }
 
-export function ScheduleBulk({ state, run }: { state: Row; run: Run }) {
+export function ScheduleBulk({ state, run, segment }: { state: Row; run: Run; segment?: Row[] }) {
   const [plan, setPlan] = useState<Row>(), [request, setRequest] = useState<Row>();
   const people: Row[] = state.people;
   if (!state.clients.length || !state.templates.length) return <Empty>Add clients and a template first.</Empty>;
+  // A filtered segment (CRM-002) narrows the table to its clients, already included.
+  const shown: Row[] = segment ?? state.clients;
   const pick = (name: string, roles: string[], label?: string) => <select name={name} aria-label={label} defaultValue=""><option value="">Resolve (last period, then default)</option>{people.filter(p => roles.includes(p.role)).map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select>;
   return <>
-    <Form label="Preview" submit={async data => run(async () => {
-      const clients = state.clients.filter((c: Row) => data['include:' + c.id]).map((c: Row) => ({ clientId: c.id, exclude: data['include:' + c.id] === 'exclude', preparerEmail: data['preparer:' + c.id], reviewerEmail: data['reviewer:' + c.id] }));
+    <Form key={shown.map(c => c.id).join()} label="Preview" submit={async data => run(async () => {
+      const clients = shown.filter((c: Row) => data['include:' + c.id]).map((c: Row) => ({ clientId: c.id, exclude: data['include:' + c.id] === 'exclude', preparerEmail: data['preparer:' + c.id], reviewerEmail: data['reviewer:' + c.id] }));
       const body = { templateId: data.templateId, periodStart: data.periodStart, dueDate: data.dueDate, dueNote: data.dueNote, preparerEmail: data.preparerEmail, reviewerEmail: data.reviewerEmail, clients };
       setRequest(body); setPlan(await api('/bulk/schedule/preview', body));
     })}>
@@ -41,9 +43,9 @@ export function ScheduleBulk({ state, run }: { state: Row; run: Run }) {
         <Field label="Default reviewer" name="reviewerEmail">{pick('reviewerEmail', ['owner', 'reviewer'])}</Field>
       </div>
       <table className="table"><thead><tr><th>Client</th><th>In this batch</th><th>Preparer</th><th>Reviewer</th></tr></thead>
-        <tbody>{state.clients.map((c: Row) => <tr key={c.id}>
+        <tbody>{shown.map((c: Row) => <tr key={c.id}>
           <td data-label="Client">{c.name}</td>
-          <td data-label="In this batch"><select name={'include:' + c.id} aria-label={`${c.name} in this batch`} defaultValue=""><option value="">Not selected</option><option value="include">Include</option><option value="exclude">Exclude</option></select></td>
+          <td data-label="In this batch"><select name={'include:' + c.id} aria-label={`${c.name} in this batch`} defaultValue={segment ? 'include' : ''}><option value="">Not selected</option><option value="include">Include</option><option value="exclude">Exclude</option></select></td>
           <td data-label="Preparer">{pick('preparer:' + c.id, ['owner', 'reviewer', 'preparer'], `${c.name} preparer`)}</td>
           <td data-label="Reviewer">{pick('reviewer:' + c.id, ['owner', 'reviewer'], `${c.name} reviewer`)}</td>
         </tr>)}</tbody></table>

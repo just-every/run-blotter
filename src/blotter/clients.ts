@@ -1,4 +1,5 @@
 // Clients and recurring job templates.
+import { fieldDefs, groups, profileFields, tagList } from './profiles';
 import { atomic, audit, human, insist, id, integer, lines, need, now, optional, rows, stmt, text, email, visibleJobParams, type Actor, type Data } from './model';
 
 export function abn(value: unknown) {
@@ -14,9 +15,10 @@ export async function addClient(db: D1Database, actor: Actor, body: Data) {
     id: id(), name: text(body.name, 'Client name', 200), abn: abn(body.abn),
     contactName: optional(body.contactName, 'Contact name', 200),
     contactEmail: body.contactEmail ? email(body.contactEmail, 'Contact email') : '',
+    fields: profileFields(await fieldDefs(db), body.fields), tags: tagList(body.tags),
   };
   await atomic(db, actor, [
-    stmt(db, 'INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at) VALUES(?,?,?,?,?,?,?,?)', client.id, client.name, client.abn, client.contactName, client.contactEmail, 'native', id(), now()),
+    stmt(db, 'INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,?,?,?,?,?,?,?,?)', client.id, client.name, client.abn, client.contactName, client.contactEmail, 'native', id(), now(), JSON.stringify(client.fields), JSON.stringify(client.tags)),
     audit(db, actor, 'client.added', client.id, client.name),
   ]);
   return client;
@@ -53,6 +55,8 @@ export async function workspace(db: D1Database, actor: Actor) {
     clients: wide ? await rows(db, 'SELECT * FROM b_clients ORDER BY name')
       : await rows(db, 'SELECT * FROM b_clients WHERE id IN (SELECT client_id FROM b_jobs WHERE preparer_email=?) ORDER BY name', actor.email),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),
+    fields: await fieldDefs(db),
+    groups: wide ? await groups(db) : [],
     people: wide ? await rows(db, `SELECT email,name,role FROM b_members WHERE active=1 UNION ALL SELECT email,display_name,'owner' FROM oa_operators WHERE role='owner' AND status='active' ORDER BY 2`) : [],
     proposals: await rows(db, 'SELECT * FROM b_proposals WHERE for_email=? ORDER BY created_at DESC LIMIT 100', actor.email),
   };

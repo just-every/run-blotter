@@ -35,6 +35,14 @@ Use `rer dev --as preparer` to try the preparer. Open the new `RER_OPEN` link ea
 
 Open **Clients & templates**, add a client and save a job template. [Jobs and templates](/docs/jobs) walks through the first recurring job.
 
+## Client fields, tags and groups
+
+Under **Client fields → Add a field**, the principal or a reviewer defines a field such as *Fiscal year end* (a date) or *Service tier* (a choice). Tick the required box and every client added or changed afterwards, in the app, through the API or by CSV import, must have a value. Values are checked against the field's type and choices everywhere.
+
+Add tags when adding a client, separated by commas. Under **Client groups → Group related clients**, name a group and mark each member as parent, subsidiary, household or member.
+
+Under **Segments**, filter clients by group, tag or field value. The segment is preselected in **Schedule work in bulk**, so you can start its next period's work in one batch. **Change a field for this segment** previews each client's current and new value: an invalid value is rejected on its line, and applying the preview changes only the lines marked *change*. Clients outside the preview are never touched.
+
 To stop local serving, run:
 
 ```sh

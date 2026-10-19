@@ -21,6 +21,8 @@ one header row, 1 to 2,000 client rows, at most 1 MB.
 | `abn` | no | Empty, or 11 digits (spaces allowed). The checksum is not checked. |
 | `contact_name` | no | Up to 200 characters |
 | `contact_email` | no | Empty or one email address. Reminders go here. |
+| `tags` | no | Up to 20 tags separated by semicolons, each up to 40 characters |
+| `field:<key>` | when the field is required | One column per firm-defined client field, named by its key (for example `field:service_tier`). The value follows the field's type and choices; a required field must have a value. A column for an unknown key stops the file. |
 
 Any other column is kept in the stored original file and listed as a warning;
 it is not imported. A row that repeats an identity, or breaks a rule, stops the

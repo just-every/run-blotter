@@ -505,3 +505,65 @@ test('restore needs an empty installation, an intact archive and the latest eras
     await target.json('/files/' + erasedFile.id, undefined, target.owner, 404);
   } finally { await target.close(); }
 });
+
+// Last: a required client field applies to every client created after it.
+test('CRM-002 groups, typed fields and tags: filter a segment, schedule its annual work, preview a bulk field change; the same rules hold for the API and CSV import', async () => {
+  await h.json('/clients/fields', { key: 'service_tier', label: 'Service tier', type: 'choice', choices: 'Essentials, Plus, Premier', required: true }, preparer, 403);
+  await h.json('/clients/fields', { key: 'fiscal_year_end', label: 'Fiscal year end', type: 'date' }, h.owner);
+  await h.json('/clients/fields', { key: 'service_tier', label: 'Service tier', type: 'choice', choices: 'Essentials, Plus, Premier', required: true }, reviewer);
+  await h.json('/clients', { name: 'No tier' }, h.owner, 400);
+  await h.json('/clients', { name: 'Bad tier', fields: { service_tier: 'Gold' } }, h.owner, 400);
+  await h.json('/clients', { name: 'Bad date', fields: { service_tier: 'Plus', fiscal_year_end: '2026-13-01' } }, h.owner, 400);
+  await h.json('/clients', { name: 'Unknown field', fields: { service_tier: 'Plus', shoe_size: '9' } }, h.owner, 400);
+  const make = (name, fields, tags) => h.json('/clients', { name, fields, tags }, h.owner);
+  const parent = await make('Atlas Holdings Inc', { service_tier: 'Premier', fiscal_year_end: '2026-06-30' }, 'priority');
+  const sub = await make('Atlas Logistics LLC', { service_tier: 'Plus', fiscal_year_end: '2026-06-30' }, '');
+  const home = await make('Rivera Household', { service_tier: 'Essentials' }, 'individual, Priority');
+  await make('Unrelated Bakery', { service_tier: 'Plus', fiscal_year_end: '2026-06-30' }, 'priority');
+  assert.deepEqual([home.fields, home.tags], [{ service_tier: 'Essentials' }, ['individual', 'priority']]);
+
+  // Group a parent, its subsidiary and the owner's household, then filter by group, tag and field.
+  const members = [{ clientId: parent.id, relationship: 'parent' }, { clientId: sub.id, relationship: 'subsidiary' }, { clientId: home.id, relationship: 'household' }];
+  await h.json('/groups', { name: 'Atlas family', members }, preparer, 403);
+  await h.json('/groups', { name: 'Atlas family', members: [{ clientId: parent.id, relationship: 'cousin' }] }, h.owner, 400);
+  const atlas = (await h.json('/groups', { name: 'Atlas family', members }, h.owner)).find(g => g.name === 'Atlas family');
+  assert.deepEqual(atlas.members.map(m => [m.client, m.relationship]), [['Atlas Holdings Inc', 'parent'], ['Atlas Logistics LLC', 'subsidiary'], ['Rivera Household', 'household']]);
+  const names = async query => (await h.json('/clients/segment?' + new URLSearchParams(query), undefined, reviewer)).map(c => c.name);
+  assert.deepEqual(await names({ groupId: atlas.id }), ['Atlas Holdings Inc', 'Atlas Logistics LLC', 'Rivera Household']);
+  assert.deepEqual(await names({ groupId: atlas.id, tag: 'priority' }), ['Atlas Holdings Inc', 'Rivera Household']);
+  assert.deepEqual(await names({ field: 'fiscal_year_end', value: '2026-06-30' }), ['Atlas Holdings Inc', 'Atlas Logistics LLC', 'Unrelated Bakery']);
+  await h.json('/clients/segment?groupId=' + atlas.id, undefined, preparer, 403);
+
+  // Schedule the group's annual work from the segment.
+  const segment = await h.json('/clients/segment?groupId=' + atlas.id, undefined, reviewer);
+  const annual = await h.json('/templates', { name: 'Annual return', recurrence: 'annual', steps: 'Prepare return', requests: 'Organizer' }, h.owner);
+  const schedule = { templateId: annual.id, periodStart: '2026-01-01', dueDate: '2027-04-15', dueNote: 'IRS filing calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', clients: segment.map(c => ({ clientId: c.id })) };
+  const plan = await h.json('/bulk/schedule/preview', schedule, reviewer);
+  assert.deepEqual(plan.lines.map(l => l.action), ['create', 'create', 'create']);
+  assert.equal((await h.json('/bulk/schedule', { ...schedule, fingerprint: plan.fingerprint }, reviewer)).created.length, 3);
+
+  // Preview a bulk field change: one invalid value is rejected; only the previewed change lands.
+  const change = { key: 'service_tier', lines: [{ clientId: parent.id, value: 'Premier' }, { clientId: sub.id, value: 'Premier' }, { clientId: home.id, value: 'Platinum' }] };
+  await h.json('/clients/bulk-fields/preview', change, preparer, 403);
+  const preview = await h.json('/clients/bulk-fields/preview', change, reviewer);
+  assert.deepEqual(preview.lines.map(l => [l.client, l.from, l.to, l.action]), [['Atlas Holdings Inc', 'Premier', 'Premier', 'unchanged'], ['Atlas Logistics LLC', 'Plus', 'Premier', 'change'], ['Rivera Household', 'Essentials', 'Platinum', 'rejected']]);
+  assert.match(preview.lines[2].reason, /Service tier must be one of/);
+  await h.json('/clients/bulk-fields', { ...change, fingerprint: 'stale' }, reviewer, 409);
+  assert.deepEqual((await h.json('/clients/bulk-fields', { ...change, fingerprint: preview.fingerprint }, reviewer)).changed, [sub.id]);
+  const tiers = Object.fromEntries((await h.json('/state', undefined, h.owner)).clients.map(c => [c.name, JSON.parse(c.fields).service_tier]));
+  assert.deepEqual(['Atlas Holdings Inc', 'Atlas Logistics LLC', 'Rivera Household', 'Unrelated Bakery'].map(n => tiers[n]), ['Premier', 'Premier', 'Essentials', 'Plus']);
+  await h.json(`/clients/${home.id}/profile`, { fields: { service_tier: '' } }, h.owner, 400);
+  await h.json(`/clients/${home.id}/profile`, { tags: 'household' }, preparer, 403);
+
+  // The CSV import applies the same required-field and type rules.
+  const missing = await h.json('/import/preview', { csv: 'client_name,field:service_tier,tags\nNorth Pier LLC,Plus,priority;new\nNo Tier Co,,' }, h.owner);
+  assert.equal(missing.summary.errors.length, 1);
+  assert.match(missing.summary.errors[0], /No Tier|Service tier is required/);
+  await h.json('/import/preview', { csv: 'client_name,field:shoe_size\nX,9' }, h.owner, 400);
+  const csv = 'client_name,field:service_tier,field:fiscal_year_end,tags\nNorth Pier LLC,Plus,2026-09-30,priority;new';
+  const reviewed = await h.json('/import/preview', { csv }, h.owner);
+  let imported = await h.json('/import/commit', { csv, fingerprint: reviewed.fingerprint }, h.owner);
+  while (imported.job.state !== 'completed') imported = await h.json('/import/resume', { id: imported.job.id }, h.owner);
+  const pier = await h.json('/clients/segment?tag=new', undefined, h.owner);
+  assert.deepEqual(pier.map(c => [c.name, JSON.parse(c.fields), JSON.parse(c.tags)]), [['North Pier LLC', { service_tier: 'Plus', fiscal_year_end: '2026-09-30' }, ['new', 'priority']]]);
+});

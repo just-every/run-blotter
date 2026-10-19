@@ -4,6 +4,7 @@ import { applyD1ImportBatches, createD1ImportJob, planD1Import, readD1ImportJob,
 import { Fault, human, insist, integer, need, stmt, text, type Actor, type Data } from './model';
 import { clientListSource, MAPPING_VERSION, NAMESPACE } from './imports/client-list';
 import { clientTargets } from './imports/target';
+import { fieldDefs } from './profiles';
 
 function authority(actor: Actor) {
   need(actor, 'owner'); human(actor);
@@ -37,7 +38,7 @@ async function action(db: D1Database, actor: Actor, op: string, body: Data) {
   const ctx = context(db, actor);
   insist(body && typeof body === 'object' && !Array.isArray(body), 'Supply an import JSON object');
   if (op === 'preview' || op === 'commit') {
-    const { source, mapping, summary, clients } = clientListSource(body.csv, body.filename);
+    const { source, mapping, summary, clients } = clientListSource(body.csv, body.filename, await fieldDefs(db));
     const plan = await planD1Import(source, mapping, ctx);
     const review = { fingerprint: plan.fingerprint, mappingVersion: mapping.version, counts: plan.counts, summary, clients, diagnostics: plan.diagnostics };
     if (op === 'preview') return review;

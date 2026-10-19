@@ -280,14 +280,14 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 16 | 31 | 59 | 106 |
-| All | 16 | 31 | 59 | 106 |
+| Target and push further | 17 | 31 | 58 | 106 |
+| All | 17 | 31 | 58 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
 | `US-001` | US firm setup and currency | target | partial | `src/blotter/clients.ts`; `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs` | Client/rate foundations exist, but ABN/AUD defaults remain; US setup, entity fields, currency selection and time-zone policy are missing. |
 | `CRM-001` | Client entities and contacts | target | partial | `src/blotter/clients.ts`; `tests/blotter/flows.test.mjs` | Only one contact name/email per client exists; entity relationships, multiple contacts, client editing/lifecycle and portal identities are missing. |
-| `CRM-002` | Client groups and custom fields | target | missing |  | No related-client groups, tags or custom-field model exists. |
+| `CRM-002` | Client groups and custom fields | target | done | `src/blotter/profiles.ts`; `src/blotter/clients.ts`; `src/blotter/imports/client-list.ts`; `migrations/core/0021_client_profiles.sql`; `src/ui/profiles.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `CRM-003` | Engagement history and accountable ownership | target | partial | `src/blotter/jobs.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs` | Job, reminder and action records exist; unified communication/engagement history and owned follow-up items are missing. |
 | `CRM-004` | Merge duplicate clients and contacts | target | missing |  | No duplicate detection, side-by-side merge, source-ID carry-over or merge undo exists. |
 | `CRM-005` | Prospects intake and onboarding pipeline | target | missing |  | No prospect record, pipeline stages, intake form or prospect-to-client conversion exists. |

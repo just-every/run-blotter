@@ -5,7 +5,7 @@ import type { D1TargetAdapter, D1Sql, TargetRow } from '../../modules/import-kit
 const sql = (sql: string, ...params: unknown[]): D1Sql => ({ sql, params });
 const row = (destination: string, client: any): TargetRow => ({
   destination, targetKind: 'client', targetId: client.id, revision: client.revision,
-  value: { name: client.name, abn: client.abn, contactName: client.contact_name, contactEmail: client.contact_email, source: client.source },
+  value: { name: client.name, abn: client.abn, contactName: client.contact_name, contactEmail: client.contact_email, source: client.source, fields: client.fields, tags: client.tags },
 });
 function scope(destination: string, kind = 'client') {
   if (destination !== 'main' || kind !== 'client') throw new Error('Invalid Blotter import target');
@@ -21,7 +21,8 @@ export const clientTargets: D1TargetAdapter = {
     scope(destination, kind);
     if (!current) return sql('NOT EXISTS(SELECT 1 FROM b_clients WHERE id=?)', id);
     const v = current.value as Record<string, string>;
-    return sql('EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND name=? AND abn=? AND contact_name=? AND contact_email=? AND source=?)', id, current.revision, v.name, v.abn, v.contactName, v.contactEmail, v.source);
+    // Jobs recorded before CRM-002 carry no fields or tags; those clients have the column defaults.
+    return sql('EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND name=? AND abn=? AND contact_name=? AND contact_email=? AND source=? AND fields=? AND tags=?)', id, current.revision, v.name, v.abn, v.contactName, v.contactEmail, v.source, v.fields ?? '{}', v.tags ?? '[]');
   },
   matchesCount(count, destination) { scope(destination); return sql('(SELECT COUNT(*) FROM b_clients)=?', count); },
   matchesMany(rows, destination) { return [this.matchesCount!(rows.length, destination), ...rows.map(current => this.matches(current, destination, current.targetKind, current.targetId))]; },
@@ -55,11 +56,12 @@ export const clientTargets: D1TargetAdapter = {
   write(current) {
     scope(current.destination, current.targetKind);
     const v = current.value as Record<string, string>;
-    return [sql('INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at) VALUES(?,?,?,?,?,?,?,?)', current.targetId, v.name, v.abn, v.contactName, v.contactEmail, v.source, current.revision, new Date().toISOString())];
+    return [sql('INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,?,?,?,?,?,?,?,?)', current.targetId, v.name, v.abn, v.contactName, v.contactEmail, v.source, current.revision, new Date().toISOString(), v.fields ?? '{}', v.tags ?? '[]')];
   },
   remove(destination, kind, id) {
     scope(destination, kind);
-    return [sql('DELETE FROM b_clients WHERE id=? AND NOT EXISTS(SELECT 1 FROM b_jobs WHERE client_id=?)', id, id)];
+    return [sql('DELETE FROM b_client_group_members WHERE client_id=? AND NOT EXISTS(SELECT 1 FROM b_jobs WHERE client_id=?)', id, id),
+      sql('DELETE FROM b_clients WHERE id=? AND NOT EXISTS(SELECT 1 FROM b_jobs WHERE client_id=?)', id, id)];
   },
   async list(db, destination) {
     scope(destination);
