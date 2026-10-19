@@ -1,8 +1,8 @@
 // Duplicate client proposals (CRM-004 slice: proposals, side-by-side compare
 // and dismissal; merge and undo are not built yet). Blotter proposes two
 // clients as likely duplicates, whatever created them (by hand, a CSV move-in,
-// or any later source), when they share a contact email (case-insensitive), a
-// tax id, or a name: equal once lower-cased, accents, punctuation, "&"/"and"
+// or any later source), when they share a contact email (case-insensitive), an
+// EIN (the client's tax id column), or a name: equal once lower-cased, accents, punctuation, "&"/"and"
 // and business suffixes (Inc, LLC, Ltd, Pty, Co, Corp, ...) are set aside, or
 // similar (at least two words and at least 75% of their distinct words shared).
 // Phone numbers and SSN digits are not stored yet (CRM-001, US-001); those
@@ -15,7 +15,7 @@ export function nameWords(name: string) {
 }
 function reasons(a: Data, b: Data) {
   const found: string[] = [];
-  if (a.abn && a.abn === b.abn) found.push('same tax id');
+  if (a.abn && a.abn === b.abn) found.push('same EIN');
   if (a.contact_email && a.contact_email.toLowerCase() === b.contact_email?.toLowerCase()) found.push('same contact email');
   const x = new Set(nameWords(a.name)), y = new Set(nameWords(b.name));
   const shared = [...x].filter(w => y.has(w)).length, union = new Set([...x, ...y]).size;
@@ -23,7 +23,7 @@ function reasons(a: Data, b: Data) {
   else if (x.size >= 2 && y.size >= 2 && shared / union >= 0.75) found.push('similar name');
   return found;
 }
-const WEIGHT: Record<string, number> = { 'same tax id': 3, 'same contact email': 2, 'same name': 2, 'similar name': 1 };
+const WEIGHT: Record<string, number> = { 'same EIN': 3, 'same contact email': 2, 'same name': 2, 'similar name': 1 };
 const pair = (a: string, b: string) => a < b ? [a, b] : [b, a];
 
 /** Likely duplicate pairs, strongest first, without pairs a person dismissed. */
@@ -56,7 +56,7 @@ export async function compareClients(db: D1Database, actor: Actor, query: Data) 
   const [a, b] = [await client(db, query.a), await client(db, query.b)];
   insist(a.id !== b.id, 'Choose two different clients');
   const fa = JSON.parse(a.fields), fb = JSON.parse(b.fields);
-  const fields = [['name', 'Name'], ['abn', 'Tax id'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
+  const fields = [['name', 'Name'], ['abn', 'EIN'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
     .map(([key, label]) => ({ key, label, a: a[key], b: b[key], same: a[key] === b[key] }))
     .concat([...new Set([...Object.keys(fa), ...Object.keys(fb)])].sort().map(key => ({ key: 'fields.' + key, label: key, a: fa[key] ?? '', b: fb[key] ?? '', same: fa[key] === fb[key] })));
   return { a: { id: a.id, name: a.name, linked: await linked(db, a.id) }, b: { id: b.id, name: b.name, linked: await linked(db, b.id) }, reasons: reasons(a, b), fields };

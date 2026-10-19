@@ -19,7 +19,7 @@ export function DuplicatesPanel({ run, tick }: { run: Run; tick: number }) {
   if (!pairs) return null;
   return <section className="panel wide">
     <h2>Possible duplicate clients</h2>
-    <p className="muted">Proposed from a shared contact email, tax id or name. Merging is not available yet; compare the records, or record that a pair is two different clients.</p>
+    <p className="muted">Proposed from a shared contact email, EIN or name. Merging is not available yet; compare the records, or record that a pair is two different clients.</p>
     {!pairs.length ? <Empty>No likely duplicates.</Empty> : pairs.map(p => <details key={p.a.id + p.b.id} className="record">
       <summary>{p.a.name} · {p.b.name} <small className="muted">({p.reasons.join(', ')})</small></summary>
       <Compare a={p.a.id} b={p.b.id} />
