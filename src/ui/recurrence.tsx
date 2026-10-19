@@ -6,7 +6,7 @@ import { api, Empty, Field, Form, when, type Row, type Run, day } from './common
 const STATE: Record<string, string> = { generated: 'created', claimed: 'existing job claimed', skipped: 'skipped', due: 'created at the next run', scheduled: 'scheduled' };
 
 export function RecurrencePanel({ state, run, tick }: { state: Row; run: Run; tick: number }) {
-  const [data, setData] = useState<Row>();
+  const [data, setData] = useState<Row>(), [review, setReview] = useState<Row>();
   useEffect(() => { api('/rules').then(setData).catch(e => run(async () => { throw e; })); }, [tick]);
   const people: Row[] = state.people;
   return <section className="panel wide">
@@ -16,7 +16,8 @@ export function RecurrencePanel({ state, run, tick }: { state: Row; run: Run; ti
       <div className="split"><strong>{r.client} · {r.template}</strong><small className="muted">{r.status} · {r.lead_months} months ahead · due {r.due_days} days after period end{r.budget_minutes && ` · budget ${r.budget_minutes} min`}{r.end_period && ` · last period ${r.end_period}`}</small></div>
       <ul className="list">{r.schedule.map((p: Row) => <li key={p.periodStart}>{p.label} <small className="muted">· {STATE[p.state]}{p.state === 'scheduled' && ` on ${day(p.createOn)}`} · due {day(p.dueDate)}{p.note && ` · ${p.note}`}</small></li>)}</ul>
       <div className="actions">
-        <button className="quiet" onClick={() => run(() => api(`/rules/${r.id}/status`, { status: r.status === 'active' ? 'paused' : 'active' }), r.status === 'active' ? 'Rule paused' : 'Rule resumed; missed periods are created at the next run')}>{r.status === 'active' ? 'Pause' : 'Resume'}</button>
+        {r.restore_review && r.status === 'paused' ? <button className="quiet" onClick={() => run(async () => setReview(await api(`/rules/${r.id}/activation`)))}>Review restored schedule</button> : <button className="quiet" onClick={() => run(() => api(`/rules/${r.id}/status`, { status: r.status === 'active' ? 'paused' : 'active' }), r.status === 'active' ? 'Rule paused' : 'Rule resumed; missed periods are created at the next run')}>{r.status === 'active' ? 'Pause' : 'Resume'}</button>}
+        {review && review.ruleId === r.id && <section className="notice"><h3>Restored schedule review</h3><p>{review.held.length} periods already held; {review.pending.length} pending through the current horizon. The scheduler creates at most {review.nextRunLimit} per run. Fresh work retains normal review gates and does not send client messages or payments.</p><ul className="list">{review.pending.map((p: Row) => <li key={p.periodStart}>{day(p.periodStart)} · {p.action} · due {day(p.dueDate)}</li>)}</ul><button onClick={() => run(async () => { await api(`/rules/${r.id}/status`, { status:'active', previewToken:review.token }); setReview(undefined); },'Reviewed rule resumed')}>Approve this schedule and resume</button></section>}
         <details><summary>Skip a period</summary><Form label="Skip period" submit={async data => run(() => api(`/rules/${r.id}/skip`, data), 'Period skipped')}>
           <Field label="Period starts" name="periodStart" type="date" /><Field label="Why" name="reason" /></Form></details>
         <details><summary>Claim an existing job</summary><Form label="Claim job" submit={async data => run(() => api(`/rules/${r.id}/claim`, data), 'Job claimed for this rule')}>

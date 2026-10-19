@@ -1,3 +1,4 @@
+import { ArchiveTransfers } from './archive-transfers';
 import { useEffect, useState } from 'react';
 import { FirmSettings } from './firm';
 import { Security } from './security';
@@ -6,7 +7,7 @@ import { Offboarding } from './offboarding';
 import { Blotter, api, day, money, moneyText, Empty, Field, Form, SOURCE, today, when, who, type Row, type Run } from './common';
 
 export function Team({ state, run, tick }: { state: Row; run: Run; tick: number }) {
-  const [team, setTeam] = useState<Row>(), [key, setKey] = useState<Row>(), [archive, setArchive] = useState(''), [journal, setJournal] = useState('');
+  const [team, setTeam] = useState<Row>(), [key, setKey] = useState<Row>();
   const owner = state.actor.role === 'owner';
   useEffect(() => { api('/team').then(setTeam).catch(e => run(async () => { throw e; })); }, [tick]);
   if (!team) return <p>Opening team…</p>;
@@ -59,16 +60,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
       {team.keys.map((k: Row) => <p key={k.id}>{k.label} · {when(k.created_at)} {k.revoked ? '(revoked)' : <button className="quiet" onClick={() => run(() => api(`/keys/${k.id}/revoke`, {}), 'Key revoked')}>Revoke</button>}</p>)}
       <Form label="Create agent key" submit={async data => run(async () => setKey(await api('/keys', data)), 'Agent key created')}><Field label="Agent name" name="label" value="Practice assistant" /></Form>
     </section>}
-    {owner && <section className="panel">
-      <h2>Backup and restore</h2>
-      <p className="muted">The archive holds clients, jobs, documents, time, exports, imports and history. Sign-in accounts, sessions, agent keys and client upload links are not included.</p>
-      <p><a className="button" href="/api/blotter/backup">Download practice archive</a></p>
-      <details><summary>Restore into this empty installation</summary>
-        <label>Archive file<input type="file" accept=".rer" onChange={e => e.target.files?.[0]?.text().then(setArchive)} /></label>
-        <label>Newer archive with the erasure journal (only if restoring an older archive)<input type="file" accept=".rer" onChange={e => e.target.files?.[0]?.text().then(setJournal)} /></label>
-        <Form danger label="Restore" submit={async data => run(() => api('/restore', { archive, journal: journal || undefined, confirm: data.confirm }), 'Archive restored')}><Field label="Type RESTORE" name="confirm" /></Form>
-      </details>
-    </section>}
+    {owner && <ArchiveTransfers run={run} tick={tick} />}
     {owner && <section className="panel">
       <h2>Erase a client file</h2>
       <p className="muted">Removes the file's bytes permanently. Its name, hash and history remain, and older archives can no longer be restored without this erasure's journal.</p>

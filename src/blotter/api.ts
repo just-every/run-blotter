@@ -1,3 +1,4 @@
+import { transfers, createTransfer, transferStatus, advanceTransfer, uploadTransferPart, finalizeTransfer, abortTransfer, transferInventory, downloadTransfer } from './archive-transfers';
 import { startPacketUpload, jobPacketUploads, packetUploadStatus, appendPacketChunk, completePacketUpload, cancelPacketUpload } from './document-packets';
 import { documentCatalog, packetAnnotations, annotatePacket, reviewPacket } from './document-catalog';
 import { jobDocuments,staffDownload,staffAccess,saveAccess,createShare,rotateShare,revokeShare,sharedDownload,contactDownload } from './document-shares';
@@ -21,7 +22,7 @@ import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from 
 import { grantException, recordAnswer } from './flow';
 import { compareClients, dismissPair, duplicates } from './duplicates';
 import { mergeClients, merges, undoMerge } from './merges';
-import { claimJob, createRule, previewRule, rules, runNow, setRuleStatus, skipPeriod } from './recurrence';
+import { activationPreview, claimJob, createRule, previewRule, rules, runNow, setRuleStatus, skipPeriod } from './recurrence';
 import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, sendDeliverable } from './deliverables';
 import { myNotifications } from './notifications';
 import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
@@ -83,6 +84,19 @@ const sealer = (c: C) => runtimeBindings(c.env).SESSION_SECRET;
 const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH_ORIGIN });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
+
+api.get(`${P}/rules/:id/activation`, as((a,c) => activationPreview(db(c),a,param(c))));
+api.get(`${P}/portability`, as((a,c) => transfers(db(c),a)));
+for (const [collection, kind] of [['exports','export'],['imports','import']] as const) {
+  api.post(`${P}/portability/${collection}`, as(async(a,c) => createTransfer(db(c),a,kind,await body(c))));
+  api.get(`${P}/portability/${collection}/:id`, as((a,c) => transferStatus(db(c),a,kind,param(c))));
+  api.post(`${P}/portability/${collection}/:id/abort`, as((a,c) => abortTransfer(db(c),a,kind,param(c))));
+}
+api.post(`${P}/portability/exports/:id/advance`, as(async(a,c) => advanceTransfer(db(c),a,param(c),await body(c))));
+api.get(`${P}/portability/exports/:id/inventory`, as((a,c) => transferInventory(db(c),a,param(c))));
+api.get(`${P}/portability/exports/:id/download`, as((a,c) => downloadTransfer(db(c),a,param(c),c.req.query('table'))));
+api.post(`${P}/portability/imports/:id/parts`, as(async(a,c) => uploadTransferPart(db(c),a,param(c),await body(c))));
+api.post(`${P}/portability/imports/:id/finalize`, as(async(a,c) => finalizeTransfer(db(c),a,param(c),await body(c))));
 
 api.get(`${P}/library`, as((a, c) => library(db(c), a)));
 api.post(`${P}/library/releases`, as(async (a, c) => publishStarter(db(c), a, await body(c))));

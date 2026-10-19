@@ -14,7 +14,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { addMonths, createStatements, eligible, nextPeriod, periodLabel } from './jobs';
-import { atomic, audit, date, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, date, digest, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 const STEP = { monthly: 1, quarterly: 3, annual: 12 } as const;
 type Recurrence = keyof typeof STEP;
@@ -109,12 +109,28 @@ async function ruleFor(db: D1Database, ruleId: string) {
 }
 const aligned = (rule: Data, start: string) => periods(rule, rule.recurrence, start).at(-1) === start;
 
+/** Restored schedules are reviewed against their exact held periods before any catch-up. */
+export async function activationPreview(db: D1Database, actor: Actor, ruleId: string) {
+  need(actor, 'owner', 'reviewer');
+  const rule = await ruleFor(db, ruleId), held = await rows(db, 'SELECT * FROM b_rule_periods WHERE rule_id=? ORDER BY period_start', ruleId), today = day(new Date());
+  const through = addMonths(today, rule.lead_months), pending = periods(rule, rule.recurrence, through).filter(p => !held.some(h => h.period_start === p));
+  const existing = await rows(db, 'SELECT id,period_start FROM b_jobs WHERE client_id=? AND template_id=? ORDER BY period_start', rule.client_id, rule.template_id);
+  const plan = pending.map(p => ({ periodStart: p, dueDate: dueFor(p,rule.recurrence,rule.due_days), action: existing.some(j => j.period_start === p) ? 'claim existing job' : 'create fresh job' }));
+  return { ruleId, restoreReview: !!rule.restore_review, held, pending: plan, nextRunLimit: MAX_PER_RUN,
+    token: await digest(JSON.stringify({ rule, held, existing, today })) };
+}
+
 export async function setRuleStatus(db: D1Database, actor: Actor, ruleId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const rule = await ruleFor(db, ruleId);
   insist(['active', 'paused'].includes(body.status), 'Choose active or paused');
-  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_recurrence_rules WHERE id=? AND revision=?)', rule.id, rule.revision);
-  await atomic(db, actor, [check, stmt(db, 'UPDATE b_recurrence_rules SET status=?,revision=? WHERE id=?', body.status, id(), rule.id), release,
+  if (body.status === 'active' && rule.restore_review) {
+    const preview = await activationPreview(db, actor, ruleId);
+    insist(body.previewToken === preview.token, 'Review this restored schedule before resuming; its pending work may have changed', 409);
+  }
+  const heldCount = (await stmt(db, 'SELECT COUNT(*) n FROM b_rule_periods WHERE rule_id=?', ruleId).first<Data>())!.n;
+  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_recurrence_rules WHERE id=? AND revision=?) AND (SELECT COUNT(*) FROM b_rule_periods WHERE rule_id=?)=?', rule.id, rule.revision,ruleId,heldCount);
+  await atomic(db, actor, [check, stmt(db, 'UPDATE b_recurrence_rules SET status=?,revision=?,restore_review=CASE WHEN ?=\'active\' THEN 0 ELSE restore_review END WHERE id=?', body.status, id(),body.status, rule.id), release,
     audit(db, actor, body.status === 'paused' ? 'rule.paused' : 'rule.resumed', rule.id, optional(body.reason, 'Reason', 500))]);
   return { status: body.status };
 }
