@@ -9,10 +9,11 @@ export function TimeBudget({ budget }: { budget: Row }) {
 
 export function Timer({ job, timer, run }: { job: Row; timer: Row | null; run: Run }) {
   if (timer && timer.job_id !== job.id) return <p className="muted">Your timer is running on {timer.title} since {when(timer.started_at)}.</p>;
-  if (timer) return <div className="row"><p>Timer running since {when(timer.started_at)}: {timer.description}</p>
+  if (timer) return <div className="row"><p>Timer running since {when(timer.started_at)}: {timer.description}{timer.billable ? '' : ' (not billable)'}</p>
     <button onClick={() => run(() => api('/timer/stop', {}), 'Timer stopped; its time is recorded at the rate in force')}>Stop timer</button>
     <button className="quiet" onClick={() => run(() => api('/timer/discard', {}), 'Timer discarded; no time recorded')}>Discard timer</button></div>;
-  return <Form label="Start timer" submit={async (data, form) => run(async () => { await api(`/jobs/${job.id}/timer`, data); form.reset(); }, 'Timer started; it keeps running if you close the app')}>
+  return <Form label="Start timer" submit={async (data, form) => run(async () => { await api(`/jobs/${job.id}/timer`, { description: data.description, billable: data.billable === 'on' }); form.reset(); }, 'Timer started; it keeps running if you close the app')}>
     <Field label="What you are working on" name="description" />
+    <label className="check"><input type="checkbox" name="billable" defaultChecked /> Billable to the client</label>
   </Form>;
 }

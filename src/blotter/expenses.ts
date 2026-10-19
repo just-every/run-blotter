@@ -110,14 +110,14 @@ const listed = 'id,job_id,kind,date,description,mile_tenths,cents_per_mile,cost_
 
 /**
  * A job's expenses and its margin before staff cost: the fixed fee, approved
- * time and adjustments and approved billable expense charges, less the cost of
+ * billable time and its adjustments and approved billable expense charges, less the cost of
  * every approved expense, billable or not.
  */
 export async function jobExpenses(db: D1Database, j: Data) {
   const expenses = await rows(db, `SELECT ${listed},(SELECT export_id FROM b_export_sources WHERE source_key='exp:'||b_expenses.id) export_id FROM b_expenses WHERE job_id=? ORDER BY date,created_at`, j.id);
   const sums = await stmt(db, `SELECT
-      (SELECT COALESCE(SUM(t.amount_cents),0) FROM b_time t JOIN b_time_status s ON s.entry_id=t.id AND s.status='approved' WHERE t.job_id=?) time_cents,
-      (SELECT COALESCE(SUM(a.amount_cents),0) FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id WHERE t.job_id=?) adjustment_cents`, j.id, j.id).first<Data>();
+      (SELECT COALESCE(SUM(t.amount_cents),0) FROM b_time t JOIN b_time_status s ON s.entry_id=t.id AND s.status='approved' WHERE t.job_id=? AND t.billable=1) time_cents,
+      (SELECT COALESCE(SUM(a.amount_cents),0) FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id WHERE t.job_id=? AND t.billable=1) adjustment_cents`, j.id, j.id).first<Data>();
   const approved = expenses.filter(e => e.status === 'approved');
   const sum = (list: Data[], key: string) => list.reduce((total, e) => total + Number(e[key]), 0);
   const billableCharges = sum(approved.filter(e => e.billable), 'charge_cents'), expenseCost = sum(approved, 'cost_cents');

@@ -1078,6 +1078,50 @@ test('TIME-001 timers and budgets: a timer survives a new session, stops into sn
   await h.json(`/jobs/${hidden.id}/timer`, { description: 'x' }, preparer, 404);
 });
 
+test('TIME-001 billable status: non-billable time keeps its amount and budget but never reaches WIP, an export or the margin; corrections carry it; a rate change leaves prior amounts; others cannot edit', async () => {
+  const yard = await h.json('/clients', { name: 'Kestrel Freight Co', fields: { service_tier: 'Plus' } }, h.owner);
+  const work = await h.json('/jobs', { clientId: yard.id, templateId: template.id, periodStart: '2027-02-01', dueDate: '2027-03-20', dueNote: 'Client calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', budgetMinutes: 120 }, reviewer);
+  await h.json('/team/rates', { scope: 'client', clientId: yard.id, rateCents: 12000, effectiveFrom: '2027-01-01' }, h.owner);
+  const log = (body, expected = 200) => h.json(`/jobs/${work.id}/time`, { date: '2027-02-02', ...body }, preparer, expected);
+  await log({ minutes: 30, description: 'Unclear', billable: 'no' }, 400);
+  const billed = await log({ minutes: 60, description: 'Payroll reconciliation' });
+  const internal = await log({ minutes: 30, description: 'Internal training', billable: false });
+  assert.deepEqual([billed.billable, billed.amountCents, internal.billable, internal.amountCents], [true, 12000, false, 6000]);
+  // A rate change from March prices March time and leaves February's amounts as recorded.
+  await h.json('/team/rates', { scope: 'client', clientId: yard.id, rateCents: 15000, effectiveFrom: '2027-03-01' }, h.owner);
+  const march = await log({ date: '2027-03-01', minutes: 60, description: 'March close' });
+  assert.equal(march.amountCents, 15000);
+  // A timer started as non-billable records non-billable time.
+  await h.json(`/jobs/${work.id}/timer`, { description: 'Firm admin', billable: false }, preparer);
+  const timed = await h.json('/timer/stop', {}, preparer);
+  assert.equal(timed.billable, false);
+  let detail = await h.json('/jobs/' + work.id, undefined, reviewer);
+  assert.deepEqual(Object.fromEntries(detail.time.map(t => [t.description, [t.billable, t.amount_cents]])),
+    { 'Payroll reconciliation': [1, 12000], 'Internal training': [0, 6000], 'March close': [1, 15000], 'Firm admin': [0, timed.amountCents] });
+  assert.deepEqual([detail.budget.actualMinutes, detail.budget.varianceMinutes], [150 + timed.minutes, 30 + timed.minutes]);
+  // Return both February entries; each correction keeps the entry's billable status unless the person changes it.
+  await h.json('/timesheets/submit', { weekStart: '2027-02-01' }, preparer);
+  for (const e of [billed, internal]) await h.json(`/time/${e.id}/review`, { decision: 'return', reason: 'Split the call out' }, reviewer);
+  await h.json(`/time/${internal.id}/correct`, { minutes: 20, description: 'Internal training' }, reviewer, 403);
+  const keptInternal = await h.json(`/time/${internal.id}/correct`, { minutes: 20, description: 'Internal training' }, preparer);
+  const keptBilled = await h.json(`/time/${billed.id}/correct`, { minutes: 45, description: 'Payroll reconciliation' }, preparer);
+  assert.deepEqual([keptInternal.billable, keptBilled.billable, keptBilled.amountCents], [false, true, 9000]);
+  const history = await h.json(`/time/${keptInternal.id}/history`, undefined, preparer);
+  assert.match(history.audit.find(a => a.action === 'time.corrected').detail, new RegExp(`replaces ${internal.id} \\(2027-02-02, 30 min not billable`));
+  await h.json(`/time/${keptInternal.id}/delete`, {}, preparer, 409);
+  for (const e of [keptInternal, keptBilled]) await h.json(`/time/${e.id}/review`, { decision: 'approve' }, reviewer);
+  await h.json(`/time/${keptInternal.id}/adjust`, { minutes: 10, reason: 'Extra session' }, preparer, 403);
+  const adjustment = await h.json(`/time/${keptInternal.id}/adjust`, { minutes: 10, reason: 'Extra session' }, h.owner);
+  // Only approved billable time is ready to bill: non-billable time and its adjustments stay out of WIP, exports and the margin.
+  const lines = (await h.json('/billing', undefined, reviewer)).unbilled.filter(l => l.job_id === work.id);
+  assert.deepEqual(lines.map(l => [l.source_key, l.amount_cents]), [['time:' + keptBilled.id, 9000]]);
+  assert.match((await h.json('/exports', { title: 'Training', sourceKeys: ['time:' + keptInternal.id] }, reviewer, 409)).error, /Non-billable time cannot be billed/);
+  await h.json('/exports', { title: 'Training adjustment', sourceKeys: ['adj:' + adjustment.id] }, reviewer, 409);
+  detail = await h.json('/jobs/' + work.id, undefined, reviewer);
+  assert.equal(detail.profitability.timeCents, 9000);
+  assert.equal(detail.budget.actualMinutes, 45 + 20 + 10 + 60 + timed.minutes);
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

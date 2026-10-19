@@ -11,6 +11,12 @@ export const amount = (minutes: number, rateCents: number) => Math.floor((minute
 /** SQL that holds while no closed billing period (TIME-002) covers this date. */
 export const openPeriodSql = 'NOT EXISTS(SELECT 1 FROM b_periods WHERE ? BETWEEN start_date AND end_date)';
 
+/** Time is billable unless the request says `billable: false` (TIME-001). */
+export const billableFlag = (value: unknown, fallback = true) => {
+  insist(value === undefined || typeof value === 'boolean', 'Billable is true or false');
+  return value === undefined ? fallback : value as boolean;
+};
+
 /** A new time entry on a job at the rate in force on its date, as guarded statements. */
 export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data) {
   const day = date(body.date), basis = { date: day, clientId: j.client_id, templateId: j.template_id, email: actor.email, role: actor.role };
@@ -19,6 +25,7 @@ export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data
   const entry = {
     id: id(), date: day, minutes: integer(body.minutes, 'Minutes', 1, 1440),
     description: text(body.description, 'Description', 500), rateCents: rate.rateCents, rateSource: rate.source, rateCardId: rate.cardId,
+    billable: billableFlag(body.billable),
   };
   const total = amount(entry.minutes, entry.rateCents);
   // The rate is resolved again inside the batch: a rate change between read and write fails the batch.
@@ -27,8 +34,8 @@ export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data
   return {
     entry: { ...entry, amountCents: total },
     statements: [check,
-      stmt(db, 'INSERT INTO b_time(id,job_id,person_email,date,minutes,rate_cents,amount_cents,description,created_by,created_channel,created_at,rate_source,rate_card_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        entry.id, j.id, actor.email, entry.date, entry.minutes, entry.rateCents, total, entry.description, actor.email, actor.channel, now(), entry.rateSource, entry.rateCardId),
+      stmt(db, 'INSERT INTO b_time(id,job_id,person_email,date,minutes,rate_cents,amount_cents,description,created_by,created_channel,created_at,rate_source,rate_card_id,billable) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        entry.id, j.id, actor.email, entry.date, entry.minutes, entry.rateCents, total, entry.description, actor.email, actor.channel, now(), entry.rateSource, entry.rateCardId, entry.billable ? 1 : 0),
       release],
   };
 }
@@ -36,7 +43,7 @@ export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data
 export async function addTime(db: D1Database, actor: Actor, jobId: string, body: Data) {
   human(actor);
   const { entry, statements } = await newEntry(db, actor, await job(db, actor, jobId), body);
-  await atomic(db, actor, [...statements, audit(db, actor, 'time.added', entry.id, `${entry.minutes} min at ${entry.rateCents} (${entry.rateSource})`)]);
+  await atomic(db, actor, [...statements, audit(db, actor, 'time.added', entry.id, `${entry.minutes} min at ${entry.rateCents} (${entry.rateSource})${entry.billable ? '' : ', not billable'}`)]);
   return entry;
 }
 
@@ -55,16 +62,16 @@ export async function deleteTime(db: D1Database, actor: Actor, entryId: string) 
   return { ok: true };
 }
 
-/** Billable sources not yet in a live export: approved time and its adjustments, fixed fees of signed-off jobs and approved billable expenses (TIME-004). */
+/** Billable sources not yet in a live export: approved billable time and its adjustments, fixed fees of signed-off jobs and approved billable expenses (TIME-004). */
 export async function unbilled(db: D1Database) {
   const time = await rows(db, `SELECT 'time:'||t.id source_key,'time' kind,t.id source_id,t.job_id,t.date,t.person_email person,t.description,t.minutes,t.rate_cents,t.rate_source,t.amount_cents,
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_time t JOIN b_time_status st ON st.entry_id=t.id AND st.status='approved' JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id
-    WHERE NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='time:'||t.id) ORDER BY c.name,t.date,t.created_at`);
+    WHERE t.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='time:'||t.id) ORDER BY c.name,t.date,t.created_at`);
   const adjustments = await rows(db, `SELECT 'adj:'||a.id source_key,'adjustment' kind,a.id source_id,t.job_id,substr(a.created_at,1,10) date,t.person_email person,
       'Adjustment to '||t.date||' time: '||a.reason description,a.minutes,t.rate_cents,t.rate_source,a.amount_cents,j.title job,j.period_label period,c.name client,c.abn
     FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id
-    WHERE NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='adj:'||a.id) ORDER BY c.name,a.created_at`);
+    WHERE t.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='adj:'||a.id) ORDER BY c.name,a.created_at`);
   const fees = await rows(db, `SELECT 'fee:'||j.id source_key,'fee' kind,j.id source_id,j.id job_id,substr(j.signed_off_at,1,10) date,j.signed_off_by person,'Fixed fee' description,NULL minutes,NULL rate_cents,NULL rate_source,j.fee_cents amount_cents,
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_jobs j JOIN b_clients c ON c.id=j.client_id
@@ -103,6 +110,9 @@ export async function prepareExport(db: D1Database, actor: Actor, body: Data) {
   const expenseIds = [...wanted].filter(key => String(key).startsWith('exp:')).map(key => String(key).slice(4));
   if (expenseIds.length) insist(!await stmt(db, "SELECT 1 FROM b_expenses WHERE id IN (SELECT value FROM json_each(?)) AND (status<>'approved' OR billable=0)", JSON.stringify(expenseIds)).first(),
     'Only approved billable expenses can be billed', 409);
+  const timeIds = [...wanted].filter(key => String(key).startsWith('time:')).map(key => String(key).slice(5));
+  if (timeIds.length) insist(!await stmt(db, 'SELECT 1 FROM b_time WHERE id IN (SELECT value FROM json_each(?)) AND billable=0', JSON.stringify(timeIds)).first(),
+    'Non-billable time cannot be billed', 409);
   const available = (await unbilled(db)).filter(line => wanted.has(line.source_key));
   insist(available.length === wanted.size, 'Some items were already exported or no longer exist. Refresh and try again.', 409);
   const lines: Data[] = available.map((line, n) => ({ line: n + 1, ...line }));

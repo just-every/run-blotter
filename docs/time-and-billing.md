@@ -14,15 +14,17 @@ Each time entry snapshots the rate it resolved and where it came from; the job's
 
 Open the job's **Time** section. Enter the date, minutes and description, then press **Record time**. The table shows the person, rate and amount.
 
+Time is billable unless you untick **Billable to the client** (for internal or written-off work). Non-billable time keeps its rate and amount and counts against the job's time budget, but it never appears in **Ready to bill**, an export or the job's margin. A timer is billable or not as chosen when you start it.
+
 You can delete your own entries until they are submitted (or after one is returned to you); the principal can also delete them. Submitted, approved and exported entries are protected.
 
 ## Submit and approve timesheets
 
 Under **Jobs → My timesheet**, each week (Monday to Sunday) lists your entries. Press **Submit** to send the week's new entries for approval.
 
-As a reviewer or the principal, open **Time & billing → Timesheets to approve**. **Approve** each entry, or **Return** it with a reason. Nobody but the principal approves their own time. A returned entry shows its reason in the person's timesheet; they open **Correct**, fix the minutes or description and submit the correction, which replaces the returned entry.
+As a reviewer or the principal, open **Time & billing → Timesheets to approve**. **Approve** each entry, or **Return** it with a reason. Nobody but the principal approves their own time. A returned entry shows its reason in the person's timesheet; they open **Correct**, fix the minutes, description or billable status and submit the correction, which replaces the returned entry.
 
-Only approved time is ready to bill.
+Only approved billable time is ready to bill.
 
 ## Close a billing period
 
@@ -38,13 +40,13 @@ Open the job's **Expenses** section and press **Record an expense**. Choose the 
 
 A reviewer or the principal then presses **Approve**, or **Reject** with a reason. Nobody but the principal approves their own expense. An expense dated in a closed billing period cannot be recorded, and recorded expenses never change.
 
-Only approved billable expenses appear in **Ready to bill**, at cost plus markup. A non-billable expense never reaches an export, but its cost still counts against the job: the job's **Expenses** section shows its margin before staff cost (fixed fee, approved time and billable expense charges, less every approved expense's cost).
+Only approved billable expenses appear in **Ready to bill**, at cost plus markup. A non-billable expense never reaches an export, but its cost still counts against the job: the job's **Expenses** section shows its margin before staff cost (fixed fee, approved billable time and billable expense charges, less every approved expense's cost).
 
 As the principal, set the firm's mileage rate (cents per mile and the date it takes effect) under **Time & billing → Staff reimbursements**. That section lists approved expenses staff paid themselves, owed back at cost and kept apart from what the client is charged; press **Mark reimbursed** once you have paid the person.
 
 ## Prepare an export
 
-As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved time, adjustments, the fixed fees of signed-off jobs and approved billable expenses, with their total as work in progress. Choose the items, give the export a title and press **Prepare export**.
+As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved billable time and its adjustments, the fixed fees of signed-off jobs and approved billable expenses, with their total as work in progress. Choose the items, give the export a title and press **Prepare export**.
 
 Each time entry, adjustment, fixed fee or expense can belong to one export. Amounts are AUD ex GST. Blotter does not calculate GST or send invoices.
 

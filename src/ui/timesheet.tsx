@@ -21,10 +21,11 @@ export function MyTimesheet({ actor, run, tick }: { actor: Row; run: Run; tick: 
       const entries = mine.filter(e => mondayOf(e.date) === week), unsent = entries.filter(e => !e.status).length;
       return <article key={week} className="record">
         <div className="split"><strong>Week of {week}</strong>{unsent > 0 && <button onClick={() => run(() => api('/timesheets/submit', { weekStart: week }), 'Timesheet submitted for approval')}>Submit {unsent} {unsent === 1 ? 'entry' : 'entries'}</button>}</div>
-        <ul className="list">{entries.map(e => <li key={e.id}>{e.date} · {e.client} · {e.description} · {e.minutes} min · {e.status ? <Status value={e.status} /> : 'not submitted'}{e.locked ? ' · period closed' : ''}
+        <ul className="list">{entries.map(e => <li key={e.id}>{e.date} · {e.client} · {e.description} · {e.minutes} min{e.billable ? '' : ' · not billable'} · {e.status ? <Status value={e.status} /> : 'not submitted'}{e.locked ? ' · period closed' : ''}
           {e.status === 'returned' && <><br /><small className="muted">Returned by {e.decided_by}: {e.reason}</small>
-            <details><summary>Correct</summary><Form label="Submit correction" submit={async data => run(() => api(`/time/${e.id}/correct`, { minutes: Number(data.minutes), description: data.description }), 'Correction submitted')}>
+            <details><summary>Correct</summary><Form label="Submit correction" submit={async data => run(() => api(`/time/${e.id}/correct`, { minutes: Number(data.minutes), description: data.description, billable: data.billable === 'on' }), 'Correction submitted')}>
               <Field label="Minutes" name="minutes" type="number" value={e.minutes} /><Field label="Description" name="description" value={e.description} />
+              <label className="check"><input type="checkbox" name="billable" defaultChecked={!!e.billable} /> Billable to the client</label>
             </Form></details></>}
         </li>)}</ul>
       </article>;
@@ -40,7 +41,7 @@ export function TimeApprovals({ actor, run, tick }: { actor: Row; run: Run; tick
     <h2>Timesheets to approve</h2>
     <p className="muted">Only approved time is ready to bill. Return an entry with a reason and its person corrects it.</p>
     {!waiting.length ? <Empty>No submitted time is waiting.</Empty> : <ul className="list">{waiting.map(e => <li key={e.id}>
-      <strong>{e.person_email}</strong> · {e.date} · {e.client} · {e.job} · {e.description} · {e.minutes} min · {aud(e.amount_cents)}
+      <strong>{e.person_email}</strong> · {e.date} · {e.client} · {e.job} · {e.description} · {e.minutes} min · {aud(e.amount_cents)}{e.billable ? '' : ' · not billable'}
       <div className="actions">
         <button onClick={() => run(() => api(`/time/${e.id}/review`, { decision: 'approve' }), 'Time approved')}>Approve</button>
         <details><summary>Return</summary><Form label="Return entry" submit={async data => run(() => api(`/time/${e.id}/review`, { decision: 'return', reason: data.reason }), 'Returned to its person')}><Field label="Reason" name="reason" /></Form></details>

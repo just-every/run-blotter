@@ -3,7 +3,7 @@
 // entry with a reason; the person corrects a returned entry. Only approved time
 // is billable. Closing a billing period locks its approved time, and the
 // principal corrects locked time with an adjustment that keeps the original.
-import { amount, newEntry, openPeriodSql } from './billing';
+import { amount, billableFlag, newEntry, openPeriodSql } from './billing';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 const DAY = 86_400_000;
@@ -14,7 +14,7 @@ export const weekStart = (day: string) => shift(day, -((new Date(day + 'T00:00:0
 export async function timesheets(db: D1Database, actor: Actor) {
   const lead = actor.role !== 'preparer';
   return {
-    entries: await rows(db, `SELECT t.id,t.job_id,t.person_email,t.date,t.minutes,t.rate_cents,t.amount_cents,t.description,
+    entries: await rows(db, `SELECT t.id,t.job_id,t.person_email,t.date,t.minutes,t.rate_cents,t.amount_cents,t.description,t.billable,
         s.status,s.week_start,s.reason,s.submitted_at,s.decided_by,s.decided_at,j.title job,j.period_label period,c.name client,
         EXISTS(SELECT 1 FROM b_periods p WHERE t.date BETWEEN p.start_date AND p.end_date) locked
       FROM b_time t JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id LEFT JOIN b_time_status s ON s.entry_id=t.id
@@ -67,13 +67,13 @@ export async function correctEntry(db: D1Database, actor: Actor, entryId: string
   const entry = await entryWithStatus(db, actor, entryId);
   insist(entry.person_email === actor.email, 'Only the person who recorded it can correct it', 403);
   insist(entry.status === 'returned', 'Only returned time can be corrected; approved time takes an adjustment', 409);
-  const { entry: corrected, statements } = await newEntry(db, actor, await job(db, actor, entry.job_id), { date: body.date ?? entry.date, minutes: body.minutes, description: body.description });
+  const { entry: corrected, statements } = await newEntry(db, actor, await job(db, actor, entry.job_id), { date: body.date ?? entry.date, minutes: body.minutes, description: body.description, billable: billableFlag(body.billable, !!entry.billable) });
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_time_status WHERE entry_id=? AND status='returned')", entryId);
   await atomic(db, actor, [check,
     stmt(db, 'DELETE FROM b_time_status WHERE entry_id=?', entryId), stmt(db, 'DELETE FROM b_time WHERE id=?', entryId), release,
     ...statements,
     stmt(db, "INSERT INTO b_time_status(entry_id,person_email,week_start,status,submitted_at) VALUES(?,?,?,'submitted',?)", corrected.id, actor.email, weekStart(corrected.date), now()),
-    audit(db, actor, 'time.corrected', corrected.id, `replaces ${entryId} (${entry.date}, ${entry.minutes} min, "${entry.description}", returned: ${entry.reason})`)]);
+    audit(db, actor, 'time.corrected', corrected.id, `replaces ${entryId} (${entry.date}, ${entry.minutes} min${entry.billable ? '' : ' not billable'}, "${entry.description}", returned: ${entry.reason})`)]);
   return { ...corrected, status: 'submitted', replaces: entryId };
 }
 
