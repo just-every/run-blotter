@@ -40,6 +40,7 @@ import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
 import { forecast, saveScenario, scenarios } from './forecast';
 import { search } from './search';
+import { addProspect, addStage, moveProspect, pipeline, winProspect } from './prospects';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
 type C = Context<{ Bindings: Bindings }>;
@@ -150,6 +151,11 @@ api.get(`${P}/capacity`, as((a, c) => capacity(db(c), a, c.req.query())));
 api.post(`${P}/capacity/people`, as(async (a, c) => setCapacity(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks`, as(async (a, c) => addBlock(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks/:id/delete`, as((a, c) => removeBlock(db(c), a, param(c))));
+api.get(`${P}/pipeline`, as((a, c) => pipeline(db(c), a)));
+api.post(`${P}/pipeline/stages`, as(async (a, c) => addStage(db(c), a, await body(c))));
+api.post(`${P}/prospects`, as(async (a, c) => addProspect(db(c), a, await body(c))));
+api.post(`${P}/prospects/:id/stage`, as(async (a, c) => moveProspect(db(c), a, param(c), await body(c))));
+api.post(`${P}/prospects/:id/win`, as(async (a, c) => winProspect(db(c), a, param(c), await body(c))));
 api.get(`${P}/search`, as((a, c) => search(db(c), a, c.req.query())));
 api.post(`${P}/capacity/forecast`, as(async (a, c) => forecast(db(c), a, await body(c))));
 api.get(`${P}/capacity/scenarios`, as((a, c) => scenarios(db(c), a)));

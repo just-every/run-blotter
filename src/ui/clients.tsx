@@ -7,6 +7,7 @@ import { RecurrencePanel } from './recurrence';
 import { DuplicatesPanel } from './duplicates';
 import { TaskEditor, taskBody } from './tasks';
 import { MessageTemplates } from './messages';
+import { Pipeline } from './pipeline';
 import { ClientHistoryDetails } from './history';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
 
@@ -33,6 +34,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
         </Form>
       </details>}
     </section></Blotter>
+    {lead && <Pipeline state={state} run={run} tick={tick} open={open} />}
     {lead && <DuplicatesPanel run={run} tick={tick} />}
     {lead && <FieldsPanel state={state} run={run} />}
     {lead && <GroupsPanel state={state} run={run} />}

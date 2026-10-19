@@ -1583,6 +1583,48 @@ test('SEARCH-001 firm-wide search: a client by last name (with a typo), a phrase
   assert.deepEqual((await find('home office deduction', preparer)).results, []);
 });
 
+test('CRM-005 pipeline slice: prospects with source, services, fees and owner move through firm stages; lost needs a reason; winning creates exactly one client with its contact and onboarding job, and repeating the win creates nothing; the report shows conversion, stage age and fees by source and owner', async () => {
+  const onboarding = await h.json('/templates', { name: 'New client onboarding', recurrence: 'annual', steps: 'Collect prior returns', requests: 'Prior-year returns' }, h.owner);
+  const base = { contactName: 'Dana Reyes', contactEmail: 'dana@reyes.example', services: ['Monthly bookkeeping', '1120-S return'], ownerEmail: 'reviewer@example.test' };
+  await h.json('/prospects', { ...base, name: 'Reyes Studio LLC', source: 'Website', estimatedFeeCents: 600000 }, preparer, 403);
+  await h.json('/pipeline', undefined, preparer, 403);
+  await h.json('/pipeline/stages', { name: 'Discovery call', position: 15 }, reviewer, 403);
+  const discovery = await h.json('/pipeline/stages', { name: 'Discovery call', position: 15 }, h.owner);
+  const reyes = await h.json('/prospects', { ...base, name: 'Reyes Studio LLC', source: 'Website', estimatedFeeCents: 600000 }, reviewer);
+  const vega = await h.json('/prospects', { ...base, name: 'Vega Bakery', contactEmail: 'ops@vega.example', source: 'Website', estimatedFeeCents: 240000, ownerEmail: 'owner@example.test' }, h.owner);
+  const kim = await h.json('/prospects', { ...base, name: 'Kim Dental PC', contactEmail: 'kim@kimdental.example', source: 'Referral', estimatedFeeCents: 900000 }, reviewer);
+  assert.deepEqual([reyes.stage, reyes.source, JSON.parse(reyes.services), reyes.fee_cents, reyes.owner_email], ['Inquiry', 'Website', ['Monthly bookkeeping', '1120-S return'], 600000, 'reviewer@example.test']);
+  const stages = (await h.json('/pipeline', undefined, reviewer)).stages, stage = name => stages.find(s => s.name === name).id;
+  assert.deepEqual(stages.map(s => s.name), ['Inquiry', 'Discovery call', 'Consult booked', 'Proposal sent', 'Won', 'Lost']);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: discovery.id }, reviewer);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: stage('Proposal sent') }, reviewer);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: stage('Won') }, reviewer, 409);
+  // Lost keeps a required reason.
+  await h.json(`/prospects/${vega.id}/stage`, { stageId: stage('Lost') }, h.owner, 400);
+  assert.equal((await h.json(`/prospects/${vega.id}/stage`, { stageId: stage('Lost'), reason: 'Chose a cheaper local firm' }, h.owner)).lost_reason, 'Chose a cheaper local firm');
+  // Winning creates exactly one client with the contact and its onboarding job; the same win again creates nothing.
+  const win = { templateId: onboarding.id, preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', periodStart: '2031-01-01', dueDate: '2031-02-15', dueNote: 'Engagement start + 45 days', fields: { service_tier: 'Plus' } };
+  await h.json(`/prospects/${vega.id}/win`, win, h.owner, 409);
+  const clientsBefore = (await h.json('/state', undefined, h.owner)).clients.length;
+  const first = await h.json(`/prospects/${reyes.id}/win`, win, reviewer);
+  const again = await h.json(`/prospects/${reyes.id}/win`, win, reviewer);
+  assert.deepEqual([first.repeated, again.repeated, again.clientId, again.jobId], [false, true, first.clientId, first.jobId]);
+  const state = await h.json('/state', undefined, h.owner);
+  assert.equal(state.clients.length, clientsBefore + 1);
+  assert.deepEqual(state.clients.filter(c => c.name === 'Reyes Studio LLC').map(c => [c.id, c.contact_name, c.contact_email]), [[first.clientId, 'Dana Reyes', 'dana@reyes.example']]);
+  const onboard = await h.json('/jobs/' + first.jobId, undefined, preparer);
+  assert.deepEqual([onboard.job.client_id, onboard.job.title, onboard.steps.map(s => s.label)], [first.clientId, 'New client onboarding', ['Collect prior returns']]);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: stage('Lost'), reason: 'x' }, reviewer, 409);
+  // The report: conversion, stage age and fees by source and owner.
+  const { report, prospects } = await h.json('/pipeline', undefined, h.owner);
+  const site = report.bySource.find(r => r.source === 'Website'), referral = report.bySource.find(r => r.source === 'Referral');
+  assert.deepEqual([site.prospects, site.won, site.lost, site.conversionPercent, site.wonFeeCents, site.openFeeCents], [2, 1, 1, 50, 600000, 0]);
+  assert.deepEqual([referral.open, referral.conversionPercent, referral.openFeeCents], [1, null, 900000]);
+  assert.deepEqual(report.byOwner.map(r => [r.owner, r.prospects, r.won, r.lost]), [['owner@example.test', 1, 0, 1], ['reviewer@example.test', 2, 1, 0]]);
+  assert.deepEqual(report.stageAge.find(s => s.stage === 'Inquiry'), { stage: 'Inquiry', open: 1, averageDays: 0, oldestDays: 0 });
+  assert.equal(prospects.find(p => p.id === kim.id).stageAgeDays, 0);
+});
+
 test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
   const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
   const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);
