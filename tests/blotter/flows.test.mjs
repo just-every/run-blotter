@@ -1428,8 +1428,8 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   const t1040 = await h.json('/work-types', { name: '1040', templateId: returns.id, budgetMinutes: 600, color: '#2563EB' }, h.owner);
   await h.json('/work-types', { name: '1040' }, h.owner, 409);
   const docs = await h.json('/sub-statuses', { stage: 'waiting', name: 'on client documents' }, h.owner);
-  const sig = await h.json('/sub-statuses', { stage: 'waiting', name: 'on 8879 signature', workTypeIds: [t1040.id] }, h.owner);
-  const lane = await h.json('/clients', { name: 'Diaz household', fields: { service_tier: 'Plus' } }, h.owner);
+  const sig = await h.json('/sub-statuses', { stage: 'waiting', name: 'on 8879 signature', workTypeIds: [t1040.id], clientLabel: 'Waiting for your e-file signature' }, h.owner);
+  const lane = await h.json('/clients', { name: 'Diaz household', contactName: 'Rosa Diaz', contactEmail: 'rosa@diaz.example', fields: { service_tier: 'Plus' } }, h.owner);
   const people = { clientId: lane.id, dueNote: 'Filing', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
   const ret = await h.json('/jobs', { ...people, templateId: returns.id, workTypeId: t1040.id, periodStart: '2028-01-01', dueDate: '2029-04-15' }, h.owner);
   const book = await h.json('/jobs', { ...people, templateId: books.id, periodStart: '2028-02-01', dueDate: '2028-03-20' }, h.owner);
@@ -1439,6 +1439,9 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   assert.equal(model.workTypes.find(w => w.id === t1040.id).color, '#2563eb');
   const queued = await h.json('/queue', undefined, preparer);
   assert.deepEqual([ret.id, book.id].map(id => { const j = queued.find(q => q.id === id); return [j.work_type, j.stage]; }), [['1040', 'planned'], ['Monthly Bookkeeping', 'planned']]);
+  await h.json(`/jobs/${ret.id}/reminders`, {}, preparer);
+  const clientView = async () => (await h.json('/portal/' + portalToken(h.mails.at(-1)), undefined)).progress.status;
+  assert.equal(await clientView(), 'Planned');
   // The 8879 sub-status is offered only for 1040 work.
   const move = (job, body, who = preparer, expected = 200) => h.json(`/jobs/${job.id}/status`, body, who, expected);
   assert.match((await move(book, { stage: 'waiting', subStatusId: sig.id }, preparer, 409)).error, /not offered for this work type/);
@@ -1449,9 +1452,19 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   // No sub-status or move reaches In review or Completed around the review gates.
   assert.match((await move(ret, { stage: 'in_review' }, preparer, 409)).error, /Submit the job for review/);
   assert.match((await move(ret, { stage: 'completed' }, h.owner, 409)).error, /sign-off completes/);
+  // The client sees the label staff chose for the sub-status, not its internal name.
+  assert.equal(await clientView(), 'Waiting for your e-file signature');
   // The queue filters by sub-status and work type; the report shows time in each status.
   assert.deepEqual((await h.json('/queue?subStatus=' + sig.id, undefined, preparer)).map(j => [j.id, j.sub_status]), [[ret.id, 'on 8879 signature']]);
   assert.deepEqual((await h.json('/queue?workType=' + t1040.id + '&stage=waiting', undefined, preparer)).map(j => j.id), [ret.id]);
+  // A saved view keeps the filter for its owner only.
+  const view = await h.json('/views', { name: 'Awaiting 8879', subStatus: sig.id }, preparer);
+  assert.deepEqual((await h.json('/queue?view=' + view.id, undefined, preparer)).map(j => j.id), [ret.id]);
+  assert.deepEqual((await h.json('/views', undefined, preparer)).map(v => v.name), ['Awaiting 8879']);
+  await h.json('/queue?view=' + view.id, undefined, reviewer, 404);
+  // Capacity's service filter selects by work type (CAPACITY-001), not by template name.
+  assert.deepEqual([...new Set((await h.json('/capacity?week=2029-04-09&service=1040', undefined, h.owner)).unscheduled.map(u => u.jobId))], [ret.id]);
+  assert.deepEqual((await h.json('/capacity?week=2029-04-09&service=Individual%20return', undefined, h.owner)).unscheduled, []);
   const report = await h.json('/reports/status-time?workType=' + t1040.id, undefined, h.owner);
   assert.deepEqual(report.map(r => [r.stage, r.subStatus, r.entries, r.now]), [['planned', null, 1, 0], ['waiting', 'on 8879 signature', 1, 1], ['waiting', 'on client documents', 1, 0]]);
   assert.ok(report.every(r => r.minutes >= 0 && r.averageMinutes >= 0));

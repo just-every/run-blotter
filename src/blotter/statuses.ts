@@ -61,11 +61,11 @@ const allows = (sub: Data, workTypeId: string) => { const types = typeof sub.wor
 export async function addSubStatus(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
   insist(STAGES.includes(body.stage), 'Choose a stage');
-  const name = text(body.name, 'Sub-status', 80), types = await permittedTypes(db, body.workTypeIds), subId = id();
+  const name = text(body.name, 'Sub-status', 80), types = await permittedTypes(db, body.workTypeIds), subId = id(), clientLabel = optional(body.clientLabel, 'Client label', 80) || null;
   insist(!await stmt(db, 'SELECT 1 FROM b_sub_statuses WHERE stage=? AND lower(name)=lower(?) AND deleted_at IS NULL', body.stage, name).first(), `${STAGE_LABELS[body.stage]} – ${name} already exists`, 409);
-  await atomic(db, actor, [stmt(db, 'INSERT INTO b_sub_statuses(id,stage,name,work_types,created_by,created_at) VALUES(?,?,?,?,?,?)', subId, body.stage, name, JSON.stringify(types), actor.email, now()),
+  await atomic(db, actor, [stmt(db, 'INSERT INTO b_sub_statuses(id,stage,name,work_types,client_label,created_by,created_at) VALUES(?,?,?,?,?,?,?)', subId, body.stage, name, JSON.stringify(types), clientLabel, actor.email, now()),
     audit(db, actor, 'sub_status.added', subId, `${STAGE_LABELS[body.stage]} – ${name}`)]);
-  return { id: subId, stage: body.stage, name, work_types: types };
+  return { id: subId, stage: body.stage, name, work_types: types, client_label: clientLabel };
 }
 
 /** Rename a sub-status or change its work types; history keeps pointing at it. A job may not lose its permission. */
@@ -73,12 +73,13 @@ export async function editSubStatus(db: D1Database, actor: Actor, subId: string,
   human(actor); need(actor, 'owner');
   const sub = await stmt(db, 'SELECT * FROM b_sub_statuses WHERE id=? AND deleted_at IS NULL', subId).first<Data>();
   insist(sub, 'Sub-status not found', 404);
+  const clientLabel = body.clientLabel === undefined ? sub.client_label : optional(body.clientLabel, 'Client label', 80) || null;
   const name = body.name === undefined ? sub.name : text(body.name, 'Sub-status', 80), types = body.workTypeIds === undefined ? JSON.parse(sub.work_types) : await permittedTypes(db, body.workTypeIds);
   const stranded = (await rows(db, 'SELECT work_type_id FROM b_jobs WHERE sub_status_id=?', subId)).filter(j => !allows({ work_types: types }, j.work_type_id)).length;
   insist(!stranded, `${stranded} jobs of other work types use this sub-status; move them first`, 409);
-  await atomic(db, actor, [stmt(db, 'UPDATE b_sub_statuses SET name=?,work_types=? WHERE id=?', name, JSON.stringify(types), subId),
+  await atomic(db, actor, [stmt(db, 'UPDATE b_sub_statuses SET name=?,work_types=?,client_label=? WHERE id=?', name, JSON.stringify(types), clientLabel, subId),
     audit(db, actor, 'sub_status.edited', subId, `${STAGE_LABELS[sub.stage]} – ${sub.name} is now ${name}`)]);
-  return { id: subId, name, work_types: types };
+  return { id: subId, name, work_types: types, client_label: clientLabel };
 }
 
 /** Choose a stage (and sub-status) for a job; sub-statuses must belong to the stage and allow the job's work type. */
@@ -168,7 +169,10 @@ export async function statusHistory(db: D1Database, actor: Actor, jobId: string)
 
 /** The queue, filtered by work type, stage and sub-status, over the jobs this person may read. */
 export async function queue(db: D1Database, actor: Actor, query: Data) {
-  const type = optional(query.workType, 'Work type', 100), stage = optional(query.stage, 'Stage', 20), sub = optional(query.subStatus, 'Sub-status', 100);
+  const view = query.view ? await stmt(db, 'SELECT filters FROM b_saved_views WHERE id=? AND owner_email=?', String(query.view), actor.email).first<Data>() : null;
+  if (query.view) insist(view, 'Saved view not found', 404);
+  const f = view ? JSON.parse(view.filters) : query;
+  const type = optional(f.workType, 'Work type', 100), stage = optional(f.stage, 'Stage', 20), sub = optional(f.subStatus, 'Sub-status', 100);
   insist(!stage || STAGES.includes(stage as never), 'Choose a stage');
   return rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.due_date,b_jobs.status,b_jobs.preparer_email,b_jobs.reviewer_email,${stageSql('b_jobs')} stage,
       b_jobs.sub_status_id,s.name sub_status,b_jobs.work_type_id,w.name work_type,w.color,c.name client_name
@@ -196,4 +200,33 @@ export async function statusReport(db: D1Database, actor: Actor, query: Data) {
   });
   return [...report.values()].map((r): Data => ({ ...r, averageMinutes: Math.floor(r.minutes / r.entries) }))
     .sort((a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage) || String(a.subStatus ?? '').localeCompare(String(b.subStatus ?? '')));
+}
+
+/** The person's own saved queue views. */
+export const savedViews = (db: D1Database, actor: Actor) => rows(db, 'SELECT id,name,filters,created_at FROM b_saved_views WHERE owner_email=? ORDER BY name', actor.email);
+
+/** Save the queue's current filters under a name, for this person only. */
+export async function saveView(db: D1Database, actor: Actor, body: Data) {
+  human(actor);
+  const name = text(body.name, 'View name', 80), filters = { workType: optional(body.workType, 'Work type', 100), stage: optional(body.stage, 'Stage', 20), subStatus: optional(body.subStatus, 'Sub-status', 100) };
+  insist(!filters.stage || STAGES.includes(filters.stage as never), 'Choose a stage');
+  if (filters.workType) insist(await stmt(db, 'SELECT 1 FROM b_work_types WHERE id=?', filters.workType).first(), 'Work type not found', 404);
+  if (filters.subStatus) insist(await stmt(db, 'SELECT 1 FROM b_sub_statuses WHERE id=? AND deleted_at IS NULL', filters.subStatus).first(), 'Sub-status not found', 404);
+  insist(!await stmt(db, 'SELECT 1 FROM b_saved_views WHERE owner_email=? AND name=?', actor.email, name).first(), `You already have a view named ${name}`, 409);
+  const viewId = id();
+  await atomic(db, actor, [stmt(db, 'INSERT INTO b_saved_views(id,owner_email,name,filters,created_at) VALUES(?,?,?,?,?)', viewId, actor.email, name, JSON.stringify(filters), now())]);
+  return { id: viewId, name, filters };
+}
+
+export async function deleteView(db: D1Database, actor: Actor, viewId: string) {
+  human(actor);
+  insist(await stmt(db, 'SELECT 1 FROM b_saved_views WHERE id=? AND owner_email=?', viewId, actor.email).first(), 'Saved view not found', 404);
+  await atomic(db, actor, [stmt(db, 'DELETE FROM b_saved_views WHERE id=? AND owner_email=?', viewId, actor.email)]);
+  return { ok: true };
+}
+
+/** The status the client sees: the sub-status's client label when staff gave one, else the stage's name. */
+export async function clientStatus(db: D1Database, j: Data) {
+  const sub = j.sub_status_id ? await stmt(db, 'SELECT client_label FROM b_sub_statuses WHERE id=?', j.sub_status_id).first<Data>() : null;
+  return sub?.client_label ?? STAGE_LABELS[stageOf(j)];
 }

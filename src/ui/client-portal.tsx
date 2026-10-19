@@ -4,6 +4,7 @@ import { api, Field, Form, Status, when, type Row, type Run } from './common';
 export function PortalProgress({ progress, title = 'Where things stand' }: { progress: Row; title?: string }) {
   return <section className="panel">
     <h2>{title}</h2>
+    <p><strong>Status:</strong> {progress.status}</p>
     <p><strong>Next step:</strong> {progress.nextAction}</p>
     <ol className="list">{progress.milestones.map((m: Row) => <li key={m.key}>{m.done ? '✓' : '○'} {m.label} <small className="muted">· {m.detail}</small></li>)}</ol>
   </section>;

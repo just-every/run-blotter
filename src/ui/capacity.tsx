@@ -16,7 +16,7 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
     <section className="panel">
       <Form label="Show" submit={async data => setFilter({ week: monday(String(data.week)), skill: String(data.skill ?? ''), service: String(data.service ?? '') })}>
         <div className="row"><Field label="Week of" name="week" type="date" value={filter.week} /><Field label="Skill" name="skill" required={false} value={filter.skill} />
-          <Field label="Service" name="service" required={false} value={filter.service} hint="A template name, such as Quarterly BAS" /></div>
+          <Field label="Service" name="service" required={false}><select name="service" defaultValue={filter.service}><option value="">Every work type</option>{state.statusModel.workTypes.map((w: Row) => <option key={w.id} value={w.name}>{w.name}</option>)}</select></Field></div>
       </Form>
       {!view ? <p>Opening capacity…</p> : <>
         <p className="muted">{view.weekStart} to {view.weekEnd}. Available hours are weekly hours less leave and commitments on weekdays. Demand is the estimates of open work due this week; actual time is shown beside it and never subtracted.</p>

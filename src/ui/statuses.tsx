@@ -39,13 +39,15 @@ export function JobStatus({ detail, run, tick }: { detail: Row; run: Run; tick: 
 
 /** The queue as columns by stage, filtered by work type and sub-status; each card moves in place. */
 export function Board({ state, open, run, tick }: { state: Row; open: (id: string) => void; run: Run; tick: number }) {
-  const model = state.statusModel, [filter, setFilter] = useState({ workType: '', subStatus: '' }), [jobs, setJobs] = useState<Row[]>([]);
+  const model = state.statusModel, [filter, setFilter] = useState({ workType: '', subStatus: '' }), [jobs, setJobs] = useState<Row[]>([]), [views, setViews] = useState<Row[]>([]);
   useEffect(() => { api('/queue?' + new URLSearchParams(filter)).then(setJobs).catch(e => run(async () => { throw e; })); }, [filter, tick]);
+  useEffect(() => { api('/views').then(setViews).catch(() => setViews([])); }, [tick]);
   return <section className="panel">
     <div className="row">
       <label>Work type<select value={filter.workType} onChange={e => setFilter({ ...filter, workType: e.target.value })}><option value="">All</option>{model.workTypes.map((w: Row) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
-      <label>Sub-status<select value={filter.subStatus} onChange={e => setFilter({ ...filter, subStatus: e.target.value })}><option value="">All</option>{model.subStatuses.map((s: Row) => <option key={s.id} value={s.id}>{statusLabel(model, s.stage, s.name)}</option>)}</select></label>
+      <label>Sub-status<select value={filter.subStatus} onChange={e => setFilter({ ...filter, subStatus: e.target.value })}><option value="">All</option>{model.subStatuses.map((s: Row) => <option key={s.id} value={s.id}>{statusLabel(model, s.stage, s.name)}</option>)}</select></label>      {views.length > 0 && <label>Saved view<select value="" onChange={e => { const v = views.find(x => x.id === e.target.value); if (v) setFilter({ workType: '', subStatus: '', ...JSON.parse(v.filters) }); }}><option value="">Choose…</option>{views.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
     </div>
+    <Form label="Save this view" submit={async (data, form) => run(async () => { await api('/views', { name: data.name, ...filter }); form.reset(); }, 'View saved')}><Field label="View name" name="name" /></Form>
     <div className="board">{model.stages.map((s: Row) => <div key={s.key} className="board-column"><h3>{s.label}</h3>
       {jobs.filter(j => j.stage === s.key).map(j => <article key={j.id} className="record" style={{ borderLeftColor: j.color }}>
         <button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} · {j.period_label}</button>
@@ -63,9 +65,9 @@ export function StatusSettings({ state, run, tick }: { state: Row; run: Run; tic
   return <section className="panel">
     <h2>Work types and statuses</h2>
     <ul className="list">{model.workTypes.map((w: Row) => <li key={w.id}><span className="badge" style={{ borderColor: w.color }}>{w.name}</span> <small className="muted">{w.template ? `default template ${w.template}` : 'no default template'}{w.budget_minutes && ` · default budget ${hours(w.budget_minutes)}`} · {w.jobs} jobs</small></li>)}</ul>
-    <ul className="list">{model.subStatuses.map((s: Row) => <li key={s.id}>{statusLabel(model, s.stage, s.name)} <small className="muted">{s.work_types.length ? `only ${s.work_types.map((t: string) => model.workTypes.find((w: Row) => w.id === t)?.name).join(', ')}` : 'every work type'} · {s.jobs} jobs</small>
+    <ul className="list">{model.subStatuses.map((s: Row) => <li key={s.id}>{statusLabel(model, s.stage, s.name)} <small className="muted">{s.client_label && `client sees “${s.client_label}” · `}{s.work_types.length ? `only ${s.work_types.map((t: string) => model.workTypes.find((w: Row) => w.id === t)?.name).join(', ')}` : 'every work type'} · {s.jobs} jobs</small>
       {owner && <details><summary>Rename or delete</summary>
-        <Form label="Rename" submit={async data => run(() => api(`/sub-statuses/${s.id}`, { name: data.name }), 'Renamed; history kept')}><Field label="Name" name="name" value={s.name} /></Form>
+        <Form label="Save" submit={async data => run(() => api(`/sub-statuses/${s.id}`, { name: data.name, clientLabel: data.clientLabel }), 'Saved; history kept')}><Field label="Name" name="name" value={s.name} /><Field label="Client sees (optional)" name="clientLabel" required={false} value={s.client_label ?? ''} hint="Shown on the client link instead of the stage name" /></Form>
         <Form label="Preview deletion" submit={async data => run(async () => setPlan({ id: s.id, body: { toStage: data.toStage }, ...await api(`/sub-statuses/${s.id}/delete/preview`, { toStage: data.toStage }) }), 'Preview ready')}>
           <Field label="Move its jobs to" name="toStage"><select name="toStage" defaultValue={s.stage}>{model.stages.map((st: Row) => <option key={st.key} value={st.key}>{st.label}</option>)}</select></Field>
         </Form>
@@ -78,8 +80,8 @@ export function StatusSettings({ state, run, tick }: { state: Row; run: Run; tic
           <Field label="Default template" name="templateId" required={false}><select name="templateId"><option value="">None</option>{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
           <Field label="Default budget hours" name="budgetHours" type="number" required={false} /><Field label="Color" name="color" type="color" value="#64748b" /></div>
       </Form>
-      <Form label="Add sub-status" submit={async (data, form) => run(async () => { await api('/sub-statuses', { stage: data.stage, name: data.name, workTypeIds: types(data) }); form.reset(); }, 'Sub-status added')}>
-        <div className="row"><Field label="Under" name="stage"><select name="stage">{model.stages.map((s: Row) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></Field><Field label="Sub-status" name="name" /></div>
+      <Form label="Add sub-status" submit={async (data, form) => run(async () => { await api('/sub-statuses', { stage: data.stage, name: data.name, clientLabel: data.clientLabel || undefined, workTypeIds: types(data) }); form.reset(); }, 'Sub-status added')}>
+        <div className="row"><Field label="Under" name="stage"><select name="stage">{model.stages.map((s: Row) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></Field><Field label="Sub-status" name="name" /><Field label="Client sees (optional)" name="clientLabel" required={false} /></div>
         <fieldset><legend>Only for (none ticked: every work type)</legend>{model.workTypes.map((w: Row) => <label key={w.id} className="check"><input type="checkbox" name={'type:' + w.id} /> {w.name}</label>)}</fieldset>
       </Form>
     </>}

@@ -81,10 +81,10 @@ export async function setEstimate(db: D1Database, actor: Actor, jobId: string, b
 }
 
 const OPEN_STEPS = `SELECT j.id job_id,j.title,j.period_label,j.due_date job_due,j.preparer_email,j.reviewer_email,j.manager_email,j.period_start,j.due_date,j.status,c.name client,t.name service,s.*
-  FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id JOIN b_templates t ON t.id=j.template_id
+  FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id JOIN b_work_types t ON t.id=j.work_type_id
   WHERE j.status<>'signed_off' AND ${pendingStep('s')} AND (?1='' OR t.name=?1)`;
 
-/** One week's capacity across the firm (a preparer sees only themselves), filtered by skill and service. */
+/** One week's capacity across the firm (a preparer sees only themselves), filtered by skill and service (the job's work type, WORK-007). */
 export async function capacity(db: D1Database, actor: Actor, query: Data) {
   const start = date(query.week, 'Week starting');
   insist(new Date(start + 'T00:00:00Z').getUTCDay() === 1, 'A capacity week starts on a Monday');
@@ -95,7 +95,7 @@ export async function capacity(db: D1Database, actor: Actor, query: Data) {
     rows(db, 'SELECT * FROM b_capacity'),
     rows(db, 'SELECT * FROM b_capacity_blocks WHERE starts_on<=? AND ends_on>=? ORDER BY starts_on', days[4], days[0]),
     rows(db, OPEN_STEPS, service),
-    rows(db, `SELECT j.id job_id,j.title,j.period_label,j.due_date,j.reviewer_email,j.review_estimate_minutes,c.name client FROM b_jobs j JOIN b_clients c ON c.id=j.client_id JOIN b_templates t ON t.id=j.template_id
+    rows(db, `SELECT j.id job_id,j.title,j.period_label,j.due_date,j.reviewer_email,j.review_estimate_minutes,c.name client FROM b_jobs j JOIN b_clients c ON c.id=j.client_id JOIN b_work_types t ON t.id=j.work_type_id
       WHERE j.status<>'signed_off' AND j.due_date BETWEEN ?2 AND ?3 AND (?1='' OR t.name=?1) ORDER BY j.due_date`, service, start, end),
     rows(db, 'SELECT person_email,job_id,SUM(minutes) minutes,SUM(CASE WHEN date BETWEEN ? AND ? THEN minutes ELSE 0 END) week FROM b_time GROUP BY person_email,job_id', start, end),
   ]);

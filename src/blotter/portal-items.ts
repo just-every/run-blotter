@@ -12,6 +12,7 @@ import { runtimeBindings } from '../auth.server';
 import { portalJob } from './documents';
 import { flowSteps } from './flow';
 import { notify } from './notifications';
+import { clientStatus } from './statuses';
 import { atomic, audit, date, guard, human, id, insist, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const CLIENT = 'client (portal link)';
@@ -32,7 +33,7 @@ export async function clientProgress(db: D1Database, j: Data) {
   const stage = j.status === 'signed_off' ? 'completed' : j.status === 'review' ? 'in_review' : outstanding ? 'collecting' : 'preparing';
   const yours = [outstanding ? `upload ${plural(outstanding, 'document')}` : '', openTodos ? `complete ${plural(openTodos, 'to-do')}` : ''].filter(Boolean);
   return {
-    stage,
+    stage, status: await clientStatus(db, j),
     nextAction: yours.length ? `Please ${yours.join(' and ')}.` : stage === 'completed' ? 'Nothing needed from you: the work is complete.'
       : stage === 'in_review' ? 'Nothing needed from you: your accountant is reviewing the work.' : 'Nothing needed from you: your accountant is preparing the work.',
     milestones: [

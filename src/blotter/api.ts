@@ -36,7 +36,7 @@ import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
 import { clientQuestion, completeTodo, staffMessage, staffTodo } from './portal-items';
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
-import { addSubStatus, deleteSubStatus, editSubStatus, moveJob, previewSubStatusDeletion, queue, saveWorkType, statusModel, statusReport } from './statuses';
+import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
 type C = Context<{ Bindings: Bindings }>;
 export const api = new Hono<{ Bindings: Bindings }>();
@@ -130,6 +130,9 @@ api.post(`${P}/sub-statuses/:id`, as(async (a, c) => editSubStatus(db(c), a, par
 api.post(`${P}/sub-statuses/:id/delete/preview`, as(async (a, c) => previewSubStatusDeletion(db(c), a, param(c), await body(c))));
 api.post(`${P}/sub-statuses/:id/delete`, as(async (a, c) => deleteSubStatus(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/status`, as(async (a, c) => moveJob(db(c), a, param(c), await body(c))));
+api.get(`${P}/views`, as((a, c) => savedViews(db(c), a)));
+api.post(`${P}/views`, as(async (a, c) => saveView(db(c), a, await body(c))));
+api.post(`${P}/views/:id/delete`, as((a, c) => deleteView(db(c), a, param(c))));
 api.get(`${P}/queue`, as((a, c) => queue(db(c), a, c.req.query())));
 api.get(`${P}/reports/status-time`, as((a, c) => statusReport(db(c), a, c.req.query())));
 api.get(`${P}/capacity`, as((a, c) => capacity(db(c), a, c.req.query())));
