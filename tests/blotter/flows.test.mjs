@@ -619,7 +619,7 @@ test('agent keys only prepare; a person approves or declines and the decision is
   await h.json('/agent/context', undefined, '', 401, auth);
 });
 
-test('client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {
+test('IMPORT-001 legacy client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {
   const file = await readFile(new URL('../../fixtures/client-list.csv', import.meta.url), 'utf8');
   const before = (await h.json('/state', undefined, h.owner)).clients.length;
   const preview = await h.json('/import/preview', { csv: file }, h.owner);

@@ -6,16 +6,19 @@ import { clientListSource, importTargetId, MAPPING_VERSION, NAMESPACE } from './
 import { survivorOf } from './merges';
 import { clientTargets } from './imports/target';
 import { fieldDefs } from './profiles';
+import { importColumns, MAPPED_VERSION } from './imports/mapped-source';
+import { prepareMapped } from './imports/mapped-matching';
+import { mappedTargets } from './imports/mapped-target';
 
 function authority(actor: Actor) {
   need(actor, 'owner'); human(actor);
   return { sql: "EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND email=? AND role='owner' AND status='active')", params: [actor.id, actor.email] };
 }
-function context(db: D1Database, actor: Actor): D1ImportContext {
+function context(db: D1Database, actor: Actor, version = MAPPING_VERSION): D1ImportContext {
   const guard = authority(actor);
   return {
-    destination: 'main', namespace: NAMESPACE, mappingVersion: MAPPING_VERSION, reversalPolicy: 'preserve-conflicts',
-    storage: { database: db, targets: clientTargets },
+    destination: 'main', namespace: NAMESPACE, mappingVersion: version, reversalPolicy: 'preserve-conflicts',
+    storage: { database: db, targets: version === MAPPED_VERSION ? mappedTargets : clientTargets },
     // Role custody survives installation export/restore; each operation still
     // checks the current native owner row inside Base's atomic transaction.
     authorization: { principalId: 'role:owner', predicate: () => guard }, batchSize: 20, maxBatches: 2,
@@ -36,13 +39,15 @@ export async function importAction(db: D1Database, actor: Actor, op: string, bod
 }
 
 async function action(db: D1Database, actor: Actor, op: string, body: Data) {
-  const ctx = context(db, actor);
+  authority(actor);
   insist(body && typeof body === 'object' && !Array.isArray(body), 'Supply an import JSON object');
+  if (op === 'columns') return importColumns(body.csv, await fieldDefs(db));
   if (op === 'preview' || op === 'commit') {
-    const { source, mapping, summary, clients } = clientListSource(body.csv, body.filename, await fieldDefs(db));
+    const mapped = body.mapping !== undefined, ctx = context(db,actor,mapped ? MAPPED_VERSION : MAPPING_VERSION);
+    const { source, mapping, summary, clients } = mapped ? await prepareMapped(db,body,await fieldDefs(db)) : clientListSource(body.csv, body.filename, await fieldDefs(db));
     const plan = await planD1Import(source, mapping, ctx);
     // Each row shows the client it already matches: the one it created, or that client's merge survivor.
-    const matched = await Promise.all(clients.map(async c => ({ ...c, matches: await survivorOf(db, importTargetId(c.sourceId)) ?? null })));
+    const matched = body.mapping !== undefined ? clients : await Promise.all(clients.map(async c => ({ ...c, matches: await survivorOf(db, importTargetId(c.sourceId)) ?? null })));
     const review = { fingerprint: plan.fingerprint, mappingVersion: mapping.version, counts: plan.counts, summary, clients: matched, diagnostics: plan.diagnostics };
     if (op === 'preview') return review;
     insist(summary.errors.length === 0 && plan.counts.rejected === 0, 'Resolve the CSV errors before importing', 409);
@@ -55,7 +60,10 @@ async function action(db: D1Database, actor: Actor, op: string, body: Data) {
   }
   insist(['status', 'resume', 'undo'].includes(op), 'Unknown import action', 404);
   const id = text(body.id, 'Import job ID', 100);
-  if (body.mappingVersion !== undefined) insist(body.mappingVersion === MAPPING_VERSION, 'Import mapping version does not match', 409);
+  const stored = await stmt(db, "SELECT mapping_version FROM ik_jobs WHERE id=? AND destination='main' AND namespace=? AND principal_id='role:owner'",id,NAMESPACE).first<{mapping_version:string}>();
+  insist(stored && [MAPPING_VERSION,MAPPED_VERSION].includes(stored.mapping_version),'Import job not found',404);
+  if(body.mappingVersion !== undefined) insist(body.mappingVersion===stored.mapping_version,'Import mapping version does not match',409);
+  const ctx=context(db,actor,stored.mapping_version);
   if (op === 'resume') return { job: await resumeD1Import(id, ctx) };
   if (op === 'undo') return { job: await undoD1Import(id, ctx) };
   const offset = body.offset === undefined ? 0 : integer(body.offset, 'Undo report offset');

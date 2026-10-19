@@ -1,24 +1,64 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ImportContacts, ImportEntityDecision, ImportMapping, type ImportColumns, type ImportDecisions } from './import-mapping';
 import { Blotter, api, taxId, Empty, type Row, type Run } from './common';
 
 export function MoveIn({ run, tick }: { run: Run; tick: number }) {
   const [csv, setCsv] = useState(''), [filename, setFilename] = useState('clients.csv'), [preview, setPreview] = useState<Row>();
+  const [review, setReview] = useState<Row>(), [columns, setColumns] = useState<ImportColumns>();
+  const [columnError, setColumnError] = useState(''), [mappedCsv, setMappedCsv] = useState('');
+  const [mapping, setMapping] = useState<Record<string, string>>({}), [decisions, setDecisions] = useState<ImportDecisions>({});
+  const revision = useRef(0);
   const [jobs, setJobs] = useState<Row[]>([]), [journal, setJournal] = useState<Row>();
   useEffect(() => { api('/import').then(s => setJobs(s.jobs)).catch(e => run(async () => { throw e; })); }, [tick]);
+  useEffect(() => {
+    let active = true;
+    setColumns(undefined); setColumnError(''); setMappedCsv('');
+    if (!csv) return;
+    const timer = setTimeout(() => {
+      api('/import/columns', { csv }).then(result => {
+        if (!active) return;
+        setColumns(result); setMapping(result.defaults); setMappedCsv(csv);
+      }).catch(error => { if (active) setColumnError(error.message); });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [csv]);
+  const invalidate = () => { revision.current++; setPreview(undefined); };
+  const changeCsv = (value: string) => {
+    invalidate(); setReview(undefined); setDecisions({}); if (value !== csv) setMapping({}); setCsv(value);
+  };
+  const unresolved = review?.clients.some((client: Row) => client.candidates?.length && !decisions[client.sourceId]);
+  const dryRun = () => run(async () => {
+    const current = revision.current;
+    const result = await api('/import/preview', { csv, filename, mapping, decisions });
+    if (revision.current === current) { setPreview(result); setReview(result); }
+  }, 'Dry run complete; nothing was changed');
   return <div className="grid">
     <Blotter className="wide"><section className="panel">
       <h2>Client list CSV</h2>
-      <p className="muted">Bring your client list across from a spreadsheet or your previous practice tool. Columns: <code>client_name</code> (required), <code>client_id</code>, <code>ein</code> (9 digits), <code>abn</code> (legacy Australian ABN only), <code>contact_name</code>, <code>contact_email</code>. Other columns are kept in the stored original only. See IMPORTING.md.</p>
-      <label>Client list file<input type="file" accept=".csv,text/csv" onChange={e => { const file = e.target.files?.[0]; if (file) file.text().then(value => { setCsv(value); setFilename(file.name); setPreview(undefined); }); }} /></label>
-      <label>CSV contents<textarea rows={7} value={csv} onChange={e => { setCsv(e.target.value); setPreview(undefined); }} /></label>
-      <button disabled={!csv} onClick={() => run(async () => setPreview(await api('/import/preview', { csv, filename })), 'Dry run complete; nothing was changed')}>Preview (dry run)</button>
-      {preview && <div className="review">
+      <p className="muted">Bring your client and contact list across from a spreadsheet or your previous practice tool. Map its columns, review entity matches and contact permissions, then commit the exact preview. See IMPORTING.md.</p>
+      <label>Client list file<input type="file" accept=".csv,text/csv" onChange={e => { const file = e.target.files?.[0]; if (file) { invalidate(); const current = revision.current; run(async () => { const value = await file.text(); if (revision.current === current) { setFilename(file.name); changeCsv(value); } }); } }} /></label>
+      <label>CSV contents<textarea rows={7} value={csv} onChange={e => changeCsv(e.target.value)} /></label>
+      {columnError && <p className="error" role="alert">{columnError}</p>}
+      {csv && !columns && !columnError && <p role="status">Reading CSV columns…</p>}
+      {columns && mappedCsv === csv && <ImportMapping columns={columns} mapping={mapping} change={(field, source) => {
+        invalidate(); setReview(undefined); setDecisions({}); setMapping(previous => ({ ...previous, [field]: source }));
+      }} />}
+      <button disabled={!csv || !columns || mappedCsv !== csv} onClick={dryRun}>Preview (dry run)</button>
+      {review && <div className="review">
         <h3>Dry run</h3>
-        <p>{preview.summary.clients} {preview.summary.clients === 1 ? 'row' : 'rows'} · {preview.counts?.create ?? preview.clients.length} to create</p>
-        {preview.summary.errors.map((m: string) => <p key={m} className="error">{m}</p>)}
-        {preview.summary.warnings.map((m: string) => <p key={m} className="muted">{m}</p>)}
-        <ul className="list">{preview.clients.slice(0, 50).map((c: Row) => <li key={c.sourceId}>{c.name} <small className="muted">{taxId(c.abn)} {c.contactEmail}{c.matches ? ` · already matches ${c.matches.name}` : ''}</small></li>)}</ul>
-        <button disabled={preview.summary.errors.length > 0} onClick={() => run(() => api('/import/commit', { csv, filename, fingerprint: preview.fingerprint }), 'Import committed. The journal below shows its progress.')}>Import these clients</button>
+        {!preview && <p role="status">Import decisions changed. Preview again before committing.</p>}
+        <p>{review.summary.rows ?? review.summary.clients} {(review.summary.rows ?? review.summary.clients) === 1 ? 'row' : 'rows'} · {review.clients.length} entities</p>
+        {review.summary.errors.map((m: string) => <p key={m} className="error">{m}</p>)}
+        {review.summary.warnings.map((m: string) => <p key={m} className="muted">{m}</p>)}
+        {unresolved && <p className="error">Review each possible duplicate and explicitly choose whether to keep it separate or match an existing entity.</p>}
+        <ul className="list">{review.clients.map((c: Row) => <li key={c.sourceId}>
+          <strong>{c.name}</strong> <small className="muted">{taxId(c.abn)} {c.contactEmail}</small>
+          {!!c.contacts?.length && <ImportContacts contacts={c.contacts} />}
+          <ImportEntityDecision client={c} decision={decisions[c.sourceId]} change={decision => {
+            invalidate(); setDecisions(previous => ({ ...previous, [c.sourceId]: decision }));
+          }} />
+        </li>)}</ul>
+        <button disabled={!preview || review.summary.errors.length > 0 || unresolved} onClick={() => run(() => api('/import/commit', { csv, filename, mapping, decisions, fingerprint: preview!.fingerprint }), 'Import committed. The journal below shows its progress.')}>Import these clients</button>
       </div>}
     </section></Blotter>
     <section className="panel">
