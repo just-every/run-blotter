@@ -65,7 +65,7 @@ export async function sendOrganizer(env: Bindings, actor: Actor, jobId: string, 
   const [fresh, freshDone] = guard(db, 'EXISTS(SELECT 1 FROM b_job_organizers WHERE id=? AND revision=? AND erased_at IS NULL)', p.organizer.id, p.organizer.revision);
   await atomic(db, actor, [open, fresh, ...statements,
     stmt(db, 'UPDATE b_job_organizers SET sent_at=?,revision=? WHERE id=?', at, revision, p.organizer.id), freshDone, openDone,
-    audit(db, actor, 'organizer.sent', p.j.id, `${p.organizer.id}; responsible contacts ${p.contacts.map(c => c.id).join(', ')}`)]);
+    audit(db, actor, 'organizer.invitation_issued', p.j.id, `${p.organizer.id}; links issued for responsible contacts ${p.contacts.map(c => c.id).join(', ')}; mail outcomes recorded separately`)]);
   await advance(env, [p.j.id], actor.email);
   for (const send of sends) {
     send.delivery = await sendMail(bindings, send.id, send.to, send.subject, send.message, p.files);

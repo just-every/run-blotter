@@ -185,7 +185,7 @@ test('BASE-001 / PORTAL-004 authority, revocation, attributed originals and port
   assert.deepEqual(after.organizers, before.organizers);
   await restored.json(portal(token), undefined, undefined, 404);
   const history = await h.json(`/clients/${s.client.id}/history`, undefined, h.owner);
-  assert.ok(history.history.some(e => e.action === 'organizer.sent' && e.actor === 'owner@example.test'));
+  assert.ok(history.history.some(e => e.action === 'organizer.invitation_issued' && e.actor === 'owner@example.test'));
   assert.ok(history.history.some(e => e.action === 'organizer.submitted' && e.actor === 'contact:' + a.id));
   const survivor=await h.json('/clients',{name:'Cedar Lane consolidated entity'},h.owner);
   const compared=await h.json(`/clients/compare?a=${survivor.id}&b=${s.client.id}`,undefined,h.owner);
