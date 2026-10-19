@@ -16,6 +16,12 @@ Open the job's **Time** section. Enter the date, minutes and description, then p
 
 Time is billable unless you untick **Billable to the client** (for internal or written-off work). Non-billable time keeps its rate and amount and counts against the job's time budget, but it never appears in **Ready to bill**, an export or the job's margin. A timer is billable or not as chosen when you start it.
 
+To record time against one of the job's checklist tasks, choose it under **Task (optional)**; the table shows the task next to the description.
+
+## Suggested time
+
+Under **Jobs → Suggested time**, press **Turn on suggestions** to let Blotter suggest time from your own work. From that moment, each job and day on which you completed a checklist task, accepted or returned a document, posted in a discussion or worked on a tax notice, but recorded no time on that job, appears as a suggestion listing those actions. Only you see your suggestions. **Approve** one by entering the minutes and choosing whether it is billable (nothing is assumed), or **Reject** it; nothing is recorded until you approve. Approved time is ordinary time: submit it on your timesheet as usual. **Turn off suggestions** removes the pending ones; turning them on again starts afresh. Email and calendar activity are not used.
+
 You can delete your own entries until they are submitted (or after one is returned to you); the principal can also delete them. Submitted, approved and exported entries are protected.
 
 ## Submit and approve timesheets

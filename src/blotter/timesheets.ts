@@ -67,7 +67,7 @@ export async function correctEntry(db: D1Database, actor: Actor, entryId: string
   const entry = await entryWithStatus(db, actor, entryId);
   insist(entry.person_email === actor.email, 'Only the person who recorded it can correct it', 403);
   insist(entry.status === 'returned', 'Only returned time can be corrected; approved time takes an adjustment', 409);
-  const { entry: corrected, statements } = await newEntry(db, actor, await job(db, actor, entry.job_id), { date: body.date ?? entry.date, minutes: body.minutes, description: body.description, billable: billableFlag(body.billable, !!entry.billable) });
+  const { entry: corrected, statements } = await newEntry(db, actor, await job(db, actor, entry.job_id), { date: body.date ?? entry.date, minutes: body.minutes, description: body.description, billable: billableFlag(body.billable, !!entry.billable), taskOrdinal: body.taskOrdinal === undefined ? entry.step_ordinal : body.taskOrdinal });
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_time_status WHERE entry_id=? AND status='returned')", entryId);
   await atomic(db, actor, [check,
     stmt(db, 'DELETE FROM b_time_status WHERE entry_id=?', entryId), stmt(db, 'DELETE FROM b_time WHERE id=?', entryId), release,

@@ -17,6 +17,14 @@ export const billableFlag = (value: unknown, fallback = true) => {
   return value === undefined ? fallback : value as boolean;
 };
 
+/** The job's checklist task an entry or timer names, if any (TIME-001). */
+export async function taskOrdinal(db: D1Database, j: Data, value: unknown) {
+  if (value === undefined || value === null || value === '') return null;
+  const ordinal = integer(value, 'Task', 1, 100);
+  insist(await stmt(db, 'SELECT 1 FROM b_job_steps WHERE job_id=? AND ordinal=?', j.id, ordinal).first(), 'That task is not on this job', 404);
+  return ordinal;
+}
+
 /** A new time entry on a job at the rate in force on its date, as guarded statements. */
 export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data) {
   const day = date(body.date), basis = { date: day, clientId: j.client_id, templateId: j.template_id, email: actor.email, role: actor.role };
@@ -25,7 +33,7 @@ export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data
   const entry = {
     id: id(), date: day, minutes: integer(body.minutes, 'Minutes', 1, 1440),
     description: text(body.description, 'Description', 500), rateCents: rate.rateCents, rateSource: rate.source, rateCardId: rate.cardId,
-    billable: billableFlag(body.billable),
+    billable: billableFlag(body.billable), taskOrdinal: await taskOrdinal(db, j, body.taskOrdinal),
   };
   const total = amount(entry.minutes, entry.rateCents);
   // The rate is resolved again inside the batch: a rate change between read and write fails the batch.
@@ -34,8 +42,8 @@ export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data
   return {
     entry: { ...entry, amountCents: total },
     statements: [check,
-      stmt(db, 'INSERT INTO b_time(id,job_id,person_email,date,minutes,rate_cents,amount_cents,description,created_by,created_channel,created_at,rate_source,rate_card_id,billable) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        entry.id, j.id, actor.email, entry.date, entry.minutes, entry.rateCents, total, entry.description, actor.email, actor.channel, now(), entry.rateSource, entry.rateCardId, entry.billable ? 1 : 0),
+      stmt(db, 'INSERT INTO b_time(id,job_id,person_email,date,minutes,rate_cents,amount_cents,description,created_by,created_channel,created_at,rate_source,rate_card_id,billable,step_ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        entry.id, j.id, actor.email, entry.date, entry.minutes, entry.rateCents, total, entry.description, actor.email, actor.channel, now(), entry.rateSource, entry.rateCardId, entry.billable ? 1 : 0, entry.taskOrdinal),
       release],
   };
 }

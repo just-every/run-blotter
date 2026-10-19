@@ -113,7 +113,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
     rows(db, 'SELECT * FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id),
     rows(db, 'SELECT id,request_id,name,mime,size,sha256,uploaded_by,channel,uploaded_at,erased_at,erased_by,erase_reason FROM b_files WHERE job_id=? ORDER BY uploaded_at', j.id),
     rows(db, 'SELECT * FROM b_reminders WHERE job_id=? ORDER BY sent_at DESC', j.id),
-    rows(db, `SELECT t.*,s.export_id,st.status review_status,st.reason review_reason FROM b_time t LEFT JOIN b_export_sources s ON s.source_key='time:'||t.id LEFT JOIN b_time_status st ON st.entry_id=t.id WHERE t.job_id=? ORDER BY t.date,t.created_at`, j.id),
+    rows(db, `SELECT t.*,s.export_id,st.status review_status,st.reason review_reason,(SELECT label FROM b_job_steps WHERE job_id=t.job_id AND ordinal=t.step_ordinal) task FROM b_time t LEFT JOIN b_export_sources s ON s.source_key='time:'||t.id LEFT JOIN b_time_status st ON st.entry_id=t.id WHERE t.job_id=? ORDER BY t.date,t.created_at`, j.id),
     rows(db, 'SELECT id,created_by,created_at,expires_at,revoked_at FROM b_portal_links WHERE job_id=? ORDER BY created_at DESC', j.id),
     deliverablesFor(db, j.id),
     jobExpenses(db, j),

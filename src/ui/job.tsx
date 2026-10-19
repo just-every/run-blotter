@@ -3,7 +3,7 @@ import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, 
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { JobExpenses } from './expenses';
-import { TimeBudget, Timer } from './timer';
+import { TaskChoice, TimeBudget, Timer } from './timer';
 import { ReminderComposer } from './messages';
 import { OpenNotice } from './notices';
 import { Answers, TaskFlow } from './flow';
@@ -92,14 +92,15 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       <h2>Time</h2>
       <TimeBudget budget={detail.budget} />
       {detail.time.length === 0 ? <p className="muted">No time recorded yet.</p> : <table className="table"><thead><tr><th>Date</th><th>Person</th><th>Description</th><th>Minutes</th><th>Rate</th><th>Amount</th><th></th></tr></thead>
-        <tbody>{detail.time.map((t: Row) => <tr key={t.id}><td data-label="Date">{t.date}</td><td data-label="Person">{t.person_email}</td><td data-label="Description">{t.description}{!t.billable && <small className="muted"> · not billable</small>}</td><td data-label="Minutes">{t.minutes}</td><td data-label="Rate">{aud(t.rate_cents)}/h <small className="muted">({SOURCE[t.rate_source]} rate)</small></td><td data-label="Amount">{aud(t.amount_cents)}</td>
+        <tbody>{detail.time.map((t: Row) => <tr key={t.id}><td data-label="Date">{t.date}</td><td data-label="Person">{t.person_email}</td><td data-label="Description">{t.description}{t.task && <small className="muted"> · task: {t.task}</small>}{!t.billable && <small className="muted"> · not billable</small>}</td><td data-label="Minutes">{t.minutes}</td><td data-label="Rate">{aud(t.rate_cents)}/h <small className="muted">({SOURCE[t.rate_source]} rate)</small></td><td data-label="Amount">{aud(t.amount_cents)}</td>
           <td><small className="muted">{t.review_status ?? 'not submitted'}{t.export_id && ' · exported'}</small>
             {!t.export_id && ['returned', null].includes(t.review_status) && (t.person_email === actor.email || actor.role === 'owner') && <button className="quiet" onClick={() => run(() => api(`/time/${t.id}/delete`, {}), 'Time entry deleted')}>Delete</button>}
             <EntryHistory entryId={t.id} owner={actor.role === 'owner'} approved={t.review_status === 'approved'} run={run} /></td></tr>)}</tbody></table>}
-      <Timer job={job} timer={detail.timer} run={run} />
-      <Form label="Record time" submit={async (data, form) => run(async () => { await api(`/jobs/${job.id}/time`, { ...data, minutes: Number(data.minutes), billable: data.billable === 'on' }); form.reset(); }, 'Time recorded at the rate in force on its date')}>
+      <Timer job={job} timer={detail.timer} steps={detail.steps} run={run} />
+      <Form label="Record time" submit={async (data, form) => run(async () => { await api(`/jobs/${job.id}/time`, { ...data, minutes: Number(data.minutes), billable: data.billable === 'on', taskOrdinal: data.taskOrdinal ? Number(data.taskOrdinal) : undefined }); form.reset(); }, 'Time recorded at the rate in force on its date')}>
         <div className="row"><Field label="Date" name="date" type="date" value={today()} /><Field label="Minutes" name="minutes" type="number" /></div>
         <Field label="Description" name="description" />
+        <TaskChoice steps={detail.steps} />
         <label className="check"><input type="checkbox" name="billable" defaultChecked /> Billable to the client</label>
       </Form>
     </section>
