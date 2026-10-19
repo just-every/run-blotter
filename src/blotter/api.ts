@@ -41,6 +41,7 @@ import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './cap
 import { forecast, saveScenario, scenarios } from './forecast';
 import { search } from './search';
 import { inbox } from './inbox';
+import { intakeFile } from './intake';
 import { addProspect, addStage, moveProspect, pipeline, winProspect } from './prospects';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
@@ -155,6 +156,7 @@ api.post(`${P}/capacity/blocks`, as(async (a, c) => addBlock(db(c), a, await bod
 api.post(`${P}/capacity/blocks/:id/delete`, as((a, c) => removeBlock(db(c), a, param(c))));
 api.get(`${P}/pipeline`, as((a, c) => pipeline(db(c), a)));
 api.post(`${P}/pipeline/stages`, as(async (a, c) => addStage(db(c), a, await body(c))));
+api.get(`${P}/prospects/:id/files/:file`, as((a, c) => intakeFile(db(c), a, param(c), param(c, 'file'))));
 api.post(`${P}/prospects`, as(async (a, c) => addProspect(db(c), a, await body(c))));
 api.post(`${P}/prospects/:id/stage`, as(async (a, c) => moveProspect(db(c), a, param(c), await body(c))));
 api.post(`${P}/prospects/:id/win`, as(async (a, c) => winProspect(db(c), a, param(c), await body(c))));

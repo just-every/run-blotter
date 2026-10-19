@@ -34,6 +34,8 @@ export interface Bindings {
  RER_OWNER_CLAIM_ISSUER?: string
  RER_OWNER_CLAIM_INSTALLATION_ID?: string
  RER_OWNER_CLAIM_PUBLIC_KEYS?: string
+ TURNSTILE_SITE_KEY?: string
+ TURNSTILE_SECRET_KEY?: string
  SESSION_SECRET: string
  SETUP_TOKEN?: string
  MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare'

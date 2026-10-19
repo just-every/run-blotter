@@ -9,6 +9,8 @@ import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { seedDemo } from './demo'
+import { intakeResponse } from './blotter/intake-page'
+import { clearIntakeChecks } from './blotter/intake'
 import { runRules } from './blotter/recurrence'
 
 
@@ -25,6 +27,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
+    const intake = await intakeResponse(request, env)
+    if (intake) return rejectedResponse(request, intake)
     const auth = await authResponse(request, env)
     if (auth) return auth
     // The installed variant: the Lobby at / and the public claim state it reads.
@@ -37,6 +41,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
   },
   // The hourly Cron Trigger creates recurring work (WORK-002).
   async scheduled(controller, env) {
+    await clearIntakeChecks(env.DB)
     await runRules(env, new Date(controller.scheduledTime), 'cron')
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, today, when, type Row, type Run, day } from './common';
+import { api, Empty, Field, Form, money, today, when, type Row, type Run, day } from './common';
 
 const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
 const hours = (m: number) => `${Math.round(m / 6) / 10} h`;
@@ -52,6 +52,11 @@ export function Forecast({ state, run, tick }: { state: Row; run: Run; tick: num
         })}</tbody>
       </table>}
       {compared?.removed.length > 0 && <p className="muted">Left out for the scenario: {compared.removed.map((r: Row) => `${r.client} · ${r.workType} ${r.periodLabel} (${r.reason})`).join('; ')}.</p>}
+      <h3>Open pipeline · unestimated demand</h3>
+      <p className="muted">These requested services apply to the baseline{compared ? ' and this scenario' : ''}. They have no work budget or scheduled start, so weekly hours and confidence exclude them. Annual fees are for the whole prospect and are not time estimates.</p>
+      {!view.baseline.pipeline.length ? <Empty>No open prospects.</Empty> : <ul className="list">{view.baseline.pipeline.map((p: Row) => <li key={p.prospectId + '|' + p.service}>
+        {p.prospect} · {p.service} · {p.stage} <small className="muted">{p.source} · {p.ownerEmail} · {p.estimatedAnnualFeeCents === null ? 'annual fee not estimated' : `${money(p.estimatedAnnualFeeCents, p.currency)} estimated annual fee for the whole prospect`} · unestimated demand</small>
+      </li>)}</ul>}
       <details><summary>Where each estimate comes from</summary><ul className="list">{view.baseline.lines.map((l: Row) => <li key={l.ruleId + l.periodStart}>
         {l.client} · {l.workType} · {l.periodLabel} <small className="muted">due {day(l.due)} · {range(l)} · {l.basis}{l.samples.length > 0 && `: ${l.samples.map((s: Row) => `${s.periodLabel} ${hours(s.actualMinutes)}`).join(', ')}`}</small></li>)}</ul></details>
       <details><summary>Assumptions</summary><ul className="list">{view.assumptions.map((a: string) => <li key={a}><small>{a}</small></li>)}</ul></details>
