@@ -1471,6 +1471,160 @@ test('CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with c
   assert.ok(!(await h.json(`/clients/${firm.id}/history`, undefined, h.owner)).unresolved.some(i => i.kind === 'coverage'));
 });
 
+test('CAPACITY-003 forecast: next tax season from recurring rules and prior actuals, as weekly ranges with confidence; a client with no actuals widens the range and is named; a hire and a lost client compared by skill; a saved scenario changes no live work', async () => {
+  const individual = await h.json('/templates', { name: 'Individual 1040', recurrence: 'annual', steps: 'Prepare return', requests: 'Organizer' }, h.owner);
+  const people = { templateId: individual.id, preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const clients = {};
+  for (const name of ['Ortiz household', 'Lowe household', 'Quint household']) clients[name] = await h.json('/clients', { name, fields: { service_tier: 'Plus' } }, h.owner);
+  // Prior actuals: recorded time on signed-off jobs of earlier periods.
+  const done = async (client, periodStart, minutes) => {
+    const created = await h.json('/jobs', { ...people, clientId: client.id, periodStart, dueDate: '2031-06-30', dueNote: 'Filed' }, h.owner);
+    for (const [n, m] of minutes.entries()) await h.json(`/jobs/${created.id}/time`, { date: `2030-0${n + 3}-0${n + 4}`, minutes: m, description: 'Return' }, preparer);
+    let detail = await h.json('/jobs/' + created.id, undefined, preparer);
+    for (const r of detail.requests) { await h.json(`/requests/${r.id}/files`, { name: 'organizer.pdf', mime: 'application/pdf', contentBase64: b64('%PDF organizer') }, preparer); await h.json(`/requests/${r.id}/decide`, { decision: 'accept' }, preparer); }
+    for (const s of detail.steps) await h.json(`/jobs/${created.id}/steps`, { ordinal: s.ordinal, done: true }, preparer);
+    detail = await h.json(`/jobs/${created.id}/submit`, { revision: (await h.json('/jobs/' + created.id, undefined, preparer)).job.revision }, preparer);
+    await h.json(`/jobs/${created.id}/review`, { revision: detail.job.revision, decision: 'signoff', note: 'Filed' }, reviewer);
+    return created;
+  };
+  const o2029 = await done(clients['Ortiz household'], '2029-01-01', [300]), o2030 = await done(clients['Ortiz household'], '2030-01-01', [500]);
+  await done(clients['Ortiz household'], '2030-07-01', [1000, 1000]); // a mid-year period: not the same season, so not used
+  const l2030 = await done(clients['Lowe household'], '2030-01-01', [400]);
+  // Approved recurring engagements for the 2031 tax year, due 105 days after the year ends; Quint has never been prepared here.
+  const rule = body => h.json('/rules', { ...people, firstPeriod: '2031-01-01', dueDays: 105, dueNote: 'Federal filing deadline', ...body }, h.owner);
+  for (const name of ['Ortiz household', 'Lowe household']) await rule({ clientId: clients[name].id });
+  await rule({ clientId: clients['Quint household'].id, budgetMinutes: 600 });
+  const season = { from: '2032-04-12', weeks: 2 };
+  await h.json('/capacity/forecast', season, preparer, 403);
+  await h.json('/capacity/forecast', { ...season, from: '2032-04-13' }, h.owner, 400);
+  const mine = l => l.workType === 'Individual 1040';
+  let view = await h.json('/capacity/forecast', season, reviewer);
+  assert.ok(view.assumptions.length >= 5);
+  // Each estimate traces to its source: same-month prior actuals, or the rule's budget for a client with none.
+  assert.deepEqual(view.baseline.lines.filter(mine).map(l => [l.client, l.due, l.basis, l.point, l.low, l.high, l.samples.map(s => [s.jobId, s.actualMinutes]), l.reason]), [
+    ['Lowe household', '2032-04-14', 'mean of 1 prior actual in the same month', 400, 360, 440, [[l2030.id, 400]], null],
+    ['Ortiz household', '2032-04-14', 'mean of 2 prior actuals in the same month', 400, 270, 550, [[o2029.id, 300], [o2030.id, 500]], null],
+    ['Quint household', '2032-04-14', 'rule time budget', 600, 300, 900, [], 'Quint household has no prior actuals for Individual 1040']]);
+  // Each week is a range with its stated confidence; the client without actuals lowers it and is named.
+  let [first, second] = view.baseline.weeks;
+  const quint = 'Quint household has no prior actuals for Individual 1040';
+  assert.deepEqual([first.weekStart, first.confidence.level, first.confidence.reasons.includes(quint)], ['2032-04-12', 'low', true]);
+  assert.deepEqual(first.skills.find(s => s.skill === 'individual 1040'), { skill: 'individual 1040', demand: { point: 1400, low: 930, high: 1890 }, capacityMinutes: 0, shortMinutes: 1890 });
+  assert.equal(second.weekStart, '2032-04-19');
+  // Scenario: a hypothetical 1040 hire and the lost client; compare by skill. Losing Quint narrows the week's range and lifts its confidence.
+  const changes = { hires: [{ name: 'Seasonal preparer', weeklyMinutes: 2400, skills: ['Individual 1040'], startsOn: '2032-04-01' }], lostClients: [clients['Quint household'].id] };
+  await h.json('/capacity/forecast', { ...season, changes: { lostClients: ['nope'] } }, h.owner, 404);
+  view = await h.json('/capacity/forecast', { ...season, changes }, h.owner);
+  [first] = view.compared.weeks;
+  assert.deepEqual(first.skills.find(s => s.skill === 'individual 1040'), { skill: 'individual 1040', demand: { point: 800, low: 630, high: 990 }, capacityMinutes: 2400, shortMinutes: 0 });
+  assert.ok(!first.confidence.reasons.includes(quint));
+  assert.equal(first.capacityMinutes, view.baseline.weeks[0].capacityMinutes + 2400);
+  assert.deepEqual(view.compared.removed.map(r => [r.client, r.reason]), [['Quint household', 'lost client']]);
+  assert.deepEqual(view.compared.skills.find(s => s.skill === 'individual 1040').capacityMinutes, 4800);
+  // Saving the scenario changes no live work; reopening it recomputes the same comparison.
+  const live = async () => [await h.json('/rules', undefined, h.owner), (await h.json('/state', undefined, h.owner)).jobs, await h.json('/capacity?week=2032-04-12', undefined, h.owner)];
+  const before = await live();
+  await h.json('/capacity/scenarios', { name: 'Seasonal hire, Quint lost', ...season, changes }, preparer, 403);
+  const saved = await h.json('/capacity/scenarios', { name: 'Seasonal hire, Quint lost', ...season, changes }, h.owner);
+  assert.deepEqual(await live(), before);
+  assert.deepEqual((await h.json('/capacity/scenarios', undefined, reviewer)).map(s => [s.id, s.name, s.from, s.weeks]), [[saved.id, 'Seasonal hire, Quint lost', '2032-04-12', 2]]);
+  const reopened = await h.json('/capacity/forecast', { scenarioId: saved.id }, reviewer);
+  assert.deepEqual([reopened.scenario.name, reopened.compared, reopened.baseline], ['Seasonal hire, Quint lost', view.compared, view.baseline]);
+});
+
+test('SEARCH-001 firm-wide search: a client by last name (with a typo), a phrase inside an uploaded PDF, a task, a portal message and a note, each opened; type filter and ranking; a preparer gets nothing from a client they cannot read; tax-id digits only for a principal or reviewer, always masked', async () => {
+  const deflated = (await import('node:zlib')).deflateSync(Buffer.from('BT /F1 12 Tf 72 720 Td (Schedule C home office) Tj T* [(deduction) -250 (worksheet for 2031)] TJ ET'));
+  const pdf = Buffer.concat([Buffer.from(`%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nendobj\n2 0 obj\n<< /Length ${deflated.length} /Filter /FlateDecode >>\nstream\n`, 'latin1'), deflated, Buffer.from('\nendstream\nendobj\n%%EOF\n', 'latin1')]);
+  const okonkwo = await h.json('/clients', { name: 'Amara Okonkwo', abn: '51 824 753 556', contactName: 'Amara Okonkwo', contactEmail: 'amara@okonkwo.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const hidden = await h.json('/clients', { name: 'Okonkwo Holdings Trust', fields: { service_tier: 'Plus' } }, h.owner);
+  const tasks = [{ label: 'Reconcile depreciation schedule', assignee: 'preparer' }];
+  const sched = await h.json('/templates', { name: 'Schedule C review', recurrence: 'annual', steps: 'unused', requests: 'Home office records', tasks }, h.owner);
+  const start = { templateId: sched.id, periodStart: '2031-01-01', dueDate: '2032-04-15', dueNote: 'Filing', reviewerEmail: 'reviewer@example.test' };
+  const mine = await h.json('/jobs', { ...start, clientId: okonkwo.id, preparerEmail: 'preparer@example.test' }, h.owner);
+  const theirs = await h.json('/jobs', { ...start, clientId: hidden.id, preparerEmail: 'reviewer@example.test', reviewerEmail: 'owner@example.test' }, h.owner);
+  const upload = async (j, cookie) => { const r = (await h.json('/jobs/' + j.id, undefined, cookie)).requests[0]; return (await h.json(`/requests/${r.id}/files`, { name: 'home-office.pdf', mime: 'application/pdf', contentBase64: pdf.toString('base64') }, cookie)); };
+  await upload(mine, preparer); await upload(theirs, reviewer);
+  await h.json(`/jobs/${mine.id}/portal/messages`, { body: 'Please send the mileage logbook for the Okonkwo rideshare' }, preparer);
+  await h.json(`/jobs/${theirs.id}/threads`, { anchor: 'client', title: 'Trust distribution minutes', body: 'Trustee resolution on the beneficiary distribution is missing' }, reviewer);
+  const find = (q, cookie = reviewer, extra = '') => h.json(`/search?q=${encodeURIComponent(q)}${extra}`, undefined, cookie);
+  await h.json('/search?q=', undefined, reviewer, 400);
+  await h.json('/search?q=x&type=invoice', undefined, reviewer, 400);
+  // A client by last name, tolerating a typo, opened through the client history door.
+  for (const q of ['okonkwo', 'Okonkow']) assert.ok((await find(q)).results.some(r => r.type === 'client' && r.id === okonkwo.id), q);
+  const byName = await find('Amara Okonkwo');
+  assert.deepEqual([byName.results[0].type, byName.results[0].id], ['client', okonkwo.id]);
+  assert.equal((await h.json(`/clients/${byName.results[0].open.clientId}/history`, undefined, reviewer)).client.name, 'Amara Okonkwo');
+  // A phrase inside an uploaded PDF; the result opens the file itself.
+  const doc = (await find('home office deduction worksheet', preparer)).results;
+  assert.deepEqual(doc.map(r => [r.type, r.title]), [['document', 'home-office.pdf']]);
+  assert.match(doc[0].snippet, /home office deduction worksheet/i);
+  const file = await h.request('/api/blotter/files/' + doc[0].open.fileId, undefined, preparer);
+  assert.equal(file.status, 200); assert.deepEqual(Buffer.from(await file.arrayBuffer()), pdf);
+  // A task, a portal message and a note open their job; the type filter narrows.
+  const task = (await find('depreciation', preparer)).results.find(r => r.type === 'task');
+  assert.equal((await h.json('/jobs/' + task.open.jobId, undefined, preparer)).job.id, mine.id);
+  const message = (await find('mileage logbook', preparer, '&type=portal%20message')).results;
+  assert.deepEqual([...new Set(message.map(r => r.type))], ['portal message']);
+  assert.equal(message[0].open.jobId, mine.id);
+  const note = (await find('beneficiary distribution')).results.find(r => r.type === 'note');
+  assert.equal((await h.json('/threads/' + note.open.threadId, undefined, reviewer)).thread.title, 'Trust distribution minutes');
+  // Results rank by match, then recency: both PDFs match for the reviewer, the newer first.
+  assert.deepEqual((await find('home office deduction', reviewer, '&type=document')).results.slice(0, 2).map(r => r.open.jobId), [theirs.id, mine.id]);
+  // A preparer without access to a client gets nothing from it: not the client, its job, its PDF or its discussion.
+  for (const q of ['Okonkwo Holdings', 'home office deduction', 'beneficiary distribution', 'Trust'])
+    assert.ok(!JSON.stringify((await find(q, preparer)).results).includes(hidden.id) && !(await find(q, preparer)).results.some(r => r.open.jobId === theirs.id), q);
+  // Tax-id digits match only for a principal or reviewer, and the number is shown masked.
+  const tax = await find('3556', reviewer);
+  assert.deepEqual(tax.results.filter(r => r.type === 'client').map(r => [r.id, r.taxId]), [[okonkwo.id, '•••••3556']]);
+  assert.ok(!JSON.stringify(tax).includes('51824753556') && !JSON.stringify(await find('Amara', h.owner)).includes('51824753556'));
+  assert.ok(!(await find('3556', preparer)).results.some(r => r.type === 'client'));
+  // Erasing a document's bytes removes it from search.
+  await h.json(`/files/${doc[0].open.fileId}/erase`, { confirm: 'home-office.pdf', reason: 'Client asked' }, h.owner);
+  assert.deepEqual((await find('home office deduction', preparer)).results, []);
+});
+
+test('CRM-005 pipeline slice: prospects with source, services, fees and owner move through firm stages; lost needs a reason; winning creates exactly one client with its contact and onboarding job, and repeating the win creates nothing; the report shows conversion, stage age and fees by source and owner', async () => {
+  const onboarding = await h.json('/templates', { name: 'New client onboarding', recurrence: 'annual', steps: 'Collect prior returns', requests: 'Prior-year returns' }, h.owner);
+  const base = { contactName: 'Dana Reyes', contactEmail: 'dana@reyes.example', services: ['Monthly bookkeeping', '1120-S return'], ownerEmail: 'reviewer@example.test' };
+  await h.json('/prospects', { ...base, name: 'Reyes Studio LLC', source: 'Website', estimatedFeeCents: 600000 }, preparer, 403);
+  await h.json('/pipeline', undefined, preparer, 403);
+  await h.json('/pipeline/stages', { name: 'Discovery call', position: 15 }, reviewer, 403);
+  const discovery = await h.json('/pipeline/stages', { name: 'Discovery call', position: 15 }, h.owner);
+  const reyes = await h.json('/prospects', { ...base, name: 'Reyes Studio LLC', source: 'Website', estimatedFeeCents: 600000 }, reviewer);
+  const vega = await h.json('/prospects', { ...base, name: 'Vega Bakery', contactEmail: 'ops@vega.example', source: 'Website', estimatedFeeCents: 240000, ownerEmail: 'owner@example.test' }, h.owner);
+  const kim = await h.json('/prospects', { ...base, name: 'Kim Dental PC', contactEmail: 'kim@kimdental.example', source: 'Referral', estimatedFeeCents: 900000 }, reviewer);
+  assert.deepEqual([reyes.stage, reyes.source, JSON.parse(reyes.services), reyes.fee_cents, reyes.owner_email], ['Inquiry', 'Website', ['Monthly bookkeeping', '1120-S return'], 600000, 'reviewer@example.test']);
+  const stages = (await h.json('/pipeline', undefined, reviewer)).stages, stage = name => stages.find(s => s.name === name).id;
+  assert.deepEqual(stages.map(s => s.name), ['Inquiry', 'Discovery call', 'Consult booked', 'Proposal sent', 'Won', 'Lost']);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: discovery.id }, reviewer);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: stage('Proposal sent') }, reviewer);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: stage('Won') }, reviewer, 409);
+  // Lost keeps a required reason.
+  await h.json(`/prospects/${vega.id}/stage`, { stageId: stage('Lost') }, h.owner, 400);
+  assert.equal((await h.json(`/prospects/${vega.id}/stage`, { stageId: stage('Lost'), reason: 'Chose a cheaper local firm' }, h.owner)).lost_reason, 'Chose a cheaper local firm');
+  // Winning creates exactly one client with the contact and its onboarding job; the same win again creates nothing.
+  const win = { templateId: onboarding.id, preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', periodStart: '2031-01-01', dueDate: '2031-02-15', dueNote: 'Engagement start + 45 days', fields: { service_tier: 'Plus' } };
+  await h.json(`/prospects/${vega.id}/win`, win, h.owner, 409);
+  const clientsBefore = (await h.json('/state', undefined, h.owner)).clients.length;
+  const first = await h.json(`/prospects/${reyes.id}/win`, win, reviewer);
+  const again = await h.json(`/prospects/${reyes.id}/win`, win, reviewer);
+  assert.deepEqual([first.repeated, again.repeated, again.clientId, again.jobId], [false, true, first.clientId, first.jobId]);
+  const state = await h.json('/state', undefined, h.owner);
+  assert.equal(state.clients.length, clientsBefore + 1);
+  assert.deepEqual(state.clients.filter(c => c.name === 'Reyes Studio LLC').map(c => [c.id, c.contact_name, c.contact_email]), [[first.clientId, 'Dana Reyes', 'dana@reyes.example']]);
+  const onboard = await h.json('/jobs/' + first.jobId, undefined, preparer);
+  assert.deepEqual([onboard.job.client_id, onboard.job.title, onboard.steps.map(s => s.label)], [first.clientId, 'New client onboarding', ['Collect prior returns']]);
+  await h.json(`/prospects/${reyes.id}/stage`, { stageId: stage('Lost'), reason: 'x' }, reviewer, 409);
+  // The report: conversion, stage age and fees by source and owner.
+  const { report, prospects } = await h.json('/pipeline', undefined, h.owner);
+  const site = report.bySource.find(r => r.source === 'Website'), referral = report.bySource.find(r => r.source === 'Referral');
+  assert.deepEqual([site.prospects, site.won, site.lost, site.conversionPercent, site.wonFeeCents, site.openFeeCents], [2, 1, 1, 50, 600000, 0]);
+  assert.deepEqual([referral.open, referral.conversionPercent, referral.openFeeCents], [1, null, 900000]);
+  assert.deepEqual(report.byOwner.map(r => [r.owner, r.prospects, r.won, r.lost]), [['owner@example.test', 1, 0, 1], ['reviewer@example.test', 2, 1, 0]]);
+  assert.deepEqual(report.stageAge.find(s => s.stage === 'Inquiry'), { stage: 'Inquiry', open: 1, averageDays: 0, oldestDays: 0 });
+  assert.equal(prospects.find(p => p.id === kim.id).stageAgeDays, 0);
+});
+
 test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
   const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
   const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);

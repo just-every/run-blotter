@@ -24,14 +24,14 @@ const shiftDays = (d: string, n: number) => day(new Date(Date.parse(d + 'T00:00:
 const monthOf = (d: string) => Number(d.slice(5, 7));
 
 /** The rule's period starts from its first period through `until` (inclusive) or its last period. */
-function periods(rule: Data, recurrence: Recurrence, until: string) {
+export function periods(rule: Data, recurrence: Recurrence, until: string) {
   const months = JSON.parse(rule.months) as number[], list: string[] = [];
   for (let start = rule.first_period, n = 0; start <= until && (!rule.end_period || start <= rule.end_period) && n < 600; start = addMonths(rule.first_period, ++n * STEP[recurrence]))
     if (months.includes(monthOf(start))) list.push(start);
   return list;
 }
 const createOn = (start: string, lead: number) => addMonths(start, -lead);
-const dueFor = (start: string, recurrence: Recurrence, days: number) => shiftDays(shiftDays(nextPeriod(start, recurrence), -1), days);
+export const dueFor = (start: string, recurrence: Recurrence, days: number) => shiftDays(shiftDays(nextPeriod(start, recurrence), -1), days);
 
 /** A rule's schedule: periods from last period on (and any earlier one not yet held), with what holds each or when it will be created. */
 function schedule(rule: Data, recurrence: Recurrence, held: Data[], today: string, count = 12) {

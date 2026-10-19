@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, today, type Row, type Run } from './common';
 import { Coverage } from './coverage';
+import { Forecast } from './forecast';
 
 const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
 const hours = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
@@ -45,6 +46,7 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
       </>}
     </section>
     {state.actor.role !== 'preparer' && <Coverage state={state} open={open} run={run} tick={tick} />}
+    {state.actor.role !== 'preparer' && <Forecast state={state} run={run} tick={tick} />}
     {owner && <section className="panel">
       <h2>Plan hours</h2>
       <Form label="Save hours" submit={async data => run(() => api('/capacity/people', { email: data.email, weeklyMinutes: Math.round(Number(data.weeklyHours) * 60), skills: String(data.skills ?? '').split(',').map(s => s.trim()).filter(Boolean) }), 'Hours saved')}>
