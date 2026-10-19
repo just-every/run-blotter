@@ -736,6 +736,45 @@ test('MSG-001 message templates: a firm template renders per client, unresolved 
   assert.deepEqual((await h.json('/jobs/' + nextJob.id, undefined, reviewer)).reminders[0], stored);
 });
 
+test('DUE-002 tax notices: open from a client upload, verify the deadline, assign, link a transcript and receipt, follow up; a failed response stays open and closing needs evidence and an outcome', async () => {
+  const upload = (await h.json('/jobs/' + job.id, undefined, reviewer)).requests.flatMap(r => r.files).find(f => f.channel === 'portal' && !f.erased_at);
+  const pdf = name => ({ name: name + '.pdf', mime: 'application/pdf', contentBase64: b64('%PDF ' + name) });
+  const base = { fileId: upload.id, agency: 'IRS', jurisdiction: 'federal', noticeType: 'CP2000', taxPeriod: '2025', noticeDate: '2026-10-01', responseDue: '2026-10-30',
+    assigneeEmail: 'preparer@example.test', authorization: 'Form 2848 on file, CAF 0001-23456R' };
+  await h.json('/notices', base, preparer, 403);
+  await h.json('/notices', { ...base, responseDue: '2026-09-01' }, reviewer, 400);
+  const opened = await h.json('/notices', base, reviewer), id = opened.notice.id;
+  assert.deepEqual([opened.notice.client_id, opened.source.id, opened.source.channel, opened.notice.due_verified_at], [client.id, upload.id, 'portal', null]);
+  // The assigned practitioner checks the date on the notice and corrects it; the change is recorded.
+  const verified = await h.json(`/notices/${id}/deadline`, { responseDue: '2026-10-31' }, preparer);
+  assert.deepEqual([verified.notice.response_due, verified.notice.due_verified_by], ['2026-10-31', 'preparer@example.test']);
+  assert.deepEqual((await h.json('/notices', undefined, preparer)).map(n => [n.id, n.response_due]), [[id, '2026-10-31']]);
+  const add = (body, expected = 200) => h.json(`/notices/${id}/events`, body, preparer, expected);
+  await add({ kind: 'transcript', note: 'Account transcript 2025' }, 400);
+  const transcript = await add({ kind: 'transcript', note: 'Account transcript for 2025, pulled under the 2848', file: pdf('transcript') });
+  await add({ kind: 'client_question', note: 'Asked Mia for the missing 1099-B' });
+  await add({ kind: 'follow_up', note: 'Check for the IRS reply', followUpOn: '2027-01-15' });
+  const failed = await add({ kind: 'response_submitted', note: 'Fax did not go through', result: 'failed', file: pdf('fax-error') });
+  assert.equal((await h.json('/notices', undefined, reviewer)).find(n => n.id === id).next_follow_up, '2027-01-15');
+  // A failed response keeps the notice open; closing needs an outcome and evidence.
+  assert.match((await h.json(`/notices/${id}/close`, { outcome: 'resolved', note: 'Sent', evidenceEventId: transcript.id }, preparer, 409)).error, /latest response is not accepted/);
+  const accepted = await add({ kind: 'response_submitted', note: 'Response mailed by certified post', result: 'accepted' });
+  await h.json(`/notices/${id}/close`, { outcome: 'resolved', note: 'Sent' }, preparer, 400);
+  await h.json(`/notices/${id}/close`, { outcome: 'resolved', note: 'Sent', evidenceEventId: accepted.id }, preparer, 409);
+  await h.json(`/notices/${id}/close`, { outcome: 'resolved', note: 'Sent', evidenceEventId: failed.id }, preparer, 409);
+  const receipt = await add({ kind: 'receipt', note: 'IRS letter accepting the response', file: pdf('irs-acceptance') });
+  const closed = await h.json(`/notices/${id}/close`, { outcome: 'resolved', note: 'The IRS accepted the response; no change to tax', evidenceEventId: receipt.id }, preparer);
+  assert.deepEqual([closed.notice.status, closed.notice.outcome, closed.notice.evidence_event_id, closed.notice.closed_by], ['closed', 'resolved', receipt.id, 'preparer@example.test']);
+  assert.deepEqual(closed.events.map(e => [e.kind, e.result]), [['transcript', null], ['client_question', null], ['follow_up', null], ['response_submitted', 'failed'], ['response_submitted', 'accepted'], ['receipt', null]]);
+  assert.equal(await (await h.request(`/api/blotter/notices/${id}/events/${receipt.id}/file`, undefined, preparer)).text(), '%PDF irs-acceptance');
+  await add({ kind: 'note', note: 'Too late' }, 409);
+  // A documented exception closes without evidence, by the assignee, a reviewer or the principal.
+  const other = await h.json('/notices', { ...base, noticeType: 'CP14', assigneeEmail: 'reviewer@example.test' }, h.owner);
+  await h.json(`/notices/${other.notice.id}/close`, { outcome: 'exception', note: 'Client engaged other counsel' }, preparer, 403);
+  await h.json(`/notices/${other.notice.id}/close`, { outcome: 'exception' }, reviewer, 400);
+  assert.equal((await h.json(`/notices/${other.notice.id}/close`, { outcome: 'exception', note: 'Client engaged other counsel' }, reviewer)).notice.outcome, 'exception');
+});
+
 // RFC 6238 codes as an authenticator app computes them; `offset` moves whole 30-second steps.
 const totp = (secret, offset = 0) => {
   let bits = 0, value = 0; const key = [];

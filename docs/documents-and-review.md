@@ -36,6 +36,14 @@ To send a corrected file, open **Send a new version** on the deliverable. The ne
 
 An approval moves the job to **Review** only when its checklist is finished and every requested document is accepted; otherwise the job stays open and the approval says so. The person who sent the version is recorded as the submitter, so the normal review rules still apply.
 
+## Tax notices
+
+When a client sends a federal or state notice, open the job, find the file under **Client documents** and choose **Open as a tax notice**. Record the agency, notice type, tax period, notice date and the response date printed on the notice, the practitioner who will handle it, the authorization on file (for example a Form 2848 with its CAF number) and your resolution plan.
+
+The notice appears under **Jobs → Tax notices**, open notices first by response date. Open it and **Verify the response date** against the notice itself; until someone does, it is marked unverified. Use **Record work** to add research, client questions, agency contact, follow-ups (with a date), responses (pending, accepted or failed) and transcripts or receipts (with their file). The timeline cannot be edited.
+
+A failed response keeps the notice open. To close it as **Resolved**, choose an evidence file (an agency contact, transcript, receipt or accepted response) and write the outcome; the latest response must be accepted. Otherwise close it as a **Documented exception** with its reason. Blotter tracks the work and evidence; it does not give tax advice.
+
 ## Submit and review
 
 Finish every checklist step and accept every requested document, then press **Submit for review**. The job moves from **Open** to **Review**.

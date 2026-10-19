@@ -13,6 +13,7 @@ import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, s
 import { myNotifications } from './notifications';
 import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
 import { decideRequest, downloadFile, portalUpload, portalView, previewReminder, sendReminder, staffUpload } from './documents';
+import { addNoticeEvent, closeNotice, noticeDetail, noticeFile, notices, openNotice, updateNotice, verifyDeadline } from './notices';
 import { copyTemplate, createTemplate, deleteTemplate, editTemplate, setFirmName, templates } from './messages';
 import { decideExpense, downloadReceipt, recordExpense, reimburseExpense, setMileageRate } from './expenses';
 import { downloadAttachment, weeklyPlan } from './tasks';
@@ -102,6 +103,14 @@ api.post(`${P}/messages/templates`, as(async (a, c) => createTemplate(db(c), a, 
 api.post(`${P}/messages/templates/:id`, as(async (a, c) => editTemplate(db(c), a, param(c), await body(c))));
 api.post(`${P}/messages/templates/:id/delete`, as((a, c) => deleteTemplate(db(c), a, param(c))));
 api.post(`${P}/messages/templates/:id/copy`, as(async (a, c) => copyTemplate(db(c), a, param(c), await body(c))));
+api.get(`${P}/notices`, as((a, c) => notices(db(c), a)));
+api.post(`${P}/notices`, as(async (a, c) => openNotice(db(c), a, await body(c))));
+api.get(`${P}/notices/:id`, as((a, c) => noticeDetail(db(c), a, param(c))));
+api.post(`${P}/notices/:id`, as(async (a, c) => updateNotice(db(c), a, param(c), await body(c))));
+api.post(`${P}/notices/:id/deadline`, as(async (a, c) => verifyDeadline(db(c), a, param(c), await body(c))));
+api.post(`${P}/notices/:id/events`, as(async (a, c) => addNoticeEvent(db(c), a, param(c), await body(c))));
+api.get(`${P}/notices/:id/events/:event/file`, as((a, c) => noticeFile(db(c), a, param(c), param(c, 'event'))));
+api.post(`${P}/notices/:id/close`, as(async (a, c) => closeNotice(db(c), a, param(c), await body(c))));
 api.post(`${P}/firm`, as(async (a, c) => setFirmName(db(c), a, await body(c))));
 api.post(`${P}/jobs/:id/reminders`, as(async (a, c) => sendReminder(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/time`, as(async (a, c) => addTime(db(c), a, param(c), await body(c))));

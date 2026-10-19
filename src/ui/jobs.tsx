@@ -4,9 +4,10 @@ import { ReassignBulk } from './bulk';
 import { MyTimesheet } from './timesheet';
 import { MyAlerts } from './discussions';
 import { MyWeek } from './tasks';
+import { Notices } from './notices';
 
 export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: string; open: (id: string) => void; run: Run; tick: number }) {
-  if (jobId) return <JobDetail jobId={jobId} actor={state.actor} back={() => open('')} open={open} run={run} tick={tick} />;
+  if (jobId) return <JobDetail jobId={jobId} actor={state.actor} people={state.people} back={() => open('')} open={open} run={run} tick={tick} />;
   const jobs: Row[] = state.jobs;
   if (!jobs.length) return <Blotter className="empty-sheet"><Empty>{state.actor.role === 'preparer' ? 'No jobs are assigned to you yet.' : 'No jobs yet. Add a client and a template under Clients & templates, then start a job.'}</Empty></Blotter>;
   return <><Blotter><section className="panel jobs-panel">
@@ -22,5 +23,5 @@ export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: str
       </tr>)}</tbody>
     </table>
     {state.actor.role !== 'preparer' && <details><summary>Reassign or reschedule in bulk</summary><ReassignBulk state={state} run={run} /></details>}
-  </section></Blotter><MyWeek open={open} run={run} tick={tick} /><MyAlerts tick={tick} open={open} /><MyTimesheet actor={state.actor} run={run} tick={tick} /></>;
+  </section></Blotter><MyWeek open={open} run={run} tick={tick} /><Notices actor={state.actor} run={run} tick={tick} /><MyAlerts tick={tick} open={open} /><MyTimesheet actor={state.actor} run={run} tick={tick} /></>;
 }

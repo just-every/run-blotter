@@ -70,7 +70,7 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/jobs.ts`; `src/blotter/clients.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Human-entered valid dates and source notes exist; US source feeds, automatic calculation, applicability, rule approval and extension state do not.
 
-21. **DUE-002 — Tax notices and resolution work.** Status: **missing**. Open a notice from a client upload, verify the response deadline, assign a practitioner, link an authorized transcript and response receipt, and schedule follow-up. A failed response stays open; closing requires evidence and a recorded outcome.
+21. **DUE-002 — Tax notices and resolution work.** Status: **done**. Open a notice from a client upload, verify the response deadline, assign a practitioner, link an authorized transcript and response receipt, and schedule follow-up. A failed response stays open; closing requires evidence and a recorded outcome.
    Remaining: No notice-specific deadline, authorization or resolution workflow exists.
 
 22. **DUE-003 — Wider US obligation catalog and firm defined deadlines.** Status: **partial**. Configure 1040-ES quarterly estimates including a weekend shift, the January 31 W-2 and 1099-NEC deadlines, an FBAR with its automatic October extension, and a firm rule of 15 days after month end. Inspect the calculated dates and their sources. Import a source revision and preview the affected jobs before approving it. The firm rule shows as firm-defined rather than as an agency deadline.

@@ -4,10 +4,11 @@ import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { JobExpenses } from './expenses';
 import { ReminderComposer } from './messages';
+import { OpenNotice } from './notices';
 import { attachmentBody, TaskInfo } from './tasks';
 import { EntryHistory } from './timesheet';
 
-export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: string; actor: Row; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
+export function JobDetail({ jobId, actor, people, back, open, run, tick }: { jobId: string; actor: Row; people: Row[]; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
   const [detail, setDetail] = useState<Row>(), [link, setLink] = useState<Row>();
   useEffect(() => { api('/jobs/' + jobId).then(setDetail).catch(e => run(async () => { throw e; })); }, [jobId, tick]);
   if (!detail) return <p>Opening job…</p>;
@@ -67,6 +68,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
           {r.files.map((f: Row) => <div key={f.id} className="file">
             {f.erased_at ? <span>{f.name} — erased {when(f.erased_at)}</span> : <a href={`/api/blotter/files/${f.id}`}>{f.name}</a>}
             <small className="muted"> {Math.ceil(f.size / 1024)} KB · {f.channel === 'portal' ? 'client upload' : f.uploaded_by} · {when(f.uploaded_at)}</small>
+            {lead && !f.erased_at && <OpenNotice fileId={f.id} people={people} run={run} />}
           </div>)}
           {isOpen && <div className="actions">
             {r.status === 'received' && <button onClick={() => run(() => api(`/requests/${r.id}/decide`, { decision: 'accept' }), 'Document accepted')}>Accept</button>}
