@@ -55,7 +55,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
               catch (error) { setDetail(detail); throw error; }
             }, done ? 'Step done' : 'Step reopened');
           }} />
-            <span>{s.label}{s.done_at && <small className="muted"> — {s.done_by}, {when(s.done_at)}</small>}<TaskInfo jobId={job.id} step={s} /><TaskFlow jobId={job.id} step={s} lead={lead} open={isOpen} run={run} /></span></label>
+            <span>{s.label}{s.done_at && <small className="muted"> — {who(people, s.done_by)}, {when(s.done_at)}</small>}<TaskInfo jobId={job.id} step={s} /><TaskFlow jobId={job.id} step={s} lead={lead} open={isOpen} run={run} /></span></label>
           {isOpen && s.state === 'ready' && !!s.requires_attachment && <label className="upload">Complete with the required attachment<input type="file" onChange={e => { const file = e.target.files?.[0]; if (file) run(async () => api(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done: true, ...await attachmentBody(file) }), 'Step done'); }} /></label>}
         </li>)}</ul>
         {isOpen && <button onClick={() => run(() => api(`/jobs/${job.id}/submit`, { revision: job.revision }), 'Submitted for review')}>Submit for review</button>}
@@ -76,7 +76,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
           {r.note && <small className="muted">{r.note}</small>}
           {r.files.map((f: Row) => <div key={f.id} className="file">
             {f.erased_at ? <span>{f.name} — erased {when(f.erased_at)}</span> : <a href={`/api/blotter/files/${f.id}`}>{f.name}</a>}
-            <small className="muted"> {Math.ceil(f.size / 1024)} KB · {f.channel === 'portal' ? 'client upload' : f.uploaded_by} · {when(f.uploaded_at)}</small>
+            <small className="muted"> {Math.ceil(f.size / 1024)} KB · {f.channel === 'portal' ? 'client upload' : who(people, f.uploaded_by)} · {when(f.uploaded_at)}</small>
             {lead && !f.erased_at && <OpenNotice fileId={f.id} people={people} run={run} />}
           </div>)}
           {isOpen && <div className="actions">
@@ -89,7 +89,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
           <ReminderComposer contacts={detail.contacts} copied={detail.starter?.messages} jobId={job.id} run={run} sent={setLink} />
         </details>}
         {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {day(link.expiresAt)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
-        {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}{JSON.parse(m.attachments ?? '[]').length > 0 && <small className="muted"> · attached {JSON.parse(m.attachments).map((f: Row) => f.name).join(', ')}</small>}</li>)}</ul></details>}
+        {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {who(people, m.sent_by)}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}{JSON.parse(m.attachments ?? '[]').length > 0 && <small className="muted"> · attached {JSON.parse(m.attachments).map((f: Row) => f.name).join(', ')}</small>}</li>)}</ul></details>}
       </section>
     </div></Blotter>
     <Deliverables contacts={detail.contacts} job={job} deliverables={detail.deliverables} run={run} />

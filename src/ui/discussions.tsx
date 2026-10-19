@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Field, Form, prose, Status, today, when, type Row, type Run } from './common';
+import { api, day, Field, Form, prose, Status, today, when, type Row, type Run } from './common';
 
 const mentionList = (value: unknown) => String(value ?? '').split(/[\s,]+/).filter(Boolean);
 
@@ -19,7 +19,7 @@ export function Discussions({ detail, actor, run, tick }: { detail: Row; actor: 
     {threads.length === 0 && <p className="muted">No discussions yet.</p>}
     <ul>{threads.map(t => <li key={t.id}>
       <button className="quiet" onClick={() => show(t.id)}>{t.title}</button> {t.unread && <strong>Unread</strong>} <Status value={t.status} />
-      <small className="muted"> {t.kind === 'correction' ? `Correction for ${t.owner_email}, follow up by ${t.follow_up_due}` : `Owner ${t.owner_email}`} · about {about(t.anchor)} · {t.messages} {t.messages === 1 ? 'message' : 'messages'} · {when(t.last_at)}</small>
+      <small className="muted"> {t.kind === 'correction' ? `Correction for ${t.owner_email}, follow up by ${day(t.follow_up_due)}` : `Owner ${t.owner_email}`} · about {about(t.anchor)} · {t.messages} {t.messages === 1 ? 'message' : 'messages'} · {when(t.last_at)}</small>
     </li>)}</ul>
     {open && <article className="record">
       <h3>{open.thread.title}</h3>

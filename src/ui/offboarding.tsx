@@ -2,7 +2,7 @@
 // successors for their work and reviews, then transfer it and deactivate them
 // in one reviewed batch.
 import { useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, day, Empty, Field, Form, when, type Row, type Run } from './common';
 
 const count = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
@@ -26,7 +26,7 @@ export function Offboarding({ state, members, run }: { state: Row; members: Row[
         {plan.jobs.map((j: Row) => <li key={j.id}>{j.client} · {j.title} · {j.period_label}: preparer {j.to.preparer}, reviewer {j.to.reviewer}{j.to.manager ? `, manager ${j.to.manager}` : ''}</li>)}
         {plan.tasks.map((t: Row) => <li key={t.job_id + t.ordinal}>Task “{t.label}” on {t.job} → {plan.workSuccessor}</li>)}
         {plan.rules.map((r: Row) => <li key={r.id}>Recurring {r.template} for {r.client}: preparer {r.to.preparer}, reviewer {r.to.reviewer}</li>)}
-        {plan.notices.map((n: Row) => <li key={n.id}>Notice {n.agency} {n.notice_type} (respond by {n.response_due}) → {plan.workSuccessor}</li>)}
+        {plan.notices.map((n: Row) => <li key={n.id}>Notice {n.agency} {n.notice_type} (respond by {day(n.response_due)}) → {plan.workSuccessor}</li>)}
         {plan.threads.map((t: Row) => <li key={t.id}>Discussion “{t.title}” → {plan.workSuccessor}</li>)}
         {plan.proposals.map((p: Row) => <li key={p.id}>Pending {p.kind} proposal from {p.agent_label} → {plan.reviewSuccessor}</li>)}
         {plan.templates.map((t: Row) => <li key={t.id}>Template “{t.name}” task owner → {plan.workSuccessor}</li>)}
