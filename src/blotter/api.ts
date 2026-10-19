@@ -36,6 +36,7 @@ import { agentContext, decideProposal, propose } from './proposals';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
 import { clientQuestion, completeTodo, staffMessage, staffTodo } from './portal-items';
+import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from './coverage';
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
@@ -147,6 +148,10 @@ api.get(`${P}/capacity`, as((a, c) => capacity(db(c), a, c.req.query())));
 api.post(`${P}/capacity/people`, as(async (a, c) => setCapacity(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks`, as(async (a, c) => addBlock(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks/:id/delete`, as((a, c) => removeBlock(db(c), a, param(c))));
+api.get(`${P}/coverage`, as((a, c) => coveragePlans(db(c), a)));
+api.post(`${P}/coverage/preview`, as(async (a, c) => previewCoverage(db(c), a, await body(c))));
+api.post(`${P}/coverage`, as(async (a, c) => approveCoverage(c.env, a, await body(c))));
+api.post(`${P}/coverage/conflicts/:id/resolve`, as(async (a, c) => resolveConflict(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/estimates`, as(async (a, c) => setEstimate(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/portal/messages`, as(async (a, c) => staffMessage(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/portal/todos`, as(async (a, c) => staffTodo(c.env, a, param(c), await body(c))));

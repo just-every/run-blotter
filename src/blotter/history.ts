@@ -3,7 +3,7 @@
 // files, discussions, notices, expenses and time, and the billing exports that
 // include its work, newest first, with
 // its author, time and the record it links to. Unresolved items are the open
-// requests, tasks, reviews, discussions and notices, each with a responsible
+// requests, tasks, reviews, discussions, notices and uncovered work (CAPACITY-002), each with a responsible
 // person, next action and due condition. A preparer sees only the jobs they
 // may read; client-wide records are for reviewers and the principal. A
 // reviewer or the principal hands any unresolved item to another person.
@@ -13,7 +13,7 @@ import { eligible } from './jobs';
 /** Each history kind and the audit actions it covers. */
 const KINDS: Record<string, string> = {
   documents: "a.action LIKE 'request.%' OR a.action LIKE 'file.%' OR a.action LIKE 'deliverable.%'",
-  assignments: "a.action IN ('job.started','job.rolled_forward','job.reassigned','job.task_access','client.merged','client.merge_undone') OR a.action LIKE 'step.%'",
+  assignments: "a.action IN ('job.started','job.rolled_forward','job.reassigned','job.task_access','client.merged','client.merge_undone') OR a.action LIKE 'step.%' OR a.action LIKE 'coverage.%'",
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
   deadlines: "a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
   messages: "a.action LIKE 'thread.%' OR a.action LIKE 'portal.%' OR a.action='reminder.sent'",
@@ -53,7 +53,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
 /** Open items of these jobs (and, for leads, client-wide discussions), each with its owner, next action and due condition. */
 async function openItems(db: D1Database, ids: string, clientId: string | null) {
   const open = `SELECT value FROM json_each(?1)`;
-  const [requests, tasks, reviews, threads, notices, portal] = await Promise.all([
+  const [requests, tasks, reviews, threads, notices, portal, coverage] = await Promise.all([
     rows(db, `SELECT r.id,r.label,r.status,j.id job_id,j.title,j.period_label,j.preparer_email,j.due_date FROM b_requests r JOIN b_jobs j ON j.id=r.job_id
       WHERE j.id IN (${open}) AND j.status='open' AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
     rows(db, `SELECT s.ordinal,s.label,s.assignee_email,s.assignee_role,j.id job_id,j.title,j.period_label,j.preparer_email,j.reviewer_email,j.manager_email,j.due_date FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
@@ -63,6 +63,8 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
     rows(db, `SELECT n.id,n.agency,n.notice_type,n.assignee_email,n.response_due,n.job_id FROM b_notices n WHERE n.status='open' AND n.job_id IN (${open}) ORDER BY n.response_due`, ids),
     rows(db, `SELECT p.id,p.kind,p.body,p.owner_email,p.due_date item_due,j.id job_id,j.title,j.period_label,j.due_date FROM b_portal_items p JOIN b_jobs j ON j.id=p.job_id
       WHERE j.id IN (${open}) AND j.status<>'signed_off' AND p.status='open' ORDER BY p.created_at`, ids),
+    rows(db, `SELECT k.id,k.reason,k.owner_email,j.id job_id,j.title,j.period_label,j.due_date FROM b_coverage_conflicts k JOIN b_jobs j ON j.id=k.job_id
+      WHERE j.id IN (${open}) AND k.resolved_at IS NULL ORDER BY k.created_at`, ids),
   ]);
   const work = (j: Data) => `${j.title} · ${j.period_label}`;
   return [
@@ -81,6 +83,7 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
         ? { kind: 'client_question', id: p.id, jobId: p.job_id, work: work(p), owner: p.owner_email, nextAction: `Answer the client: “${about}”`, due: `job due ${p.due_date}` }
         : { kind: 'client_todo', id: p.id, jobId: p.job_id, work: work(p), owner: p.owner_email, nextAction: `Client to complete “${about}”`, due: p.item_due ? `client due ${p.item_due}` : `job due ${p.due_date}` };
     }),
+    ...coverage.map(k => ({ kind: 'coverage', id: k.id, jobId: k.job_id, work: work(k), owner: k.owner_email, nextAction: `Arrange cover: ${k.reason}`, due: `job due ${k.due_date}` })),
     ...notices.map(n => ({ kind: 'notice', id: n.id, jobId: n.job_id, work: `${n.agency} ${n.notice_type}`, owner: n.assignee_email, nextAction: 'Respond to the notice', due: `respond by ${n.response_due}` })),
   ];
 }
@@ -121,6 +124,9 @@ export async function changeOwner(db: D1Database, actor: Actor, clientId: string
   } else if (item.kind === 'discussion') {
     insist(await can(['reviewer']) || (j && j.preparer_email === to), `${to} cannot read this discussion`);
     change = [stmt(db, "UPDATE b_threads SET owner_email=? WHERE id=? AND status='open'", to, itemId)];
+  } else if (item.kind === 'coverage') {
+    insist(await can(['reviewer']), `${to} must be an active reviewer or the principal`);
+    change = [stmt(db, 'UPDATE b_coverage_conflicts SET owner_email=? WHERE id=? AND resolved_at IS NULL', to, itemId)];
   } else if (item.kind === 'client_question' || item.kind === 'client_todo') {
     insist(await can(['reviewer']) || j!.preparer_email === to, `${to} cannot read this job`);
     change = [stmt(db, "UPDATE b_portal_items SET owner_email=? WHERE id=? AND status='open'", to, itemId)];

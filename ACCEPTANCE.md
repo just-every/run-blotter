@@ -151,8 +151,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
 47. **CAPACITY-001 — Workload capacity and coverage.** Status: **done**. Load a tax-season week with preparer/reviewer budgets, scheduled leave and a client meeting. Inspect available hours, overloaded staff and affected jobs; adjust an estimate and confirm totals and conflict explanations update.
    Current evidence: `src/blotter/capacity.ts`; `src/ui/capacity.tsx`; `tests/blotter/flows.test.mjs` ("CAPACITY-001 workload capacity").
 
-48. **CAPACITY-002 — Reassignment and dependency aware scheduling.** Status: **missing**. Remove an assigned preparer for leave, preview alternate staffing and move a dependent job chain. Approve the feasible changes, refuse an ineligible/self-review assignment and inspect new owners, notifications and unresolved deadline conflicts.
-   Remaining: No capacity-based reassignment, absence coverage or scheduling plan exists.
+48. **CAPACITY-002 — Reassignment and dependency aware scheduling.** Status: **done**. Remove an assigned preparer for leave, preview alternate staffing and move a dependent job chain. Approve the feasible changes, refuse an ineligible/self-review assignment and inspect new owners, notifications and unresolved deadline conflicts. Keeping a colleague without the client's grant out of cover is ACCESS-002's (inherited).
+   Current evidence: `src/blotter/coverage.ts`; `src/blotter/history.ts`; `migrations/core/0042_coverage.sql`; `src/ui/coverage.tsx`; `tests/blotter/flows.test.mjs` ("CAPACITY-002 coverage").
 
 49. **CAPACITY-003 — Capacity forecasts and hiring plans.** Status: **missing**. Project the next tax season from recurring work and prior actuals, add a hypothetical hire and lost client, and compare demand/capacity by skill. Inspect each week's forecast as a range with its stated confidence level, and confirm a client with no prior actuals widens the range and is named as the reason. Trace estimates to sources and save a scenario without changing live work.
    Remaining: No historical workload forecast, confidence ranges or hiring scenario planning exists.
@@ -259,7 +259,7 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
 81. **ACCESS-001 — Native roles and server authority.** Status: **done**. Invite and sign in staff, call privileged and hidden-job routes as preparer and reviewer, attempt cross-origin writes and deactivate a member. Inspect immediate denial, unchanged records and agent-key refusal on person-only routes.
    Current evidence: `src/blotter/session.ts`; `src/blotter/model.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs`.
 
-82. **ACCESS-002 — Client permissions and sensitive data policies.** Status: **partial**. Give two teams overlapping client scopes, assign a read-only member and restrict a sensitive workpaper. Attempt direct API/export/share reads and background work after revocation, then step up for an authorized export; inspect denied writes and redacted diagnostics.
+82. **ACCESS-002 — Client permissions and sensitive data policies.** Status: **partial**. Give two teams overlapping client scopes, assign a read-only member and restrict a sensitive workpaper. Attempt direct API/export/share reads and background work after revocation, then step up for an authorized export; inspect denied writes and redacted diagnostics. A colleague without the client's grant is never proposed as CAPACITY-002 cover, and naming them refuses the plan.
    Current evidence: `src/blotter/model.ts`; `src/blotter/session.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Owner/reviewer/preparer and job scoping exist; configurable client/document grants, read-only roles, sensitive-data policy and step-up are missing.
 

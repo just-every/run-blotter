@@ -1421,6 +1421,56 @@ test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and 
   assert.deepEqual((await h.json('/capacity?week=2029-03-05', undefined, preparer)).people.map(p => p.email), ['preparer@example.test']);
 });
 
+test('CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
+  for (const [address, name] of [['leaver@example.test', 'Lee Leaver'], ['cover@example.test', 'Cam Cover']]) await h.json('/team', { email: address, name, role: 'preparer' }, h.owner);
+  const close = await h.json('/templates', { name: 'Coverage close', recurrence: 'monthly', steps: 'unused', requests: 'Bank statements', tasks: [{ label: 'Close the month', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 120 }] }, h.owner);
+  const ret = await h.json('/templates', { name: 'Coverage return', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms', tasks: [{ label: 'Prepare return', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 240, afterJob: { templateId: close.id, gate: 'signed_off' } }] }, h.owner);
+  const audit = await h.json('/templates', { name: 'Coverage audit', recurrence: 'annual', steps: 'unused', requests: 'Ledger', tasks: [{ label: 'Audit fieldwork', assignee: 'preparer', dueFrom: 'due', dueDays: 0, estimateMinutes: 6000 }] }, h.owner);
+  const firm = await h.json('/clients', { name: 'Coverage Holdings LLC', contactName: 'Ola Owner', contactEmail: 'ola@coverage.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const people = { clientId: firm.id, dueNote: 'Engagement letter', preparerEmail: 'leaver@example.test', reviewerEmail: 'reviewer@example.test' };
+  const books = await h.json('/jobs', { ...people, templateId: close.id, periodStart: '2031-12-01', dueDate: '2032-01-10' }, h.owner);
+  const taxes = await h.json('/jobs', { ...people, templateId: ret.id, periodStart: '2031-01-01', dueDate: '2032-01-20' }, h.owner);
+  const fieldwork = await h.json('/jobs', { ...people, templateId: audit.id, periodStart: '2031-01-01', dueDate: '2032-01-12' }, h.owner);
+  await h.json('/capacity/people', { email: 'cover@example.test', weeklyMinutes: 1200, skills: ['Coverage close', 'Coverage return'] }, h.owner);
+  // The preparer goes on leave; a manager previews cover (a preparer cannot).
+  await h.json('/capacity/blocks', { email: 'leaver@example.test', kind: 'leave', startsOn: '2032-01-05', endsOn: '2032-01-09', label: 'Parental leave' }, h.owner);
+  const leave = { email: 'leaver@example.test', reason: 'leave', startsOn: '2032-01-05', endsOn: '2032-01-09', dueNote: 'Rescheduled for leave cover' };
+  await h.json('/coverage/preview', leave, preparer, 403);
+  const chain = [{ jobId: books.id, dueDate: '2032-01-14' }, { jobId: taxes.id, dueDate: '2032-01-21' }];
+  // Dependency order: the return cannot fall due before the close it waits for.
+  const backwards = await h.json('/coverage/preview', { ...leave, choices: [chain[0], { jobId: taxes.id, dueDate: '2032-01-12' }] }, reviewer);
+  assert.match(backwards.lines.find(l => l.jobId === taxes.id).reasons.join(), /waits for Coverage close · Dec 2031, due 2032-01-14/);
+  // Self-review and ineligible overrides are refused at approval.
+  const selfReview = await h.json('/coverage/preview', { ...leave, choices: [{ ...chain[0], preparerEmail: 'reviewer@example.test' }, chain[1]] }, reviewer);
+  assert.match(selfReview.lines.find(l => l.jobId === books.id).reasons.join(), /review their own work/);
+  assert.match((await h.json('/coverage', { ...leave, choices: [{ ...chain[0], preparerEmail: 'reviewer@example.test' }, chain[1]], fingerprint: selfReview.fingerprint }, reviewer, 409)).error, /review their own work/);
+  const outsider = await h.json('/coverage/preview', { ...leave, choices: [{ ...chain[0], preparerEmail: 'nobody@example.test' }, chain[1]] }, reviewer);
+  assert.match(outsider.lines.find(l => l.jobId === books.id).reasons.join(), /nobody@example.test is not an active preparer/);
+  // The feasible plan: the chain in dependency order to the skilled colleague with capacity; the oversized audit stays unresolved.
+  const preview = await h.json('/coverage/preview', { ...leave, choices: chain }, reviewer);
+  assert.deepEqual(preview.lines.map(l => [l.jobId, l.action, l.to.preparer, l.to.dueDate]), [
+    [books.id, 'change', 'cover@example.test', '2032-01-14'], [fieldwork.id, 'unresolved', 'leaver@example.test', '2032-01-12'], [taxes.id, 'change', 'cover@example.test', '2032-01-21']]);
+  assert.match(preview.conflicts[0].reason, /No eligible preparer is free on 2032-01-12 with 100 h of capacity/);
+  assert.deepEqual(preview.notifications.filter(n => n.to === 'cover@example.test').map(n => n.jobId), [books.id, taxes.id]);
+  const approved = await h.json('/coverage', { ...leave, choices: chain, fingerprint: preview.fingerprint }, reviewer);
+  assert.deepEqual(approved.changed, [books.id, taxes.id]);
+  await h.json('/coverage', { ...leave, choices: chain, fingerprint: preview.fingerprint }, reviewer, 409);
+  // New owners and dates; the return's role task follows its new preparer.
+  const after = await h.json('/jobs/' + taxes.id, undefined, h.owner);
+  assert.deepEqual([after.job.preparer_email, after.job.due_date, after.job.due_note, after.steps[0].owner], ['cover@example.test', '2032-01-21', 'Rescheduled for leave cover', 'cover@example.test']);
+  assert.ok(h.mails.some(m => m.to.includes('cover@example.test') && /You now prepare Coverage Holdings LLC · Coverage return/.test(m.subject)));
+  assert.ok(h.mails.some(m => m.to.includes('leaver@example.test') && /covered by cover@example.test/.test(m.subject)));
+  // The uncovered audit is the approving manager's conflict, in the plan and the client's unresolved items, until handed on and resolved.
+  const [plan] = await h.json('/coverage', undefined, reviewer);
+  assert.deepEqual(plan.conflicts.map(k => [k.job_id, k.owner_email, k.resolved_at]), [[fieldwork.id, 'reviewer@example.test', null]]);
+  const item = (await h.json(`/clients/${firm.id}/history`, undefined, reviewer)).unresolved.find(i => i.kind === 'coverage');
+  assert.deepEqual([item.jobId, item.owner], [fieldwork.id, 'reviewer@example.test']);
+  await h.json(`/clients/${firm.id}/unresolved/owner`, { kind: 'coverage', id: item.id, owner: 'owner@example.test' }, reviewer);
+  await h.json(`/coverage/conflicts/${item.id}/resolve`, { note: 'Contract auditor booked' }, reviewer, 404);
+  await h.json(`/coverage/conflicts/${item.id}/resolve`, { note: 'Contract auditor booked' }, h.owner);
+  assert.ok(!(await h.json(`/clients/${firm.id}/history`, undefined, h.owner)).unresolved.some(i => i.kind === 'coverage'));
+});
+
 test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
   const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
   const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);
