@@ -90,6 +90,7 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
     stmt(db, `INSERT INTO b_client_merges(id,survivor_id,merged_id,choices,authority,survivor_before,survivor_seen,revision_after,moved,linked_after,merged_by,merged_at,undo_until)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, mergeId, s.id, m.id, JSON.stringify(choices), authority, JSON.stringify(pick(s)), JSON.stringify(pick(seen!)), revision,
       JSON.stringify(moved), JSON.stringify(after), actor.email, at.toISOString(), new Date(at.getTime() + UNDO_MS).toISOString()),
+    stmt(db,'UPDATE b_document_shares SET revoked_at=? WHERE revoked_at IS NULL AND file_key IN (SELECT file_key FROM b_document_access WHERE client_id IN (?,?))',at.toISOString(),s.id,m.id),
     // Existing credentials are never widened by a merge.
     stmt(db,'UPDATE b_portal_links SET revoked_at=? WHERE revoked_at IS NULL AND job_id IN (SELECT id FROM b_jobs WHERE client_id IN (?,?))',at.toISOString(),s.id,m.id),
     ...mergedContacts.map(c => {
@@ -99,6 +100,7 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
     }),
     ...moved.relationships.map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=?',s.id,id(),c.id)),
     ...MOVED.map(([, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=?`, s.id, m.id)),
+    stmt(db,'UPDATE b_document_access SET client_id=? WHERE client_id=?',s.id,m.id),
     stmt(db, 'DELETE FROM b_client_group_members WHERE client_id=? AND group_id IN (SELECT group_id FROM b_client_group_members WHERE client_id=?)', m.id, s.id),
     stmt(db, 'UPDATE b_client_group_members SET client_id=? WHERE client_id=?', s.id, m.id),
     stmt(db, 'UPDATE b_clients SET name=?,abn=?,contact_name=?,contact_email=?,fields=?,tags=?,revision=?,entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=?,lifecycle=? WHERE id=?', next.name, next.abn, next.contact_name, next.contact_email, JSON.stringify(next.fields), next.tags, revision,next.entity_type,next.partner_email,next.team,next.services,next.owner_client_id,next.ssn_last4,next.lifecycle,s.id),
@@ -158,6 +160,8 @@ export async function undoMerge(db: D1Database, actor: Actor, mergeId: string) {
     ...(moved.relationships ?? []).map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=? AND owner_client_id=?',m.merged_id,id(),c.id,m.survivor_id)),
     // Records move back while the merge is still active; the triggers allow only that.
     ...MOVED.map(([key, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=? AND id IN (SELECT value FROM json_each(?))`, m.merged_id, m.survivor_id, JSON.stringify(moved[key]))),
+    stmt(db,'UPDATE b_document_shares SET revoked_at=? WHERE revoked_at IS NULL AND file_key IN (SELECT file_key FROM b_document_access WHERE client_id=?)',at,m.survivor_id),
+    stmt(db,'UPDATE b_document_access SET client_id=? WHERE client_id=? AND job_id IN (SELECT value FROM json_each(?))',m.merged_id,m.survivor_id,JSON.stringify(moved.jobs)),
     ...moved.groups.map((g: Data) => g.dropped
       ? stmt(db, 'INSERT INTO b_client_group_members(group_id,client_id,relationship,added_by,added_at) VALUES(?,?,?,?,?)', g.group_id, m.merged_id, g.relationship, g.added_by, g.added_at)
       : stmt(db, 'UPDATE b_client_group_members SET client_id=? WHERE group_id=? AND client_id=?', m.merged_id, g.group_id, m.survivor_id)),

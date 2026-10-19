@@ -1,3 +1,4 @@
+import { DocumentCustody } from './document-access';
 import { StarterJobSummary } from './starter-library';
 import { useEffect, useState } from 'react';
 import { Blotter, api, money, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run } from './common';
@@ -92,6 +93,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       </section>
     </div></Blotter>
     <Deliverables contacts={detail.contacts} job={job} deliverables={detail.deliverables} run={run} />
+    <DocumentCustody jobId={job.id} run={run} tick={tick} />
     <JobStatus detail={detail} run={run} tick={tick} />
     <ClientLink detail={detail} run={run} />
     <Discussions detail={detail} actor={actor} run={run} tick={tick} />

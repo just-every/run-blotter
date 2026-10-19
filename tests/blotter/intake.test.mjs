@@ -5,7 +5,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { harness } from './harness.mjs';
 import { createServer } from 'node:http';
 
-test('CRM-005 public intake / CRM-003 history: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
+test('CRM-005 public intake / CRM-003 history / DOC-002 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
   const secret = 'test-intake-signing-key-not-a-real-secret', h = await harness({bindings:{SESSION_SECRET:secret}});let restored;
   try {
     const page = await h.request('/intake'), html = await page.text();
@@ -38,6 +38,8 @@ test('CRM-005 public intake / CRM-003 history: embed, consent, answers/uploads, 
     const fileDoor=`/prospects/${p.id}/files/${p.files[0].id}`;
     assert.equal((await h.request('/api/blotter'+fileDoor)).status,401);
     assert.equal(await (await h.request('/api/blotter'+fileDoor,undefined,h.owner)).text(),'Prior scope document');
+    const intakeAccess=await h.json(`/documents/${encodeURIComponent('intake:'+p.files[0].id)}/access`,undefined,h.owner);assert.equal(intakeAccess.visibility,'internal');assert.ok(intakeAccess.history.some(e=>e.action==='file.downloaded'));
+    await h.json(`/documents/${encodeURIComponent('intake:'+p.files[0].id)}/access`,{revision:null,visibility:'contacts',contactIds:['unrelated-contact']},h.owner,400);
     for(let i=0;i<4;i++){const f=form(signed(4000),{name:'Additional '+i});f.delete('uploads');assert.equal((await send(f)).status,200);}
     assert.equal((await send(form(signed(4000),{name:'Rejected Over Limit'}))).status,429);
     assert.equal((await h.json('/pipeline',undefined,h.owner)).prospects.length,5);
@@ -55,6 +57,7 @@ test('CRM-005 public intake / CRM-003 history: embed, consent, answers/uploads, 
     const converted=(await h.json('/pipeline',undefined,h.owner)).prospects.find(x=>x.id===p.id);
     assert.equal(converted.files[0].id,p.files[0].id,'intake document remains attached after conversion');
     const job = await h.json('/jobs/'+first.jobId,undefined,h.owner);
+    assert.equal((await h.json(`/documents/${encodeURIComponent('intake:'+p.files[0].id)}/access`,undefined,h.owner)).file.id,converted.files[0].job_file_id);
     const history=await h.json(`/clients/${first.clientId}/history?kind=documents`,undefined,h.owner);assert.ok(history.history.some(e=>e.action==='file.filed_from_intake' && e.job_id===first.jobId && e.actor==='owner@example.test'));
     assert.ok(job.requests.some(r=>r.files.some(f=>f.id===converted.files[0].job_file_id)), 'upload is filed on client onboarding work');
     const backup=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();

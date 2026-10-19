@@ -34,6 +34,7 @@ export function Portal({ token }: { token: string }) {
           {r.files.map((f: Row) => <p key={f.uploadedAt + f.name} className="muted">Uploaded {f.name} · {when(f.uploadedAt)}</p>)}
           {view.collecting && r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
         </section>)}</Blotter>
+        {view.sharedFiles?.length>0&&<section className="panel"><h2>Shared files</h2><ul>{view.sharedFiles.map((f:Row)=><li key={f.file_key}><a href={`${path}/files/${encodeURIComponent(f.file_key)}`}>{f.name}</a> · {Math.ceil(f.size/1024)} KB</li>)}</ul></section>}
         <ClientTasks tasks={view.tasks} />
         <PortalConversation view={view} path={path} busy={busy} act={act} reload={load} />
         <PortalDeliverables path={path} busy={busy} act={act} />

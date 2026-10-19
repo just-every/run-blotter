@@ -1,3 +1,4 @@
+import { contactDocuments,staffDownload } from './document-shares';
 // Client document requests: uploads (portal or staff), acceptance, download,
 // reminders with a client upload link, and the public portal behind that link.
 import { recipientFor, contactGuard } from './client-recipients';
@@ -8,10 +9,9 @@ import { advance } from './flow';
 import { clientTasks } from './tasks';
 import { portalItems } from './portal-items';
 import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
-import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
-const SAFE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'text/csv', 'text/plain'];
 const LINK_DAYS = 30;
 
 export function decodeFile(body: Data) {
@@ -74,23 +74,7 @@ export async function decideRequest(env: Bindings, actor: Actor, requestId: stri
   return { ok: true };
 }
 
-export async function downloadFile(db: D1Database, actor: Actor, fileId: string) {
-  const file = await stmt(db, 'SELECT * FROM b_files WHERE id=?', fileId).first<Data>();
-  insist(file, 'File not found', 404);
-  await readableJob(db, actor, file.job_id);
-  insist(file.content_base64, 'This file was erased', 404);
-  return fileResponse(file);
-}
-
-/** Stored bytes as a download: never rendered inline, never cached. */
-export function fileResponse(file: Data) {
-  const bytes = Uint8Array.from(atob(file.content_base64), c => c.charCodeAt(0));
-  return new Response(bytes, { headers: {
-    'content-type': SAFE_TYPES.includes(file.mime) ? file.mime : 'application/octet-stream',
-    'content-disposition': `attachment; filename="${file.name.replace(/[^A-Za-z0-9._ -]/g, '_')}"`,
-    'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-  } });
-}
+export const downloadFile = (db: D1Database, actor: Actor, fileId: string) => staffDownload(db,actor,fileId);
 
 /** A fresh client link for a job. Earlier links stop working; only the secret's digest is stored. */
 export async function issueLink(db: D1Database, actor: Actor, jobId: string, origin: string, contactId?: string) {
@@ -201,13 +185,13 @@ export async function portalJob(db: D1Database, token: string) {
 }
 
 export async function portalView(db: D1Database, token: string, practice: string) {
-  const { link, job: j } = await portalJob(db, token);
+  const { link, job: j, contact } = await portalJob(db, token);
   const requests = await rows(db, 'SELECT id,label,status,note FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id);
   const files = await rows(db, 'SELECT request_id,name,uploaded_at FROM b_files WHERE job_id=? AND channel=? ORDER BY uploaded_at', j.id, 'portal');
   return {
     practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
-    tasks: await clientTasks(db, j), ...await portalItems(db, j),
+    sharedFiles: await contactDocuments(db,j.id,contact.id), tasks: await clientTasks(db, j), ...await portalItems(db, j),
   };
 }
 

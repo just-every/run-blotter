@@ -1,9 +1,10 @@
+import { staffDownload } from './document-shares';
 // Tax notices and resolution work (DUE-002): open a notice from a client
 // document filed on a job, verify its response date, assign a practitioner,
 // and keep an append-only timeline of research, client questions, agency
 // contact, responses, follow-ups, transcripts and receipts until it closes with
 // a recorded outcome. Blotter tracks the work; it gives no tax advice.
-import { decodeFile, fileResponse } from './documents';
+import { decodeFile } from './documents';
 import { eligible } from './jobs';
 import { atomic, audit, date, digest, Fault, human, id, insist, job, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -110,7 +111,7 @@ export async function noticeFile(db: D1Database, actor: Actor, noticeId: string,
   const n = await visible(db, actor, noticeId);
   const e = await stmt(db, 'SELECT file_name name,file_mime mime,file_base64 content_base64 FROM b_notice_events WHERE id=? AND notice_id=?', eventId, n.id).first<Data>();
   insist(e?.content_base64, 'This entry has no file', 404);
-  return fileResponse(e);
+  return staffDownload(db,actor,'notice:'+eventId);
 }
 
 /**

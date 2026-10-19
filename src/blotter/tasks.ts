@@ -1,3 +1,4 @@
+import { staffDownload } from './document-shares';
 // Task assignees, relative dates and instructions (WORK-009). A template's
 // checklist step can name its owner (a job role or a person), start and due
 // dates in whole days from the work's start (its period start) or due date, a
@@ -5,7 +6,7 @@
 // client-facing flag. Open tasks resolve their owner and dates when read, so
 // they follow the job's people and due date; completing one keeps who, when,
 // the owner and the dates it had then.
-import { decodeFile, fileResponse } from './documents';
+import { decodeFile } from './documents';
 import { checkFlow, flowSteps, noFlow, taskFlow, templateQuestions, type Flow, type Question } from './flow';
 import { eligible } from './jobs';
 import { digest, email, insist, integer, lines, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
@@ -113,7 +114,7 @@ export async function downloadAttachment(db: D1Database, actor: Actor, jobId: st
   const j = await readableJob(db, actor, jobId);
   const s = await stmt(db, 'SELECT attachment_name name,attachment_mime mime,attachment_base64 content_base64 FROM b_job_steps WHERE job_id=? AND ordinal=?', j.id, integer(ordinal, 'Step', 1, 100)).first<Data>();
   insist(s?.content_base64, 'This task has no attachment', 404);
-  return fileResponse(s);
+  return staffDownload(db,actor,`task:${j.id}:${integer(ordinal, 'Step', 1, 100)}`);
 }
 
 /** A task's owner now, in SQL over step `s` and job `j` (WORK-009). */
