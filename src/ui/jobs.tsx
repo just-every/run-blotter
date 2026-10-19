@@ -4,7 +4,8 @@ import { ReassignBulk } from './bulk';
 import { MyTimesheet } from './timesheet';
 import { SuggestedTime } from './suggestions';
 import { MyAlerts } from './discussions';
-import { MyWeek } from './tasks';
+import { MyWeek } from './plan';
+import { Calendar } from './calendar';
 import { Notices } from './notices';
 import { useState } from 'react';
 import { Board, statusLabel } from './statuses';
@@ -17,10 +18,13 @@ export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: str
 }
 
 function JobList({ state, jobs, open, run, tick }: { state: Row; jobs: Row[]; open: (id: string) => void; run: Run; tick: number }) {
-  const [board, setBoard] = useState(false);
+  const [view, setView] = useState<'list' | 'board' | 'calendar'>('list');
   return <><Blotter><section className="panel jobs-panel">
-    <button className="quiet" aria-pressed={board} onClick={() => setBoard(!board)}>{board ? 'Show list' : 'Show board'}</button>
-    {board ? <Board state={state} open={open} run={run} tick={tick} /> : <table className="table">
+    <div className="row">
+      <button className="quiet" aria-pressed={view === 'board'} onClick={() => setView(view === 'board' ? 'list' : 'board')}>{view === 'board' ? 'Show list' : 'Show board'}</button>
+      <button className="quiet" aria-pressed={view === 'calendar'} onClick={() => setView(view === 'calendar' ? 'list' : 'calendar')}>{view === 'calendar' ? 'Show list' : 'Show calendar'}</button>
+    </div>
+    {view === 'board' ? <Board state={state} open={open} run={run} tick={tick} /> : view === 'calendar' ? <Calendar state={state} open={open} run={run} tick={tick} /> : <table className="table">
       <thead><tr><th>Due</th><th>Client</th><th>Job</th><th>Status</th><th>Outstanding</th><th><span className="sr-only">Open</span></th></tr></thead>
       <tbody>{jobs.map(j => <tr key={j.id}>
         <td data-label="Due">{j.due_date}</td>
@@ -32,5 +36,5 @@ function JobList({ state, jobs, open, run, tick }: { state: Row; jobs: Row[]; op
       </tr>)}</tbody>
     </table>}
     {state.actor.role !== 'preparer' && <details><summary>Reassign or reschedule in bulk</summary><ReassignBulk state={state} run={run} /></details>}
-  </section></Blotter><MyWeek open={open} run={run} tick={tick} /><Notices actor={state.actor} run={run} tick={tick} /><MyAlerts tick={tick} open={open} /><MyTimesheet actor={state.actor} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>;
+  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} /><Notices actor={state.actor} run={run} tick={tick} /><MyAlerts tick={tick} open={open} /><MyTimesheet actor={state.actor} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>;
 }

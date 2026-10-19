@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { FilterBar, JobFlags, NO_FILTERS, PRIORITY } from './filters';
 
 const OPEN = ['planned', 'ready', 'in_progress', 'waiting'];
 const hours = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
@@ -8,7 +9,7 @@ const allowed = (sub: Row, workTypeId: string) => !sub.work_types.length || sub.
 export const statusLabel = (model: Row, stage: string, sub?: string | null) => `${model.stages.find((s: Row) => s.key === stage)?.label ?? stage}${sub ? ` – ${sub}` : ''}`;
 
 /** The stages and sub-statuses a job may move to (WORK-007): open stages while open; In review and Completed only by review. */
-function MoveTo({ model, job, run }: { model: Row; job: Row; run: Run }) {
+export function MoveTo({ model, job, run }: { model: Row; job: Row; run: Run }) {
   const stage = job.stage, options = (job.status === 'open' ? OPEN : [stage]).flatMap(key => [
     { value: key, label: statusLabel(model, key) },
     ...model.subStatuses.filter((s: Row) => s.stage === key && allowed(s, job.work_type_id)).map((s: Row) => ({ value: `${key}|${s.id}`, label: statusLabel(model, key, s.name) })),
@@ -32,27 +33,36 @@ export function JobStatus({ detail, run, tick }: { detail: Row; run: Run; tick: 
     <h2>Status</h2>
     <p><span className="badge" style={{ borderColor: type?.color }}>{type?.name}</span> {statusLabel(model, stage, subName)}</p>
     {detail.portal && job.status !== 'signed_off' && !job.reviewed_at && <label>Move to <MoveTo model={model} job={{ ...job, stage }} run={run} /></label>}
+    {detail.portal && job.status !== 'signed_off' && <label>Priority <select value={job.priority} onChange={e => run(() => api(`/jobs/${job.id}/priority`, { priority: e.target.value }), 'Priority changed')}>
+      {Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>}
     <p className="muted">In review and Completed are reached only by submitting for review and signing off.</p>
     <details><summary>Status history ({detail.statusHistory.length})</summary><ol className="list">{detail.statusHistory.map((h: Row) => <li key={h.id}>
       {h.from_stage ? statusLabel(model, h.from_stage, h.from_sub_status) : 'Created'} → {statusLabel(model, h.to_stage, h.to_sub_status)} <small className="muted">{h.by} · {when(h.at)}</small></li>)}</ol></details>
   </section>;
 }
 
-/** The queue as columns by stage, filtered by work type and sub-status; each card moves in place. */
+/**
+ * The board (WORK-006): columns by stage, or by the chosen work type's
+ * sub-statuses; each card moves in place through WORK-007's moves. The
+ * person's filters are kept, so a refresh opens the same board.
+ */
 export function Board({ state, open, run, tick }: { state: Row; open: (id: string) => void; run: Run; tick: number }) {
-  const model = state.statusModel, [filter, setFilter] = useState({ workType: '', subStatus: '' }), [jobs, setJobs] = useState<Row[]>([]), [views, setViews] = useState<Row[]>([]);
-  useEffect(() => { api('/queue?' + new URLSearchParams(filter)).then(setJobs).catch(e => run(async () => { throw e; })); }, [filter, tick]);
+  const model = state.statusModel, [filter, setFilter] = useState<Row>(), [board, setBoard] = useState<Row>(), [views, setViews] = useState<Row[]>([]);
+  useEffect(() => { api('/board' + (filter ? '?' + new URLSearchParams(filter) : '')).then(b => { setBoard(b); if (!filter) setFilter(b.filters); }).catch(e => run(async () => { throw e; })); }, [filter, tick]);
   useEffect(() => { api('/views').then(setViews).catch(() => setViews([])); }, [tick]);
+  const change = (next: Row) => { const f = { ...next, groupBy: next.workType ? next.groupBy : 'stage' }; setFilter(f); api('/filters/board', f).catch(e => run(async () => { throw e; })); };
+  if (!filter || !board) return <p>Opening the board…</p>;
   return <section className="panel">
+    <FilterBar state={state} filter={filter} set={change} client={state.actor.role !== 'preparer'} />
     <div className="row">
-      <label>Work type<select value={filter.workType} onChange={e => setFilter({ ...filter, workType: e.target.value })}><option value="">All</option>{model.workTypes.map((w: Row) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
-      <label>Sub-status<select value={filter.subStatus} onChange={e => setFilter({ ...filter, subStatus: e.target.value })}><option value="">All</option>{model.subStatuses.map((s: Row) => <option key={s.id} value={s.id}>{statusLabel(model, s.stage, s.name)}</option>)}</select></label>      {views.length > 0 && <label>Saved view<select value="" onChange={e => { const v = views.find(x => x.id === e.target.value); if (v) setFilter({ workType: '', subStatus: '', ...JSON.parse(v.filters) }); }}><option value="">Choose…</option>{views.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
+      <label>Columns<select value={filter.groupBy} disabled={!filter.workType} onChange={e => change({ ...filter, groupBy: e.target.value })}><option value="stage">By stage</option><option value="sub_status">By sub-status of the work type</option></select></label>
+      {views.length > 0 && <label>Saved view<select value="" onChange={e => { const v = views.find(x => x.id === e.target.value); if (v) change({ ...NO_FILTERS, groupBy: filter.groupBy, ...JSON.parse(v.filters) }); }}><option value="">Choose…</option>{views.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
     </div>
-    <Form label="Save this view" submit={async (data, form) => run(async () => { await api('/views', { name: data.name, ...filter }); form.reset(); }, 'View saved')}><Field label="View name" name="name" /></Form>
-    <div className="board">{model.stages.map((s: Row) => <div key={s.key} className="board-column"><h3>{s.label}</h3>
-      {jobs.filter(j => j.stage === s.key).map(j => <article key={j.id} className="record" style={{ borderLeftColor: j.color }}>
+    <Form label="Save this view" submit={async (data, form) => run(async () => { await api('/views', { ...filter, name: data.name }); form.reset(); }, 'View saved')}><Field label="View name" name="name" /></Form>
+    <div className="board">{board.columns.map((c: Row) => <div key={c.key} className="board-column"><h3>{c.label} <small className="muted">{c.jobs.length}</small></h3>
+      {c.jobs.map((j: Row) => <article key={j.id} className="record" style={{ borderLeftColor: j.color }}>
         <button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} · {j.period_label}</button>
-        <small className="muted"> {j.work_type}{j.sub_status && ` · ${j.sub_status}`} · due {j.due_date}</small>
+        <small className="muted"> {j.work_type}{j.sub_status && ` · ${j.sub_status}`} · due {j.due_date}</small> <JobFlags job={j} />
         {j.status !== 'signed_off' && <MoveTo model={model} job={j} run={run} />}
       </article>)}</div>)}</div>
   </section>;
