@@ -1,3 +1,4 @@
+import { organizerTemplate, validateOrganizerWorkflow } from './organizers-definition';
 // WORK-008: adopted library releases are real, editable firm templates.
 import { starter, starterCatalog } from './starter-releases';
 import { applyChange, changes, publicTasks, releaseState } from './starter-diff';
@@ -7,7 +8,7 @@ import { STAGES, STAGE_LABELS } from './statuses';
 import { atomic, audit, digest, guard, human, id, insist, integer, lines, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 export async function library(db: D1Database, actor: Actor) {
-  const adoptions = await rows(db, 'SELECT a.*,t.name,t.starter_content FROM b_starter_adoptions a JOIN b_templates t ON t.id=a.template_id ORDER BY a.adopted_at');
+  const adoptions = await rows(db, 'SELECT a.*,t.name,t.starter_content,t.organizer,t.questions FROM b_starter_adoptions a JOIN b_templates t ON t.id=a.template_id ORDER BY a.adopted_at');
   const catalog = await starterCatalog(db);
   return { templates: catalog.map(t => ({ ...t, latestVersion: t.versions.at(-1)!.version })),
     stages: STAGES.map(key => ({ key, label: STAGE_LABELS[key] })),
@@ -16,6 +17,8 @@ export async function library(db: D1Database, actor: Actor) {
 /** MSG-001 edits and archive actions are firm edits too; fold them into the three-way comparison. */
 async function currentState(db: D1Database, a: Data) {
   const content = JSON.parse(a.starter_content), state = content.state;
+  state.organizer = organizerTemplate(a.organizer);
+  state.questions=JSON.parse(a.questions);
   a.messageFence = [];
   for (const ref of content.messages) {
     const message = await stmt(db, `SELECT t.name,t.version,t.deleted_at,v.subject,v.body FROM b_msg_templates t JOIN b_msg_template_versions v ON v.template_id=t.id AND v.version=t.version WHERE t.id=?`, ref.id).first<Data>();
@@ -26,7 +29,7 @@ async function currentState(db: D1Database, a: Data) {
   return state;
 }
 async function adoption(db: D1Database, adoptionId: string) {
-  const a = await stmt(db, 'SELECT a.*,t.name,t.starter_content FROM b_starter_adoptions a JOIN b_templates t ON t.id=a.template_id WHERE a.id=?', adoptionId).first<Data>();
+  const a = await stmt(db, 'SELECT a.*,t.name,t.starter_content,t.organizer,t.questions FROM b_starter_adoptions a JOIN b_templates t ON t.id=a.template_id WHERE a.id=?', adoptionId).first<Data>();
   insist(a, 'Adoption not found', 404); return a;
 }
 /** Changed library text gets a fresh firm message; unchanged firm edits keep their version. */
@@ -47,9 +50,16 @@ async function messageCopies(db: D1Database, actor: Actor, adoptionId: string, s
 }
 
 async function stored(db: D1Database, actor: Actor, adoptionId: string, libraryId: string, version: number, state: Data) {
-  const work = await templateWork(db, { tasks: publicTasks(state), requests: Object.values(state.requests) });
+  const work = await templateWork(db, { tasks: publicTasks(state), requests: Object.values(state.requests),questions:state.questions });
+  validateOrganizerWorkflow(organizerTemplate(state.organizer),work.questions);
+  const prior=await stmt(db,'SELECT t.organizer FROM b_templates t JOIN b_starter_adoptions a ON a.template_id=t.id WHERE a.id=?',adoptionId).first<Data>();
+  const previous=organizerTemplate(prior?.organizer), next=organizerTemplate(state.organizer);
+  if(next){
+    const same=JSON.stringify({...previous,version:0})===JSON.stringify({...next,version:0});
+    state.organizer={...next,version:previous ? previous.version+(same?0:1) : next.version};
+  }
   const copies = await messageCopies(db, actor, adoptionId, state);
-  return { work, statements: copies.statements, content: JSON.stringify({ libraryId, libraryName: (await starter(db, libraryId, version)).item.name, version, state, messages: copies.messages }) };
+  return { work, organizer:state.organizer, statements: copies.statements, content: JSON.stringify({ libraryId, libraryName: (await starter(db, libraryId, version)).item.name, version, state, messages: copies.messages }) };
 }
 export async function adoptStarter(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
@@ -57,15 +67,16 @@ export async function adoptStarter(db: D1Database, actor: Actor, body: Data) {
   const adoptionId = id(), templateId = id(), revision = id(), at = now(), state = releaseState(release), name = text(body.name ?? item.name, 'Template name', 120);
   const built = await stored(db, actor, adoptionId, item.id, release.version, state), currency = await firmCurrency(db, body.currency);
   await atomic(db, actor, [...built.statements,
-    stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at,currency,starter_content) VALUES(?,?,?,?,?,?,0,?,?,?,?)', templateId, name, item.recurrence, JSON.stringify(built.work.steps), JSON.stringify(built.work.requests), '[]', actor.email, at, currency, built.content),
+    stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at,currency,starter_content) VALUES(?,?,?,?,?,?,0,?,?,?,?)', templateId, name, item.recurrence, JSON.stringify(built.work.steps), JSON.stringify(built.work.requests), JSON.stringify(built.work.questions), actor.email, at, currency, built.content),
     stmt(db, 'INSERT INTO b_work_types(id,name,template_id,budget_minutes,created_by,created_at) VALUES(?,?,?,?,?,?)', 'wt-' + templateId, name, templateId, state.budgetMinutes, actor.email, at),
+    ...(built.organizer ? [stmt(db,'UPDATE b_templates SET organizer=? WHERE id=?',JSON.stringify(built.organizer),templateId),stmt(db,'INSERT INTO b_organizer_versions(template_id,version,definition,author,created_at) VALUES(?,?,?,?,?)',templateId,built.organizer.version,JSON.stringify(built.organizer),actor.email,at)] : []),
     stmt(db, 'INSERT INTO b_starter_adoptions(id,library_id,version,template_id,baseline,revision,adopted_by,adopted_at) VALUES(?,?,?,?,?,?,?,?)', adoptionId, item.id, release.version, templateId, JSON.stringify(state), revision, actor.email, at),
     audit(db, actor, 'library.adopted', templateId, `${item.id} version ${release.version}`)]);
   return { id: adoptionId, templateId, revision };
 }
 async function save(db: D1Database, actor: Actor, a: Data, state: Data, version: number, baseline: Data, action: string) {
   const built = await stored(db, actor, a.id, a.library_id, version, state), revision = id();
-  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_starter_adoptions WHERE id=? AND revision=?) AND EXISTS(SELECT 1 FROM b_templates WHERE id=? AND starter_content=?)', a.id, a.revision, a.template_id, a.starter_content);
+  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_starter_adoptions WHERE id=? AND revision=?) AND EXISTS(SELECT 1 FROM b_templates WHERE id=? AND starter_content=? AND organizer IS ? AND questions=?)', a.id, a.revision, a.template_id, a.starter_content,a.organizer,a.questions);
   const messageGuards: D1PreparedStatement[] = [];
   for (const { id: messageId, message: m } of a.messageFence ?? []) {
     messageGuards.push(...(m
@@ -73,7 +84,8 @@ async function save(db: D1Database, actor: Actor, a: Data, state: Data, version:
       : guard(db, 'NOT EXISTS(SELECT 1 FROM b_msg_templates WHERE id=?)', messageId)));
   }
   await atomic(db, actor, [check, ...messageGuards, ...built.statements,
-    stmt(db, 'UPDATE b_templates SET steps=?,requests=?,starter_content=? WHERE id=?', JSON.stringify(built.work.steps), JSON.stringify(built.work.requests), built.content, a.template_id),
+    stmt(db, 'UPDATE b_templates SET steps=?,requests=?,questions=?,starter_content=? WHERE id=?', JSON.stringify(built.work.steps), JSON.stringify(built.work.requests),JSON.stringify(built.work.questions), built.content, a.template_id),
+    ...(built.organizer ? [stmt(db,'UPDATE b_templates SET organizer=? WHERE id=?',JSON.stringify(built.organizer),a.template_id),stmt(db,'INSERT OR IGNORE INTO b_organizer_versions(template_id,version,definition,author,created_at) VALUES(?,?,?,?,?)',a.template_id,built.organizer.version,JSON.stringify(built.organizer),actor.email,now())] : []),
     stmt(db, 'UPDATE b_work_types SET budget_minutes=? WHERE id=?', state.budgetMinutes, 'wt-' + a.template_id),
     stmt(db, 'UPDATE b_starter_adoptions SET version=?,baseline=?,revision=? WHERE id=?', version, JSON.stringify(baseline), revision, a.id),
     audit(db, actor, action, a.template_id, `${a.library_id} version ${version}`), release]);
@@ -91,7 +103,7 @@ export async function editStarterTask(db: D1Database, actor: Actor, adoptionId: 
 async function updatePreview(db: D1Database, a: Data, state: Data) {
   const { release } = await starter(db, a.library_id), diff = changes(JSON.parse(a.baseline), state, releaseState(release));
   return { id: a.id, fromVersion: a.version, toVersion: release.version, changes: diff,
-    token: await digest(JSON.stringify({ revision: a.revision, content: a.starter_content, current: state, version: release.version, diff })) };
+    token: await digest(JSON.stringify({ revision: a.revision, content: a.starter_content, organizer:a.organizer,current: state, version: release.version, diff })) };
 }
 export async function previewStarter(db: D1Database, actor: Actor, adoptionId: string) {
   need(actor, 'owner'); const a = await adoption(db, adoptionId);
@@ -108,6 +120,8 @@ export async function updateStarter(db: D1Database, actor: Actor, adoptionId: st
     insist(['accept', 'ignore'].includes(choices[change.key]), 'Choose accept or ignore for every change');
     if (choices[change.key] === 'accept') { insist(!change.conflict, 'This change conflicts with a firm edit; keep the firm edit', 409); applyChange(state, change.key, change.after); }
   }
+  const nextOrganizer=(await starter(db,a.library_id,preview.toVersion)).release.organizer;
+  if(state.organizer&&nextOrganizer){ const order=new Map(nextOrganizer.questions.map((q,n)=>[q.key,n])); state.organizer.questions.sort((x:Data,y:Data)=>(order.get(x.key)??Infinity)-(order.get(y.key)??Infinity)); }
   return save(db, actor, a, state, preview.toVersion, releaseState((await starter(db, a.library_id, preview.toVersion)).release), 'library.updated');
 }
 

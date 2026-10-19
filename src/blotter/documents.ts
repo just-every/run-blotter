@@ -1,3 +1,4 @@
+import { contactRequestSql } from './organizers-requests';
 import { contactDocuments,staffDownload } from './document-shares';
 // Client document requests: uploads (portal or staff), acceptance, download,
 // reminders with a client upload link, and the public portal behind that link.
@@ -76,7 +77,7 @@ export async function decideRequest(env: Bindings, actor: Actor, requestId: stri
 
 export const downloadFile = (db: D1Database, actor: Actor, fileId: string) => staffDownload(db,actor,fileId);
 
-/** A fresh client link for a job. Earlier links stop working; only the secret's digest is stored. */
+/** A fresh client link for a job. Earlier links for that contact stop working; only the secret's digest is stored. */
 export async function issueLink(db: D1Database, actor: Actor, jobId: string, origin: string, contactId?: string) {
   const j = await stmt(db,'SELECT client_id FROM b_jobs WHERE id=?',jobId).first<Data>();
   insist(j, 'Job not found',404);
@@ -84,7 +85,7 @@ export async function issueLink(db: D1Database, actor: Actor, jobId: string, ori
   const token = secret('up_'), at = now();
   const expiresAt = new Date(Date.now() + LINK_DAYS * 86_400_000).toISOString();
   return { url: `${origin}/portal/${token}`, expiresAt, statements: [
-    stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', at, jobId),
+    stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND contact_id=? AND revoked_at IS NULL', at, jobId,contact.id),
     stmt(db, 'INSERT INTO b_portal_links(id,job_id,digest,created_by,created_at,expires_at,contact_id) VALUES(?,?,?,?,?,?,?)', id(), jobId, await digest(token), actor.email, at, expiresAt, contact.id),
   ] };
 }
@@ -104,7 +105,7 @@ export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, del
 }
 
 /**
- * A reminder issues a fresh client upload link (older links stop working) and
+ * A reminder issues a fresh client upload link (older links for that contact stop working) and
  * mails it to the client contact. The link is also returned once, so staff can
  * pass it on themselves; only its digest is stored.
  */
@@ -114,7 +115,7 @@ async function reminderContext(db: D1Database, actor: Actor, jobId: string, cont
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
   const contact = await recipientFor(db,j.client_id,'request',contactId);
   client!.contact_email = contact.email; client!.contact_name = contact.name;
-  const outstanding = (await rows(db, "SELECT label FROM b_requests WHERE job_id=? AND status='requested' ORDER BY ordinal", j.id)).map(r => r.label as string);
+  const outstanding = (await rows(db, `SELECT r.label FROM b_requests r WHERE r.job_id=? AND r.status='requested' AND ${contactRequestSql()} ORDER BY r.ordinal`, j.id,contact.id)).map(r => r.label as string);
   insist(outstanding.length > 0, 'No documents are outstanding', 409);
   return { j, client: client!, contact, outstanding };
 }
@@ -186,23 +187,23 @@ export async function portalJob(db: D1Database, token: string) {
 
 export async function portalView(db: D1Database, token: string, practice: string) {
   const { link, job: j, contact } = await portalJob(db, token);
-  const requests = await rows(db, 'SELECT id,label,status,note FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id);
+  const requests = await rows(db, `SELECT r.id,r.label,r.status,r.note FROM b_requests r WHERE r.job_id=? AND ${contactRequestSql()} ORDER BY r.ordinal`, j.id,contact.id);
   const files = await rows(db, 'SELECT request_id,name,uploaded_at FROM b_files WHERE job_id=? AND channel=? ORDER BY uploaded_at', j.id, 'portal');
   return {
     practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
-    sharedFiles: await contactDocuments(db,j.id,contact.id), tasks: await clientTasks(db, j), ...await portalItems(db, j),
+    sharedFiles: await contactDocuments(db,j.id,contact.id), tasks: await clientTasks(db, j), ...await portalItems(db, j,contact.id),
   };
 }
 
 export async function portalUpload(db: D1Database, token: string, requestId: string, body: Data) {
-  const { link, job: j } = await portalJob(db, token);
+  const { link, job: j,contact } = await portalJob(db, token);
   insist(j.status === 'open', 'This job is no longer collecting documents', 410);
-  const request = await stmt(db, 'SELECT * FROM b_requests WHERE id=? AND job_id=?', requestId, j.id).first<Data>();
+  const request = await stmt(db, `SELECT r.* FROM b_requests r WHERE r.id=? AND r.job_id=? AND ${contactRequestSql()}`, requestId, j.id,contact.id).first<Data>();
   insist(request, 'Request not found', 404);
   insist(request.status !== 'accepted', 'Your accountant has already accepted this document', 409);
   const { fileId, statements } = await fileStatements(db, request, decodeFile(body), 'client', 'portal');
-  const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status='open')", link.id, now());
+  const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status='open') AND EXISTS(SELECT 1 FROM b_requests r WHERE r.id=? AND ${contactRequestSql()})`, link.id, now(),requestId,contact.id);
   try {
     const [authorized, authorizedDone] = contactGuard(db,j.client_id,link.contact_id);
     await db.batch([check, authorized, authorizedDone, ...statements, release, stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), 'client upload link', 'file.uploaded', fileId, request.label, now())]);

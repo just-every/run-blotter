@@ -1,3 +1,4 @@
+import { organizerJobStatements } from './organizers-store';
 // Recurring client jobs: start from a template, roll forward, work the
 // checklist, submit for review and sign off.
 import { runtimeBindings, type Bindings } from '../auth.server';
@@ -65,6 +66,7 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
     ...JSON.parse(template.requests).map((label: string, n: number) => stmt(db, "INSERT INTO b_requests(id,job_id,ordinal,label,status,updated_by,updated_at) VALUES(?,?,?,?,'requested',?,?)", id(), jobId, n + 1, label, actor.email, now())),
     // The template's questions (WORK-003), unanswered; branches wait for them.
     ...JSON.parse(template.questions ?? '[]').map((q: Data, n: number) => stmt(db, 'INSERT INTO b_job_answers(job_id,key,ordinal,label,options) VALUES(?,?,?,?,?)', jobId, q.key, n + 1, q.label, JSON.stringify(q.options))),
+    ...organizerJobStatements(db,actor,template,values),
     audit(db, actor, values.rolledFrom ? 'job.rolled_forward' : 'job.started', jobId, `${template.name} ${values.periodStart}`),
   ];
   return statements;
@@ -178,12 +180,12 @@ export async function submitJob(env: Bindings, actor: Actor, jobId: string, body
   const db = runtimeBindings(env).DB;
   const j = await job(db, actor, jobId); openJob(j, body.revision);
   const pending = await stmt(db, `SELECT (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')}) steps,
-    (SELECT COUNT(*) FROM b_requests WHERE job_id=? AND status<>'accepted') requests`, j.id, j.id).first<Data>();
+    (SELECT COUNT(*) FROM b_requests WHERE job_id=? AND organizer_active=1 AND status<>'accepted') requests`, j.id, j.id).first<Data>();
   insist(pending!.steps === 0, 'Finish every checklist step before submitting for review', 409);
   insist(pending!.requests === 0, 'Accept every requested client document before submitting for review', 409);
   const at = now();
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?) AND NOT EXISTS(SELECT 1 FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')})
-    AND NOT EXISTS(SELECT 1 FROM b_requests WHERE job_id=? AND status<>'accepted')`, j.id, j.revision, j.id, j.id);
+    AND NOT EXISTS(SELECT 1 FROM b_requests WHERE job_id=? AND organizer_active=1 AND status<>'accepted')`, j.id, j.revision, j.id, j.id);
   await atomic(db, actor, [check,
     stmt(db, "UPDATE b_jobs SET status='review',sub_status_id=NULL,submitted_by=?,submitted_at=?,revision=? WHERE id=?", actor.email, at, id(), j.id), release,
     historyWhen(db, j, 'in_review', actor.email, at, 'submitted_at'), audit(db, actor, 'job.submitted', j.id)]);

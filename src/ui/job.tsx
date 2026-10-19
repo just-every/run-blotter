@@ -1,3 +1,4 @@
+import { OrganizerStaff } from './organizers';
 import { DocumentPackets } from './document-packets';
 import { DocumentCustody } from './document-access';
 import { StarterJobSummary } from './starter-library';
@@ -75,14 +76,14 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         <h2>Client documents</h2>
         <p className="muted">Contact: {client.contact_name || '—'} {client.contact_email ? `<${client.contact_email}>` : '(no email yet)'}</p>
         {detail.requests.map((r: Row) => <article key={r.id} className="record">
-          <div className="split"><strong>{r.label}</strong><Status value={r.status} /></div>
+          <div className="split"><strong>{r.label}</strong><Status value={r.organizer_active ? r.status : 'not_required'} /></div>
           {r.note && <small className="muted">{r.note}</small>}
           {r.files.map((f: Row) => <div key={f.id} className="file">
             {f.erased_at ? <span>{f.name} — erased {when(f.erased_at)}</span> : <a href={`/api/blotter/files/${f.id}`}>{f.name}</a>}
             <small className="muted"> {Math.ceil(f.size / 1024)} KB · {f.channel === 'portal' ? 'client upload' : who(people, f.uploaded_by)} · {when(f.uploaded_at)}</small>
             {lead && !f.erased_at && <OpenNotice fileId={f.id} people={people} run={run} />}
           </div>)}
-          {isOpen && <div className="actions">
+          {isOpen && r.organizer_active === 1 && <div className="actions">
             {r.status === 'received' && <button onClick={() => run(() => api(`/requests/${r.id}/decide`, { decision: 'accept' }), 'Document accepted')}>Accept</button>}
             {r.status === 'received' && <details><summary>Ask again</summary><Form label="Ask the client again" submit={async data => run(() => api(`/requests/${r.id}/decide`, { decision: 'return', note: data.note }), 'Returned to the client')}><Field label="What should the client send instead?" name="note" /></Form></details>}
             {r.status !== 'accepted' && <label className="upload">Add a file received another way<input type="file" onChange={e => { const file = e.target.files?.[0]; if (file) run(async () => api(`/requests/${r.id}/files`, await readFile(file)), 'File added'); }} /></label>}
@@ -97,6 +98,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
     </div></Blotter>
     <Deliverables contacts={detail.contacts} job={job} deliverables={detail.deliverables} run={run} />
     <DocumentCustody jobId={job.id} run={run} tick={tick} />
+    {job.access === 'full' && <OrganizerStaff jobId={job.id} run={run} actorRole={actor.role} />}
     <JobStatus detail={detail} run={run} tick={tick} />
     <ClientLink detail={detail} run={run} />
     <Discussions detail={detail} actor={actor} run={run} tick={tick} />

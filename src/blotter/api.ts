@@ -1,3 +1,4 @@
+import { listOrganizers, saveOrganizerVersion, organizerVersions, organizerReview, clientOrganizers, clientOrganizer, saveOrganizer, previewOrganizerSend, sendOrganizer, eraseOrganizer } from './organizers';
 import { transfers, createTransfer, transferStatus, advanceTransfer, uploadTransferPart, finalizeTransfer, abortTransfer, transferInventory, downloadTransfer } from './archive-transfers';
 import { startPacketUpload, jobPacketUploads, packetUploadStatus, appendPacketChunk, completePacketUpload, cancelPacketUpload } from './document-packets';
 import { documentCatalog, packetAnnotations, annotatePacket, reviewPacket } from './document-catalog';
@@ -97,6 +98,17 @@ api.get(`${P}/portability/exports/:id/inventory`, as((a,c) => transferInventory(
 api.get(`${P}/portability/exports/:id/download`, as((a,c) => downloadTransfer(db(c),a,param(c),c.req.query('table'))));
 api.post(`${P}/portability/imports/:id/parts`, as(async(a,c) => uploadTransferPart(db(c),a,param(c),await body(c))));
 api.post(`${P}/portability/imports/:id/finalize`, as(async(a,c) => finalizeTransfer(db(c),a,param(c),await body(c))));
+
+api.get(`${P}/jobs/:id/organizers`, as((a,c) => listOrganizers(db(c),a,param(c))));
+api.post(`${P}/jobs/:id/organizers/send/preview`, as(async(a,c) => previewOrganizerSend(db(c),a,param(c),await body(c))));
+api.post(`${P}/jobs/:id/organizers/send`, as(async(a,c) => sendOrganizer(c.env,a,param(c),await body(c))));
+api.get(`${P}/templates/:id/organizer`, as((a,c) => organizerVersions(db(c),a,param(c))));
+api.post(`${P}/templates/:id/organizer`, as(async(a,c) => saveOrganizerVersion(db(c),a,param(c),await body(c))));
+api.post(`${P}/organizers/:id/review`, as(async(a,c) => organizerReview(db(c),a,param(c),await body(c))));
+api.post(`${P}/organizers/:id/erase`, as(async(a,c) => eraseOrganizer(db(c),a,param(c),await body(c))));
+api.get(`${P}/portal/:token/organizers`, c => clientOrganizers(db(c),param(c,'token')).then(r => c.json(r)));
+api.get(`${P}/portal/:token/organizers/:organizer`, c => clientOrganizer(db(c),param(c,'token'),param(c,'organizer')).then(r => c.json(r)));
+api.post(`${P}/portal/:token/organizers/:organizer`, async c => { sameOrigin(c); return c.json(await saveOrganizer(c.env,param(c,'token'),param(c,'organizer'),await body(c))); });
 
 api.get(`${P}/library`, as((a, c) => library(db(c), a)));
 api.post(`${P}/library/releases`, as(async (a, c) => publishStarter(db(c), a, await body(c))));

@@ -14,7 +14,7 @@ function decode(value: unknown) {
   insist(bytes.length && bytes.length <= PACKET_LIMITS.chunkBytes, 'A chunk must contain 1 byte to 256 KiB');
   return { encoded, bytes };
 }
-const scopeSql = `EXISTS(SELECT 1 FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id JOIN b_requests r ON r.job_id=b_jobs.id
+const scopeSql = `EXISTS(SELECT 1 FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id JOIN b_requests r ON r.job_id=b_jobs.id AND r.organizer_active=1
  WHERE b_jobs.id=? AND r.id=? AND b_jobs.status='open' AND c.lifecycle='active' AND c.merged_into IS NULL AND ${visibleJobSql})`;
 const scopeParams = (u: Data, actor: Actor) => [u.job_id, u.request_id, ...visibleJobParams(actor)];
 const summary = (u: Data) => ({ id: u.id, jobId: u.job_id, requestId: u.request_id, fileId: u.state === 'completed' ? u.file_id : null,
@@ -49,7 +49,7 @@ export async function jobPacketUploads(db: D1Database, actor: Actor, jobId: stri
 export async function startPacketUpload(db: D1Database, actor: Actor, requestId: string, body: Data) {
   roles(actor);
   const request = await stmt(db, 'SELECT * FROM b_requests WHERE id=?', requestId).first<Data>();
-  insist(request, 'Request not found', 404);
+  insist(request && request.organizer_active, 'Request not found', 404);
   const j = await job(db, actor, request.job_id);
   insist(j.status === 'open', 'The job is no longer open for uploads', 409);
   const name = text(body.name, 'File name', 200).replace(/[\\/]/g, '_'), mime = optional(body.mime, 'File type', 100) || 'application/octet-stream';

@@ -1,3 +1,4 @@
+import { OrganizerTemplateEditor } from './organizers';
 import { ClientDetails } from './client-details';
 import { StarterLibrary } from './starter-library';
 import { StatusSettings } from './statuses';
@@ -58,6 +59,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
         </Form>
       </details>}
     </section>
+    {lead && <OrganizerTemplateEditor templates={state.templates} run={run} />}
     {lead && <StarterLibrary state={state} run={run} tick={tick} />}
     {lead && <RecurrencePanel state={state} run={run} tick={tick} />}
     {lead && <section className="panel wide">

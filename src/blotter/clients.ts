@@ -1,3 +1,4 @@
+import { organizerTemplate, validateOrganizerWorkflow } from './organizers-definition';
 import { contactInsert, contactValues, legacyContactValues, readableClient } from './client-contacts';
 import { clientDetail, entityValues } from './client-lifecycle';
 import { firmCurrency, firmSettings } from './firm';
@@ -67,14 +68,18 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const recurrence = body.recurrence;
   insist(['monthly', 'quarterly', 'annual'].includes(recurrence), 'Choose monthly, quarterly or annual');
+  const organizer = organizerTemplate(body.organizer);
   const template = {
     id: id(), name: text(body.name, 'Template name', 120), recurrence,
     ...await templateWork(db, body),
     currency: await firmCurrency(db, body.currency),
     feeCents: integer(body.feeCents ?? 0, 'Fixed fee in cents', 0, 100_000_000),
   };
+  validateOrganizerWorkflow(organizer,template.questions);
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?)', template.id, template.name, recurrence, JSON.stringify(template.steps), JSON.stringify(template.requests), JSON.stringify(template.questions), template.feeCents, actor.email, now(), template.currency),
+    ...(organizer ? [stmt(db,'UPDATE b_templates SET organizer=? WHERE id=?',JSON.stringify(organizer),template.id),
+      stmt(db,'INSERT INTO b_organizer_versions(template_id,version,definition,author,created_at) VALUES(?,?,?,?,?)',template.id,organizer.version,JSON.stringify(organizer),actor.email,now())] : []),
     // Each template has a work type of its own name (WORK-007), the default for its jobs.
     stmt(db, 'INSERT INTO b_work_types(id,name,template_id,created_by,created_at) VALUES(?,?,?,?,?)', 'wt-' + template.id, template.name, template.id, actor.email, now()),
     audit(db, actor, 'template.saved', template.id, template.name),
@@ -86,7 +91,7 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
 export async function workspace(db: D1Database, actor: Actor) {
   const wide = actor.role !== 'preparer', firm = await firmSettings(db);
   const jobs = await rows(db, `SELECT b_jobs.*,c.name client_name,
-      (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.status<>'accepted') open_requests,
+      (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.organizer_active=1 AND r.status<>'accepted') open_requests,
       (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND ${pendingStep('s')}) open_steps,
       (SELECT COUNT(*) FROM b_portal_items p WHERE p.job_id=b_jobs.id AND p.kind='question' AND p.status='open') client_questions,
       ${stageSql('b_jobs')} stage,(SELECT name FROM b_sub_statuses WHERE id=b_jobs.sub_status_id) sub_status,w.name work_type,w.color work_type_color

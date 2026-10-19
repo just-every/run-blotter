@@ -56,7 +56,7 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
   const open = `SELECT value FROM json_each(?1)`;
   const [requests, tasks, reviews, threads, notices, portal, coverage] = await Promise.all([
     rows(db, `SELECT r.id,r.label,r.status,j.id job_id,j.title,j.period_label,j.preparer_email,j.due_date FROM b_requests r JOIN b_jobs j ON j.id=r.job_id
-      WHERE j.id IN (${open}) AND j.status='open' AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
+      WHERE j.id IN (${open}) AND j.status='open' AND r.organizer_active=1 AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
     rows(db, `SELECT s.ordinal,s.label,s.assignee_email,s.assignee_role,j.id job_id,j.title,j.period_label,j.preparer_email,j.reviewer_email,j.manager_email,j.due_date FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
       WHERE j.id IN (${open}) AND j.status='open' AND s.done_at IS NULL ORDER BY j.due_date,s.ordinal`, ids),
     rows(db, `SELECT j.id job_id,j.title,j.period_label,j.reviewer_email,j.partner_email,j.reviewed_at,j.due_date FROM b_jobs j WHERE j.id IN (${open}) AND j.status='review' ORDER BY j.due_date`, ids),

@@ -1,3 +1,4 @@
+import { organizerTemplate, validateOrganizerWorkflow } from './organizers-definition';
 // Maintained built-in releases plus reviewed, append-only release packages.
 import { STARTER_LIBRARY, type StarterTemplate, type StarterVersion } from './starter-content';
 import { releaseState } from './starter-diff';
@@ -23,16 +24,17 @@ export async function publishStarter(db: D1Database, actor: Actor, body: Data) {
   insist(version > prior.version, 'Release versions are immutable; supply a newer version', 409);
   const source = text(body.source, 'Release source or change note', 500);
   insist(Array.isArray(input.tasks), 'Supply release tasks');
-  insist(input.questions === undefined || (Array.isArray(input.questions) && input.questions.length === 0), 'Organizers are not available yet; PORTAL-004 carries them');
+  const organizer = organizerTemplate(input.organizer);
   const requests = lines(input.requests, 'Client document requests');
-  await templateWork(db, { tasks: input.tasks, requests });
+  const work=await templateWork(db, {tasks:input.tasks,requests,questions:input.questions});
+  validateOrganizerWorkflow(organizer,work.questions);
   insist(Array.isArray(input.messages) && input.messages.length > 0 && input.messages.length <= 10, 'Supply between one and ten messages');
   const messages = input.messages.map((m: Data) => {
     insist(m && typeof m === 'object', 'Supply a message');
     const message = { name: text(m.name, 'Message name', 120), subject: text(m.subject, 'Subject', 200), body: text(m.body, 'Message', 10_000) };
     render(message.subject, message.body, {}, undefined); return message;
   });
-  const release: StarterVersion = { version, tasks: input.tasks, requests, questions: [], messages, budgetMinutes: integer(input.budgetMinutes, 'Budget minutes', 1, 100_000), description: text(input.description, 'Release description', 1000) };
+  const release: StarterVersion = { version, tasks: input.tasks, requests, questions: work.questions, organizer, messages, budgetMinutes: integer(input.budgetMinutes, 'Budget minutes', 1, 100_000), description: text(input.description, 'Release description', 1000) };
   const keyed = releaseState(release);
   insist(Object.keys(keyed.tasks).length === release.tasks.length && Object.keys(keyed.requests).length === release.requests.length && Object.keys(keyed.messages).length === release.messages.length, 'Each task, request and message needs a distinct name');
   const [check, done] = guard(db, 'NOT EXISTS(SELECT 1 FROM b_starter_releases WHERE library_id=? AND version>?)', libraryId, prior.version);

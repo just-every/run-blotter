@@ -1,3 +1,4 @@
+import { contactRequestSql } from './organizers-requests';
 // Client progress, secure messages and to-dos (PORTAL-003). The client link
 // shows the engagement's milestones, next action, outstanding requests and
 // review/completion progress, the job's portal messages and the to-dos staff
@@ -22,9 +23,9 @@ const short = (body: string) => body.length > 120 ? body.slice(0, 119) + '…' :
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** What the client sees of the engagement's progress; staff see the same view on the job. */
-export async function clientProgress(db: D1Database, j: Data) {
+export async function clientProgress(db: D1Database, j: Data,contactId?:string) {
   const [requests, steps, todos] = await Promise.all([
-    rows(db, 'SELECT status FROM b_requests WHERE job_id=?', j.id),
+    contactId ? rows(db,`SELECT r.status FROM b_requests r WHERE r.job_id=? AND ${contactRequestSql()}`,j.id,contactId) : rows(db,'SELECT status FROM b_requests WHERE job_id=? AND organizer_active=1',j.id),
     flowSteps(db, j),
     rows(db, "SELECT COUNT(*) n FROM b_portal_items WHERE job_id=? AND kind='todo' AND status='open'", j.id),
   ]);
@@ -53,7 +54,7 @@ async function items(db: D1Database, jobId: string, staff: boolean) {
   return { messages: all.filter(i => i.kind !== 'todo').map(shown), todos: all.filter(i => i.kind === 'todo').map(shown) };
 }
 
-export async function portalItems(db: D1Database, j: Data) { return { progress: await clientProgress(db, j), ...await items(db, j.id, false) }; }
+export async function portalItems(db: D1Database, j: Data,contactId?:string) { return { progress: await clientProgress(db, j,contactId), ...await items(db, j.id, false) }; }
 export async function staffPortal(db: D1Database, j: Data) { return { progress: await clientProgress(db, j), ...await items(db, j.id, true) }; }
 
 const linkGuard = (db: D1Database, linkId: string) => guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off' AND EXISTS(SELECT 1 FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=l.contact_id AND c.client_id=j.client_id AND c.authorized=1 AND c.active=1 AND c.portal=1 AND c.request_consent=1 AND e.lifecycle='active'))", linkId, now());

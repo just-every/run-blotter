@@ -113,7 +113,7 @@ const gateMet = (status: string, gate: string) => gate === 'submitted' ? ['revie
 /** Each task's state (done, ready, blocked, not_applicable) with the reasons it waits. */
 export async function taskStates(db: D1Database, j: Data, steps: Data[]) {
   const [answers, requests] = await Promise.all([rows(db, 'SELECT * FROM b_job_answers WHERE job_id=? ORDER BY ordinal', j.id),
-    rows(db, 'SELECT ordinal,label,status FROM b_requests WHERE job_id=?', j.id)]);
+    rows(db, 'SELECT ordinal,label,status FROM b_requests WHERE job_id=? AND organizer_active=1', j.id)]);
   const applies = (s: Data) => {
     if (!s.when_question) return true;
     const a = answers.find(x => x.key === s.when_question);
@@ -156,7 +156,7 @@ export async function readyGuard(db: D1Database, j: Data, ordinal: number) {
   if (s.when_question) { checks.push('EXISTS(SELECT 1 FROM b_job_answers a WHERE a.job_id=? AND a.key=? AND a.value IN (SELECT value FROM json_each(?)))'); params.push(j.id, s.when_question, s.when_values); }
   if (!s.exception_at) {
     checks.push(`NOT EXISTS(SELECT 1 FROM b_job_steps p WHERE p.job_id=? AND p.ordinal IN (SELECT value FROM json_each(?)) AND ${pendingStep('p')})`,
-      "NOT EXISTS(SELECT 1 FROM b_requests r WHERE r.job_id=? AND r.ordinal IN (SELECT value FROM json_each(?)) AND r.status<>'accepted')");
+      "NOT EXISTS(SELECT 1 FROM b_requests r WHERE r.job_id=? AND r.ordinal IN (SELECT value FROM json_each(?)) AND r.organizer_active=1 AND r.status<>'accepted')");
     params.push(j.id, s.after_steps, j.id, s.after_requests);
     if (s.prerequisite) { checks.push('EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status IN (SELECT value FROM json_each(?)))'); params.push(s.prerequisite.id, JSON.stringify(s.after_gate === 'submitted' ? ['review', 'signed_off'] : ['signed_off'])); }
   }
@@ -197,7 +197,7 @@ export async function recordAnswer(env: Bindings, actor: Actor, jobId: string, b
   const options = JSON.parse(q.options) as string[], value = text(body.value, 'Answer', 80);
   insist(options.includes(value), `Answer "${q.label}" with one of: ${options.join(', ')}`);
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status='open')", j.id);
-  await atomic(db, actor, [check, stmt(db, 'UPDATE b_job_answers SET value=?,answered_by=?,answered_at=? WHERE job_id=? AND key=?', value, actor.email, now(), j.id, q.key),
+  await atomic(db, actor, [check, stmt(db, 'UPDATE b_job_answers SET value=?,answered_by=?,answered_at=?,organizer_source=NULL WHERE job_id=? AND key=?', value, actor.email, now(), j.id, q.key),
     stmt(db, 'UPDATE b_jobs SET revision=? WHERE id=?', id(), j.id), release, audit(db, actor, 'job.answered', j.id, `${q.label}: ${value}`)]);
   await advance(env, [j.id], actor.email);
 }

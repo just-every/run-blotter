@@ -1,8 +1,11 @@
+import type { Question } from './flow';
+import { starterOrganizer } from './starter-organizers';
+import type { OrganizerDefinition } from './organizers-definition';
 /** Original US practice starting checklists, maintained as library releases.
  * Firms review scope, applicability, estimates and dates before adoption. These
  * are not verified legal/tax guidance. Offsets are internal planning targets
  * relative to the firm's recorded job due date, never statutory calculations.
- * Organizer questions remain empty until the PORTAL-004 organizer exists.
+ * Organizers are versioned starting questions, for firm review before sending.
  */
 export type StarterTask = {
   label: string;
@@ -17,7 +20,8 @@ export type StarterVersion = {
   version: number;
   tasks: StarterTask[];
   requests: string[];
-  questions: [];
+  questions: Question[];
+  organizer?: OrganizerDefinition | null;
   messages: StarterMessage[];
   budgetMinutes: number;
   description: string;
@@ -40,7 +44,7 @@ const requestMessage = (name: string, note: string): StarterMessage => ({
 });
 
 const release = (version: number, description: string, tasks: StarterTask[], requests: string[], message: StarterMessage): StarterVersion => ({
-  version, description, tasks, requests, questions: [], messages: [message],
+  version, description, tasks, requests, questions: [], organizer: starterOrganizer(message.name,version), messages: [message],
   budgetMinutes: tasks.reduce((minutes, entry) => minutes + entry.estimateMinutes, 0),
 });
 

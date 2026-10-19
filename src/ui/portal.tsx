@@ -1,3 +1,4 @@
+import { PortalOrganizers } from './organizers';
 import { useEffect, useState } from 'react';
 import { Blotter, readFile, Status, when, type Row, day } from './common';
 import { ClientTasks } from './tasks';
@@ -35,6 +36,7 @@ export function Portal({ token }: { token: string }) {
           {view.collecting && r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
         </section>)}</Blotter>
         {view.sharedFiles?.length>0&&<section className="panel"><h2>Shared files</h2><ul>{view.sharedFiles.map((f:Row)=><li key={f.file_key}><a href={`${path}/files/${encodeURIComponent(f.file_key)}`}>{f.name}</a> · {Math.ceil(f.size/1024)} KB</li>)}</ul></section>}
+        <PortalOrganizers path={path} busy={busy} act={act} reload={load} />
         <ClientTasks tasks={view.tasks} />
         <PortalConversation view={view} path={path} busy={busy} act={act} reload={load} />
         <PortalDeliverables path={path} busy={busy} act={act} />
