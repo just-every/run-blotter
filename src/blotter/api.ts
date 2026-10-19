@@ -6,6 +6,7 @@ import { type Bindings, runtimeBindings } from '../auth.server';
 import branding from '../branding.json';
 import { person, agent } from './session';
 import { Fault, insist, type Actor, type Data } from './model';
+import { readFirm, saveFirm, firmClock } from './firm';
 import { addClient, saveTemplate, workspace } from './clients';
 import { commitFields, defineField, previewFields, saveGroup, saveProfile, segment } from './profiles';
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
@@ -74,6 +75,9 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
 
+api.get(`${P}/firm/settings`, as((a, c) => readFirm(db(c), a)));
+api.post(`${P}/firm/settings`, as(async (a, c) => saveFirm(db(c), a, await body(c))));
+api.get(`${P}/firm/time`, as((a, c) => firmClock(db(c), a, c.req.query('at'))));
 api.get(`${P}/state`, as((a, c) => workspace(db(c), a)));
 api.get(`${P}/mfa`, asOpen((a, c) => mfaState(db(c), a)));
 api.post(`${P}/mfa/totp/start`, asOpen(async (a, c) => startTotp(db(c), a, sealer(c), await body(c))));

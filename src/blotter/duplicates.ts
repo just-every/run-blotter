@@ -5,8 +5,8 @@
 // EIN (the client's tax id column), or a name: equal once lower-cased, accents, punctuation, "&"/"and"
 // and business suffixes (Inc, LLC, Ltd, Pty, Co, Corp, ...) are set aside, or
 // similar (at least two words and at least 75% of their distinct words shared).
-// Phone numbers and SSN digits are not stored yet (CRM-001, US-001); those
-// clauses add their matches here before they ship.
+// Phone numbers and SSN digits are not stored yet (CRM-001); that
+// clause adds their matches here before it ships.
 import { atomic, audit, human, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 const SUFFIXES = new Set(['inc', 'llc', 'ltd', 'pty', 'co', 'corp', 'corporation', 'company', 'limited', 'plc', 'lp', 'llp', 'pc', 'pllc', 'the']);

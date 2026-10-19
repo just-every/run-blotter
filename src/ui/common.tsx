@@ -7,6 +7,7 @@ export async function api(path: string, body?: unknown) {
   const response = await fetch('/api/blotter' + path, { credentials: 'same-origin', ...(body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }) });
   const result: any = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(result.error ?? 'The request could not be completed'), { mfa: result.mfa as string | undefined });
+  if (path === '/state' && result.firm) displayZone = result.firm.timeZone;
   return result;
 }
 /** Where a time entry's rate came from (TIME-003 rate cards). */
@@ -14,10 +15,11 @@ export const SOURCE: Record<string, string> = { client_service: 'client and serv
 export const money = (cents: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
 export const taxId = (value: string) => value ? `${value.length === 11 ? 'Legacy ABN' : 'EIN'} •••••${value.slice(-4)}` : '';
 export const moneyTotals = (rows: Row[], key: string) => Object.entries(rows.reduce((totals: Record<string, number>, r: Row) => { totals[r.currency] = (totals[r.currency] ?? 0) + Number(r[key]); return totals; }, {})).map(([currency, cents]) => money(cents as number, currency)).join(' · ');
-const pad = (n: number) => String(n).padStart(2, '0');
-/** Dates and times in the viewer's own timezone (stored values stay UTC). */
-export const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-export const when = (iso?: string) => { if (!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+let displayZone = 'America/New_York';
+/** Firm-local dates and instants; date-only deadlines retain their recorded day. */
+const parts = (d: Date) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: displayZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }).formatToParts(d).map(p => [p.type, p.value]));
+export const today = () => { const p = parts(new Date()); return `${p.year}-${p.month}-${p.day}`; };
+export const when = (iso?: string) => { if (!iso) return ''; if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso; const p = parts(new Date(iso)); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`; };
 
 export async function readFile(file: File) {
   const bytes = new Uint8Array(await file.arrayBuffer());
