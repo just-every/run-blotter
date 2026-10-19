@@ -95,7 +95,7 @@ test('the assigned reviewer signs off; the preparer cannot; sign-off closes the 
   detail = await h.json(`/jobs/${job.id}/review`, { revision: detail.job.revision, decision: 'signoff', note: 'Reconciled to bank; GST coding checked' }, reviewer);
   assert.equal(detail.job.status, 'signed_off');
   assert.equal(detail.job.signed_off_by, 'reviewer@example.test');
-  assert.equal((await h.request('/api/blotter/portal/' + portalToken(h.mails.at(-1)))).status, 404);
+  assert.equal((await h.request('/api/blotter/portal/' + portalToken(h.mails.findLast(portalToken)))).status, 404);
   await h.json(`/jobs/${job.id}/steps`, { ordinal: 1, done: false }, h.owner, 409);
 });
 
@@ -355,6 +355,69 @@ test('DOC-003 client approval of deliverables: changes on version 1, approval bo
   await h.json(`/jobs/${work.id}/deliverables`, { deliverableId: v1.deliverableId, name: 'v3.pdf', contentBase64: b64('FS v3') }, preparer, 409);
   // The approval took the job through the normal review gate: the preparer still cannot sign it off.
   await h.json(`/jobs/${work.id}/review`, { revision: after.job.revision, decision: 'signoff', note: 'Self' }, preparer, 403);
+});
+
+test('COLLAB-001 review alerts and internal threads: mention, correction, unread state, resolution, no leak to the client or unassigned staff', async () => {
+  await h.json('/team', { email: 'other@example.test', name: 'Omar Other', role: 'preparer' }, h.owner);
+  await h.json('/team/invite', { email: 'other@example.test' }, h.owner);
+  const other = await h.login('other@example.test');
+  const cove = await h.json('/clients', { name: 'Cove Dental PLLC', contactName: 'Sam Cove', contactEmail: 'sam@cove.example' }, h.owner);
+  const tpl = await h.json('/templates', { name: 'Monthly close', recurrence: 'monthly', steps: 'Reconcile accounts', requests: 'Bank statement' }, h.owner);
+  const work = await h.json('/jobs', { clientId: cove.id, templateId: tpl.id, periodStart: '2026-06-01', dueDate: '2026-07-20', dueNote: 'Client close calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+  await h.json(`/jobs/${work.id}/reminders`, {}, preparer);
+  const token = portalToken(h.mails.at(-1));
+  let detail = await h.json('/jobs/' + work.id, undefined, preparer);
+  const request = detail.requests[0];
+  await h.json(`/requests/${request.id}/files`, { name: 'may.csv', mime: 'text/csv', contentBase64: b64('May only') }, preparer);
+  await h.json(`/requests/${request.id}/decide`, { decision: 'accept' }, preparer);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 1, done: true }, preparer);
+  detail = await h.json(`/jobs/${work.id}/submit`, { revision: (await h.json('/jobs/' + work.id, undefined, preparer)).job.revision }, preparer);
+
+  // Submission alerts the assigned reviewer, in the app and by email.
+  assert.match(h.mails.findLast(m => m.to.includes('reviewer@example.test')).text, /Pat Preparer submitted Cove Dental PLLC Monthly close Jun 2026 for your review/);
+  assert.equal((await h.json('/notifications', undefined, reviewer))[0].kind, 'review_requested');
+
+  // The reviewer asks the preparer for a correction on the document and mentions the principal.
+  const start = { anchor: 'request:' + request.id, title: 'June bank statement missing', body: 'The statement covers May only. @owner@example.test FYI.', correction: true, followUpDue: '2026-07-10' };
+  await h.json(`/jobs/${work.id}/threads`, { ...start, mentions: ['other@example.test'] }, reviewer, 400);
+  await h.json(`/jobs/${work.id}/threads`, { ...start, correction: false, title: 'x', mentions: [] }, other, 404);
+  await h.json(`/jobs/${work.id}/threads`, { ...start, correction: true, title: 'x' }, preparer, 403);
+  const opened = await h.json(`/jobs/${work.id}/threads`, { ...start, mentions: ['owner@example.test'] }, reviewer);
+  const threadId = opened.thread.id;
+  assert.deepEqual([opened.thread.kind, opened.thread.owner_email, opened.thread.follow_up_due], ['correction', 'preparer@example.test', '2026-07-10']);
+  assert.match(h.mails.findLast(m => m.to.includes('preparer@example.test')).text, /asked you for a correction on Cove Dental PLLC Monthly close Jun 2026 by 2026-07-10/);
+  assert.equal((await h.json('/notifications', undefined, h.owner)).find(n => n.thread_id === threadId).kind, 'mention');
+  detail = await h.json(`/jobs/${work.id}/review`, { revision: detail.job.revision, decision: 'return', note: 'See the correction thread' }, reviewer);
+  assert.equal(detail.job.status, 'open');
+  assert.equal((await h.json('/notifications', undefined, preparer))[0].kind, 'review_returned');
+
+  // Unread until the preparer opens it; a reply makes it unread for the reviewer.
+  const unread = async who => (await h.json(`/jobs/${work.id}/threads`, undefined, who)).find(t => t.id === threadId).unread;
+  assert.equal(await unread(preparer), true);
+  assert.equal(await unread(reviewer), false);
+  await h.json('/threads/' + threadId, undefined, preparer);
+  assert.equal(await unread(preparer), false);
+  await h.json(`/threads/${threadId}/messages`, { body: 'Uploaded the June statement as well.' }, preparer);
+  assert.equal(await unread(reviewer), true);
+  assert.match(h.mails.findLast(m => m.to.includes('reviewer@example.test')).text, /replied on Cove Dental PLLC/);
+
+  // Only the owner of the correction (or the principal) resolves it; the decision and thread are retained.
+  await h.json(`/threads/${threadId}/resolve`, { resolution: 'Done' }, reviewer, 403);
+  const resolved = await h.json(`/threads/${threadId}/resolve`, { resolution: 'June statement added and reconciled' }, preparer);
+  assert.deepEqual([resolved.thread.status, resolved.thread.resolved_by, resolved.thread.resolution], ['resolved', 'preparer@example.test', 'June statement added and reconciled']);
+  await h.json(`/threads/${threadId}/messages`, { body: 'late' }, reviewer, 409);
+  const kept = await h.json('/threads/' + threadId, undefined, reviewer);
+  assert.deepEqual(kept.messages.map(m => [m.author_email, m.mentions]), [['reviewer@example.test', ['owner@example.test']], ['preparer@example.test', []]]);
+
+  // A client-wide thread follows the same rules. Unassigned staff and the client read nothing.
+  const clientWide = await h.json(`/jobs/${work.id}/threads`, { anchor: 'client', title: 'Fee review', body: 'Internal: raise the monthly fee next year.' }, h.owner);
+  await h.json('/threads/' + threadId, undefined, other, 404);
+  await h.json('/threads/' + clientWide.thread.id, undefined, other, 404);
+  await h.json(`/jobs/${work.id}/threads`, undefined, other, 404);
+  assert.equal((await h.json(`/jobs/${work.id}/threads`, undefined, preparer)).length, 2);
+  const seenByClient = JSON.stringify([await (await h.request('/api/blotter/portal/' + token)).json(), await (await h.request(`/api/blotter/portal/${token}/deliverables`)).json()]);
+  assert.ok(!/June statement|monthly fee|correction/i.test(seenByClient), 'Internal discussion never reaches the client link');
+  assert.ok(!h.mails.some(m => m.to.includes('sam@cove.example') && /June statement|monthly fee/.test(m.text)));
 });
 
 test('agent keys only prepare; a person approves or declines and the decision is recorded', async () => {

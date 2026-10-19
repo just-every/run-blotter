@@ -38,6 +38,16 @@ Finish every checklist step and accept every requested document, then press **Su
 
 The assigned reviewer, or the principal, opens **Review**. Choose **Sign off** or **Return to preparer**, write a **Review note** and press **Record decision**. Reviewers cannot sign off their own preparation. A principal reviewing their own work must explicitly confirm this; it is recorded.
 
+Submitting a job alerts its assigned reviewer, in **Alerts** on the Jobs page and by email. Returning a job alerts the preparer the same way.
+
 Returning a job opens it for further work. Signing off records the person, time and note, and closes the client upload link. The audit log in **Team & safety** records the decisions.
+
+## Internal discussion
+
+Open **Internal discussion → Start a discussion** on a job. Give it a subject, choose what it is about (the job, its review, a checklist step, a document request or the whole client) and write a message. To mention colleagues, list their emails; only people who can already see the work can be mentioned, and each is alerted. Reviewers and the principal can tick **Request a correction from the preparer** with a **Follow up by** date: the preparer owns the correction and is alerted.
+
+Threads show **Unread** until you open them, and a reply makes them unread for the others. Replies alert the thread's owner and the person who started it. The owner, or the principal, resolves a thread with a recorded decision; the resolved thread and its messages are kept and can no longer be changed.
+
+Threads are internal. The client link never shows them, and a preparer who is not assigned to the work cannot open them.
 
 Next, [roll the job forward](/docs/jobs) or [export the billable items](/docs/time-and-billing).

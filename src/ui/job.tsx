@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run } from './common';
 import { Deliverables } from './deliverables';
+import { Discussions } from './discussions';
 import { EntryHistory } from './timesheet';
 
 export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: string; actor: Row; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
@@ -79,6 +80,7 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
       </section>
     </div></Blotter>
     <Deliverables job={job} deliverables={detail.deliverables} run={run} />
+    <Discussions detail={detail} actor={actor} run={run} tick={tick} />
     <section className="panel">
       <h2>Time</h2>
       {detail.time.length === 0 ? <p className="muted">No time recorded yet.</p> : <table className="table"><thead><tr><th>Date</th><th>Person</th><th>Description</th><th>Minutes</th><th>Rate</th><th>Amount</th><th></th></tr></thead>

@@ -95,8 +95,8 @@ export async function issueLink(db: D1Database, actor: Actor, jobId: string, ori
   ] };
 }
 
-/** Mails the client contact through the operator's provider and says what happened. */
-export async function mailClient(bindings: ReturnType<typeof runtimeBindings>, deliveryId: string, to: string, subject: string, message: string) {
+/** Mails one person through the operator's provider and says what happened. */
+export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, deliveryId: string, to: string, subject: string, message: string) {
   const sender = operatorMail(bindings);
   if (!sender) return 'not sent: no mail provider is configured';
   insist(bindings.MAIL_FROM, 'Set MAIL_FROM to send client mail', 500);
@@ -136,7 +136,7 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
     stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at) VALUES(?,?,?,?,?,?,?,?,?)',
       reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replace(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
-  const delivery = await mailClient(bindings, reminderId, client.contact_email, `Documents needed: ${j.title} ${j.period_label}`, message);
+  const delivery = await sendMail(bindings, reminderId, client.contact_email, `Documents needed: ${j.title} ${j.period_label}`, message);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();
   return { id: reminderId, delivery, portalUrl: url, expiresAt: expires };
 }

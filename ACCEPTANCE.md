@@ -99,9 +99,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
 29. **SMS-001 — Two way client text messaging.** Status: **missing**. Capture a client's SMS consent and send a templated text. The client replies with a photo, which appears in the client timeline and is filed to the work item. A text from an unknown number lands in triage. A send scheduled during quiet hours waits until the window opens. After the client replies STOP, further texts are refused, and HELP returns the firm's help message.
    Remaining: No SMS provider, two-way thread, consent capture or MMS filing exists.
 
-30. **COLLAB-001 — Contextual discussions and review alerts.** Status: **partial**. Submit work, receive the assigned reviewer's notification, mention a colleague and request a correction. Resolve it as the preparer, inspect the retained thread and verify that the client and unassigned staff cannot read private discussion.
-   Current evidence: `src/blotter/jobs.ts`; `src/blotter/documents.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Review/request-return notes and review status exist; threaded discussion, mentions, unread state and manager notification delivery are missing.
+30. **COLLAB-001 — Contextual discussions and review alerts.** Status: **done**. Submit work, receive the assigned reviewer's notification, mention a colleague and request a correction. Resolve it as the preparer, inspect the retained thread and verify that the client and unassigned staff cannot read private discussion.
+   Current evidence: `src/blotter/threads.ts`; `src/blotter/notifications.ts`; `src/blotter/jobs.ts`; `migrations/core/0020_threads.sql`; `src/ui/discussions.tsx`; `tests/blotter/flows.test.mjs`.
 
 31. **NOTIFY-001 — Staff notifications digest and settings.** Status: **missing**. Assign a job and a task to a preparer. Make one job due tomorrow and one overdue, mention the preparer and have a client upload a file. Inspect the in-app notifications, the emails for the events the preparer chose, and a 7:00 local-time digest that lists due-soon and overdue items once. Turn off email for mentions and confirm mentions then arrive in-app only. A firm-mandatory event cannot be muted, and no SSN or EIN appears in any subject line.
    Remaining: No staff notification center, assignment or due-date alerts, digest or per-user settings exist.

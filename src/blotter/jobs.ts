@@ -1,6 +1,8 @@
 // Recurring client jobs: start from a template, roll forward, work the
 // checklist, submit for review and sign off.
+import { runtimeBindings, type Bindings } from '../auth.server';
 import { deliverablesFor } from './deliverables';
+import { notify, reviewRequested } from './notifications';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -116,8 +118,9 @@ export async function setStep(db: D1Database, actor: Actor, jobId: string, body:
   return jobDetail(db, actor, j.id);
 }
 
-export async function submitJob(db: D1Database, actor: Actor, jobId: string, body: Data) {
+export async function submitJob(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor);
+  const db = runtimeBindings(env).DB;
   const j = await job(db, actor, jobId); openJob(j, body.revision);
   const pending = await stmt(db, `SELECT (SELECT COUNT(*) FROM b_job_steps WHERE job_id=? AND done_at IS NULL) steps,
     (SELECT COUNT(*) FROM b_requests WHERE job_id=? AND status<>'accepted') requests`, j.id, j.id).first<Data>();
@@ -128,12 +131,14 @@ export async function submitJob(db: D1Database, actor: Actor, jobId: string, bod
   await atomic(db, actor, [check,
     stmt(db, "UPDATE b_jobs SET status='review',submitted_by=?,submitted_at=?,revision=? WHERE id=?", actor.email, now(), id(), j.id), release,
     audit(db, actor, 'job.submitted', j.id)]);
+  await reviewRequested(env, j.id, actor.name || actor.email);
   return jobDetail(db, actor, j.id);
 }
 
 /** The assigned reviewer (or the principal) signs off or returns the job, with a recorded note. */
-export async function reviewJob(db: D1Database, actor: Actor, jobId: string, body: Data) {
+export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
+  const db = runtimeBindings(env).DB;
   const j = await job(db, actor, jobId);
   insist(j.status === 'review', 'This job is not waiting for review', 409);
   insist(body.revision === j.revision, 'The job changed. Refresh and try again.', 409);
@@ -142,6 +147,7 @@ export async function reviewJob(db: D1Database, actor: Actor, jobId: string, bod
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=? AND status='review')", j.id, j.revision);
   if (body.decision === 'return') {
     await atomic(db, actor, [check, stmt(db, "UPDATE b_jobs SET status='open',revision=? WHERE id=?", id(), j.id), release, audit(db, actor, 'job.returned', j.id, note)]);
+    await notify(env, [j.preparer_email], { kind: 'review_returned', jobId: j.id, summary: `${actor.name || actor.email} returned ${j.title} ${j.period_label} to you: ${note}` }, actor.email);
     return jobDetail(db, actor, j.id);
   }
   insist(body.decision === 'signoff', 'Choose sign off or return');

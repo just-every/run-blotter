@@ -4,7 +4,8 @@
 // and the version's SHA-256. A newer version resets approval, and an approval can
 // submit the job for review when its checklist and documents are complete.
 import { runtimeBindings, type Bindings } from '../auth.server';
-import { decodeFile, fileResponse, issueLink, mailClient, portalJob } from './documents';
+import { reviewRequested } from './notifications';
+import { decodeFile, fileResponse, issueLink, sendMail, portalJob } from './documents';
 import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 const COLUMNS = `id,deliverable_id,version,name,mime,size,sha256,note,submit_on_approval,sent_by,sent_at,delivery,status,
@@ -51,7 +52,7 @@ export async function sendDeliverable(env: Bindings, actor: Actor, jobId: string
     ...(note ? [note, ''] : []),
     `Approve it or request changes here: ${link.url}`, `This link expires on ${link.expiresAt.slice(0, 10)}.`,
   ].join('\n');
-  const delivery = await mailClient(bindings, versionId, client.contact_email, `For your approval: ${deliverable.title} v${version}`, message);
+  const delivery = await sendMail(bindings, versionId, client.contact_email, `For your approval: ${deliverable.title} v${version}`, message);
   await stmt(db, 'UPDATE b_deliverable_versions SET delivery=? WHERE id=?', delivery, versionId).run();
   return { id: versionId, deliverableId: deliverable.id, version, sha256, delivery, portalUrl: link.url, expiresAt: link.expiresAt };
 }
@@ -87,7 +88,8 @@ export async function portalVersionFile(db: D1Database, token: string, versionId
  * already-decided version is refused. An approval sent with "submit on approval"
  * moves the job to review, but only through the same gates as a person's submit.
  */
-export async function portalDecide(db: D1Database, token: string, versionId: string, body: Data) {
+export async function portalDecide(env: Bindings, token: string, versionId: string, body: Data) {
+  const db = runtimeBindings(env).DB;
   const { link, job: j } = await portalJob(db, token);
   const v = await stmt(db, 'SELECT * FROM b_deliverable_versions WHERE id=? AND job_id=?', versionId, j.id).first<Data>();
   insist(v, 'Document not found', 404);
@@ -121,5 +123,6 @@ export async function portalDecide(db: D1Database, token: string, versionId: str
     throw error;
   }
   const after = await stmt(db, 'SELECT b_jobs.status job_status,v.status,v.moved_job FROM b_deliverable_versions v JOIN b_jobs ON b_jobs.id=v.job_id WHERE v.id=?', v.id).first<Data>();
+  if (after!.moved_job === 1) await reviewRequested(env, j.id, `${name} (client approval)`);
   return { status: after!.status, jobStatus: after!.job_status, movedJob: after!.moved_job === 1 };
 }

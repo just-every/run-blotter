@@ -9,6 +9,8 @@ import { Fault, insist, type Actor, type Data } from './model';
 import { addClient, saveTemplate, workspace } from './clients';
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
 import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, sendDeliverable } from './deliverables';
+import { myNotifications } from './notifications';
+import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
 import { decideRequest, downloadFile, portalUpload, portalView, sendReminder, staffUpload } from './documents';
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
@@ -56,8 +58,14 @@ api.post(`${P}/bulk/reassign/preview`, as(async (a, c) => previewReassign(db(c),
 api.post(`${P}/bulk/reassign`, as(async (a, c) => commitReassign(db(c), a, await body(c))));
 api.post(`${P}/jobs/:id/roll-forward`, as(async (a, c) => rollForward(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/steps`, as(async (a, c) => setStep(db(c), a, param(c), await body(c))));
-api.post(`${P}/jobs/:id/submit`, as(async (a, c) => submitJob(db(c), a, param(c), await body(c))));
-api.post(`${P}/jobs/:id/review`, as(async (a, c) => reviewJob(db(c), a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/submit`, as(async (a, c) => submitJob(c.env, a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/review`, as(async (a, c) => reviewJob(c.env, a, param(c), await body(c))));
+api.get(`${P}/jobs/:id/threads`, as((a, c) => threadsFor(db(c), a, param(c))));
+api.post(`${P}/jobs/:id/threads`, as(async (a, c) => openThread(c.env, a, param(c), await body(c))));
+api.get(`${P}/threads/:id`, as((a, c) => readThread(db(c), a, param(c))));
+api.post(`${P}/threads/:id/messages`, as(async (a, c) => reply(c.env, a, param(c), await body(c))));
+api.post(`${P}/threads/:id/resolve`, as(async (a, c) => resolveThread(c.env, a, param(c), await body(c))));
+api.get(`${P}/notifications`, as((a, c) => myNotifications(db(c), a)));
 api.post(`${P}/jobs/:id/reminders`, as(async (a, c) => sendReminder(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/time`, as(async (a, c) => addTime(db(c), a, param(c), await body(c))));
 api.post(`${P}/time/:id/delete`, as((a, c) => deleteTime(db(c), a, param(c))));
@@ -106,5 +114,5 @@ api.get(`${P}/portal/:token/deliverables`, async c => c.json(await portalDeliver
 api.get(`${P}/portal/:token/deliverables/:version/file`, async c => portalVersionFile(db(c), param(c, 'token'), param(c, 'version')));
 api.post(`${P}/portal/:token/deliverables/:version/decide`, async c => {
   sameOrigin(c);
-  return c.json(await portalDecide(db(c), param(c, 'token'), param(c, 'version'), await body(c)));
+  return c.json(await portalDecide(c.env, param(c, 'token'), param(c, 'version'), await body(c)));
 });

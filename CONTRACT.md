@@ -280,8 +280,8 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 15 | 32 | 59 | 106 |
-| All | 15 | 32 | 59 | 106 |
+| Target and push further | 16 | 31 | 59 | 106 |
+| All | 16 | 31 | 59 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -314,7 +314,7 @@ Judged from the code and tests at commit `6201b0072ce67472a0ffbf038d49e77bb34155
 | `MSG-001` | Firm and personal message templates | target | partial | `src/blotter/documents.ts`; `tests/blotter/flows.test.mjs` | The built-in reminder fills client contact, job, period, outstanding requests and link and stores the rendered text; firm and personal templates, the placeholder catalog, preview and unresolved-field refusal are missing. |
 | `MSG-002` | Bulk client messages | target | missing |  | No segment messaging, recipient preview, scheduling or per-recipient tracking exists. |
 | `SMS-001` | Two way client text messaging | target | missing |  | No SMS provider, two-way thread, consent capture or MMS filing exists. |
-| `COLLAB-001` | Contextual discussions and review alerts | target | partial | `src/blotter/jobs.ts`; `src/blotter/documents.ts`; `tests/blotter/flows.test.mjs` | Review/request-return notes and review status exist; threaded discussion, mentions, unread state and manager notification delivery are missing. |
+| `COLLAB-001` | Contextual discussions and review alerts | target | done | `src/blotter/threads.ts`; `src/blotter/notifications.ts`; `src/blotter/jobs.ts`; `migrations/core/0020_threads.sql`; `src/ui/discussions.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `NOTIFY-001` | Staff notifications digest and settings | target | missing |  | No staff notification center, assignment or due-date alerts, digest or per-user settings exist. |
 | `PORTAL-001` | Private document requests and uploads | target | done | `src/blotter/documents.ts`; `src/ui/portal.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `PORTAL-002` | Authenticated branded client portal | target | missing |  | Only capability upload links exist; portal accounts, branding/domain configuration, recovery and MFA are missing. |
