@@ -67,7 +67,7 @@ export function ExpenseSettings({ state, actor, run }: { state: Row; actor: Row;
     <p className="muted">{state.mileageRates.length ? state.mileageRates.map((m: Row) => `${money(m.cents_per_mile, m.currency)}/mi from ${m.effective_from}`).join(' · ') : 'No mileage rate set yet.'}</p>
     {owner && <details><summary>Set the mileage rate</summary>
       <Form label="Set mileage rate" submit={async data => run(() => api('/mileage-rates', { effectiveFrom: data.effectiveFrom, centsPerMile: Number(data.centsPerMile), currency: data.currency }), 'Mileage rate set')}>
-        <Field label="Currency" name="currency"><select name="currency"><option value="USD">USD</option><option value="AUD">AUD</option></select></Field>
+        <Field label="Currency" name="currency"><select name="currency"><option value="USD">USD</option>{(state.mileageRates.some((r: Row) => r.currency === 'AUD') || state.unbilled.some((j: Row) => j.currency === 'AUD') || state.reimbursements.some((r: Row) => r.currency === 'AUD')) && <option value="AUD">AUD</option>}</select></Field>
         <div className="row"><Field label="Cents per mile" name="centsPerMile" type="number" /><Field label="Effective from" name="effectiveFrom" type="date" value={today()} /></div>
       </Form>
     </details>}

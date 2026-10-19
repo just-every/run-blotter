@@ -1,4 +1,4 @@
-// The sample US practice: Morgan & Co Bookkeeping, reviewer Riley Tan,
+// The sample US practice: Cardinal Tax & Books, reviewer Riley Tan,
 // recurring client engagements and their document requests.
 // Every name, email and EIN is invented; email domains are .example.
 import { ein } from '../clients';
@@ -43,18 +43,18 @@ const client = (name: string, einDigits: string, contactName: string, contactEma
   ({ id: fixedId('client:' + name), name, abn: ein(einDigits), contactName, contactEmail: contactEmail ? email(contactEmail) : '' });
 
 export const clients = {
-  harbour: client('Harbour Lane Cafe LLC', '100000001', 'Mia Chen', 'mia@harbourlane.example'),
+  harbour: client('Chen Family Cafe LLC', '100000001', 'Mia Chen', 'mia@chencafe.example'),
   ridgeline: client('Ridgeline Plumbing', '', 'Tom Ridge', 'accounts@ridgeline.example'),
-  wattle: client('Wattle & Stone Studio', '100000002', 'Ana Silva', 'ana@wattlestone.example'),
+  wattle: client('Garcia Design Studio', '100000002', 'Ana Garcia', 'ana@garciadesign.example'),
   saltwater: client('Saltwater Physio LLC', '100000003', "Grace O'Neill", 'grace@saltwaterphysio.example'),
   kestrel: client('Kestrel Joinery LLC', '100000004', 'Dean Kowalski', 'office@kestreljoinery.example'),
-  bluegum: client('Bluegum Childcare Center', '100000005', 'Leah Porter', 'director@bluegumcare.example'),
+  bluegum: client('Nguyen Childcare Center', '100000005', 'Linh Nguyen', 'linh@nguyencare.example'),
   northside: client('Northside Florist', '100000006', 'Rosa Mendes', 'rosa@northsideflorist.example'),
   cobalt: client('Cobalt Electrical Services', '100000007', 'Aaron Fitzgerald', 'admin@cobaltelectrical.example'),
   figtree: client('Fig Tree Dental LLC', '100000008', 'Nina Patel', 'practice@figtreedental.example'),
   marlowe: client('Marlowe Architects', '100000009', 'Ben Marlowe', 'ben@marlowearch.example'),
   tworivers: client('Two Rivers Brewing Co', '100000010', 'Callum Reid', 'accounts@tworiversbrewing.example'),
-  ironbark: client('Ironbark Landscaping', '100000011', 'Jess Whitford', 'jess@ironbarklandscaping.example'),
+  ironbark: client('Oak City Landscaping', '100000011', 'Jesse Williams', 'jesse@oakcitylandscaping.example'),
   lumen: client('Lumen Yoga Studio', '100000012', 'Sophie Laurent', 'hello@lumenyoga.example'),
   coastal: client('Coastal Mobile Mechanics', '100000013', 'Ravi Kumar', 'ravi@coastalmechanics.example'),
   greenway: client('Greenway Organics LLC', '100000014', 'Hamish Doyle', 'finance@greenwayorganics.example'),

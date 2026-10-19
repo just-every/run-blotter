@@ -9,12 +9,22 @@ test('Demo: the sample practice opens with work in every state; approvals comple
   try {
     const state = await h.json('/state', undefined, h.owner);
     assert.equal(state.actor.name, 'Jordan Morgan');
-    assert.ok(state.clients.length >= 15 && state.clients.some(c => c.name === 'Harbour Lane Cafe LLC'));
+    assert.ok(state.clients.length >= 15 && state.clients.some(c => c.name === 'Chen Family Cafe LLC'));
     for (const status of ['open', 'review', 'signed_off']) assert.ok(state.jobs.some(j => j.status === status), status);
     assert.notEqual(state.jobs[0].status, 'signed_off', 'work in progress comes first');
     assert.ok(state.people.some(p => p.name === 'Riley Tan' && p.role === 'reviewer'));
     const pending = state.proposals.filter(p => p.status === 'pending');
     assert.deepEqual(pending.map(p => p.kind).sort(), ['export', 'reminder', 'rollforward']);
+
+    const returned = [];
+    for (const j of state.jobs.filter(j => j.status === 'open' && j.submitted_at)) {
+      const detail = await h.json(`/clients/${j.client_id}/history`, undefined, h.owner);
+      if (detail.history.some(a => a.action === 'job.returned' && a.detail.includes('state account'))) returned.push(detail);
+    }
+    assert.ok(returned.length, 'review-returned work includes its reviewer note');
+    const waiting = state.jobs.find(j => j.client_name === 'Oak City Landscaping' && j.status === 'open' && j.open_requests > 0);
+    assert.ok(waiting);
+    assert.ok((await h.json(`/jobs/${waiting.id}`, undefined, h.owner)).reminders.length >= 2, 'waiting-client work retains reminder history');
 
     // Each waiting preparation approves through Blotter's own doors.
     for (const p of pending) {

@@ -49,6 +49,7 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
     bulk(db, 'b_job_status_history', work.jobs.flatMap(j => [
       { id: fixedId('status:' + j.id), job_id: j.id, from_stage: null, to_stage: 'in_progress', by: j.created_by, at: j.created_at },
       ...(j.submitted_at ? [{ id: fixedId('status:review:' + j.id), job_id: j.id, from_stage: 'in_progress', to_stage: 'in_review', by: j.submitted_by, at: j.submitted_at }] : []),
+      ...(work.audit.some(a => a.action === 'job.returned' && a.object_id === j.id) ? [{ id: fixedId('status:return:' + j.id), job_id: j.id, from_stage: 'in_review', to_stage: 'in_progress', by: j.reviewer_email, at: work.audit.find(a => a.action === 'job.returned' && a.object_id === j.id)!.at }] : []),
       ...(j.signed_off_at ? [{ id: fixedId('status:done:' + j.id), job_id: j.id, from_stage: 'in_review', to_stage: 'completed', by: j.signed_off_by, at: j.signed_off_at }] : []),
     ])),
     bulk(db, 'b_job_steps', work.steps),
