@@ -34,7 +34,9 @@ export function Inbox({ state, run, open, go, tick }: { state: Row; run: Run; op
   </PageHead>;
   if (!wall) return <>{head}<p className="opening">Opening the wall…</p></>;
   const now = Date.parse(wall.now), jobs: Row[] = wall.jobs.map((j: Row) => ({ ...j, band: bandOf(j, now) })).filter((j: Row) => j.band);
-  if (!jobs.length) return <>{head}<div className="wall-empty"><Empty>Nothing to chase yet. Start a job with document requests under Clients & templates, then send the client a reminder from the job.</Empty></div></>;
+  if (!jobs.length) return <>{head}<div className="wall-empty"><Empty>{state.actor.role === 'preparer'
+    ? 'Nothing to chase yet: none of your jobs has a document request open.'
+    : <>Nothing to chase yet. Start a job with document requests, then send the client a reminder from the job. <button className="quiet" onClick={() => go('Clients & templates')}>Start a job</button></>}</Empty></div></>;
   const kinds = [...new Set(jobs.map(workOf))].sort((a, b) => jobs.filter(j => workOf(j) === b).length - jobs.filter(j => workOf(j) === a).length);
   const shown = chip ? jobs.filter(j => workOf(j) === chip) : jobs;
   const of = (b: Band) => shown.filter(j => j.band === b);

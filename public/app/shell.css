@@ -6,10 +6,10 @@
 .brand span {font:900 31px/1 var(--bl-font-display);font-variation-settings:'wdth' 50;letter-spacing:.005em;}
 .tabs {display:flex;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none;}
 .tabs::-webkit-scrollbar {display:none;}
-.tabs button {flex:none;min-height:44px;padding:11px 11px 9px;border:0;border-bottom:3px solid transparent;border-radius:8px 8px 4px 4px;background:transparent;color:var(--bl-ink);font:500 16px/1 var(--bl-font-ui);white-space:nowrap;}
+.tabs button {flex:none;min-height:44px;padding:11px 10px 9px;border:0;border-bottom:3px solid transparent;border-radius:8px 8px 4px 4px;background:transparent;color:var(--bl-ink);font:500 16px/1 var(--bl-font-ui);white-space:nowrap;}
 .tabs button:hover {background:var(--bl-lilac-pale);}
 .tabs button.selected {background:var(--bl-lilac-tint);border-bottom-color:var(--bl-lilac-deep);font-weight:700;}
-.topsearch {position:relative;flex:0 1 270px;min-width:190px;margin-left:auto;}
+.topsearch {position:relative;flex:0 1 250px;min-width:170px;margin-left:auto;}
 .topsearch form {display:flex;align-items:center;border:1px solid var(--bl-line-strong);border-radius:12px;background:var(--bl-white);transition:border-color .15s,box-shadow .15s;}
 .topsearch form:hover {border-color:var(--bl-lilac-mid);}
 .topsearch form:focus-within {border-color:var(--bl-lilac-deep);box-shadow:0 0 0 3px rgba(115,67,207,.18);}
@@ -55,11 +55,11 @@
 .chips button[aria-pressed=true] {background:var(--bl-lilac);border-color:var(--bl-lilac);font-weight:700;}
 .boundary {margin:32px 0 0;color:var(--bl-muted);font-size:13px;text-align:center;}
 .portal .topbar {padding-inline:48px;}
-@media(max-width:1240px) {
+@media(max-width:1280px) {
   .topbar {flex-wrap:wrap;padding:10px 24px 0;}
   .topsearch {order:1;}
   .account {order:2;}
-  .tabs {order:3;flex:1 0 100%;margin:0 -8px;}
+  .tabs {order:3;flex:1 0 100%;flex-wrap:wrap;overflow:visible;margin:0 -8px;}
 }
 @media(max-width:760px) {
   .topbar {padding:10px 16px 0;gap:10px;}
@@ -69,7 +69,8 @@
   .avatar {width:38px;height:38px;}
   .topsearch {order:2;flex:1 0 100%;margin:0;min-width:0;}
   .screen-inbox .search-results {margin-inline:0;}
-  .tabs button {font-size:15px;padding:10px 10px 8px;}
+  .tabs {margin:0 -6px;}
+  .tabs button {font-size:15px;padding:9px 9px 7px;min-height:40px;}
   .screen {padding:20px 16px 28px;}
   .screen-inbox {padding:20px 16px 28px;}
   .screen-inbox .page-head,.chips {padding:0;}

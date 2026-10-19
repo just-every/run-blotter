@@ -1,7 +1,7 @@
 /* The document-chase wall: three hand-lettered bands of index cards (waiting on client in lilac,
    in and needing a look in marigold, done this week in mint), tape-strip titles, document
    checklists, dated reminder trails and one lifted card ringed in tangerine. Tokens: /site/tokens.css. */
-.wall {display:grid;grid-template-columns:1.1fr 1fr .86fr;gap:10px;align-items:stretch;}
+.wall {display:grid;grid-template-columns:1.1fr 1fr .86fr;gap:10px;align-items:start;}
 .band {min-width:0;overflow:hidden;border:1px solid var(--bl-line);border-radius:11px;background:linear-gradient(110deg,var(--bl-white),color-mix(in srgb,var(--bl-lilac-pale) 30%,var(--bl-white)));box-shadow:var(--bl-shadow);}
 .band h2 {display:flex;white-space:nowrap;align-items:center;justify-content:space-between;gap:10px;min-height:56px;margin:0;padding:10px 20px 4px;font:700 clamp(27px,2.2vw,36px)/1.15 var(--bl-font-hand);letter-spacing:0;color:var(--bl-ink);}
 .band-waiting h2 {background:linear-gradient(100deg,var(--bl-lilac-tint),color-mix(in srgb,var(--bl-lilac) 48%,var(--bl-white)));}
@@ -14,6 +14,8 @@
 .band-cards > * {break-inside:avoid;margin:0 0 10px;}
 .band-empty {margin:0;padding:18px 22px 20px;color:var(--bl-muted);}
 .wall-empty {padding:0 24px;}
+.wall-empty .empty {padding:28px;}
+.wall-empty .empty p {display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;}
 .fold {flex:none;width:40px;min-height:40px;padding:0;border:0;border-radius:8px;background:none;}
 .fold:hover {background:rgba(255,255,255,.6);}
 .fold svg {width:22px;height:22px;fill:none;stroke:var(--bl-ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
