@@ -3,8 +3,10 @@
 A US principal or operations manager of a 1–15 staff bookkeeping or accounting firm can complete the following journeys. This replaces the earlier Australian first-release checklist with the full target; existing tested workflows remain part of it. Each numbered item corresponds to exactly one CONTRACT.md clause. Status is judged at `6201b0072ce67472a0ffbf038d49e77bb3415589` (17 October 2026); partial evidence proves only the subset and gap stated below. Real provider, native app and hosted journeys remain open unless explicitly evidenced.
 
 1. **US-001 — US firm setup and currency.** Status: **partial**. Set up a US bookkeeping and tax practice, add an LLC and individual client, select USD and America/New_York, and create payroll, sales-tax and annual-tax work. Inspect currency and dates across a daylight-saving change; imported AUD history remains AUD.
-   Current evidence: `src/blotter/clients.ts`; `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Client/rate foundations exist, but ABN/AUD defaults remain; US setup, entity fields, currency selection and time-zone policy are missing.
+   Current evidence: `src/blotter/clients.ts`; `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs`; `tests/blotter/us.test.mjs` ("US-001 money", "US-001 client IDs"); `tests/blotter/demo.test.mjs`.
+   Remaining: Firm address/entity/fiscal-year/service-line setup and configurable time-zone/notification policy are missing.
+
+   Implemented: USD defaults with explicit stored currency, retained AUD rows and snapshots, separate currency totals/exports, nine-digit EIN and labelled legacy ABN, and US/New York demo data. Configurable firm setup and notification/time-zone policy remain partial.
 
 2. **CRM-001 — Client entities and contacts.** Status: **partial**. Create a business with two contacts and an individual linked to its owner; assign different staff and portal permissions, change a contact, archive/reactivate the business and inspect retained jobs. A contact without entity authority cannot read its records.
    Current evidence: `src/blotter/clients.ts`; `tests/blotter/flows.test.mjs`.
@@ -175,7 +177,7 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
 
 55. **BILL-002 — Invoices retainers and recurring fees.** Status: **partial**. Bill a fixed engagement and hourly extra, start a monthly retainer, apply a deposit and preview a fee amendment. Approve/deliver invoices, repeat the schedule event and inspect one invoice per entitlement with USD totals and retained source links. An issued invoice appears in the CRM-003 client history linked to its source time and fees.
    Current evidence: `src/blotter/billing.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Time/fixed-fee reviewed AUD CSV drafts exist; invoice documents, delivery, recurring retainers, terms, deposits, taxes and invoice authority are missing.
+   Remaining: Time/fixed-fee reviewed CSV drafts in their stored USD or AUD exist; invoice documents, delivery, recurring retainers, terms, deposits, taxes and invoice authority are missing.
 
 56. **PAY-001 — Card ACH and authorized collections.** Status: **missing**. Pay a real authorized low-value invoice by card and ACH, authorize a recurring mandate and inspect provider receipts and ledger reconciliation. At the provider test edge exercise duplicate/out-of-order events, ACH return, partial payment, refund and failed collection; revoke the mandate and verify no later debit. Trace a request from email through upload and review to its payment in the CRM-003 client history.
    Remaining: No payment processor, saved-method mandate, card/ACH collection or payment-state/reconciliation workflow exists.
@@ -234,7 +236,7 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
 
 73. **IMPORT-001 — Reviewed client list import.** Status: **partial**. Map an exported client/contact CSV, preview errors and duplicates without writes, commit its reviewed fingerprint and resume. Re-import without duplication, create a native job on one imported client and undo; inspect preserved native work and the source journal.
    Current evidence: `src/blotter/imports.ts`; `src/blotter/imports/client-list.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Fixed-shape client CSV preview/fingerprint/commit/resume/journal/undo exists; flexible mapping, US identifiers and multiple-contact/entity migration are missing.
+   Remaining: Fixed-shape client CSV preview/fingerprint/commit/resume/journal/undo exists; flexible mapping and multiple-contact/entity migration are missing; nine-digit EIN and legacy ABN inputs exist.
 
 74. **MIGRATE-001 — Karbon migration.** Status: **missing**. Import an authorized Karbon practice containing completed history and live work, confirm every active work item keeps its work type and primary/sub-status (WORK-007) and that an unmapped status is held for review, review mappings and source limitations, compare counts and representative files/messages/fees, interrupt/resume and repeat the import. On the same practice, pass MIGRATE-006's repeating-schedule journey (monthly, quarterly and annual series with pre-created future items) and MIGRATE-007's auto-pay journey (three auto-pay clients). Complete a migrated engagement through review/payment, verify historical permissions and no duplicate reminders/debits, then exercise cutover rollback without deleting native work. An imported 1040 work item keeps its work type, sub-status and partner (WORK-007).
    Remaining: No Karbon-specific extractor, full-work/history mapping or reconciled cutover exists; the generic client CSV is not a complete migration.

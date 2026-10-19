@@ -44,11 +44,12 @@ export async function revokeAgentKey(db: D1Database, actor: Actor, keyId: string
 export async function teamState(db: D1Database, actor: Actor) {
   const owner = actor.role === 'owner', today = now().slice(0, 10);
   // A person's own rate today, before any client or service override.
-  const ownRate = async (address: string, role: Data['role']) => (await resolveRate(db, { date: today, clientId: '', templateId: '', email: address, role }))?.rateCents ?? null;
+  const ownRate = async (address: string, role: Data['role']) => (await resolveRate(db, { date: today, clientId: '', templateId: '', email: address, role })) ?? null;
   const members = owner || actor.role === 'reviewer' ? await rows(db, 'SELECT * FROM b_members ORDER BY name') : [];
+  const rate = await ownRate(actor.email, actor.role);
   return {
-    members: await Promise.all(members.map(async m => ({ ...m, rate_cents: await ownRate(m.email, m.role) }))),
-    ownRateCents: await ownRate(actor.email, actor.role),
+    members: await Promise.all(members.map(async m => { const r = await ownRate(m.email, m.role); return { ...m, rate_cents: r?.rateCents ?? null, currency: r?.currency ?? null }; })),
+    ownRateCents: rate?.rateCents ?? null, ownRateCurrency: rate?.currency ?? null,
     rates: await rateCards(db, actor),
     keys: await rows(db, 'SELECT id,label,revoked,created_at FROM b_agent_keys WHERE owner_id=? ORDER BY created_at DESC', actor.id),
     audit: owner ? await rows(db, 'SELECT * FROM b_audit ORDER BY at DESC LIMIT 100') : [],

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run, day } from './common';
+import { Blotter, api, money, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run, day } from './common';
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { ClientLink } from './client-portal';
@@ -28,7 +28,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {day(job.due_date)} ({job.due_note})</p></div>
         <Status value={job.status} />
       </div>
-      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.partner_email && <> · partner {job.partner_email}</>}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
+      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.partner_email && <> · partner {job.partner_email}</>}{job.fee_cents > 0 && <> · fixed fee {money(job.fee_cents, job.currency)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
       {job.status === 'signed_off' && <p className="notice">Signed off by {job.signed_off_by} on {when(job.signed_off_at)}: {job.sign_off_note}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>
@@ -97,7 +97,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       <h2>Time</h2>
       <TimeBudget budget={detail.budget} />
       {detail.time.length === 0 ? <p className="muted">No time recorded yet.</p> : <table className="table"><thead><tr><th>Date</th><th>Person</th><th>Description</th><th>Minutes</th><th>Rate</th><th>Amount</th><th></th></tr></thead>
-        <tbody>{detail.time.map((t: Row) => <tr key={t.id}><td data-label="Date">{t.date}</td><td data-label="Person">{t.person_email}</td><td data-label="Description">{t.description}{t.task && <small className="muted"> · task: {t.task}</small>}{!t.billable && <small className="muted"> · not billable</small>}</td><td data-label="Minutes">{t.minutes}</td><td data-label="Rate">{aud(t.rate_cents)}/h <small className="muted">({SOURCE[t.rate_source]} rate)</small></td><td data-label="Amount">{aud(t.amount_cents)}</td>
+        <tbody>{detail.time.map((t: Row) => <tr key={t.id}><td data-label="Date">{t.date}</td><td data-label="Person">{t.person_email}</td><td data-label="Description">{t.description}{t.task && <small className="muted"> · task: {t.task}</small>}{!t.billable && <small className="muted"> · not billable</small>}</td><td data-label="Minutes">{t.minutes}</td><td data-label="Rate">{money(t.rate_cents, t.currency)}/h <small className="muted">({SOURCE[t.rate_source]} rate)</small></td><td data-label="Amount">{money(t.amount_cents, t.currency)}</td>
           <td><small className="muted">{t.review_status ?? 'not submitted'}{t.export_id && ' · exported'}</small>
             {!t.export_id && ['returned', null].includes(t.review_status) && (t.person_email === actor.email || actor.role === 'owner') && <button className="quiet" onClick={() => run(() => api(`/time/${t.id}/delete`, {}), 'Time entry deleted')}>Delete</button>}
             <EntryHistory entryId={t.id} owner={actor.role === 'owner'} approved={t.review_status === 'approved'} run={run} /></td></tr>)}</tbody></table>}

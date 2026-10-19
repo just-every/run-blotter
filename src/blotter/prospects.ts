@@ -5,6 +5,7 @@
 // client with its contact and starts its onboarding job from a template in the
 // same batch; repeating the win returns that client and creates nothing. The
 // pipeline report counts conversion, stage age and fees by source and owner.
+import { currency } from './currency';
 import { createStatements, eligible } from './jobs';
 import { fieldDefs, profileFields } from './profiles';
 import { atomic, audit, date, email, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
@@ -53,8 +54,8 @@ export async function addProspect(db: D1Database, actor: Actor, body: Data) {
     source: text(body.source, 'Lead source', 120), fee: integer(body.estimatedFeeCents, 'Estimated annual fees in cents', 0, 100_000_000),
   };
   await atomic(db, actor, [
-    stmt(db, 'INSERT INTO b_prospects(id,name,contact_name,contact_email,source,services,fee_cents,owner_email,stage_id,stage_since,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-      prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at),
+    stmt(db, 'INSERT INTO b_prospects(id,name,contact_name,contact_email,source,services,fee_cents,owner_email,stage_id,stage_since,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at, currency(body.currency)),
     event(db, prospect.id, null, stage.id, 'Added', actor.email, at), audit(db, actor, 'prospect.added', prospect.id, `${prospect.name} from ${prospect.source}`)]);
   return prospectRow(db, prospect.id);
 }
@@ -70,6 +71,7 @@ export async function moveProspect(db: D1Database, actor: Actor, prospectId: str
   insist(stage.id !== p.stage_id, `Already in ${stage.name}`, 409);
   const reason = stage.kind === 'lost' ? text(body.reason, 'Why it was lost', 500) : null, at = now();
   await atomic(db, actor, [
+
     stmt(db, 'UPDATE b_prospects SET stage_id=?,stage_since=?,lost_reason=? WHERE id=? AND stage_id=?', stage.id, at, reason, p.id, p.stage_id),
     event(db, p.id, p.stage_id, stage.id, reason ?? optional(body.note, 'Note', 500), actor.email, at), audit(db, actor, 'prospect.moved', p.id, `${p.stage} → ${stage.name}${reason ? `: ${reason}` : ''}`)]);
   return prospectRow(db, p.id);
@@ -99,6 +101,7 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
     audit(db, actor, 'client.added', clientId, `${p.name} (won prospect)`),
     ...createStatements(db, actor, template, { id: jobId, clientId, periodStart: date(body.periodStart, 'Onboarding period start'), dueDate: date(body.dueDate, 'Onboarding due date'),
       dueNote: text(body.dueNote, 'Where the onboarding due date comes from', 300), preparer, reviewer }),
+
     stmt(db, 'UPDATE b_prospects SET stage_id=?,stage_since=?,lost_reason=NULL,client_id=?,onboarding_job_id=? WHERE id=?', won!.id, at, clientId, jobId, p.id),
     event(db, p.id, p.stage_id, won!.id, 'Won', actor.email, at), audit(db, actor, 'prospect.won', p.id, `${p.name} became a client`), release]);
   return { repeated: false, clientId, jobId, prospect: await prospectRow(db, p.id) };
@@ -111,10 +114,11 @@ export async function pipeline(db: D1Database, actor: Actor) {
   const order = new Map(all.map((s, n) => [s.id, n])), today = now();
   const list: Data[] = prospects.map(p => { const s = all.find(x => x.id === p.stage_id)!; return { ...p, stage: s.name, stage_kind: s.kind, services: JSON.parse(p.services), answers: JSON.parse(p.answers), stageAgeDays: days(p.stage_since, today) } as Data; })
     .sort((a, b) => order.get(a.stage_id)! - order.get(b.stage_id)!);
-  const group = (key: 'source' | 'owner_email') => [...new Set(list.map(p => p[key] as string))].sort().map(value => {
-    const mine = list.filter(p => p[key] === value), count = (kind: string) => mine.filter(p => p.stage_kind === kind);
+  const group = (key: 'source' | 'owner_email') => [...new Set(list.map(p => JSON.stringify([p[key], p.currency])))].sort().map(pair => {
+    const [value, currency] = JSON.parse(pair);
+    const mine = list.filter(p => p[key] === value && p.currency === currency), count = (kind: string) => mine.filter(p => p.stage_kind === kind);
     const won = count('won'), lost = count('lost'), open = count('open'), fees = (l: Data[]) => l.reduce((n, p) => n + Number(p.fee_cents), 0);
-    return { [key === 'source' ? 'source' : 'owner']: value, prospects: mine.length, open: open.length, won: won.length, lost: lost.length,
+    return { [key === 'source' ? 'source' : 'owner']: value, currency, prospects: mine.length, open: open.length, won: won.length, lost: lost.length,
       conversionPercent: won.length + lost.length ? Math.round(won.length * 100 / (won.length + lost.length)) : null, openFeeCents: fees(open), wonFeeCents: fees(won), lostFeeCents: fees(lost) };
   });
   return {

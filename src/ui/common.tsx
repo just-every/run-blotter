@@ -11,7 +11,9 @@ export async function api(path: string, body?: unknown) {
 }
 /** Where a time entry's rate came from (TIME-003 rate cards). */
 export const SOURCE: Record<string, string> = { client_service: 'client and service', client: 'client', service: 'service', staff: 'staff member', role: 'role' };
-export const aud = (cents: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(Number(cents) / 100);
+export const money = (cents: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
+export const taxId = (value: string) => value ? `${value.length === 11 ? 'Legacy ABN' : 'EIN'} •••••${value.slice(-4)}` : '';
+export const moneyTotals = (rows: Row[], key: string) => Object.entries(rows.reduce((totals: Record<string, number>, r: Row) => { totals[r.currency] = (totals[r.currency] ?? 0) + Number(r[key]); return totals; }, {})).map(([currency, cents]) => money(cents as number, currency)).join(' · ');
 const pad = (n: number) => String(n).padStart(2, '0');
 /** Dates and times in the viewer's own timezone, US style (stored values stay UTC; date-only values are calendar days). */
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };

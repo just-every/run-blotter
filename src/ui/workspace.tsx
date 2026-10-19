@@ -71,7 +71,7 @@ export function Workspace() {
         {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
         {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}
       </fieldset>}
-      <p className="boundary">AUD time and fees for your own billing. No filing, tax calculation or advice.</p>
+      <p className="boundary">Time and fees in their stored currency, USD by default. No filing, tax calculation or advice.</p>
     </main>
   </div>;
 }

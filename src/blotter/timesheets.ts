@@ -14,7 +14,7 @@ export const weekStart = (day: string) => shift(day, -((new Date(day + 'T00:00:0
 export async function timesheets(db: D1Database, actor: Actor) {
   const lead = actor.role !== 'preparer';
   return {
-    entries: await rows(db, `SELECT t.id,t.job_id,t.person_email,t.date,t.minutes,t.rate_cents,t.amount_cents,t.description,t.billable,
+    entries: await rows(db, `SELECT t.id,t.job_id,t.person_email,t.date,t.minutes,t.rate_cents,t.amount_cents,t.currency,t.description,t.billable,
         s.status,s.week_start,s.reason,s.submitted_at,s.decided_by,s.decided_at,j.title job,j.period_label period,c.name client,
         EXISTS(SELECT 1 FROM b_periods p WHERE t.date BETWEEN p.start_date AND p.end_date) locked
       FROM b_time t JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id LEFT JOIN b_time_status s ON s.entry_id=t.id
@@ -103,7 +103,7 @@ export async function adjustEntry(db: D1Database, actor: Actor, entryId: string,
   insist(minutes !== 0, 'An adjustment changes the minutes');
   const prior = Number((await stmt(db, 'SELECT COALESCE(SUM(minutes),0) n FROM b_time_adjustments WHERE entry_id=?', entryId).first<Data>())!.n);
   insist(entry.minutes + prior + minutes >= 0, 'An adjustment cannot take the entry below zero minutes');
-  const adjustment = { id: id(), entryId, minutes, amountCents: Math.sign(minutes) * amount(Math.abs(minutes), entry.rate_cents), reason };
+  const adjustment = { id: id(), entryId, minutes, currency: entry.currency, amountCents: Math.sign(minutes) * amount(Math.abs(minutes), entry.rate_cents), reason };
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_time_adjustments(id,entry_id,minutes,amount_cents,reason,created_by,created_at) VALUES(?,?,?,?,?,?,?)', adjustment.id, entryId, minutes, adjustment.amountCents, reason, actor.email, now()),
     audit(db, actor, 'time.adjusted', entryId, `${minutes} min, ${adjustment.amountCents} cents: ${reason}`)]);
@@ -117,7 +117,7 @@ export async function entryHistory(db: D1Database, actor: Actor, entryId: string
   return {
     entry, locked: !!await stmt(db, `SELECT 1 WHERE NOT ${openPeriodSql}`, entry.date).first(),
     review: await stmt(db, 'SELECT * FROM b_time_status WHERE entry_id=?', entryId).first<Data>(),
-    adjustments: await rows(db, 'SELECT * FROM b_time_adjustments WHERE entry_id=? ORDER BY created_at', entryId),
+    adjustments: (await rows(db, 'SELECT * FROM b_time_adjustments WHERE entry_id=? ORDER BY created_at', entryId)).map(a => ({ ...a, currency: entry.currency })),
     audit: await rows(db, 'SELECT * FROM b_audit WHERE object_id=? ORDER BY at', entryId),
   };
 }

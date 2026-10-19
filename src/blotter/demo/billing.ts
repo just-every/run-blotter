@@ -2,6 +2,7 @@
 // and approved (one first draft voided), this month's fixed fees in a draft
 // waiting for the principal, and the practice assistant's preparations, three
 // of them waiting for a decision. Snapshots and CSVs come from billing.ts.
+import { officeAt } from './clock';
 import { exportCsv } from '../billing';
 import { digest } from '../model';
 import { chance, fixedId } from './ids';
@@ -16,7 +17,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 /** The billable lines unbilled() would list, in its order: fees, then time, each by client. */
 function billable(work: Work) {
   const jobs = new Map(work.jobs.map(j => [j.id, j])), client = new Map(Object.values(clients).map(c => [c.id, c]));
-  const context = (j: Row) => ({ job: j.title, period: j.period_label, client: client.get(j.client_id as string)!.name, abn: client.get(j.client_id as string)!.abn });
+  const context = (j: Row) => ({ currency: j.currency, job: j.title, period: j.period_label, client: client.get(j.client_id as string)!.name, abn: client.get(j.client_id as string)!.abn });
   const fees = work.jobs.filter(j => j.status === 'signed_off' && Number(j.fee_cents) > 0).map(j => ({
     source_key: `fee:${j.id}`, kind: 'fee', source_id: j.id, job_id: j.id, date: String(j.signed_off_at).slice(0, 10), person: j.signed_off_by,
     description: 'Fixed fee', minutes: null, rate_cents: null, amount_cents: j.fee_cents, ...context(j), order: String(j.signed_off_at) }));
@@ -35,7 +36,7 @@ export async function practiceBilling(work: Work, now: Date, owner: { email: str
     audit.push({ id: fixedId(`audit:${action}:${objectId}:${ms}`), actor, action, object_id: objectId, detail, at: iso(ms) });
   async function prepare(title: string, chosen: Row[], preparedAt: number, by: string, outcome?: { approvedAt?: number; note?: string; voidedAt?: number; reason?: string }) {
     const id = fixedId(`export:${title}`), snapshotLines: Row[] = chosen.map(({ order: _, ...line }, n) => ({ line: n + 1, ...line }));
-    const total = snapshotLines.reduce((sum, l) => sum + Number(l.amount_cents), 0), snapshot = { lines: snapshotLines, totalCents: total, currency: 'AUD' };
+    const total = snapshotLines.reduce((sum, l) => sum + Number(l.amount_cents), 0), snapshot = { lines: snapshotLines, totalCents: total, currency: 'USD', taxIdTypes: true };
     const approved = outcome?.approvedAt !== undefined, voided = outcome?.voidedAt !== undefined;
     const csv = approved ? exportCsv(id, snapshot) : null;
     exports.push({ id, title, status: approved ? 'approved' : voided ? 'void' : 'draft', snapshot: JSON.stringify(snapshot), total_cents: total,
@@ -51,7 +52,7 @@ export async function practiceBilling(work: Work, now: Date, owner: { email: str
   // Every month before this one is billed: prepared on the 1st, approved on the 2nd.
   const months = [...new Set(lines.map(l => String(l.date).slice(0, 7)))].filter(m => m < month).sort();
   for (const [n, m] of months.entries()) {
-    const [y, mm] = m.split('-').map(Number), next = Date.UTC(mm === 12 ? y + 1 : y, mm % 12, 1) - 10 * HOUR;
+    const [y, mm] = m.split('-').map(Number), next = officeAt(`${mm === 12 ? y + 1 : y}-${String(mm % 12 + 1).padStart(2, '0')}-01`, 0);
     const preparedAt = Math.min(next + 10 * HOUR, clock - 6 * HOUR), approvedAt = Math.min(preparedAt + 29 * HOUR, clock - 2 * HOUR);
     const chosen = lines.filter(l => String(l.date).slice(0, 7) === m);
     if (n === months.length - 1 && chosen.length > 3) await prepare(`Billing ${m} (first draft)`, chosen.slice(0, 3), preparedAt - 2 * HOUR, riley, { voidedAt: preparedAt - HOUR, reason: 'Missing the review time; prepared again with every item.' });

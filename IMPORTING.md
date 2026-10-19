@@ -17,8 +17,9 @@ one header row, 1 to 2,000 client rows, at most 1 MB.
 | Column | Required | Rules |
 | --- | --- | --- |
 | `client_name` | yes | 1–200 characters |
-| `client_id` | no | Your previous system's identifier, up to 200 characters. Without it, a client's identity is its name and ABN. |
-| `abn` | no | Empty, or 11 digits (spaces allowed). The checksum is not checked. |
+| `client_id` | no | Your previous system's identifier, up to 200 characters. Without it, a client's identity is its name and tax ID (unchanged for legacy ABN rows). |
+| `ein` | no | Empty, or 9 digits (spaces and hyphens allowed). Supply either EIN or legacy ABN, never both. |
+| `abn` | no | Legacy Australian ABN only: empty, or 11 digits (spaces allowed); never relabelled as EIN. The checksum is not checked. |
 | `contact_name` | no | Up to 200 characters |
 | `contact_email` | no | Empty or one email address. Reminders go here. |
 | `tags` | no | Up to 20 tags separated by semicolons, each up to 40 characters |
