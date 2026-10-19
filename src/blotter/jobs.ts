@@ -9,6 +9,7 @@ import { notify, reviewRequested } from './notifications';
 import { budget, myTimer } from './timers';
 import { staffPortal } from './portal-items';
 import { historyRow, historyWhen, PARTNER_SIGN_OFF, stageOf, statusHistory, subOf } from './statuses';
+import { clientContacts } from './client-contacts';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,7 +45,8 @@ async function assignee(db: D1Database, address: unknown, label: string, roles: 
 
 export function createStatements(db: D1Database, actor: Actor, template: Data, values: Data) {
   const jobId = values.id;
-  const statements = [
+  const [active, activeDone] = guard(db, "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL)", values.clientId);
+  const statements = [active, activeDone,
     // A job carries the work type chosen for it, else its template's own (WORK-007), and starts Planned.
     stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage,partner_email,currency)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned',?,?)`,
@@ -71,7 +73,7 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
 export async function startJob(env: Bindings, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const db = runtimeBindings(env).DB;
-  const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=? AND merged_into IS NULL', text(body.clientId, 'Client')).first<Data>();
+  const client = await stmt(db, "SELECT * FROM b_clients WHERE id=? AND merged_into IS NULL AND lifecycle='active'", text(body.clientId, 'Client')).first<Data>();
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
   insist(template, 'Template not found', 404);
@@ -140,10 +142,11 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
     jobExpenses(db, j),
     jobAnswers(db, j.id),
   ]);
+  if (client?.ssn_last4) client.ssn_last4 = '•••••' + client.ssn_last4;
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
   // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
   const portal = j.access === 'full' ? await staffPortal(db, j) : null;
-  return { job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  return { contacts: await clientContacts(db,actor,j.client_id), job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {

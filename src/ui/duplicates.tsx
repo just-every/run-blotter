@@ -8,6 +8,7 @@ function Compare({ a, b, run }: { a: string; b: string; run: Run }) {
   const [data, setData] = useState<Row>();
   useEffect(() => { api(`/clients/compare?a=${a}&b=${b}`).then(setData); }, [a, b]);
   if (!data) return <p>Comparing…</p>;
+  const authorityContacts: Row[] = [...(data.a.contacts ?? []),...(data.b.contacts ?? [])].filter(c => c.active && c.authorized);
   const counts = (l: Row) => `${l.jobs} jobs (${l.open_jobs} open) · ${l.threads} discussions · ${l.notices} notices · ${l.expenses} expenses · ${l.rules} recurring rules · ${l.rates} rate cards · ${l.groups} groups`;
   const choose = data.fields.filter((f: Row) => !f.same && f.key !== 'source');
   return <>
@@ -17,11 +18,12 @@ function Compare({ a, b, run }: { a: string; b: string; run: Run }) {
     <Form label="Merge" submit={async d => {
       const survivor = d.survivor === 'b' ? data.b.id : data.a.id, merged = survivor === data.a.id ? data.b.id : data.a.id;
       const keep = Object.fromEntries(choose.map((f: Row) => [f.key, (d['keep:' + f.key] === 'b') === (survivor === data.b.id) ? 'survivor' : 'merged']));
-      await run(() => api('/clients/merge', { survivor, merged, keep, ...(d.authority ? { authority: d.authority } : {}) }), 'Clients merged. Undo is available for 30 days while the survivor is unchanged.');
+      await run(() => api('/clients/merge', { survivor, merged, keep, contactAuthority:Object.fromEntries(authorityContacts.map(c => [c.id,d['contact:'+c.id]])), ...(d.authority ? { authority: d.authority } : {}) }), 'Clients merged. Undo is available for 30 days while the survivor is unchanged.');
     }}>
       <Field label="Client that keeps its records and id" name="survivor"><select name="survivor"><option value="a">{data.a.name}</option><option value="b">{data.b.name}</option></select></Field>
       {choose.map((f: Row) => <Field key={f.key} label={`Keep ${f.label}`} name={'keep:' + f.key}>
         <select name={'keep:' + f.key}><option value="a">{(f.key === 'abn' ? taxId(f.a ?? '') : String(f.a ?? '')) || '(blank)'}</option><option value="b">{(f.key === 'abn' ? taxId(f.b ?? '') : String(f.b ?? '')) || '(blank)'}</option></select></Field>)}
+      {authorityContacts.map(c => <Field key={c.id} label={`Authority for ${c.name || c.email} on the combined entity`} name={'contact:'+c.id} required={false} hint="Principal records why this contact may access both records. No authority is inferred from a shared email." />)}
       <Field label="Authority (principal only, when EINs or contact emails differ)" name="authority" required={false} hint="Why these are one client and the surviving contact is authorized for both" />
     </Form>
   </>;
@@ -45,7 +47,7 @@ export function DuplicatesPanel({ run, tick }: { run: Run; tick: number }) {
   if (!pairs) return null;
   return <section className="panel wide">
     <h2>Possible duplicate clients</h2>
-    <p className="muted">Proposed from a shared contact email, EIN or name. Compare the records and merge them, or record that a pair is two different clients.</p>
+    <p className="muted">Proposed from a shared contact email, normalized phone, EIN, last-four SSN or name. Compare the records and merge them, or record that a pair is two different clients.</p>
     {!pairs.length ? <Empty>No likely duplicates.</Empty> : pairs.map(p => <details key={p.a.id + p.b.id} className="record">
       <summary>{p.a.name} · {p.b.name} <small className="muted">({p.reasons.join(', ')})</small></summary>
       <Compare a={p.a.id} b={p.b.id} run={run} />

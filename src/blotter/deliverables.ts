@@ -3,6 +3,7 @@
 // or asks for changes with a comment. A decision records the approver, the time
 // and the version's SHA-256. A newer version resets approval, and an approval can
 // submit the job for review when its checklist and documents are complete.
+import { recipientFor, contactGuard } from './client-recipients';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { reviewRequested } from './notifications';
 import { decodeFile, fileResponse, issueLink, sendMail, portalJob } from './documents';
@@ -32,7 +33,9 @@ export async function sendDeliverable(env: Bindings, actor: Actor, jobId: string
   const j = await job(db, actor, jobId);
   insist(j.status === 'open', 'Deliverables are sent from open jobs', 409);
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
-  insist(client?.contact_email, 'Add a contact email for this client first', 409);
+  insist(client,'Client not found',404);
+  const recipient = await recipientFor(db,j.client_id,'request',body.contactId);
+  client!.contact_email = recipient.email; client!.contact_name = recipient.name;
   const file = decodeFile(body), sha256 = await digest(file.bytes), at = now(), versionId = id();
   const existing = body.deliverableId === undefined ? null : await stmt(db, 'SELECT * FROM b_deliverables WHERE id=? AND job_id=?', String(body.deliverableId), j.id).first<Data>();
   insist(body.deliverableId === undefined || existing, 'Deliverable not found', 404);
@@ -40,9 +43,10 @@ export async function sendDeliverable(env: Bindings, actor: Actor, jobId: string
   if (!existing) insist(!await stmt(db, 'SELECT 1 FROM b_deliverables WHERE job_id=? AND title=?', j.id, deliverable.title).first(), 'This job already has a deliverable with that title: send a new version of it', 409);
   const last = await stmt(db, 'SELECT MAX(version) v FROM b_deliverable_versions WHERE deliverable_id=?', deliverable.id).first<Data>();
   const version = Number(last?.v ?? 0) + 1, note = optional(body.note, 'Note to the client', 1000);
-  const link = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN);
+  const link = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, recipient.id);
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status='open')", j.id);
-  await atomic(db, actor, [check,
+  const [authorized, authorizedDone] = contactGuard(db,j.client_id,recipient.id,'request',recipient.revision);
+  await atomic(db, actor, [check, authorized, authorizedDone,
     ...(existing ? [] : [stmt(db, 'INSERT INTO b_deliverables(id,job_id,title,created_by,created_at) VALUES(?,?,?,?,?)', deliverable.id, j.id, deliverable.title, actor.email, at)]),
     stmt(db, `INSERT INTO b_deliverable_versions(id,deliverable_id,job_id,version,name,mime,size,sha256,content_base64,note,submit_on_approval,sent_by,sent_at,delivery,status)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'pending','sent')`, versionId, deliverable.id, j.id, version, file.name, file.mime, file.bytes.length, sha256, file.encoded, note, body.submitOnApproval === true ? 1 : 0, actor.email, at),
@@ -114,7 +118,8 @@ export async function portalDecide(env: Bindings, token: string, versionId: stri
       id(), `client approval (${name})`, j.id, `on approval of v${v.version} for ${v.sent_by}`, at, v.id),
   ] : [];
   try {
-    await db.batch([check,
+    const [authorized, authorizedDone] = contactGuard(db,j.client_id,link.contact_id);
+    await db.batch([check, authorized, authorizedDone,
       stmt(db, 'UPDATE b_deliverable_versions SET status=?,approver_name=?,approver_email=?,decided_at=?,decided_sha256=?,comment=? WHERE id=?',
         approve ? 'approved' : 'changes_requested', name, j.contact_email ?? null, at, v.sha256, comment, v.id),
       ...submit, release,

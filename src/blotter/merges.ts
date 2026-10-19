@@ -15,15 +15,15 @@ import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, t
 
 const UNDO_MS = 30 * 24 * 60 * 60 * 1000;
 /** What a client has linked, by the table that links it. Groups are memberships, merged separately. */
-const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', groups: 'b_client_group_members' };
+const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
 const COUNTED = Object.keys(TABLES);
-const ROW = ['name', 'abn', 'contact_name', 'contact_email', 'source', 'fields', 'tags', 'revision'];
+const ROW = ['name', 'abn', 'contact_name', 'contact_email', 'source', 'fields', 'tags', 'revision', 'entity_type', 'partner_email', 'team', 'services', 'owner_client_id', 'ssn_last4', 'lifecycle', 'archived_at', 'archived_by'];
 const pick = (c: Data) => Object.fromEntries(ROW.map(k => [k, c[k]]));
-const MOVED = COUNTED.filter(k => k !== 'groups').map(k => [k, TABLES[k]]);
-const counts = (l: Data) => Object.fromEntries(COUNTED.map(k => [k, Number(l[k])]));
+const MOVED = COUNTED.filter(k => !['groups','contacts','relationships'].includes(k)).map(k => [k, TABLES[k]]);
+const counts = (l: Data) => Object.fromEntries(COUNTED.map(k => [k, Number(l[k] ?? 0)]));
 /** A guard that the client still has exactly these numbers of linked records. */
 const sameCounts = (db: D1Database, clientId: string, c: Data) =>
-  guard(db, COUNTED.map(k => `(SELECT COUNT(*) FROM ${TABLES[k]} WHERE client_id=?)=?`).join(' AND '), ...COUNTED.flatMap(k => [clientId, c[k]]));
+  guard(db, COUNTED.filter(k => c[k] !== undefined).map(k => `(SELECT COUNT(*) FROM ${TABLES[k]} WHERE ${k === 'relationships' ? 'owner_client_id' : 'client_id'}=?${k === 'relationships' ? ' AND merged_into IS NULL' : ''})=?`).join(' AND '), ...COUNTED.filter(k => c[k] !== undefined).flatMap(k => [clientId, c[k]]));
 
 function differs(a: string, b: string) { return Boolean(a && b && a.toLowerCase() !== b.toLowerCase()); }
 /** Different non-empty EINs or contact emails mean two entities unless the principal records why they are one. */
@@ -58,8 +58,28 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
   // A membership in a group the survivor already belongs to is dropped and recorded for undo.
   moved.groups = await rows(db, `SELECT g.group_id,g.relationship,g.added_by,g.added_at,EXISTS(SELECT 1 FROM b_client_group_members x WHERE x.group_id=g.group_id AND x.client_id=?) dropped
     FROM b_client_group_members g WHERE g.client_id=? ORDER BY g.group_id`, s.id, m.id);
+  const survivorContacts = await rows(db,'SELECT * FROM b_client_contacts WHERE client_id=? ORDER BY id',s.id);
+  const mergedContacts = await rows(db,'SELECT * FROM b_client_contacts WHERE client_id=? ORDER BY id',m.id);
+  const contactAuthority: Record<string,string> = {};
+  for (const contact of [...mergedContacts,...survivorContacts]) {
+    const other = contact.client_id === s.id ? mergedContacts : survivorContacts;
+    const same = contact.email && other.find(c => c.email === contact.email);
+    const widens = contact.active && contact.authorized && (!same || !same.active || !same.authorized || contact.portal > same.portal || contact.signer > same.signer || contact.request_consent > same.request_consent);
+    if (widens) {
+      insist(actor.role === 'owner',"Only the principal can extend a contact's authority to the merged entity",403);
+      contactAuthority[contact.id] = text(body.contactAuthority?.[contact.id],`Why ${contact.name || contact.email} is authorized for both entities`,500);
+    }
+  }
+  if (Object.keys(contactAuthority).length) authority = [authority, ...Object.entries(contactAuthority).map(([key,value]) => `contact ${key}: ${value}`)].filter(Boolean).join('; ');
+  moved.contacts = mergedContacts;
+  moved.mergedClient = [pick(m)];
+  moved.relationships = await rows(db,'SELECT id,revision FROM b_clients WHERE owner_client_id=? AND merged_into IS NULL AND id NOT IN (?,?) ORDER BY id',m.id,s.id,m.id);
+  // An owner link between these duplicate records disappears rather than becoming a self-link.
+  if (next.owner_client_id === s.id || next.owner_client_id === m.id) next.owner_client_id = null;
+  if (next.owner_client_id) insist(!await stmt(db,`WITH RECURSIVE chain(id,owner) AS (SELECT id,owner_client_id FROM b_clients WHERE id=? UNION SELECT c.id,c.owner_client_id FROM b_clients c JOIN chain ON c.id=chain.owner) SELECT 1 FROM chain WHERE id IN (?,?)`,next.owner_client_id,s.id,m.id).first(),'The merge would form an entity ownership cycle',409);
+  insist(!next.ssn_last4 || next.entity_type === 'individual','SSN digits belong only to an individual',409);
   const [before, from] = [counts(await linked(db, s.id)), counts(await linked(db, m.id))];
-  const after = Object.fromEntries(COUNTED.map(k => [k, before[k] + from[k] - (k === 'groups' ? moved.groups.filter((g: Data) => g.dropped).length : 0)]));
+  const after = Object.fromEntries(COUNTED.map(k => [k, k === 'relationships' ? before[k] + moved.relationships.length - (m.owner_client_id === s.id ? 1 : 0) : before[k] + from[k] - (k === 'groups' ? moved.groups.filter((g: Data) => g.dropped).length : 0)]));
   // What the client-list import last recorded for the survivor, so a re-import of its source still matches it.
   const seen = await stmt(db, 'SELECT * FROM b_client_import_rows WHERE id=?', s.id).first<Data>();
   const mergeId = id(), at = new Date(), revision = id();
@@ -70,11 +90,19 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
     stmt(db, `INSERT INTO b_client_merges(id,survivor_id,merged_id,choices,authority,survivor_before,survivor_seen,revision_after,moved,linked_after,merged_by,merged_at,undo_until)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, mergeId, s.id, m.id, JSON.stringify(choices), authority, JSON.stringify(pick(s)), JSON.stringify(pick(seen!)), revision,
       JSON.stringify(moved), JSON.stringify(after), actor.email, at.toISOString(), new Date(at.getTime() + UNDO_MS).toISOString()),
+    // Existing credentials are never widened by a merge.
+    stmt(db,'UPDATE b_portal_links SET revoked_at=? WHERE revoked_at IS NULL AND job_id IN (SELECT id FROM b_jobs WHERE client_id IN (?,?))',at.toISOString(),s.id,m.id),
+    ...mergedContacts.map(c => {
+      const same = c.active && c.email && survivorContacts.find(x => x.active && x.email === c.email);
+      return same ? stmt(db,"UPDATE b_client_contacts SET client_id=?,active=0,revision=? WHERE id=?",s.id,id(),c.id)
+        : stmt(db,'UPDATE b_client_contacts SET client_id=? WHERE id=?',s.id,c.id);
+    }),
+    ...moved.relationships.map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=?',s.id,id(),c.id)),
     ...MOVED.map(([, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=?`, s.id, m.id)),
     stmt(db, 'DELETE FROM b_client_group_members WHERE client_id=? AND group_id IN (SELECT group_id FROM b_client_group_members WHERE client_id=?)', m.id, s.id),
     stmt(db, 'UPDATE b_client_group_members SET client_id=? WHERE client_id=?', s.id, m.id),
-    stmt(db, 'UPDATE b_clients SET name=?,abn=?,contact_name=?,contact_email=?,fields=?,tags=?,revision=? WHERE id=?', next.name, next.abn, next.contact_name, next.contact_email, JSON.stringify(next.fields), next.tags, revision, s.id),
-    stmt(db, 'UPDATE b_clients SET merged_into=? WHERE id=?', s.id, m.id),
+    stmt(db, 'UPDATE b_clients SET name=?,abn=?,contact_name=?,contact_email=?,fields=?,tags=?,revision=?,entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=?,lifecycle=? WHERE id=?', next.name, next.abn, next.contact_name, next.contact_email, JSON.stringify(next.fields), next.tags, revision,next.entity_type,next.partner_email,next.team,next.services,next.owner_client_id,next.ssn_last4,next.lifecycle,s.id),
+    stmt(db, 'UPDATE b_clients SET merged_into=?,revision=?,contact_name=?,contact_email=? WHERE id=?', s.id,m.revision,m.contact_name,m.contact_email,m.id),
     audit(db, actor, 'client.merged', s.id, `${m.name} into ${next.name}; moved ${COUNTED.map(k => `${from[k]} ${k}`).join(', ')}${authority ? `; authority: ${authority}` : ''}`)]);
   return (await merges(db, actor)).find(x => x.id === mergeId);
 }
@@ -86,8 +114,9 @@ export async function merges(db: D1Database, actor: Actor) {
     JOIN b_clients s ON s.id=m.survivor_id JOIN b_clients c ON c.id=m.merged_id ORDER BY m.merged_at DESC,m.id`);
   const at = now();
   return Promise.all(list.map(async m => {
+    const current = await linked(db,m.survivor_id);
     const unchanged = m.survivor_revision === m.revision_after && !m.survivor_merged
-      && JSON.stringify(counts(await linked(db, m.survivor_id))) === JSON.stringify(counts(JSON.parse(m.linked_after)));
+      && Object.entries(JSON.parse(m.linked_after)).every(([k,v]) => Number(v) === Number(current[k]));
     const moved = JSON.parse(m.moved);
     return { id: m.id, survivor: { id: m.survivor_id, name: m.survivor_name }, merged: { id: m.merged_id, name: m.merged_name }, choices: JSON.parse(m.choices),
       authority: m.authority, moved: Object.fromEntries(Object.entries(moved).map(([k, v]) => [k, (v as unknown[]).length])), mergedBy: m.merged_by, mergedAt: m.merged_at,
@@ -124,13 +153,16 @@ export async function undoMerge(db: D1Database, actor: Actor, mergeId: string) {
     m.survivor_id, m.revision_after, m.merged_id, m.survivor_id, at, m.undo_until);
   const [same, sameDone] = sameCounts(db, m.survivor_id, JSON.parse(m.linked_after));
   await atomic(db, actor, [ok, done, same, sameDone,
+    stmt(db, 'UPDATE b_clients SET merged_into=NULL WHERE id=?', m.merged_id),
+    ...(moved.contacts ?? []).map((c: Data) => stmt(db,'UPDATE b_client_contacts SET client_id=?,email=?,active=?,revision=? WHERE id=?',m.merged_id,c.email,c.active,c.revision,c.id)),
+    ...(moved.relationships ?? []).map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=? AND owner_client_id=?',m.merged_id,id(),c.id,m.survivor_id)),
     // Records move back while the merge is still active; the triggers allow only that.
     ...MOVED.map(([key, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=? AND id IN (SELECT value FROM json_each(?))`, m.merged_id, m.survivor_id, JSON.stringify(moved[key]))),
     ...moved.groups.map((g: Data) => g.dropped
       ? stmt(db, 'INSERT INTO b_client_group_members(group_id,client_id,relationship,added_by,added_at) VALUES(?,?,?,?,?)', g.group_id, m.merged_id, g.relationship, g.added_by, g.added_at)
       : stmt(db, 'UPDATE b_client_group_members SET client_id=? WHERE group_id=? AND client_id=?', m.merged_id, g.group_id, m.survivor_id)),
-    stmt(db, 'UPDATE b_clients SET name=?,abn=?,contact_name=?,contact_email=?,fields=?,tags=?,revision=? WHERE id=?', before.name, before.abn, before.contact_name, before.contact_email, before.fields, before.tags, before.revision, m.survivor_id),
-    stmt(db, 'UPDATE b_clients SET merged_into=NULL WHERE id=?', m.merged_id),
+    stmt(db, 'UPDATE b_clients SET name=?,abn=?,contact_name=?,contact_email=?,fields=?,tags=?,revision=?,entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=?,lifecycle=?,archived_at=?,archived_by=? WHERE id=?', before.name, before.abn, before.contact_name, before.contact_email, before.fields, before.tags, before.revision,before.entity_type ?? 'business',before.partner_email ?? '',before.team ?? '[]',before.services ?? '[]',before.owner_client_id ?? null,before.ssn_last4 ?? '',before.lifecycle ?? 'active',before.archived_at ?? null,before.archived_by ?? null,m.survivor_id),
+    ...(moved.mergedClient ?? []).map((c: Data) => stmt(db,'UPDATE b_clients SET revision=?,contact_name=?,contact_email=? WHERE id=?',c.revision,c.contact_name,c.contact_email,m.merged_id)),
     stmt(db, 'UPDATE b_client_merges SET undone_by=?,undone_at=? WHERE id=? AND undone_at IS NULL', actor.email, at, m.id),
     audit(db, actor, 'client.merge_undone', m.survivor_id, `${state.merged.name} restored from ${state.survivor.name}`)]);
   return { ...state, undo: 'undone', undoneBy: actor.email, undoneAt: at };

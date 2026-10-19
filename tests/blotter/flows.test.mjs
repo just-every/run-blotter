@@ -1218,7 +1218,7 @@ test('ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review
   assert.deepEqual([preview.jobs.map(j => j.to.preparer), preview.tasks.map(t => t.label), preview.rules.map(r => r.to.preparer), preview.threads.map(t => t.title), preview.templates.map(t => t.name), preview.timer.description, preview.time.map(t => t.id), preview.sessions > 0, preview.problems],
     [['preparer@example.test', 'preparer@example.test'], ['File 941 notes', 'File 941 notes'], ['preparer@example.test'], ['Payroll tax deposit'], ['Monthly payroll'], 'April payroll', [unsent.id], true, []]);
   await h.json('/team/offboard', { ...body, fingerprint: 'stale' }, h.owner, 409);
-  assert.deepEqual((await h.json('/team/offboard', { ...body, fingerprint: preview.fingerprint }, h.owner)).moved, { jobs: 2, tasks: 2, rules: 1, notices: 0, threads: 1, portal: 1, proposals: 0, templates: 1 });
+  assert.deepEqual((await h.json('/team/offboard', { ...body, fingerprint: preview.fingerprint }, h.owner)).moved, { clients: 0, jobs: 2, tasks: 2, rules: 1, notices: 0, threads: 1, portal: 1, proposals: 0, templates: 1 });
   // Nothing is orphaned: work, tasks, the rule, the discussion and future jobs from the template belong to the successors.
   const detail = await h.json('/jobs/' + jobs[0].id, undefined, preparer);
   assert.deepEqual([detail.job.preparer_email, detail.steps.find(s => s.label === 'File 941 notes').assignee_email], ['preparer@example.test', 'preparer@example.test']);

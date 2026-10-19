@@ -1,3 +1,4 @@
+import { contactInsert, contactValues, legacyContactValues } from './client-contacts';
 import { firmCurrency } from './firm';
 // Prospects and the onboarding pipeline (CRM-005, first slice). The principal
 // and reviewers track prospects through the firm's ordered stages with lead
@@ -54,9 +55,13 @@ export async function addProspect(db: D1Database, actor: Actor, body: Data) {
     id: id(), name: text(body.name, 'Prospect name', 200), contactName: text(body.contactName, 'Contact name', 200), contactEmail: email(body.contactEmail, 'Contact email'),
     source: text(body.source, 'Lead source', 120), fee: integer(body.estimatedFeeCents, 'Estimated annual fees in cents', 0, 100_000_000),
   };
+  insist(body.contacts === undefined || (Array.isArray(body.contacts) && body.contacts.length <= 50), 'Record at most 50 additional contacts');
+  const contacts = (body.contacts ?? []).map((c: Data) => contactValues(c));
+  insist(new Set([prospect.contactEmail, ...contacts.map((c: Data) => c.email).filter(Boolean)]).size === 1 + contacts.filter((c: Data) => c.email).length, 'Each prospect contact email must be different');
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_prospects(id,name,contact_name,contact_email,source,services,fee_cents,owner_email,stage_id,stage_since,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
       prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at, await firmCurrency(db, body.currency)),
+    stmt(db, 'UPDATE b_prospects SET contacts=? WHERE id=?', JSON.stringify(contacts),prospect.id),
     event(db, prospect.id, null, stage.id, 'Added', actor.email, at), audit(db, actor, 'prospect.added', prospect.id, `${prospect.name} from ${prospect.source}`)]);
   return prospectRow(db, prospect.id);
 }
@@ -106,6 +111,9 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
   const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_prospects WHERE id=? AND client_id IS NULL AND stage_id=?)', p.id, p.stage_id);
   await atomic(db, actor, [check,
     stmt(db, "INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,'',?,?,'native',?,?,?,'[]')", clientId, p.name, p.contact_name, p.contact_email, id(), at, JSON.stringify(fields)),
+    stmt(db, 'UPDATE b_clients SET services=? WHERE id=?', p.services,clientId),
+    contactInsert(db,actor,clientId,legacyContactValues(p.contact_name,p.contact_email),'legacy:'+clientId),
+    ...JSON.parse(p.contacts).map((c: Data) => contactInsert(db,actor,clientId,c)),
     audit(db, actor, 'client.added', clientId, `${p.name} (won prospect)`),
     ...createStatements(db, actor, template, { id: jobId, clientId, periodStart: date(body.periodStart, 'Onboarding period start'), dueDate: date(body.dueDate, 'Onboarding due date'),
       dueNote: text(body.dueNote, 'Where the onboarding due date comes from', 300), preparer, reviewer }),
@@ -121,7 +129,7 @@ export async function pipeline(db: D1Database, actor: Actor) {
   lead(actor);
   const [all, prospects, uploads] = await Promise.all([stages(db), rows(db, 'SELECT * FROM b_prospects ORDER BY stage_since'), prospectUploads(db)]);
   const order = new Map(all.map((s, n) => [s.id, n])), today = now();
-  const list: Data[] = prospects.map(p => { const s = all.find(x => x.id === p.stage_id)!; return { ...p, stage: s.name, stage_kind: s.kind, services: JSON.parse(p.services), answers: JSON.parse(p.answers), files: uploads.filter(f => f.prospect_id === p.id), stageAgeDays: days(p.stage_since, today) } as Data; })
+  const list: Data[] = prospects.map(p => { const s = all.find(x => x.id === p.stage_id)!; return { ...p, stage: s.name, stage_kind: s.kind, services: JSON.parse(p.services), contacts: JSON.parse(p.contacts), answers: JSON.parse(p.answers), files: uploads.filter(f => f.prospect_id === p.id), stageAgeDays: days(p.stage_since, today) } as Data; })
     .sort((a, b) => order.get(a.stage_id)! - order.get(b.stage_id)!);
   const group = (key: 'source' | 'owner_email') => [...new Set(list.map(p => JSON.stringify([p[key], p.currency])))].sort().map(pair => {
     const [value, currency] = JSON.parse(pair);

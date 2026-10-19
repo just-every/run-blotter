@@ -4,11 +4,11 @@ import { api, Field, Form, readFile, Status, when, type Row, type Run } from './
 const short = (sha: string) => sha.slice(0, 12);
 
 /** Staff side of DOC-003: send versions for client approval and read each decision. */
-export function Deliverables({ job, deliverables, run }: { job: Row; deliverables: Row[]; run: Run }) {
+export function Deliverables({ job, deliverables, run, contacts = [] }: { job: Row; deliverables: Row[]; run: Run; contacts?: Row[] }) {
   const [link, setLink] = useState<Row>(), isOpen = job.status === 'open';
   const send = (data: Row, extra: Row) => run(async () => {
     insistFile(data.file);
-    setLink(await api(`/jobs/${job.id}/deliverables`, { ...(await readFile(data.file)), note: data.note, submitOnApproval: data.submitOnApproval === 'on', ...extra }));
+    setLink(await api(`/jobs/${job.id}/deliverables`, { ...(await readFile(data.file)), contactId:data.contactId, note: data.note, submitOnApproval: data.submitOnApproval === 'on', ...extra }));
   }, 'Sent to the client for approval');
   return <section className="panel">
     <h2>Deliverables for client approval</h2>
@@ -22,13 +22,13 @@ export function Deliverables({ job, deliverables, run }: { job: Row; deliverable
         {v.status === 'changes_requested' && <p className="notice">Changes requested by {v.approver_name} on {when(v.decided_at)}: {v.comment}</p>}
       </li>)}</ul>
       {isOpen && <details><summary>Send a new version</summary>
-        <Form label="Send version for approval" submit={async data => send(data, { deliverableId: d.id })}><VersionFields /></Form>
+        <Form label="Send version for approval" submit={async data => send(data, { deliverableId: d.id })}><VersionFields contacts={contacts} /></Form>
       </details>}
     </article>)}
     {isOpen && <details><summary>Send a deliverable for approval</summary>
       <Form label="Send for approval" submit={async data => send(data, { title: data.title })}>
         <Field label="Deliverable" name="title" hint="For example: Financial statements FY2026" />
-        <VersionFields />
+        <VersionFields contacts={contacts} />
       </Form>
     </details>}
     {link && <div className="notice"><p>Version {link.version} sent (SHA-256 {short(link.sha256)}). Delivery: {link.delivery}. This client link is shown once and replaces earlier links. It expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client approval link" /></div>}
@@ -39,8 +39,9 @@ function insistFile(file: unknown): asserts file is File {
   if (!(file instanceof File) || file.size === 0) throw new Error('Choose the file to send');
 }
 
-function VersionFields() {
+function VersionFields({contacts}: {contacts:Row[]}) {
   return <>
+    <Field label="Recipient for this entity" name="contactId"><select name="contactId"><option value="">Primary contact</option>{contacts.filter(c => c.active && c.authorized && c.portal && c.request_consent && c.email_consent).map(c => <option key={c.id} value={c.id}>{c.name} &lt;{c.email}&gt;</option>)}</select></Field>
     <Field label="File (up to 1 MiB)" name="file"><input name="file" type="file" required /></Field>
     <Field label="Note to the client (optional)" name="note" required={false}><textarea name="note" rows={2} /></Field>
     <label className="check"><input type="checkbox" name="submitOnApproval" /> Submit the job for review when the client approves</label>

@@ -13,7 +13,7 @@ const OPEN_JOB = "b_jobs.status<>'signed_off'";
 
 /** Everything a member owns that would be orphaned by their departure. */
 async function owned(db: D1Database, leaver: string) {
-  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions] = await Promise.all([
+  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients] = await Promise.all([
     rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.status,b_jobs.revision,b_jobs.submitted_by,b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email,c.name client
       FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${OPEN_JOB} AND ?1 IN (b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email) ORDER BY b_jobs.due_date`, leaver),
     rows(db, `SELECT s.job_id,s.ordinal,s.label,b_jobs.title job FROM b_job_steps s JOIN b_jobs ON b_jobs.id=s.job_id WHERE ${OPEN_JOB} AND s.done_at IS NULL AND s.assignee_email=? ORDER BY b_jobs.due_date,s.ordinal`, leaver),
@@ -29,8 +29,9 @@ async function owned(db: D1Database, leaver: string) {
       WHERE t.person_email=? AND (s.status IS NULL OR s.status<>'approved') ORDER BY t.date`, leaver),
     rows(db, 'SELECT k.id,k.label FROM b_agent_keys k JOIN oa_operators o ON o.id=k.owner_id WHERE o.email=? AND k.revoked=0', leaver),
     stmt(db, 'SELECT COUNT(*) n FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE o.email=? AND s.revoked_at IS NULL', leaver).first<Data>(),
+    rows(db, `SELECT id,name,partner_email,team,revision FROM b_clients WHERE merged_into IS NULL AND (partner_email=? OR EXISTS(SELECT 1 FROM json_each(team) WHERE value=?)) ORDER BY name`, leaver,leaver),
   ]);
-  return { jobs, tasks, rules, notices, threads, portal, proposals, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
+  return { clients, jobs, tasks, rules, notices, threads, portal, proposals, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
 }
 
 async function plan(db: D1Database, actor: Actor, body: Data) {
@@ -54,7 +55,7 @@ async function plan(db: D1Database, actor: Actor, body: Data) {
     return { ...r, to, reasons: to.reviewer === to.preparer ? [`${to.reviewer} cannot review their own work`] : [] };
   });
   // The review successor matters only when there are reviews, manager roles or proposals to hand over.
-  const reviews = [...o.jobs, ...o.rules].some(x => x.reviewer_email === leaver || x.manager_email === leaver || x.partner_email === leaver) || o.proposals.length > 0;
+  const reviews = [...o.jobs, ...o.rules].some(x => x.reviewer_email === leaver || x.manager_email === leaver || x.partner_email === leaver) || o.proposals.length > 0 || o.clients.some(c => c.partner_email === leaver);
   if (reviews && !await eligible(db, review, ['reviewer'])) problems.push(`${review} is not an active reviewer or the principal`);
   for (const line of [...jobs, ...rules]) for (const reason of line.reasons) problems.push(`${line.client} ${line.title ?? line.template}: ${reason}`);
   const result = { email: leaver, name: member.name, active: !!member.active, workSuccessor: work, reviewSuccessor: review, ...o, jobs, rules, problems };
@@ -75,6 +76,12 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     statements.push(check, stmt(db, 'UPDATE b_jobs SET preparer_email=?,reviewer_email=?,manager_email=?,partner_email=?,revision=? WHERE id=?', j.to.preparer, j.to.reviewer, j.to.manager, j.to.partner, id(), j.id), release,
       audit(db, actor, 'job.reassigned', j.id, `offboarding ${leaver}: preparer ${j.to.preparer}, reviewer ${j.to.reviewer}${j.to.manager ? `, manager ${j.to.manager}` : ''}${j.to.partner ? `, partner ${j.to.partner}` : ''}`));
   }
+  for (const c of p.clients) {
+    const [check,release] = guard(db,'EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND merged_into IS NULL)',c.id,c.revision);
+    const team = [...new Set(JSON.parse(c.team).map((person: string) => person === leaver ? p.workSuccessor : person))];
+    statements.push(check,stmt(db,'UPDATE b_clients SET partner_email=?,team=?,revision=? WHERE id=?',c.partner_email === leaver ? p.reviewSuccessor : c.partner_email,JSON.stringify(team),id(),c.id),
+      audit(db,actor,'client.team_transferred',c.id,`offboarding ${leaver}: team to ${p.workSuccessor}, partner to ${p.reviewSuccessor}`),release);
+  }
   for (const r of p.rules) {
     const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_recurrence_rules WHERE id=? AND revision=?)', r.id, r.revision);
     statements.push(check, stmt(db, 'UPDATE b_recurrence_rules SET preparer_email=?,reviewer_email=?,manager_email=?,revision=? WHERE id=?', r.to.preparer, r.to.reviewer, r.to.manager, id(), r.id), release);
@@ -94,7 +101,7 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     audit(db, actor, 'member.offboarded', leaver, `work to ${p.workSuccessor}, reviews to ${p.reviewSuccessor}: ${p.jobs.length} jobs, ${p.tasks.length} tasks, ${p.rules.length} recurring rules, ${p.notices.length} notices, ${p.threads.length} discussions, ${p.portal.length} client questions and to-dos, ${p.proposals.length} proposals, ${p.templates.length} templates${p.timer ? `, timer on ${p.timer.title} since ${p.timer.started_at} discarded` : ''}, ${p.time.filter(t => !t.status).length} time entries submitted, ${p.keys.length} agent keys and ${p.sessions} sessions revoked`),
   );
   await atomic(db, actor, statements);
-  return { email: leaver, active: false, moved: { jobs: p.jobs.length, tasks: p.tasks.length, rules: p.rules.length, notices: p.notices.length, threads: p.threads.length, portal: p.portal.length, proposals: p.proposals.length, templates: p.templates.length } };
+  return { email: leaver, active: false, moved: { clients:p.clients.length, jobs: p.jobs.length, tasks: p.tasks.length, rules: p.rules.length, notices: p.notices.length, threads: p.threads.length, portal: p.portal.length, proposals: p.proposals.length, templates: p.templates.length } };
 }
 
 /** Deactivating a member revokes every session and agent key they hold; reactivation needs a new sign-in and new keys. */
