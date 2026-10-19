@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
 import { questionBody } from './flow';
 import { RecurrencePanel } from './recurrence';
+import { DuplicatesPanel } from './duplicates';
 import { TaskEditor, taskBody } from './tasks';
 import { MessageTemplates } from './messages';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
@@ -29,6 +30,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
         </Form>
       </details>}
     </section></Blotter>
+    {lead && <DuplicatesPanel run={run} tick={tick} />}
     {lead && <FieldsPanel state={state} run={run} />}
     {lead && <GroupsPanel state={state} run={run} />}
     {lead && <SegmentPanel state={state} run={run} segment={segment} setSegment={setSegment} />}

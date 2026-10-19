@@ -10,6 +10,7 @@ import { addClient, saveTemplate, workspace } from './clients';
 import { commitFields, defineField, previewFields, saveGroup, saveProfile, segment } from './profiles';
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
 import { grantException, recordAnswer } from './flow';
+import { compareClients, dismissPair, duplicates } from './duplicates';
 import { claimJob, createRule, previewRule, rules, runNow, setRuleStatus, skipPeriod } from './recurrence';
 import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, sendDeliverable } from './deliverables';
 import { myNotifications } from './notifications';
@@ -78,6 +79,9 @@ api.post(`${P}/clients/fields`, as(async (a, c) => defineField(db(c), a, await b
 api.get(`${P}/clients/segment`, as((a, c) => segment(db(c), a, c.req.query())));
 api.post(`${P}/clients/bulk-fields/preview`, as(async (a, c) => previewFields(db(c), a, await body(c))));
 api.post(`${P}/clients/bulk-fields`, as(async (a, c) => commitFields(db(c), a, await body(c))));
+api.get(`${P}/clients/duplicates`, as((a, c) => duplicates(db(c), a)));
+api.get(`${P}/clients/compare`, as((a, c) => compareClients(db(c), a, c.req.query())));
+api.post(`${P}/clients/duplicates/dismiss`, as(async (a, c) => dismissPair(db(c), a, await body(c))));
 api.post(`${P}/clients/:id/profile`, as(async (a, c) => saveProfile(db(c), a, param(c), await body(c))));
 api.post(`${P}/groups`, as(async (a, c) => saveGroup(db(c), a, await body(c))));
 api.post(`${P}/templates`, as(async (a, c) => saveTemplate(db(c), a, await body(c))));

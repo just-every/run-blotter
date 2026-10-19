@@ -958,6 +958,31 @@ test('WORK-002 recurring work: monthly and fiscal-year rules create each period 
   assert.equal((await h.json('/rules/run', {}, h.owner)).created, 0);
 });
 
+test('CRM-004 duplicate proposals: an imported client that duplicates a native one is proposed with its reasons, compared side by side and can be recorded as different', async () => {
+  const native = await h.json('/clients', { name: 'Harbor & Pine Café, LLC', contactName: 'Jo Park', contactEmail: 'Jo@HarborPine.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const csv = 'client_id,client_name,abn,contact_name,contact_email,field:service_tier\nK-77,Harbor and Pine Cafe,,Jo Park,jo@harborpine.example,Plus\nK-78,Northwind Traders Inc,,Ann Lee,ann@northwind.example,Plus\n';
+  const preview = await h.json('/import/preview', { csv }, h.owner);
+  let imported = await h.json('/import/commit', { csv, fingerprint: preview.fingerprint }, h.owner);
+  while (imported.job.state !== 'completed') imported = await h.json('/import/resume', { id: imported.job.id }, h.owner);
+  const other = await h.json('/clients', { name: 'Northwind Traders Holdings', contactEmail: 'office@northwind-holdings.example', fields: { service_tier: 'Essentials' } }, h.owner);
+  const copy = (await h.json('/state', undefined, h.owner)).clients.find(c => c.name === 'Harbor and Pine Cafe');
+  const proposals = await h.json('/clients/duplicates', undefined, reviewer);
+  const ours = proposals.find(p => [p.a.id, p.b.id].sort().join() === [native.id, copy.id].sort().join());
+  assert.deepEqual(ours.reasons, ['same contact email', 'same name']);
+  // Two of three distinct words in common is not similar enough to propose.
+  const northwind = (await h.json('/state', undefined, h.owner)).clients.find(c => c.name === 'Northwind Traders Inc');
+  assert.ok(!proposals.some(p => [p.a.id, p.b.id].includes(northwind.id) && [p.a.id, p.b.id].includes(other.id)));
+  await h.json('/clients/duplicates', undefined, preparer, 403);
+  const side = await h.json(`/clients/compare?a=${native.id}&b=${copy.id}`, undefined, h.owner);
+  assert.deepEqual(side.fields.filter(f => !f.same).map(f => f.key), ['name', 'source']);
+  assert.deepEqual([side.b.linked.jobs, side.reasons], [0, ['same contact email', 'same name']]);
+  await h.json('/clients/duplicates/dismiss', { a: native.id, b: copy.id }, h.owner, 400);
+  await h.json('/clients/duplicates/dismiss', { a: northwind.id, b: native.id, reason: 'x' }, h.owner, 409);
+  await h.json('/clients/duplicates/dismiss', { a: native.id, b: copy.id, reason: 'Two cafes with one owner' }, h.owner);
+  await h.json('/clients/duplicates/dismiss', { a: copy.id, b: native.id, reason: 'again' }, h.owner, 409);
+  assert.ok(!(await h.json('/clients/duplicates', undefined, h.owner)).some(p => [p.a.id, p.b.id].includes(native.id) && [p.a.id, p.b.id].includes(copy.id)));
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

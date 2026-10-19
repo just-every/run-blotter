@@ -1,0 +1,76 @@
+// Duplicate client proposals (CRM-004 slice: proposals, side-by-side compare
+// and dismissal; merge and undo are not built yet). Blotter proposes two
+// clients as likely duplicates, whatever created them (by hand, a CSV move-in,
+// or any later source), when they share a contact email (case-insensitive), a
+// tax id, or a name: equal once lower-cased, accents, punctuation, "&"/"and"
+// and business suffixes (Inc, LLC, Ltd, Pty, Co, Corp, ...) are set aside, or
+// similar (at least two words and at least 75% of their distinct words shared).
+// Phone numbers and SSN digits are not stored yet (CRM-001, US-001); those
+// clauses add their matches here before they ship.
+import { atomic, audit, human, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
+
+const SUFFIXES = new Set(['inc', 'llc', 'ltd', 'pty', 'co', 'corp', 'corporation', 'company', 'limited', 'plc', 'lp', 'llp', 'pc', 'pllc', 'the']);
+export function nameWords(name: string) {
+  return name.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(w => w && !SUFFIXES.has(w));
+}
+function reasons(a: Data, b: Data) {
+  const found: string[] = [];
+  if (a.abn && a.abn === b.abn) found.push('same tax id');
+  if (a.contact_email && a.contact_email.toLowerCase() === b.contact_email?.toLowerCase()) found.push('same contact email');
+  const x = new Set(nameWords(a.name)), y = new Set(nameWords(b.name));
+  const shared = [...x].filter(w => y.has(w)).length, union = new Set([...x, ...y]).size;
+  if (x.size && [...x].join(' ') === [...y].join(' ')) found.push('same name');
+  else if (x.size >= 2 && y.size >= 2 && shared / union >= 0.75) found.push('similar name');
+  return found;
+}
+const WEIGHT: Record<string, number> = { 'same tax id': 3, 'same contact email': 2, 'same name': 2, 'similar name': 1 };
+const pair = (a: string, b: string) => a < b ? [a, b] : [b, a];
+
+/** Likely duplicate pairs, strongest first, without pairs a person dismissed. */
+export async function duplicates(db: D1Database, actor: Actor) {
+  need(actor, 'owner', 'reviewer');
+  const clients = await rows(db, 'SELECT id,name,abn,contact_name,contact_email,source,created_at FROM b_clients ORDER BY created_at,id');
+  const dismissed = new Set((await rows(db, 'SELECT client_a,client_b FROM b_duplicate_dismissals')).map(d => d.client_a + ' ' + d.client_b));
+  const found: Data[] = [];
+  for (const [i, a] of clients.entries()) for (const b of clients.slice(i + 1)) {
+    const why = reasons(a, b);
+    if (why.length && !dismissed.has(pair(a.id, b.id).join(' '))) found.push({ a, b, reasons: why, score: why.reduce((s, r) => s + WEIGHT[r], 0) });
+  }
+  return found.sort((x, y) => y.score - x.score);
+}
+
+async function client(db: D1Database, clientId: unknown) {
+  const c = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', text(clientId, 'Client')).first<Data>();
+  insist(c, 'Client not found', 404);
+  return c;
+}
+const linked = async (db: D1Database, id: string) => stmt(db, `SELECT
+  (SELECT COUNT(*) FROM b_jobs WHERE client_id=?1) jobs, (SELECT COUNT(*) FROM b_jobs WHERE client_id=?1 AND status<>'signed_off') open_jobs,
+  (SELECT COUNT(*) FROM b_threads WHERE client_id=?1) threads, (SELECT COUNT(*) FROM b_notices WHERE client_id=?1) notices,
+  (SELECT COUNT(*) FROM b_expenses WHERE client_id=?1) expenses, (SELECT COUNT(*) FROM b_recurrence_rules WHERE client_id=?1) rules,
+  (SELECT COUNT(*) FROM b_client_group_members WHERE client_id=?1) groups`, id).first<Data>();
+
+/** Two clients side by side: each field, whether it matches, what is linked to each, and why they were proposed. */
+export async function compareClients(db: D1Database, actor: Actor, query: Data) {
+  need(actor, 'owner', 'reviewer');
+  const [a, b] = [await client(db, query.a), await client(db, query.b)];
+  insist(a.id !== b.id, 'Choose two different clients');
+  const fa = JSON.parse(a.fields), fb = JSON.parse(b.fields);
+  const fields = [['name', 'Name'], ['abn', 'Tax id'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
+    .map(([key, label]) => ({ key, label, a: a[key], b: b[key], same: a[key] === b[key] }))
+    .concat([...new Set([...Object.keys(fa), ...Object.keys(fb)])].sort().map(key => ({ key: 'fields.' + key, label: key, a: fa[key] ?? '', b: fb[key] ?? '', same: fa[key] === fb[key] })));
+  return { a: { id: a.id, name: a.name, linked: await linked(db, a.id) }, b: { id: b.id, name: b.name, linked: await linked(db, b.id) }, reasons: reasons(a, b), fields };
+}
+
+/** A person records that a proposed pair is not a duplicate; it is not proposed again. */
+export async function dismissPair(db: D1Database, actor: Actor, body: Data) {
+  human(actor); need(actor, 'owner', 'reviewer');
+  const [a, b] = [await client(db, body.a), await client(db, body.b)];
+  insist(a.id !== b.id, 'Choose two different clients');
+  insist(reasons(a, b).length > 0, 'These clients are not proposed as duplicates', 409);
+  const [x, y] = pair(a.id, b.id), reason = text(body.reason, 'Why these are different clients', 500);
+  insist(!await stmt(db, 'SELECT 1 FROM b_duplicate_dismissals WHERE client_a=? AND client_b=?', x, y).first(), 'Already marked as different clients', 409);
+  await atomic(db, actor, [stmt(db, 'INSERT INTO b_duplicate_dismissals(client_a,client_b,reason,by_email,at) VALUES(?,?,?,?,?)', x, y, reason, actor.email, now()),
+    audit(db, actor, 'client.not_duplicate', x, `${a.name} / ${b.name}: ${reason}`)]);
+  return { dismissed: [x, y] };
+}
