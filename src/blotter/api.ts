@@ -1,3 +1,5 @@
+import { publishStarter } from './starter-releases';
+import { library, adoptStarter, editStarterDetails, editStarterTask, previewStarter, updateStarter } from './starter-library';
 // Every Blotter HTTP door. Each person handler resolves the native session and
 // role first; agent doors only read context or prepare proposals.
 import { Hono, type Context } from 'hono';
@@ -75,6 +77,13 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
 
+api.get(`${P}/library`, as((a, c) => library(db(c), a)));
+api.post(`${P}/library/releases`, as(async (a, c) => publishStarter(db(c), a, await body(c))));
+api.post(`${P}/library/adopt`, as(async (a, c) => adoptStarter(db(c), a, await body(c))));
+api.post(`${P}/library/adoptions/:id/details`, as(async (a, c) => editStarterDetails(db(c), a, param(c), await body(c))));
+api.post(`${P}/library/adoptions/:id/task`, as(async (a, c) => editStarterTask(db(c), a, param(c), await body(c))));
+api.get(`${P}/library/adoptions/:id/preview`, as((a, c) => previewStarter(db(c), a, param(c))));
+api.post(`${P}/library/adoptions/:id/update`, as(async (a, c) => updateStarter(db(c), a, param(c), await body(c))));
 api.get(`${P}/firm/settings`, as((a, c) => readFirm(db(c), a)));
 api.post(`${P}/firm/settings`, as(async (a, c) => saveFirm(db(c), a, await body(c))));
 api.get(`${P}/firm/time`, as((a, c) => firmClock(db(c), a, c.req.query('at'))));

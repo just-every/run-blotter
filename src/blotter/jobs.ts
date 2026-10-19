@@ -50,6 +50,11 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
       VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned',?,?)`,
       jobId, values.clientId, template.id, template.name, values.periodStart, periodLabel(values.periodStart, template.recurrence),
       values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now(), values.workTypeId ?? 'wt-' + template.id, values.partner ?? null, template.currency),
+    stmt(db, `UPDATE b_jobs SET starter_content=(SELECT CASE WHEN starter_content IS NULL THEN NULL ELSE
+      json_set(starter_content,'$.messages',json((SELECT json_group_array(json_object(
+        'key',json_extract(r.value,'$.key'),'id',m.id,'version',m.version,'name',m.name,'subject',v.subject,'body',v.body))
+        FROM json_each(b_templates.starter_content,'$.messages') r JOIN b_msg_templates m ON m.id=json_extract(r.value,'$.id') AND m.deleted_at IS NULL
+        JOIN b_msg_template_versions v ON v.template_id=m.id AND v.version=m.version))) END FROM b_templates WHERE id=?) WHERE id=?`, template.id, jobId),
     historyRow(db, jobId, { stage: null, sub: null }, { stage: 'planned', sub: null }, actor.email),
     ...JSON.parse(template.steps).map((entry: Data, n: number) => stepInsert(db, jobId, entry as never, n)),
     // A task assigned by name lets that person read this job (ACCESS-001); each grant is audited.
@@ -138,7 +143,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
   // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
   const portal = j.access === 'full' ? await staffPortal(db, j) : null;
-  return { job: j, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  return { job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {
