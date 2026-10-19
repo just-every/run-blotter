@@ -1,4 +1,40 @@
-/* Product screens. Colour and shared paper surfaces live in rer-theme.css. */
+/* Product screens, in the first release's paper look until the app round lands. Base's native pages and the
+   Lobby take Blotter's desk-approved look from rer-theme.css; these tokens and the paper sheet are the app's own. */
+@import url('/fonts/fonts.css');
+:root {
+  --paper:#FBFAF7; --surface:#FFFFFF; --ink:#14161C; --muted:#5B6070;
+  --hairline:#E6E3DD; --blotter:#EBB8B8; --blotter-tint:#F7E3E2;
+  --navy:#1F2D4A; --navy-hover:#2B3C60; --danger:#9E2B25;
+  --card-shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.06);
+  --blotter-shadow:0 2px 4px rgba(20,22,28,.08),0 22px 44px rgba(20,22,28,.14);
+  --rer-font-body:'Red Hat Text',Arial,sans-serif;
+  --rer-font-heading:'Red Hat Display',Arial,sans-serif;
+  --rer-page:var(--paper); --rer-surface:var(--surface); --rer-text:var(--ink);
+  --rer-muted:var(--muted); --rer-border:var(--hairline); --rer-focus:var(--navy);
+  --rer-link:var(--navy); --rer-accent:var(--navy); --rer-accent-text:var(--surface);
+  --rer-radius:12px; --rer-button-radius:999px;
+}
+/* Four corner pockets stay square to the paper, regardless of its aspect ratio. */
+.blotter {
+  --corner:clamp(28px,4vw,56px);
+  position:relative; isolation:isolate; border-radius:3px; padding:40px; min-width:0;
+  background:var(--blotter) url('/brand/blotter.svg') repeat;
+  box-shadow:var(--blotter-shadow);
+}
+.blotter::after {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.055) 4px 5px),var(--navy);
+  mask:linear-gradient(135deg,#000 49%,transparent 50%) top left,
+    linear-gradient(225deg,#000 49%,transparent 50%) top right,
+    linear-gradient(315deg,#000 49%,transparent 50%) bottom right,
+    linear-gradient(45deg,#000 49%,transparent 50%) bottom left;
+  mask-size:var(--corner) var(--corner);mask-repeat:no-repeat;
+  filter:drop-shadow(0 1px 0 var(--ink));
+  border-radius:3px;
+}
+@media(max-width:760px) {.blotter {padding:24px;--corner:28px;}}
+/* rer-theme.css washes Base's dev hand-off page; the app keeps its own paper ground. */
+html:not(.rer-themed) body:not(:has(> .door)) {background:var(--paper);}
 *,*::before,*::after {box-sizing:border-box;}
 body {margin:0;background:var(--paper);color:var(--ink);font-family:var(--rer-font-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;}
 h1,h2,h3 {font-family:var(--rer-font-heading);line-height:1.25;letter-spacing:-.025em;text-wrap:balance;}

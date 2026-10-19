@@ -1,77 +1,58 @@
-/* Blotter's app palette and shared surfaces. Native auth, setup and the Lobby use
-   these tokens; the run site's desk-approved tokens are in /site/theme.css. */
+/* Base's native pages (sign in, first-run /setup, second factor) and the Lobby in the app's look:
+   a white page, one white card with a hairline and a soft shadow, the vector mark and the heavy
+   condensed wordmark, thin quiet fields with a lilac focus ring and an ink primary button.
+   Tokens: /site/tokens.css. */
 @import url('/fonts/fonts.css');
-:root {
-  --paper:#FBFAF7; --surface:#FFFFFF; --ink:#14161C; --muted:#5B6070;
-  --hairline:#E6E3DD; --blotter:#EBB8B8; --blotter-tint:#F7E3E2;
-  --navy:#1F2D4A; --navy-hover:#2B3C60; --danger:#9E2B25;
-  --card-shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.06);
-  --blotter-shadow:0 2px 4px rgba(20,22,28,.08),0 22px 44px rgba(20,22,28,.14);
-  --rer-font-body:'Red Hat Text',Arial,sans-serif;
-  --rer-font-heading:'Red Hat Display',Arial,sans-serif;
-  --rer-page:var(--paper); --rer-surface:var(--surface); --rer-text:var(--ink);
-  --rer-muted:var(--muted); --rer-border:var(--hairline); --rer-focus:var(--navy);
-  --rer-link:var(--navy); --rer-accent:var(--navy); --rer-accent-text:var(--surface);
-  --rer-radius:12px; --rer-button-radius:999px; --rer-logo:url('/brand/mark.svg');
-}
-/* Four corner pockets stay square to the paper, regardless of its aspect ratio. */
-.blotter, html.rer-themed body > main, .door .door-card {
-  --corner:clamp(28px,4vw,56px);
-  position:relative; isolation:isolate; border-radius:3px;
-  background:var(--blotter) url('/brand/blotter.svg') repeat;
-  box-shadow:var(--blotter-shadow);
-}
-.blotter {padding:40px; min-width:0;}
-.blotter::after, html.rer-themed body > main::after, .door .door-card::after {
-  content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
-  background:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.055) 4px 5px),var(--navy);
-  mask:linear-gradient(135deg,#000 49%,transparent 50%) top left,
-    linear-gradient(225deg,#000 49%,transparent 50%) top right,
-    linear-gradient(315deg,#000 49%,transparent 50%) bottom right,
-    linear-gradient(45deg,#000 49%,transparent 50%) bottom left;
-  mask-size:var(--corner) var(--corner);mask-repeat:no-repeat;
-  filter:drop-shadow(0 1px 0 var(--ink));
-  border-radius:3px;
-}
-/* The shared native document's main is the sheet. Its single white card sits
-   behind its real form, preserving the module's CSP and no-JavaScript flow. */
-html.rer-themed body {display:grid;place-items:center;min-height:100vh;min-height:100dvh;padding:64px 16px;font-family:var(--rer-font-body);background:var(--paper);color:var(--ink);box-sizing:border-box;}
-html.rer-themed body > main {box-sizing:border-box;width:100%;max-width:680px;margin:0;padding:88px;border:0;overflow-wrap:anywhere;}
-html.rer-themed body > main::before, .door .door-card::before {
-  content:'';position:absolute;inset:40px;z-index:-1;border-radius:12px;
-  border:1px solid var(--hairline);background:var(--surface);box-shadow:var(--card-shadow);
-}
-html.rer-themed main .brand, html.rer-themed main .rer-brand {justify-content:center;font-size:26px;font-weight:700;gap:12px;margin:0 0 40px;color:var(--ink);}
-html.rer-themed main h1 {font-size:36px;line-height:1.15;letter-spacing:-.035em;margin:0 0 32px;font-family:var(--rer-font-heading);}
-html.rer-themed main:has(input[type=email]) h1 {text-align:center;}
-html.rer-themed main label {font-weight:500;color:var(--ink);}
-html.rer-themed main input:not([type=checkbox]):not([type=hidden]) {border:1px solid var(--hairline);border-radius:8px;min-height:44px;color:var(--ink);background:var(--surface);font:inherit;}
-html.rer-themed main button, html.rer-themed main .action {border-radius:999px;background:var(--navy);color:var(--surface);min-height:48px;font-family:var(--rer-font-body);font-weight:600;}
-html.rer-themed main button:hover {background:var(--navy-hover);box-shadow:none;}
-html.rer-themed main dl {display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 24px;border-block:1px solid var(--hairline);}
-html.rer-themed main dt, html.rer-themed main dd {padding:16px 0;border-bottom:1px solid var(--hairline);margin:0;}
+@import url('/site/tokens.css');
+/* At 30 px the lockup carries the ring without the sparks (the mark's 32 px drawing). */
+html:root {--rer-logo:url('/brand/mark-32.svg');}
+html.rer-themed body {display:grid;place-items:center;min-height:100vh;min-height:100dvh;margin:0;padding:64px 16px;box-sizing:border-box;
+  background:var(--bl-white) linear-gradient(180deg,var(--bl-lilac-pale),var(--bl-white) 340px) no-repeat;color:var(--bl-text);font:400 16px/1.55 var(--bl-font-body);-webkit-font-smoothing:antialiased;}
+html.rer-themed body > main {box-sizing:border-box;width:100%;max-width:520px;margin:0;padding:44px 48px;background:var(--bl-white);border:1px solid var(--bl-line);
+  border-radius:var(--bl-radius);box-shadow:var(--bl-shadow-lift);overflow-wrap:anywhere;}
+html.rer-themed main .brand, html.rer-themed main .rer-brand {display:flex;align-items:center;gap:10px;margin:0 0 28px;color:var(--bl-ink);
+  font:900 30px/1 var(--bl-font-display);font-variation-settings:'wdth' 50;letter-spacing:.005em;}
+html.rer-themed main .rer-brand::before {width:30px;height:30px;}
+html.rer-themed main h1 {font:900 40px/1.05 var(--bl-font-display);font-variation-settings:'wdth' 52;letter-spacing:-.005em;word-spacing:.14em;color:var(--bl-ink);margin:0 0 18px;}
+html.rer-themed main p, html.rer-themed main dt {color:var(--bl-muted);}
+html.rer-themed main label {font:500 15px/1.4 var(--bl-font-ui);color:var(--bl-ink);}
+html.rer-themed main input:not([type=checkbox]):not([type=hidden]) {min-height:44px;padding:10px 12px;border:1px solid #d6d1e3;border-radius:10px;background:var(--bl-white);color:var(--bl-ink);font:inherit;}
+html.rer-themed main input:not([type=checkbox]):not([type=hidden]):hover {border-color:var(--bl-lilac-mid);}
+html.rer-themed main input:not([type=checkbox]):not([type=hidden]):focus-visible {outline:none;border-color:var(--bl-lilac-deep);box-shadow:0 0 0 3px rgba(115,67,207,.18);}
+html.rer-themed main button, html.rer-themed main .action {min-height:48px;border:1px solid var(--bl-ink);border-radius:12px;background:var(--bl-ink);color:var(--bl-white);font:600 16px/1.2 var(--bl-font-ui);cursor:pointer;}
+html.rer-themed main button:hover, html.rer-themed main .action:hover {background:#2a2633;box-shadow:none;}
+html.rer-themed main dl {display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 24px;margin:0 0 24px;border-block:1px solid var(--bl-line);}
+html.rer-themed main dt, html.rer-themed main dd {padding:14px 0;border-bottom:1px solid var(--bl-line);margin:0;}
 html.rer-themed main dt:last-of-type, html.rer-themed main dd:last-of-type {border:0;}
-html.rer-themed main dd {font-weight:500;}
-html.rer-themed main .notice {background:var(--surface);border-left:3px solid var(--navy);}
-html.rer-themed :focus-visible {outline:3px solid var(--navy);outline-offset:2px;}
-html.rer-themed input[type=checkbox] {accent-color:var(--navy);}
-.door .door-card {padding:88px;max-width:760px;}
-.door .door-card::before {inset:40px;}
-.door .door-art {display:none;}
-.door .door-card h1 {font-size:48px;}
-.door .door-card .line {font-size:20px;}
+html.rer-themed main dd {font-weight:500;color:var(--bl-ink);}
+html.rer-themed main .notice {background:var(--bl-lilac-pale);border:1px solid var(--bl-line);border-left:3px solid var(--bl-lilac-deep);border-radius:10px;padding:12px 14px;}
+html.rer-themed main a {color:var(--bl-ink);text-decoration-color:var(--bl-lilac-mid);text-underline-offset:4px;text-decoration-thickness:1.5px;}
+html.rer-themed :focus-visible {outline:2px solid var(--bl-lilac-deep);outline-offset:2px;}
+html.rer-themed input[type=checkbox] {accent-color:var(--bl-lilac-deep);}
+/* The Lobby: one card on the same page, the mark and wordmark as the heading. */
+body:has(> .door) {background:var(--bl-white) linear-gradient(180deg,var(--bl-lilac-pale),var(--bl-white) 340px) no-repeat;}
+.door .door-card {position:relative;box-sizing:border-box;width:100%;max-width:640px;padding:56px 64px;background:var(--bl-white);border:1px solid var(--bl-line);border-radius:var(--bl-radius);box-shadow:var(--bl-shadow-lift);}
+.door .door-card .word {font-family:var(--bl-font-display);font-weight:900;font-variation-settings:'wdth' 50;letter-spacing:.005em;}
+.door .door-card h1 {font-size:clamp(44px,6vw,64px);}
+.door .door-card .line {font-size:21px;color:var(--bl-text);}
+.door .door-card .btn {border-radius:12px;background:var(--bl-ink);color:var(--bl-white);box-shadow:none;min-height:52px;font-family:var(--bl-font-ui);}
+.door .door-card .btn:hover {background:#2a2633;}
+/* Base's local dev gate (the signed-out hand-off page): the same card, mark and heavy heading over its inline style. */
+html:not(.rer-themed) body:not(:has(> .door)) {min-height:100vh;background:var(--bl-white) linear-gradient(180deg,var(--bl-lilac-pale),var(--bl-white) 340px) no-repeat;}
+html:not(.rer-themed) body > main:not(.door) {max-width:520px;margin:64px auto;padding:44px 48px;background:var(--bl-white);border:1px solid var(--bl-line);border-radius:var(--bl-radius);box-shadow:var(--bl-shadow-lift);}
+html:not(.rer-themed) body > main > .brand {gap:10px;font:900 30px/1 var(--bl-font-display);font-variation-settings:'wdth' 50;letter-spacing:.005em;color:var(--bl-ink);}
+html:not(.rer-themed) body > main > .brand img {width:30px;height:30px;}
+html:not(.rer-themed) body > main > h1 {font:900 36px/1.1 var(--bl-font-display);font-variation-settings:'wdth' 52;word-spacing:.14em;color:var(--bl-ink);margin:0 0 12px;}
+/* A dev or demo instance's label ("Dev", "Demo") after the wordmark: a small lilac tag, not part of the name. */
+html.rer-themed main [data-rer-name]::after, .door .word::after, body > main > .brand [data-rer-name]::after {
+  font:700 max(11px,.34em)/1 var(--bl-font-ui);font-variation-settings:normal;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--bl-lilac-deep);vertical-align:.9em;margin-left:.15em;}
 @media(max-width:760px) {
-  .blotter {padding:24px;--corner:28px;}
-  html.rer-themed body {padding:32px 16px;}
-  html.rer-themed body > main {padding:48px 40px;--corner:32px;}
-  html.rer-themed body > main::before {inset:24px;}
-  html.rer-themed main .brand,html.rer-themed main .rer-brand {font-size:23px;margin-bottom:28px;justify-content:flex-start;}
-  html.rer-themed main h1 {font-size:30px;margin-bottom:24px;}
-  html.rer-themed main:has(input[type=email]) h1 {text-align:left;}
+  html:not(.rer-themed) body > main:not(.door) {margin:24px 16px;padding:32px 22px;}
+  html.rer-themed body {padding:24px 16px;place-items:start center;}
+  html.rer-themed body > main {padding:32px 22px;}
+  html.rer-themed main h1 {font-size:34px;}
   html.rer-themed main dl {gap:0 12px;font-size:14px;}
-  html.rer-themed main label {font-size:15px;}
-  .door .door-card {padding:48px 40px;}
-  .door .door-card::before {inset:24px;}
-  .door .door-card h1 {font-size:36px;}
+  .door .door-card {padding:40px 22px;}
   .door .door-card .line {font-size:18px;}
 }
