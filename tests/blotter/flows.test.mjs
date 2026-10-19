@@ -1379,6 +1379,48 @@ test('PORTAL-003 client progress, secure questions and to-dos: the client asks a
   assert.ok(!JSON.stringify(view).includes('late fees'));
 });
 
+test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and a client meeting shows available hours, overloaded staff and affected jobs; adjusting an estimate updates totals and conflict explanations', async () => {
+  const season = await h.json('/templates', { name: '1040 season', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms', tasks: [
+    { label: 'Prepare federal return', assignee: 'preparer', dueFrom: 'due', dueDays: -2, estimateMinutes: 900 },
+    { label: 'Prepare state return', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 600 },
+    { label: 'Assemble e-file', assignee: 'preparer', dueFrom: 'due', dueDays: 0 }] }, h.owner);
+  const ng = await h.json('/clients', { name: 'Ng family', fields: { service_tier: 'Plus' } }, h.owner), park = await h.json('/clients', { name: 'Park family', fields: { service_tier: 'Plus' } }, h.owner);
+  const people = { templateId: season.id, periodStart: '2028-01-01', dueNote: 'Filing', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const due = await h.json('/jobs', { ...people, clientId: ng.id, dueDate: '2029-03-09' }, h.owner);
+  await h.json('/jobs', { ...people, clientId: park.id, dueDate: '2029-03-16' }, h.owner);
+  // The principal loads budgets, leave and a client meeting; nobody else plans hours.
+  await h.json('/capacity/people', { email: 'preparer@example.test', weeklyMinutes: 2400, skills: ['1040'] }, reviewer, 403);
+  await h.json('/capacity/people', { email: 'preparer@example.test', weeklyMinutes: 2400, skills: ['1040'] }, h.owner);
+  await h.json('/capacity/people', { email: 'reviewer@example.test', weeklyMinutes: 1800, skills: ['Review', '1040'] }, h.owner);
+  await h.json('/capacity/blocks', { email: 'preparer@example.test', kind: 'leave', startsOn: '2029-03-07', endsOn: '2029-03-08', label: 'Family leave' }, h.owner);
+  await h.json('/capacity/blocks', { email: 'reviewer@example.test', kind: 'meeting', startsOn: '2029-03-06', minutesPerDay: 120, label: 'Ng tax planning meeting', jobId: due.id }, h.owner);
+  await h.json('/capacity/blocks', { email: 'reviewer@example.test', kind: 'meeting', startsOn: '2029-03-06', label: 'No length' }, h.owner, 400);
+  await h.json(`/jobs/${due.id}/time`, { date: '2029-03-05', minutes: 45, description: 'Organizer intake' }, preparer);
+  await h.json('/capacity?week=2029-03-06', undefined, h.owner, 400);
+  const week = () => h.json('/capacity?week=2029-03-05&service=1040%20season', undefined, h.owner);
+  let view = await week();
+  const row = (v, address) => v.people.find(p => p.email === address);
+  let pat = row(view, 'preparer@example.test'), riley = row(view, 'reviewer@example.test');
+  assert.deepEqual([pat.weeklyMinutes, pat.leaveMinutes, pat.commitmentMinutes, pat.availableMinutes, pat.demandMinutes, pat.overMinutes, pat.overloaded, pat.actualMinutes], [2400, 960, 0, 1440, 1500, 60, true, 45]);
+  assert.deepEqual([riley.weeklyMinutes, riley.commitmentMinutes, riley.availableMinutes, riley.demandMinutes, riley.overloaded, riley.skills], [1800, 120, 1680, 0, false, ['review', '1040']]);
+  // Drill-down: estimates per job, with actual time beside them (never subtracted); the next week's job is not counted.
+  assert.deepEqual(pat.jobs.map(l => [l.jobId, l.kind, l.label, l.due, l.estimateMinutes, l.actualMinutes]), [[due.id, 'preparation', 'Prepare federal return', '2029-03-07', 900, 45], [due.id, 'preparation', 'Prepare state return', '2029-03-08', 600, 45]]);
+  assert.deepEqual(view.unscheduled.map(u => [u.jobId, u.label, u.reason]), [[due.id, 'Assemble e-file', 'no estimate'], [due.id, 'Review', 'no review estimate']]);
+  assert.deepEqual(view.conflicts.map(c => [c.jobId, c.reasons]), [[due.id, ['Pat Preparer is over capacity by 1 h this week', 'Pat Preparer is on leave 2029-03-07 to 2029-03-08, before the due date 2029-03-09', '“Assemble e-file” has no estimate', '“Review” has no review estimate']]]);
+  // Estimating the review adds review demand; reducing a task estimate clears the overload and its explanation.
+  await h.json(`/jobs/${due.id}/estimates`, { review: true, minutes: 240 }, reviewer);
+  await h.json(`/jobs/${due.id}/estimates`, { ordinal: 1, minutes: 600 }, preparer);
+  await h.json(`/jobs/${due.id}/estimates`, { ordinal: 1, minutes: 600 }, await h.login('quinn@example.test'), 404);
+  const before = view.totals;
+  view = await week(); pat = row(view, 'preparer@example.test'); riley = row(view, 'reviewer@example.test');
+  assert.deepEqual([pat.demandMinutes, pat.overloaded, riley.demandMinutes, riley.jobs.map(l => [l.kind, l.estimateMinutes])], [1200, false, 240, [['review', 240]]]);
+  assert.equal(view.totals.demandMinutes, before.demandMinutes - 300 + 240);
+  assert.deepEqual(view.conflicts.map(c => c.reasons), [['Pat Preparer is on leave 2029-03-07 to 2029-03-08, before the due date 2029-03-09', '“Assemble e-file” has no estimate']]);
+  // Filter by skill; a preparer sees only their own row.
+  assert.deepEqual((await h.json('/capacity?week=2029-03-05&skill=review', undefined, h.owner)).people.map(p => p.email), ['reviewer@example.test']);
+  assert.deepEqual((await h.json('/capacity?week=2029-03-05', undefined, preparer)).people.map(p => p.email), ['preparer@example.test']);
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

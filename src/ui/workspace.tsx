@@ -6,11 +6,12 @@ import { Billing } from './billing';
 import { Proposals } from './proposals';
 import { MoveIn } from './move-in';
 import { Team } from './team';
+import { Capacity } from './capacity';
 import { MfaGate } from './security';
 
-const TABS = ['Jobs', 'Clients & templates', 'Time & billing', 'Preparations', 'Move in', 'Team & safety'] as const;
+const TABS = ['Jobs', 'Capacity', 'Clients & templates', 'Time & billing', 'Preparations', 'Move in', 'Team & safety'] as const;
 type Tab = typeof TABS[number];
-const visible = (role: string): Tab[] => role === 'owner' ? [...TABS] : role === 'reviewer' ? TABS.filter(t => t !== 'Move in') : ['Jobs', 'Preparations', 'Team & safety'];
+const visible = (role: string): Tab[] => role === 'owner' ? [...TABS] : role === 'reviewer' ? TABS.filter(t => t !== 'Move in') : ['Jobs', 'Capacity', 'Preparations', 'Team & safety'];
 
 export function Workspace() {
   const [state, setState] = useState<Row>(), [tab, setTab] = useState<Tab>('Jobs'), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -44,6 +45,7 @@ export function Workspace() {
         {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
           : !state ? (!error && <p>Opening your workspace…</p>) : <fieldset disabled={busy} className="content">
           {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
+          {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
           {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
           {tab === 'Time & billing' && <Billing actor={state.actor} run={run} tick={tick} />}
           {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
