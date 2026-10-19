@@ -9,7 +9,7 @@ export function ClientHistoryDetails(props: { clientId: string; people: Row[]; r
   return <details onToggle={e => setShown((e.target as HTMLDetailsElement).open)}><summary>History and unresolved items</summary>{shown && <ClientHistory {...props} />}</details>;
 }
 
-function ClientHistory({ clientId, people, run, open }: { clientId: string; people: Row[]; run: Run; open: (id: string) => void }) {
+export function ClientHistory({ clientId, people, run, open }: { clientId: string; people: Row[]; run: Run; open: (id: string) => void }) {
   const [filter, setFilter] = useState<Row>({ q: '', kind: '', owner: '' }), [data, setData] = useState<Row>(), [tick, setTick] = useState(0);
   useEffect(() => { api(`/clients/${clientId}/history?${new URLSearchParams(filter)}`).then(setData).catch(e => run(async () => { throw e; })); }, [clientId, filter, tick]);
   if (!data) return null;

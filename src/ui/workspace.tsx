@@ -8,6 +8,7 @@ import { MoveIn } from './move-in';
 import { Team } from './team';
 import { Capacity } from './capacity';
 import { MfaGate } from './security';
+import { Search } from './search';
 
 const TABS = ['Jobs', 'Capacity', 'Clients & templates', 'Time & billing', 'Preparations', 'Move in', 'Team & safety'] as const;
 type Tab = typeof TABS[number];
@@ -44,6 +45,7 @@ export function Workspace() {
         {notice && <p className="notice" role="status">{notice}</p>}
         {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
           : !state ? (!error && <p>Opening your workspace…</p>) : <fieldset disabled={busy} className="content">
+          <Search state={state} run={run} open={open} />
           {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
           {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
           {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
