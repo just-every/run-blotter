@@ -6,7 +6,7 @@ const mapping={client_id:'Account',client_name:'Entity',entity_type:'Type',ein:'
 const header='Account,Entity,Type,Tax,Contact,Name,Email,Role,Authorized,Portal,Requests,Mail,Tags';
 const line=(i,c='one',extra={})=>[i,`Client ${i}`,extra.type??'business','',c,`Contact ${c}`,`${c}.${i}@example.test`,'primary','true','true','true','true','1040'].join(',');
 
-test('IMPORT-001 mapped entity/contact CSV: write-free errors and duplicate review, exact file/mapping commit, resume, source replay, native matching without grants, conflict-preserving undo and protected portable originals',async()=>{
+test('BASE-001 / IMPORT-001 mapped entity/contact CSV: write-free errors and duplicate review, exact file/mapping commit, resume, source replay, native matching without grants, conflict-preserving undo and protected portable originals',async()=>{
  const h=await harness();let restored;
  try{
   const existing=await h.json('/clients',{name:'Client native',contacts:[{name:'Contact one',email:'one.native@example.test',roles:['primary'],authorized:true,portal:true,requestConsent:true,emailConsent:true}]},h.owner);

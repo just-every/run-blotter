@@ -6,7 +6,7 @@ const person=(name,email)=>({name,email,roles:['primary'],authorized:true,portal
 const ref=x=>encodeURIComponent(x);
 const linkToken=r=>new URL(r.portalUrl).pathname.split('/').at(-1);
 
-test('DOC-002 internal workpapers and selected-contact packets: public previews, scoped reads, expiring rotated/revoked shares, authority withdrawal, audit and portable grants without tokens',async()=>{
+test('BASE-001 / DOC-002 internal workpapers and selected-contact packets: public previews, scoped reads, expiring rotated/revoked shares, authority withdrawal, audit and portable grants without tokens',async()=>{
  const h=await harness();let target;
  try{
   for(const email of ['prep@example.test','outside@example.test']){await h.json('/team',{email,name:email,role:'preparer'},h.owner);await h.json('/team/invite',{email},h.owner)}

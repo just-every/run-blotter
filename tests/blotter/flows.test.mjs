@@ -22,7 +22,7 @@ before(async () => {
 });
 after(async () => { await h?.close(); });
 
-test('sessions, roles and origin checks guard every handler', async () => {
+test('BASE-001 / sessions, roles and origin checks guard every handler', async () => {
   await h.json('/state', undefined, '', 401);
   await h.json('/clients', { name: 'X' }, '', 401);
   await h.json('/clients', { name: 'Denied' }, preparer, 403);
@@ -34,7 +34,7 @@ test('sessions, roles and origin checks guard every handler', async () => {
   await h.json('/import/preview', { csv: 'client_name\nA' }, reviewer, 403);
 });
 
-test('a job starts from a template and is visible only to its people', async () => {
+test('BASE-001 / a job starts from a template and is visible only to its people', async () => {
   const start = { clientId: client.id, templateId: template.id, periodStart: '2026-07-01', dueDate: '2026-10-28', dueNote: 'ATO lodgement program', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
   await h.json('/jobs', { ...start, reviewerEmail: 'preparer@example.test' }, h.owner, 400);
   await h.json('/jobs', { ...start, dueDate: '2026-02-30' }, h.owner, 400);
@@ -53,7 +53,7 @@ test('a job starts from a template and is visible only to its people', async () 
   assert.deepEqual(detail.requests.map(r => r.status), ['requested', 'requested']);
 });
 
-test('a reminder mails a single-use-generation upload link; the client uploads; staff accept', async () => {
+test('BASE-001 / a reminder mails a single-use-generation upload link; the client uploads; staff accept', async () => {
   const first = await h.json(`/jobs/${job.id}/reminders`, { message: 'Thanks!' }, preparer);
   const sent = h.mails.at(-1);
   assert.deepEqual(sent.to, ['mia@harbourlane.example']);
@@ -82,7 +82,7 @@ test('a reminder mails a single-use-generation upload link; the client uploads; 
   for (const s of detail.steps) await h.json(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done: true }, preparer);
 });
 
-test('the assigned reviewer signs off; the preparer cannot; sign-off closes the upload link', async () => {
+test('BASE-001 / the assigned reviewer signs off; the preparer cannot; sign-off closes the upload link', async () => {
   let detail = await h.json('/jobs/' + job.id, undefined, preparer);
   detail = await h.json(`/jobs/${job.id}/submit`, { revision: detail.job.revision }, preparer);
   assert.equal(detail.job.status, 'review');
@@ -162,7 +162,7 @@ test('roll forward creates the next period once, with a recorded due date', asyn
   assert.deepEqual(detail.requests.map(r => r.status), ['requested', 'requested']);
 });
 
-test('time snapshots rates; exports reserve each item once and approved CSVs never change', async () => {
+test('BASE-001 / time snapshots rates; exports reserve each item once and approved CSVs never change', async () => {
   await h.json(`/jobs/${job.id}/time`, { date: '2026-10-02', minutes: 50, description: 'Reconcile' }, preparer, 409);
   await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 9500, effectiveFrom: '2026-10-01' }, h.owner);
   const t1 = await h.json(`/jobs/${job.id}/time`, { date: '2026-10-02', minutes: 50, description: 'Reconcile bank' }, preparer);
@@ -590,7 +590,7 @@ test('COLLAB-001 review alerts and internal threads: mention, correction, unread
   assert.ok(!h.mails.some(m => m.to.includes('sam@cove.example') && /June statement|monthly fee/.test(m.text)));
 });
 
-test('agent keys only prepare; a person approves or declines and the decision is recorded', async () => {
+test('BASE-001 / agent keys only prepare; a person approves or declines and the decision is recorded', async () => {
   const key = await h.json('/keys', { label: 'Practice assistant' }, h.owner), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/keys', { label: 'Nope' }, preparer, 403);
   const context = await h.json('/agent/context', undefined, '', 200, auth);
@@ -619,7 +619,7 @@ test('agent keys only prepare; a person approves or declines and the decision is
   await h.json('/agent/context', undefined, '', 401, auth);
 });
 
-test('IMPORT-001 legacy client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {
+test('BASE-001 / IMPORT-001 legacy client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {
   const file = await readFile(new URL('../../fixtures/client-list.csv', import.meta.url), 'utf8');
   const before = (await h.json('/state', undefined, h.owner)).clients.length;
   const preview = await h.json('/import/preview', { csv: file }, h.owner);
@@ -645,7 +645,7 @@ test('IMPORT-001 legacy client list move-in: dry run, exact commit, journal, rep
   assert.ok(after.some(c => c.id === used.id), 'A client with a job survives undo');
 });
 
-test('erasing a file removes its bytes everywhere and fences older archives', async () => {
+test('BASE-001 / erasing a file removes its bytes everywhere and fences older archives', async () => {
   oldArchive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
   assert.ok(oldArchive.includes('runeditrun-portability'));
   await h.json(`/files/${erasedFile.id}/erase`, { confirm: erasedFile.name, reason: 'Client asked' }, reviewer, 403);
@@ -656,7 +656,7 @@ test('erasing a file removes its bytes everywhere and fences older archives', as
   assert.ok(!newArchive.includes(b64('INV-1 $110')), 'Erased bytes are absent from new archives');
 });
 
-test('restore needs an empty installation, an intact archive and the latest erasure journal', async () => {
+test('BASE-001 / restore needs an empty installation, an intact archive and the latest erasure journal', async () => {
   await h.json('/restore', { archive: newArchive, confirm: 'RESTORE' }, h.owner, 409);
   const target = await harness();
   try {
@@ -1249,7 +1249,7 @@ test('TIME-001 activity suggestions: only consented actions suggest time with th
   assert.deepEqual((await mine()).pending, []);
 });
 
-test('ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review transfer, move everything to two successors in one batch, keep past authors and revoke sessions and agent keys', async () => {
+test('BASE-001 / ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review transfer, move everything to two successors in one batch, keep past authors and revoke sessions and agent keys', async () => {
   await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'preparer' }, h.owner);
   await h.json('/team/invite', { email: 'leaving@example.test' }, h.owner);
   const lee = await h.login('leaving@example.test');
@@ -1855,7 +1855,7 @@ test('WORK-006 plans, boards and calendars: plan a preparer’s week from the ov
   assert.deepEqual((await h.json(`/calendar?${range}&workType=${type}&client=`, undefined, h.owner)).days.find(d => d.date === day(-1)).jobs.map(j => j.id), [soon.id]);
 });
 
-test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
+test('BASE-001 / ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);
   await h.json('/team/mfa-policy', { required: true }, h.owner);

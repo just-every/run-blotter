@@ -5,7 +5,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { harness } from './harness.mjs';
 import { createServer } from 'node:http';
 
-test('CRM-005 public intake / CRM-003 history / DOC-002 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
+test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
   const secret = 'test-intake-signing-key-not-a-real-secret', h = await harness({bindings:{SESSION_SECRET:secret}});let restored;
   try {
     const page = await h.request('/intake'), html = await page.text();
