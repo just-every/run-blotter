@@ -12,7 +12,7 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
   const estimate = (line: Row) => <Form label="Adjust estimate" submit={async data => run(() => api(`/jobs/${line.jobId}/estimates`, line.ordinal ? { ordinal: line.ordinal, minutes: Number(data.minutes) } : { review: true, minutes: Number(data.minutes) }), 'Estimate updated')}>
     <Field label="Estimate in minutes" name="minutes" type="number" value={line.estimateMinutes ?? ''} />
   </Form>;
-  return <div className="stack">
+  return <div className="stack capacity-view">
     <section className="panel">
       <Form label="Show" submit={async data => setFilter({ week: monday(String(data.week)), skill: String(data.skill ?? ''), service: String(data.service ?? '') })}>
         <div className="row"><Field label="Week of" name="week" type="date" value={filter.week} /><Field label="Skill" name="skill" required={false} value={filter.skill} />

@@ -143,4 +143,5 @@ main {padding:32px;min-width:0;max-width:1184px;width:100%;}
 /* WORK-007 board: one column per stage. */
 .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}
 .board-column{display:flex;flex-direction:column;gap:8px;min-width:0}
-.board-column .record{border-left:4px solid currentColor}
+.board-column .record{border-left:4px solid currentColor;padding-left:10px}
+.board-column .text-action,.capacity-view .text-action{white-space:normal;overflow-wrap:anywhere;text-align:left;max-width:100%}
