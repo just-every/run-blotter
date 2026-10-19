@@ -3,6 +3,7 @@
 // date suggests, and the next period once the current one is rolled forward.
 // Labels and calendar steps come from Blotter's own jobs.ts; nothing here
 // computes a tax due date: each engagement's recorded due day is a person's note.
+import { localDay, officeAt } from './clock';
 import { addMonths, periodLabel } from '../jobs';
 import { amount } from '../billing';
 import { weekStart } from '../timesheets';
@@ -15,28 +16,27 @@ const STEP = { monthly: 1, quarterly: 3, annual: 12 } as const;
 const HISTORY = { monthly: 2, quarterly: 1, annual: 1 } as const;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (iso: string) => iso.slice(0, 10);
-const at = (date: string, hour = 9) => Date.parse(`${date}T00:00:00Z`) + (hour - 10) * HOUR; // Sydney office hours, as UTC
+const at = officeAt;
 const iso = (ms: number) => new Date(ms).toISOString();
 const between = (from: number, to: number, f: number) => Math.round(from + (to - from) * Math.min(1, Math.max(0, f)));
 const lastDay = (start: string, months: number) => day(new Date(Date.parse(addMonths(start, months) + 'T00:00:00Z') - DAY).toISOString());
 
 /** The due date the practice recorded for a period, following each engagement's note. */
 export function dueDate(e: Engagement, start: string) {
-  const [, m] = start.split('-').map(Number);
   const on = (months: number, dayOfMonth: number) => addMonths(start, months).slice(0, 8) + String(dayOfMonth).padStart(2, '0');
   switch (e.template.key) {
     case 'close': return on(1, 12);
     case 'payroll': return on(0, 28);
-    case 'bas': return m === 10 ? on(4, 28) : e.dueNote.startsWith('ATO') ? on(4, 25) : on(3, 28);
-    case 'company': return on(22, 15);
-    default: return on(20, 31);
+    case 'salesTax': return on(3, 20);
+    case 'company': return on(15, 15);
+    default: return on(15, 15);
   }
 }
 function periodStart(recurrence: keyof typeof STEP, date: string) {
   const [y, m] = date.split('-').map(Number);
   if (recurrence === 'monthly') return `${y}-${String(m).padStart(2, '0')}-01`;
   if (recurrence === 'quarterly') return `${y}-${String(m - (m - 1) % 3).padStart(2, '0')}-01`;
-  return `${m >= 7 ? y : y - 1}-07-01`;
+  return `${y}-01-01`;
 }
 
 export type Row = Record<string, unknown>;
@@ -47,20 +47,20 @@ const emptyWork = () => ({
 });
 
 const rates = new Map<string, number>(team.map(m => [m.email, m.rateCents]));
-const notes = ['Bank reconciled; GST coding checked.', 'Reconciled to statements; nothing unusual.', 'Checked against last period; variances explained.', 'Tied out to source documents. Good to go.', 'Reviewed. Two coding fixes made with the preparer.'];
+const notes = ['Bank reconciled; sales-tax coding checked.', 'Reconciled to statements; nothing unusual.', 'Checked against last period; variances explained.', 'Tied out to source documents. Good to go.', 'Reviewed. Two coding fixes made with the preparer.'];
 const nudges = ['Just the last few documents to go, thank you!', 'Could you send these by Friday so we can finish on time?', ''];
-const minutesFor = { bas: 55, close: 70, payroll: 35, company: 110, individual: 45 } as Record<string, number>;
+const minutesFor = { salesTax: 55, close: 70, payroll: 35, company: 110, individual: 45 } as Record<string, number>;
 
 export function practiceWork(now: Date, owner: { id: string; email: string }) {
-  const work = emptyWork(), clock = now.getTime(), today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(now);
+  const work = emptyWork(), clock = now.getTime(), today = localDay(now);
   rates.set(owner.email, principal.rateCents);
   const who = (person: string) => person === 'owner' ? owner.email : person;
-  // People work office hours: a moment's place in its Sydney day maps into 8:30 to 17:30 (order kept).
-  const office = (ms: number) => { const midnight = Math.floor((ms + 10 * HOUR) / DAY) * DAY - 10 * HOUR, mapped = Math.round(midnight + (8.5 + (ms - midnight) / DAY * 9) * HOUR); return mapped < clock - 10 * 60_000 ? mapped : ms; };
+  // Map each local day into New York office hours, using that date's DST offset.
+  const office = (ms: number) => { const date = localDay(ms), midnight = at(date, 0), mapped = at(date, 8.5 + (ms - midnight) / DAY * 9); return mapped < clock - 10 * 60_000 ? mapped : ms; };
   const audit = (actor: string, action: string, objectId: string, detail: string, ms: number) =>
     work.audit.push({ id: fixedId(`audit:${action}:${objectId}:${ms}`), actor, action, object_id: objectId, detail, at: iso(ms) });
   // Two jobs that tell a story: one stuck waiting on the client, one signed off but not yet rolled forward.
-  const stuck = 'Ironbark Landscaping', unrolled = 'Fig Tree Dental Pty Ltd:close';
+  const stuck = 'Ironbark Landscaping', unrolled = 'Fig Tree Dental LLC:close';
 
   for (const e of engagements) {
     const t = e.template, recurrence = t.recurrence, key = `${e.client.name}:${t.key}`;
@@ -68,7 +68,9 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
     // The current period: the first whose due date is no more than six days past.
     let current = periodStart(recurrence, today);
     while (dueDate(e, addMonths(current, -STEP[recurrence])) >= day(iso(at(today) - 6 * DAY))) current = addMonths(current, -STEP[recurrence]);
-    const isStuck = e.client.name === stuck && t.key === 'bas';
+    // The ready-to-roll story is a completed month, never one whose work has not begun.
+    if (key === unrolled) while (lastDay(current, 1) >= today) current = addMonths(current, -1);
+    const isStuck = e.client.name === stuck && t.key === 'salesTax';
     const first = addMonths(current, -STEP[recurrence] * HISTORY[recurrence]);
     let previous: Row | undefined, start = first;
     for (let n = 0; ; n++, start = addMonths(start, STEP[recurrence])) {
@@ -102,7 +104,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       const finish = status === 'open' ? Math.max(begin, workEnd) : submitted;
       const job: Row = {
         id, client_id: e.client.id, template_id: t.id, title: t.name, period_start: start, period_label: periodLabel(start, recurrence),
-        due_date: due, due_note: e.dueNote, preparer_email: preparer, reviewer_email: reviewer, status, fee_cents: t.feeCents,
+        due_date: due, due_note: e.dueNote, preparer_email: preparer, reviewer_email: reviewer, status, fee_cents: t.feeCents, currency: 'USD',
         rolled_from: previous?.id ?? null, revision: fixedId(`revision:${id}:${status}`), created_by: previous ? reviewer : owner.email,
         created_channel: 'person', created_at: iso(created),
         submitted_by: submitted ? preparer : null, submitted_at: submitted ? iso(submitted) : null,
@@ -117,6 +119,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       const sent = office(Math.max(created + 20 * 60_000, at(day(iso(at(end) + DAY)), 9)));
       const reminders: number[] = e.client.contactEmail && sent < finish ? [sent] : [];
       const states = t.requests.map((label, i) => {
+        if (isStuck && i === t.requests.length - 1) return 'requested';
         if (status !== 'open') return 'accepted';
         const q = chance(`${id}:${i}`);
         return q < progress ? 'accepted' : q < progress + 0.3 && progress > 0 ? 'received' : 'requested';
@@ -175,7 +178,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
 
 function addTime(work: Work, jobId: string, person: string, ms: number, minutes: number, description: string) {
   const rate = rates.get(person) ?? 0, entryId = fixedId(`time:${jobId}:${person}:${ms}`);
-  work.time.push({ id: entryId, job_id: jobId, person_email: person, date: day(iso(ms + 10 * HOUR)), minutes, rate_cents: rate, amount_cents: amount(minutes, rate), rate_source: 'staff', rate_card_id: fixedId('rate:' + person),
+  work.time.push({ id: entryId, job_id: jobId, person_email: person, date: localDay(ms), currency: 'USD', minutes, rate_cents: rate, amount_cents: amount(minutes, rate), rate_source: 'staff', rate_card_id: fixedId('rate:' + person),
     description, created_by: person, created_channel: 'person', created_at: iso(ms) });
   work.audit.push({ id: fixedId(`audit:time:${entryId}`), actor: person, action: 'time.added', object_id: entryId, detail: `${minutes} min`, at: iso(ms) });
   // The sample practice's time is submitted and approved (by Riley, or Priya for Riley's own), so it is ready to bill.
@@ -187,7 +190,7 @@ function addTime(work: Work, jobId: string, person: string, ms: number, minutes:
 function document(e: Engagement, label: string, period: string, start: string, end: string, i: number) {
   const slug = label.toLowerCase().split(/[^a-z]+/).filter(Boolean).slice(0, 2).join('-'), when = `${MONTHS[Number(start.slice(5, 7)) - 1].toLowerCase()}-${start.slice(0, 4)}`;
   if (/statement|register|timesheet|bank/i.test(label) && i % 2 === 0) {
-    const rows: (string | number)[][] = [['date', 'description', 'amount']];
+    const rows: (string | number)[][] = [['date', 'description', 'amount_usd']];
     for (let n = 0; n < 6; n++) rows.push([addMonths(start, 0).slice(0, 8) + String(3 + n * 4).padStart(2, '0'), ['Card sales', 'Supplier payment', 'Transfer', 'Rent', 'Wages', 'Utilities'][n], ((chance(`${e.client.name}:${start}:${n}`) * 4000 - 1500)).toFixed(2)]);
     return { name: `${slug}-${when}.csv`, mime: 'text/csv', bytes: csv(rows) };
   }

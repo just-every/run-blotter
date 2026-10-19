@@ -1,7 +1,7 @@
 // Timesheets (TIME-002): submit a week, correct returned entries, approve or
 // return others' time, close billing periods, and read an entry's history.
 import { useEffect, useState } from 'react';
-import { api, aud, Empty, Field, Form, Status, today, when, type Row, type Run } from './common';
+import { api, money, Empty, Field, Form, Status, today, when, type Row, type Run } from './common';
 
 const useTimesheets = (run: Run, tick: number) => {
   const [data, setData] = useState<Row>();
@@ -41,7 +41,7 @@ export function TimeApprovals({ actor, run, tick }: { actor: Row; run: Run; tick
     <h2>Timesheets to approve</h2>
     <p className="muted">Only approved time is ready to bill. Return an entry with a reason and its person corrects it.</p>
     {!waiting.length ? <Empty>No submitted time is waiting.</Empty> : <ul className="list">{waiting.map(e => <li key={e.id}>
-      <strong>{e.person_email}</strong> · {e.date} · {e.client} · {e.job} · {e.description} · {e.minutes} min · {aud(e.amount_cents)}{e.billable ? '' : ' · not billable'}
+      <strong>{e.person_email}</strong> · {e.date} · {e.client} · {e.job} · {e.description} · {e.minutes} min · {money(e.amount_cents, e.currency)}{e.billable ? '' : ' · not billable'}
       <div className="actions">
         <button onClick={() => run(() => api(`/time/${e.id}/review`, { decision: 'approve' }), 'Time approved')}>Approve</button>
         <details><summary>Return</summary><Form label="Return entry" submit={async data => run(() => api(`/time/${e.id}/review`, { decision: 'return', reason: data.reason }), 'Returned to its person')}><Field label="Reason" name="reason" /></Form></details>
@@ -65,7 +65,7 @@ export function EntryHistory({ entryId, owner, approved, run }: { entryId: strin
     <summary>History</summary>
     {history && <ul className="list">
       {history.review && <li>Submitted {when(history.review.submitted_at)}{history.review.decided_by && ` · ${history.review.status} by ${history.review.decided_by} ${when(history.review.decided_at)}`}{history.review.reason && `: ${history.review.reason}`}</li>}
-      {history.adjustments.map((a: Row) => <li key={a.id}>Adjustment {a.minutes > 0 ? '+' : ''}{a.minutes} min ({aud(a.amount_cents)}) by {a.created_by} {when(a.created_at)}: {a.reason}</li>)}
+      {history.adjustments.map((a: Row) => <li key={a.id}>Adjustment {a.minutes > 0 ? '+' : ''}{a.minutes} min ({money(a.amount_cents, a.currency)}) by {a.created_by} {when(a.created_at)}: {a.reason}</li>)}
       {history.audit.map((a: Row) => <li key={a.id}><small className="muted">{when(a.at)} {a.actor} · {a.action}{a.detail && ` · ${a.detail}`}</small></li>)}
     </ul>}
     {owner && approved && <Form label="Post adjustment" submit={async data => run(async () => { await api(`/time/${entryId}/adjust`, { minutes: Number(data.minutes), reason: data.reason }); setHistory(undefined); }, 'Adjustment posted; the original entry is unchanged')}>

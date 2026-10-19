@@ -135,7 +135,7 @@ test('time snapshots rates; exports reserve each item once and approved CSVs nev
   await h.json(`/exports/${draft.id}/approve`, { revision: listed.revision, reviewNote: 'Checked' }, reviewer, 403);
   await h.json(`/exports/${draft.id}/approve`, { revision: listed.revision, reviewNote: 'Checked against job records' }, h.owner);
   const csvA = await (await h.request(`/api/blotter/exports/${draft.id}/csv`, undefined, h.owner)).text();
-  assert.match(csvA, /,46917,AUD\r\n$/);
+  assert.match(csvA, /,46917,USD\r\n$/);
   assert.ok(csvA.includes(`"'=HYPERLINK(""x"")"`), 'Spreadsheet formulas are neutralised');
   csv = csvA;
   assert.equal(await (await h.request(`/api/blotter/exports/${draft.id}/csv`, undefined, reviewer)).text(), csvA);
@@ -276,7 +276,7 @@ test('TIME-004 expenses: a receipted filing fee with markup is approved and bill
   const listed = (await h.json('/billing', undefined, h.owner)).exports.find(e => e.id === draft.id);
   await h.json(`/exports/${draft.id}/approve`, { revision: listed.revision, reviewNote: 'Receipt checked' }, h.owner);
   const lines = (await (await h.request(`/api/blotter/exports/${draft.id}/csv`, undefined, h.owner)).text()).split('\r\n');
-  assert.match(lines[1], /,expense,2026-11-03,preparer@example\.test,Filing fee: State annual report fee \(cost 4500 cents \+ 10% markup\),,,4950,AUD$/);
+  assert.match(lines[1], /,expense,2026-11-03,preparer@example\.test,Filing fee: State annual report fee \(cost 4500 cents \+ 10% markup\),,,4950,USD$/);
   const download = await h.request(`/api/blotter/expenses/${fee.id}/receipt`, undefined, preparer);
   assert.equal(await download.text(), '%PDF state filing fee receipt');
   // The job shows each expense and counts every approved cost in its margin.
@@ -1016,7 +1016,7 @@ test('CRM-004 merge and undo: an imported duplicate keeps its source ID, takes s
   const state = async () => (await h.json('/state', undefined, h.owner)).clients;
   const copy = (await state()).find(c => c.name === 'Harbour Lane Cafe');
   const proposed = (await h.json('/clients/duplicates', undefined, reviewer)).find(p => [p.a.id, p.b.id].sort().join() === [client.id, copy.id].sort().join());
-  assert.deepEqual(proposed.reasons, ['same EIN', 'same contact email', 'same name']);
+  assert.deepEqual(proposed.reasons, ['same legacy ABN', 'same contact email', 'same name']);
   const before = (await h.json(`/clients/compare?a=${client.id}&b=${copy.id}`, undefined, h.owner)).a.linked;
   assert.ok(before.jobs >= 2 && before.notices >= 1 && before.expenses >= 1 && before.threads >= 1);
   // The imported record survives with the native name and the imported contact; every differing field needs a choice.
@@ -1090,7 +1090,7 @@ test('TIME-001 timers and budgets: a timer survives a new session, stops into sn
   await h.json(`/jobs/${work.id}/time`, { date: '2026-10-20', minutes: 70, description: 'Accounts payable review' }, later);
   const detail = await h.json('/jobs/' + work.id, undefined, reviewer);
   assert.deepEqual(detail.time.map(t => t.minutes).sort((a, b) => a - b), [1, 1, 70]);
-  assert.deepEqual(detail.budget, { budgetMinutes: 60, actualMinutes: 72, actualCents: detail.time.reduce((s, t) => s + t.amount_cents, 0), varianceMinutes: 12 });
+  assert.deepEqual(detail.budget, { currency: 'USD', budgetMinutes: 60, actualMinutes: 72, actualCents: detail.time.reduce((s, t) => s + t.amount_cents, 0), varianceMinutes: 12 });
   // A preparer cannot time a job they cannot see.
   const hidden = await h.json('/jobs', { ...start, periodStart: '2026-07-01', preparerEmail: 'reviewer@example.test' }, h.owner);
   await h.json(`/jobs/${hidden.id}/timer`, { description: 'x' }, preparer, 404);

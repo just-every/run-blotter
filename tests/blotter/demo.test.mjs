@@ -9,7 +9,7 @@ test('Demo: the sample practice opens with work in every state; approvals comple
   try {
     const state = await h.json('/state', undefined, h.owner);
     assert.equal(state.actor.name, 'Jordan Morgan');
-    assert.ok(state.clients.length >= 15 && state.clients.some(c => c.name === 'Harbour Lane Cafe Pty Ltd'));
+    assert.ok(state.clients.length >= 15 && state.clients.some(c => c.name === 'Harbour Lane Cafe LLC'));
     for (const status of ['open', 'review', 'signed_off']) assert.ok(state.jobs.some(j => j.status === status), status);
     assert.notEqual(state.jobs[0].status, 'signed_off', 'work in progress comes first');
     assert.ok(state.people.some(p => p.name === 'Riley Tan' && p.role === 'reviewer'));

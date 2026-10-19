@@ -32,7 +32,7 @@ export function Search({ state, run, open }: { state: Row; run: Run; open: (id: 
       <button type="submit">Search</button>
     </form>
     {found && (!results.length ? <Empty>Nothing you can see matches “{found.q}”.</Empty> : <ul className="list" id="search-results" role="listbox" aria-label="Search results">{results.map((r, n) => <li key={r.type + r.id} role="option" aria-selected={n === at}>
-      <button className={`quiet text-action${n === at ? ' selected' : ''}`} onClick={() => choose(r)}>{r.title}</button> <small className="muted">{r.type}{r.detail && ` · ${r.detail}`}{r.taxId && ` · tax id ${r.taxId}`}{r.snippet && ` · ${r.snippet}`}</small>
+      <button className={`quiet text-action${n === at ? ' selected' : ''}`} onClick={() => choose(r)}>{r.title}</button> <small className="muted">{r.type}{r.detail && ` · ${r.detail}`}{r.taxId && ` · ${r.taxIdType || 'tax id'} ${r.taxId}`}{r.snippet && ` · ${r.snippet}`}</small>
       {r.open.kind === 'file' && <> <a href={`/api/blotter/files/${r.open.fileId}`}>Download</a></>}</li>)}</ul>)}
     {client && <ClientHistory clientId={client} people={state.people} run={run} open={open} />}
   </section>;

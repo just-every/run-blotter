@@ -104,7 +104,7 @@ export async function search(db: D1Database, actor: Actor, query: Data) {
   scored.sort((a, b) => b.score - a.score || String(b.at).localeCompare(String(a.at)));
   return {
     q, type, total: scored.length,
-    results: scored.slice(0, LIMIT).map(({ body, taxId, ...h }) => ({ ...h, ...(h.type === 'client' ? { taxId: taxId ? mask(taxId) : '' } : {}), snippet: snippet(body, terms) })),
+    results: scored.slice(0, LIMIT).map(({ body, taxId, ...h }) => ({ ...h, ...(h.type === 'client' ? { taxId: taxId ? mask(taxId) : '', taxIdType: taxId ? (taxId.length === 11 ? 'legacy ABN' : 'EIN') : '' } : {}), snippet: snippet(body, terms) })),
   };
 }
 

@@ -1,4 +1,5 @@
 // Clients and recurring job templates.
+import { currency } from './currency';
 import { fieldDefs, groups, profileFields, tagList } from './profiles';
 import { pendingStep } from './flow';
 import { templateWork } from './tasks';
@@ -12,10 +13,21 @@ export function abn(value: unknown) {
   return digits;
 }
 
+/** New US identifiers use EIN; the existing column also retains legacy ABNs. */
+export function ein(value: unknown) {
+  const digits = optional(value, 'EIN', 20).replace(/[\s-]/g, '');
+  insist(!digits || /^\d{9}$/.test(digits), 'EIN must have 9 digits');
+  return digits;
+}
+export function clientTaxId(body: Data) {
+  insist(!(body.ein && body.abn), 'Supply an EIN or a legacy ABN, not both');
+  return body.ein !== undefined ? ein(body.ein) : abn(body.abn);
+}
+
 export async function addClient(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const client = {
-    id: id(), name: text(body.name, 'Client name', 200), abn: abn(body.abn),
+    id: id(), name: text(body.name, 'Client name', 200), abn: clientTaxId(body),
     contactName: optional(body.contactName, 'Contact name', 200),
     contactEmail: body.contactEmail ? email(body.contactEmail, 'Contact email') : '',
     fields: profileFields(await fieldDefs(db), body.fields), tags: tagList(body.tags),
@@ -34,10 +46,11 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
   const template = {
     id: id(), name: text(body.name, 'Template name', 120), recurrence,
     ...await templateWork(db, body),
+    currency: currency(body.currency),
     feeCents: integer(body.feeCents ?? 0, 'Fixed fee in cents', 0, 100_000_000),
   };
   await atomic(db, actor, [
-    stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)', template.id, template.name, recurrence, JSON.stringify(template.steps), JSON.stringify(template.requests), JSON.stringify(template.questions), template.feeCents, actor.email, now()),
+    stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?)', template.id, template.name, recurrence, JSON.stringify(template.steps), JSON.stringify(template.requests), JSON.stringify(template.questions), template.feeCents, actor.email, now(), template.currency),
     // Each template has a work type of its own name (WORK-007), the default for its jobs.
     stmt(db, 'INSERT INTO b_work_types(id,name,template_id,created_by,created_at) VALUES(?,?,?,?,?)', 'wt-' + template.id, template.name, template.id, actor.email, now()),
     audit(db, actor, 'template.saved', template.id, template.name),

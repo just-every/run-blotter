@@ -4,6 +4,7 @@
 // preparations. It runs once after the owner exists, never fetches, and writes
 // fixed ids with ON CONFLICT DO NOTHING, so a repeat changes nothing.
 import { runtimeBindings, type Bindings } from './auth.server'
+import { localDay } from './blotter/demo/clock'
 import { digest } from './blotter/model'
 import { fixedId } from './blotter/demo/ids'
 import { clients, principal, team, templates } from './blotter/demo/practice'
@@ -23,7 +24,7 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
   const env = runtimeBindings(original), db = env.DB, clock = now.getTime()
   const owner = await db.prepare("SELECT id,email FROM oa_operators WHERE email=? AND role='owner' AND status='active'").bind(ownerEmail).first<{ id: string; email: string }>()
   if (!owner) throw new Error('The demo owner does not exist yet.')
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(now)
+  const today = localDay(now)
   const work = practiceWork(now, owner), billing = await practiceBilling(work, now, owner, today)
   const opened = clock - 300 * DAY, iso = (ms: number) => new Date(ms).toISOString()
 
@@ -39,9 +40,9 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
     db.prepare('INSERT INTO oa_first_run(singleton,completed_by,completed_at) VALUES(1,?,?) ON CONFLICT(singleton) DO NOTHING').bind(owner.id, clock),
     bulk(db, 'oa_operators', team.map(m => ({ id: m.id, email: m.email, display_name: m.name, role: 'member', status: 'active', created_at: opened + DAY }))),
     bulk(db, 'b_members', team.map(m => ({ email: m.email, name: m.name, role: m.role, active: 1 }))),
-    bulk(db, 'b_rate_cards', people.map(p => ({ id: fixedId('rate:' + p.email), scope: 'staff', person_email: p.email, rate_cents: p.rateCents, effective_from: iso(opened).slice(0, 10), created_by: owner.email, created_at: iso(opened + DAY) }))),
+    bulk(db, 'b_rate_cards', people.map(p => ({ id: fixedId('rate:' + p.email), scope: 'staff', person_email: p.email, rate_cents: p.rateCents, currency: 'USD', effective_from: iso(opened).slice(0, 10), created_by: owner.email, created_at: iso(opened + DAY) }))),
     bulk(db, 'b_clients', Object.values(clients).map((c, n) => ({ id: c.id, name: c.name, abn: c.abn, contact_name: c.contactName, contact_email: c.contactEmail, source: 'native', revision: fixedId('revision:' + c.id), created_at: iso(opened + (2 + n) * DAY) }))),
-    bulk(db, 'b_templates', Object.values(templates).map(t => ({ id: t.id, name: t.name, recurrence: t.recurrence, steps: JSON.stringify(t.steps), requests: JSON.stringify(t.requests), fee_cents: t.feeCents, created_by: owner.email, created_at: iso(opened + DAY) }))),
+    bulk(db, 'b_templates', Object.values(templates).map(t => ({ id: t.id, name: t.name, recurrence: t.recurrence, steps: JSON.stringify(t.steps), requests: JSON.stringify(t.requests), fee_cents: t.feeCents, currency: 'USD', created_by: owner.email, created_at: iso(opened + DAY) }))),
     // Each template's own work type, every job in it, and the status history its dates imply (WORK-007).
     bulk(db, 'b_work_types', Object.values(templates).map(t => ({ id: 'wt-' + t.id, name: t.name, template_id: t.id, created_by: owner.email, created_at: iso(opened + DAY) }))),
     bulk(db, 'b_jobs', work.jobs.map(j => ({ ...j, work_type_id: 'wt-' + j.template_id, open_stage: 'in_progress' }))),

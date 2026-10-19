@@ -1,9 +1,9 @@
 // A job's time budget against actual time, and the person's running timer (TIME-001).
-import { api, aud, Field, Form, when, type Row, type Run } from './common';
+import { api, money, Field, Form, when, type Row, type Run } from './common';
 
 export function TimeBudget({ budget }: { budget: Row }) {
   const over = budget.varianceMinutes > 0;
-  return <p className="muted">Recorded {budget.actualMinutes} min ({aud(budget.actualCents)})
+  return <p className="muted">Recorded {budget.actualMinutes} min ({money(budget.actualCents, budget.currency)})
     {budget.budgetMinutes != null ? <> against a budget of {budget.budgetMinutes} min · {over ? `${budget.varianceMinutes} min over` : `${-budget.varianceMinutes} min left`}</> : ' · no time budget'}</p>;
 }
 

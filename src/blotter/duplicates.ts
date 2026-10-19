@@ -15,7 +15,7 @@ export function nameWords(name: string) {
 }
 export function reasons(a: Data, b: Data) {
   const found: string[] = [];
-  if (a.abn && a.abn === b.abn) found.push('same EIN');
+  if (a.abn && a.abn === b.abn) found.push(String(a.abn).length === 11 ? 'same legacy ABN' : 'same EIN');
   if (a.contact_email && a.contact_email.toLowerCase() === b.contact_email?.toLowerCase()) found.push('same contact email');
   const x = new Set(nameWords(a.name)), y = new Set(nameWords(b.name));
   const shared = [...x].filter(w => y.has(w)).length, union = new Set([...x, ...y]).size;
@@ -23,7 +23,7 @@ export function reasons(a: Data, b: Data) {
   else if (x.size >= 2 && y.size >= 2 && shared / union >= 0.75) found.push('similar name');
   return found;
 }
-const WEIGHT: Record<string, number> = { 'same EIN': 3, 'same contact email': 2, 'same name': 2, 'similar name': 1 };
+const WEIGHT: Record<string, number> = { 'same EIN': 3, 'same legacy ABN': 3, 'same contact email': 2, 'same name': 2, 'similar name': 1 };
 const pair = (a: string, b: string) => a < b ? [a, b] : [b, a];
 
 /** Likely duplicate pairs, strongest first, without pairs a person dismissed. */
@@ -52,7 +52,7 @@ export const linked = async (db: D1Database, id: string) => stmt(db, `SELECT
 /** Every field a merge chooses between, with both values; `source` is shown but each record keeps its own source IDs. */
 export function fieldRows(a: Data, b: Data) {
   const fa = JSON.parse(a.fields), fb = JSON.parse(b.fields);
-  return [['name', 'Name'], ['abn', 'EIN'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
+  return [['name', 'Name'], ['abn', 'Tax ID (EIN or legacy ABN)'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
     .map(([key, label]) => ({ key, label, a: a[key], b: b[key], same: a[key] === b[key] }))
     .concat([...new Set([...Object.keys(fa), ...Object.keys(fb)])].sort().map(key => ({ key: 'fields.' + key, label: key, a: fa[key] ?? '', b: fb[key] ?? '', same: fa[key] === fb[key] })));
 }

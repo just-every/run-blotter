@@ -2,7 +2,7 @@
 // records side by side, merging with a choice for every differing field, recording
 // that a pair is not a duplicate, and the merge history with undo.
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, taxId, Empty, Field, Form, when, type Row, type Run } from './common';
 
 function Compare({ a, b, run }: { a: string; b: string; run: Run }) {
   const [data, setData] = useState<Row>();
@@ -12,7 +12,7 @@ function Compare({ a, b, run }: { a: string; b: string; run: Run }) {
   const choose = data.fields.filter((f: Row) => !f.same && f.key !== 'source');
   return <>
     <table className="table"><thead><tr><th>Field</th><th>{data.a.name}</th><th>{data.b.name}</th></tr></thead>
-      <tbody>{data.fields.map((f: Row) => <tr key={f.key}><td data-label="Field">{f.label}{f.same ? '' : ' ≠'}</td><td data-label={data.a.name}>{String(f.a ?? '') || '—'}</td><td data-label={data.b.name}>{String(f.b ?? '') || '—'}</td></tr>)}
+      <tbody>{data.fields.map((f: Row) => <tr key={f.key}><td data-label="Field">{f.label}{f.same ? '' : ' ≠'}</td><td data-label={data.a.name}>{(f.key === 'abn' ? taxId(f.a ?? '') : String(f.a ?? '')) || '—'}</td><td data-label={data.b.name}>{(f.key === 'abn' ? taxId(f.b ?? '') : String(f.b ?? '')) || '—'}</td></tr>)}
         <tr><td data-label="Field">Linked</td><td data-label={data.a.name}>{counts(data.a.linked)}</td><td data-label={data.b.name}>{counts(data.b.linked)}</td></tr></tbody></table>
     <Form label="Merge" submit={async d => {
       const survivor = d.survivor === 'b' ? data.b.id : data.a.id, merged = survivor === data.a.id ? data.b.id : data.a.id;
@@ -21,7 +21,7 @@ function Compare({ a, b, run }: { a: string; b: string; run: Run }) {
     }}>
       <Field label="Client that keeps its records and id" name="survivor"><select name="survivor"><option value="a">{data.a.name}</option><option value="b">{data.b.name}</option></select></Field>
       {choose.map((f: Row) => <Field key={f.key} label={`Keep ${f.label}`} name={'keep:' + f.key}>
-        <select name={'keep:' + f.key}><option value="a">{String(f.a ?? '') || '(blank)'}</option><option value="b">{String(f.b ?? '') || '(blank)'}</option></select></Field>)}
+        <select name={'keep:' + f.key}><option value="a">{(f.key === 'abn' ? taxId(f.a ?? '') : String(f.a ?? '')) || '(blank)'}</option><option value="b">{(f.key === 'abn' ? taxId(f.b ?? '') : String(f.b ?? '')) || '(blank)'}</option></select></Field>)}
       <Field label="Authority (principal only, when EINs or contact emails differ)" name="authority" required={false} hint="Why these are one client and the surviving contact is authorized for both" />
     </Form>
   </>;

@@ -46,10 +46,10 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
   const jobId = values.id;
   const statements = [
     // A job carries the work type chosen for it, else its template's own (WORK-007), and starts Planned.
-    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage,partner_email)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned',?)`,
+    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage,partner_email,currency)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned',?,?)`,
       jobId, values.clientId, template.id, template.name, values.periodStart, periodLabel(values.periodStart, template.recurrence),
-      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now(), values.workTypeId ?? 'wt-' + template.id, values.partner ?? null),
+      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now(), values.workTypeId ?? 'wt-' + template.id, values.partner ?? null, template.currency),
     historyRow(db, jobId, { stage: null, sub: null }, { stage: 'planned', sub: null }, actor.email),
     ...JSON.parse(template.steps).map((entry: Data, n: number) => stepInsert(db, jobId, entry as never, n)),
     // A task assigned by name lets that person read this job (ACCESS-001); each grant is audited.

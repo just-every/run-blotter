@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, aud, Empty, Field, Form, today, type Row, type Run } from './common';
+import { api, money, Empty, Field, Form, today, type Row, type Run } from './common';
 
 /** Prospects through the firm's stages, lost reasons, winning into a client with onboarding work, and the pipeline report (CRM-005). */
 export function Pipeline({ state, run, tick, open }: { state: Row; run: Run; tick: number; open: (id: string) => void }) {
@@ -8,12 +8,12 @@ export function Pipeline({ state, run, tick, open }: { state: Row; run: Run; tic
   if (!data) return null;
   const openStages = data.stages.filter((s: Row) => s.kind === 'open'), lost = data.stages.find((s: Row) => s.kind === 'lost');
   const group = (rows: Row[], key: string) => <table className="table"><thead><tr><th>{key === 'source' ? 'Source' : 'Owner'}</th><th>Prospects</th><th>Won / lost</th><th>Conversion</th><th>Open fees</th><th>Won fees</th></tr></thead>
-    <tbody>{rows.map(r => <tr key={r[key]}><td data-label={key === 'source' ? 'Source' : 'Owner'}>{r[key]}</td><td data-label="Prospects">{r.prospects} ({r.open} open)</td><td data-label="Won / lost">{r.won} / {r.lost}</td>
-      <td data-label="Conversion">{r.conversionPercent === null ? '—' : `${r.conversionPercent}%`}</td><td data-label="Open fees">{aud(r.openFeeCents)}</td><td data-label="Won fees">{aud(r.wonFeeCents)}</td></tr>)}</tbody></table>;
+    <tbody>{rows.map(r => <tr key={r[key] + r.currency}><td data-label={key === 'source' ? 'Source' : 'Owner'}>{r[key]}</td><td data-label="Prospects">{r.prospects} ({r.open} open)</td><td data-label="Won / lost">{r.won} / {r.lost}</td>
+      <td data-label="Conversion">{r.conversionPercent === null ? '—' : `${r.conversionPercent}%`}</td><td data-label="Open fees">{money(r.openFeeCents, r.currency)}</td><td data-label="Won fees">{money(r.wonFeeCents, r.currency)}</td></tr>)}</tbody></table>;
   return <section className="panel">
     <h2>Prospects</h2>
     {!data.prospects.length ? <Empty>No prospects yet.</Empty> : <ul className="list">{data.prospects.map((p: Row) => <li key={p.id}>
-      <strong>{p.name}</strong> <small className="muted">{p.stage} for {p.stageAgeDays} days · {p.source} · {p.services.join(', ')} · {aud(p.fee_cents)} a year · {p.owner_email}{p.lost_reason && ` · lost: ${p.lost_reason}`}</small>
+      <strong>{p.name}</strong> <small className="muted">{p.stage} for {p.stageAgeDays} days · {p.source} · {p.services.join(', ')} · {money(p.fee_cents, p.currency)} a year · {p.owner_email}{p.lost_reason && ` · lost: ${p.lost_reason}`}</small>
       {p.onboarding_job_id ? <> <button className="quiet text-action" onClick={() => open(p.onboarding_job_id)}>Open onboarding</button></> : <details><summary>Move or win</summary>
         <Form label="Move" submit={async data => run(() => api(`/prospects/${p.id}/stage`, { stageId: data.stageId, reason: data.reason || undefined }), 'Moved')}>
           <div className="row"><Field label="Stage" name="stageId"><select name="stageId">{data.stages.filter((s: Row) => s.kind !== 'won' && s.id !== p.stage_id).map((s: Row) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>

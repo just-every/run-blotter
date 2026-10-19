@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Security } from './security';
 import { MessageTemplates } from './messages';
 import { Offboarding } from './offboarding';
-import { Blotter, api, aud, Empty, Field, Form, SOURCE, today, when, type Row, type Run } from './common';
+import { Blotter, api, money, Empty, Field, Form, SOURCE, today, when, type Row, type Run } from './common';
 
 export function Team({ state, run, tick }: { state: Row; run: Run; tick: number }) {
   const [team, setTeam] = useState<Row>(), [key, setKey] = useState<Row>(), [archive, setArchive] = useState(''), [journal, setJournal] = useState('');
@@ -15,8 +15,8 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
       <h2>People and rates</h2>
       <table className="table"><thead><tr><th>Name</th><th>Role</th><th>Hourly rate</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td data-label="Name">{state.actor.name} (you)</td><td data-label="Role">principal</td><td data-label="Rate">{ownRate === null ? 'not set' : aud(ownRate)}</td><td data-label="Status">active</td></tr>
-          {team.members.map((m: Row) => <tr key={m.email}><td data-label="Name">{m.name}<br /><small className="muted">{m.email}</small></td><td data-label="Role">{m.role}</td><td data-label="Rate">{m.rate_cents === null ? 'not set' : aud(m.rate_cents)}</td><td data-label="Status">{m.active ? 'active' : 'deactivated'}</td></tr>)}
+          <tr><td data-label="Name">{state.actor.name} (you)</td><td data-label="Role">principal</td><td data-label="Rate">{ownRate === null ? 'not set' : money(ownRate, team.ownRateCurrency)}</td><td data-label="Status">active</td></tr>
+          {team.members.map((m: Row) => <tr key={m.email}><td data-label="Name">{m.name}<br /><small className="muted">{m.email}</small></td><td data-label="Role">{m.role}</td><td data-label="Rate">{m.rate_cents === null ? 'not set' : money(m.rate_cents, m.currency)}</td><td data-label="Status">{m.active ? 'active' : 'deactivated'}</td></tr>)}
         </tbody></table>
       <details><summary>Add or change a person</summary>
         <Form label="Save person" submit={async (data, form) => run(async () => { await api('/team', { ...data, active: data.active !== 'false' }); form.reset(); }, 'Person saved')}>
@@ -35,7 +35,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
       <h3>Rate cards</h3>
       <p className="muted">Time uses the first rate in force on its date: client and service, then client, then service, then staff member, then role. Recorded time keeps its rate.</p>
       {!team.rates.length ? <Empty>No rate cards yet.</Empty> : <table className="table"><thead><tr><th>Applies to</th><th>Hourly rate</th><th>From</th></tr></thead>
-        <tbody>{team.rates.map((r: Row) => <tr key={r.id}><td data-label="Applies to">{SOURCE[r.scope]}: {[r.client_name, r.template_name, r.person_email, r.role].filter(Boolean).join(' · ')}</td><td data-label="Rate">{aud(r.rate_cents)}</td><td data-label="From">{r.effective_from}</td></tr>)}</tbody></table>}
+        <tbody>{team.rates.map((r: Row) => <tr key={r.id}><td data-label="Applies to">{SOURCE[r.scope]}: {[r.client_name, r.template_name, r.person_email, r.role].filter(Boolean).join(' · ')}</td><td data-label="Rate">{money(r.rate_cents, r.currency)}</td><td data-label="From">{r.effective_from}</td></tr>)}</tbody></table>}
       <details><summary>Set an hourly rate</summary>
         <Form label="Set rate" submit={async data => run(() => api('/team/rates', { ...data, rateCents: Number(data.rateCents) }), 'Rate saved; time from its date uses it')}>
           <Field label="Applies to" name="scope"><select name="scope"><option value="staff">Staff member</option><option value="role">Role</option><option value="service">Service</option><option value="client">Client</option><option value="client_service">Client and service</option></select></Field>
@@ -43,12 +43,13 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
           <Field label="Role (role rates)" name="role"><select name="role"><option value="preparer">Preparer</option><option value="reviewer">Reviewer</option><option value="owner">Principal</option></select></Field>
           <Field label="Service (service rates)" name="templateId"><select name="templateId">{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
           <Field label="Client (client rates)" name="clientId"><select name="clientId">{state.clients.map((c: Row) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-          <Field label="Hourly rate in cents, ex GST (15000 = $150.00)" name="rateCents" type="number" />
+          <Field label="Currency" name="currency"><select name="currency"><option value="USD">USD</option><option value="AUD">AUD</option></select></Field>
+          <Field label="Hourly rate in cents (15000 = 150.00)" name="rateCents" type="number" />
           <Field label="Effective from" name="effectiveFrom" type="date" value={today()} />
         </Form>
       </details>
     </section></Blotter>}
-    {!owner && <Blotter className="wide"><section className="panel"><h2>Your rate</h2><p>{ownRate === null ? 'The principal has not set your hourly rate yet.' : `${aud(ownRate)} per hour, unless a client or service rate applies`}</p></section></Blotter>}
+    {!owner && <Blotter className="wide"><section className="panel"><h2>Your rate</h2><p>{ownRate === null ? 'The principal has not set your hourly rate yet.' : `${money(ownRate, team.ownRateCurrency)} per hour, unless a client or service rate applies`}</p></section></Blotter>}
     {state.actor.role !== 'preparer' && <section className="panel">
       <h2>Agent keys</h2>
       <p className="muted">A key lets an agent read context and prepare work for your approval. It cannot approve anything.</p>

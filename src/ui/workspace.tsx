@@ -37,7 +37,7 @@ export function Workspace() {
     <div className="layout">
       <nav aria-label="Workspace">
         {(actor ? visible(actor.role) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => { setTab(t); setNotice(''); setError(''); if (t === 'Jobs') setJobId(''); }}>{t}</button>)}
-        <p className="boundary">AUD time and fees for your own billing. No lodgement, tax calculation or advice.</p>
+        <p className="boundary">Time and fees in their stored currency, USD by default. No lodgement, tax calculation or advice.</p>
       </nav>
       <main>
         <h1>{tab}</h1>
