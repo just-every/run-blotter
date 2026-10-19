@@ -66,7 +66,7 @@ export function Workspace() {
         {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
         {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
         {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
-        {tab === 'Time & billing' && <Billing actor={state.actor} run={run} tick={tick} />}
+        {tab === 'Time & billing' && <Billing actor={state.actor} people={state.people} run={run} tick={tick} />}
         {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
         {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
         {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}

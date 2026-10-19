@@ -95,7 +95,7 @@ test('the assigned reviewer signs off; the preparer cannot; sign-off closes the 
   await h.json(`/jobs/${job.id}/steps`, { ordinal: 1, done: false }, h.owner, 409);
 });
 
-test('the Inbox wall reads what clients owe, dated reminders, a received document and a review return, for the jobs the person may read', async () => {
+test('the Inbox wall puts each job in one band (waiting, needs a look, done this week) with dated reminders, a received document and a review return, for the jobs the person may read', async () => {
   const chase = await h.json('/clients', { name: 'Garcia', contactName: 'Elena Garcia', contactEmail: 'elena@garcia.example' }, h.owner);
   const start = { clientId: chase.id, templateId: template.id, periodStart: '2026-10-01', dueDate: '2026-11-12', dueNote: 'Firm close rule', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
   const mine = await h.json('/jobs', start, h.owner);
@@ -108,6 +108,7 @@ test('the Inbox wall reads what clients owe, dated reminders, a received documen
   assert.deepEqual(c.requests.map(r => r.status), ['requested', 'requested']);
   assert.deepEqual(c.reminders, []);
   assert.equal(c.returned, null);
+  assert.equal(c.band, 'waiting');
   // A reminder is dated on the card; an upload on the client's link makes the document received.
   await h.json(`/jobs/${mine.id}/reminders`, {}, preparer);
   const token = portalToken(h.mails.at(-1));
@@ -118,8 +119,12 @@ test('the Inbox wall reads what clients owe, dated reminders, a received documen
   c = await card(preparer, mine.id);
   assert.equal(c.requests[0].status, 'received');
   assert.ok(c.requests[0].received_at);
+  assert.equal(c.band, 'look');
   // All in, prepared and submitted; the reviewer returns it and the card carries the return and its note.
   for (const r of c.requests) { if (r.status === 'requested') await h.request(`/api/blotter/portal/${token}/requests/${r.id}`, { name: 'inv.txt', mime: 'text/plain', contentBase64: b64('x') }); await h.json(`/requests/${r.id}/decide`, { decision: 'accept' }, preparer); }
+  c = await card(preparer, mine.id);
+  assert.equal(c.band, 'done', 'every document accepted this week is done');
+  assert.ok(c.done_at);
   let detail = await h.json('/jobs/' + mine.id, undefined, preparer);
   for (const s of detail.steps) await h.json(`/jobs/${mine.id}/steps`, { ordinal: s.ordinal, done: true }, preparer);
   detail = await h.json(`/jobs/${mine.id}/submit`, { revision: (await h.json('/jobs/' + mine.id, undefined, preparer)).job.revision }, preparer);
@@ -128,7 +133,19 @@ test('the Inbox wall reads what clients owe, dated reminders, a received documen
   assert.equal(c.returned.note, 'Bank total does not tie');
   assert.equal(c.returned.by, 'Riley Reviewer');
   assert.ok(c.requests.every(r => r.status === 'accepted'));
-  assert.ok((await h.json('/inbox', undefined, reviewer)).jobs.some(j => j.id === theirs.id));
+  assert.equal(c.band, 'look');
+  // Resubmitted with every document in, the reviewer's decision is due; signed off, it is done this week.
+  detail = await h.json(`/jobs/${mine.id}/submit`, { revision: (await h.json('/jobs/' + mine.id, undefined, preparer)).job.revision }, preparer);
+  c = await card(reviewer, mine.id);
+  assert.deepEqual([c.status, c.band, c.returned], ['review', 'look', null]);
+  await h.json(`/jobs/${mine.id}/review`, { revision: detail.job.revision, decision: 'signoff', note: 'Ties to the bank' }, reviewer);
+  wall = await h.json('/inbox', undefined, reviewer);
+  c = wall.jobs.find(j => j.id === mine.id);
+  assert.deepEqual([c.band, c.done_at], ['done', c.signed_off_at]);
+  assert.ok(wall.jobs.some(j => j.id === theirs.id));
+  const ids = wall.jobs.map(j => j.id);
+  assert.equal(new Set(ids).size, ids.length, 'a job is in one band');
+  assert.ok(wall.jobs.every(j => ['waiting', 'look', 'done'].includes(j.band)));
 });
 
 test('roll forward creates the next period once, with a recorded due date', async () => {

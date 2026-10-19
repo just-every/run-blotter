@@ -3,7 +3,7 @@ import { FirmSettings } from './firm';
 import { Security } from './security';
 import { MessageTemplates } from './messages';
 import { Offboarding } from './offboarding';
-import { Blotter, api, money, Empty, Field, Form, SOURCE, today, when, type Row, type Run } from './common';
+import { Blotter, api, day, money, moneyText, Empty, Field, Form, SOURCE, today, when, who, type Row, type Run } from './common';
 
 export function Team({ state, run, tick }: { state: Row; run: Run; tick: number }) {
   const [team, setTeam] = useState<Row>(), [key, setKey] = useState<Row>(), [archive, setArchive] = useState(''), [journal, setJournal] = useState('');
@@ -37,7 +37,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
       <h3>Rate cards</h3>
       <p className="muted">Time uses the first rate in force on its date: client and service, then client, then service, then staff member, then role. Recorded time keeps its rate.</p>
       {!team.rates.length ? <Empty>No rate cards yet.</Empty> : <table className="table"><thead><tr><th>Applies to</th><th>Hourly rate</th><th>From</th></tr></thead>
-        <tbody>{team.rates.map((r: Row) => <tr key={r.id}><td data-label="Applies to">{SOURCE[r.scope]}: {[r.client_name, r.template_name, r.person_email, r.role].filter(Boolean).join(' · ')}</td><td data-label="Rate">{money(r.rate_cents, r.currency)}</td><td data-label="From">{r.effective_from}</td></tr>)}</tbody></table>}
+        <tbody>{team.rates.map((r: Row) => <tr key={r.id}><td data-label="Applies to">{SOURCE[r.scope]}: {[r.client_name, r.template_name, r.person_email && (r.person_email === state.actor.email ? state.actor.name : who(team.members, r.person_email)), r.role].filter(Boolean).join(' · ')}</td><td data-label="Rate">{money(r.rate_cents, r.currency)}</td><td data-label="From">{day(r.effective_from)}</td></tr>)}</tbody></table>}
       <details><summary>Set an hourly rate</summary>
         <Form label="Set rate" submit={async data => run(() => api('/team/rates', { ...data, rateCents: Number(data.rateCents) }), 'Rate saved; time from its date uses it')}>
           <Field label="Applies to" name="scope"><select name="scope"><option value="staff">Staff member</option><option value="role">Role</option><option value="service">Service</option><option value="client">Client</option><option value="client_service">Client and service</option></select></Field>
@@ -51,7 +51,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
         </Form>
       </details>
     </section></Blotter>}
-    {!owner && <Blotter className="wide"><section className="panel"><h2>Your rate</h2><p>{ownRate === null ? 'The principal has not set your hourly rate yet.' : `${money(ownRate, team.ownRateCurrency)} per hour, unless a client or service rate applies`}</p></section></Blotter>}
+    {!owner && <Blotter className="wide"><section className="panel"><h2>Your rate</h2><p>{ownRate === null ? 'The principal has not set your hourly rate yet.' : `${moneyText(ownRate, team.ownRateCurrency)} per hour, unless a client or service rate applies`}</p></section></Blotter>}
     {state.actor.role !== 'preparer' && <section className="panel">
       <h2>Agent keys</h2>
       <p className="muted">A key lets an agent read context and prepare work for your approval. It cannot approve anything.</p>

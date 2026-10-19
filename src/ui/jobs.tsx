@@ -36,5 +36,5 @@ function JobList({ state, jobs, open, run, tick }: { state: Row; jobs: Row[]; op
       </tr>)}</tbody>
     </table>}
     {state.actor.role !== 'preparer' && <details><summary>Reassign or reschedule in bulk</summary><ReassignBulk state={state} run={run} /></details>}
-  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} /><Notices actor={state.actor} run={run} tick={tick} /><MyAlerts tick={tick} open={open} /><MyTimesheet actor={state.actor} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>;
+  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} /><Notices actor={state.actor} run={run} tick={tick} /><MyAlerts tick={tick} open={open} /><MyTimesheet actor={state.actor} people={state.people} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, readFile, Status, today, when, type Row, type Run } from './common';
+import { api, day, Empty, Field, Form, readFile, Status, today, when, type Row, type Run } from './common';
 
 const KINDS: Record<string, string> = { research: 'Research', client_question: 'Client question', agency_contact: 'Agency contact', response_submitted: 'Response submitted', follow_up: 'Follow-up', transcript: 'Transcript', receipt: 'Receipt', note: 'Note' };
 const fileOf = async (form: HTMLFormElement) => { const f = (form.elements.namedItem('file') as HTMLInputElement | null)?.files?.[0]; return f ? { file: await readFile(f) } : {}; };
@@ -24,11 +24,11 @@ function NoticeDetail({ id, actor, run, tick }: { id: string; actor: Row; run: R
   if (!d) return <p>Opening notice…</p>;
   const n = d.notice, isOpen = n.status === 'open', withFiles = d.events.filter((e: Row) => e.file_sha256);
   return <div className="stack">
-    <p className="muted">{d.client.name} · {n.agency} {n.notice_type} · {n.tax_period} · notice dated {n.notice_date} · source {d.source.name} ({d.source.channel === 'portal' ? 'client upload' : d.source.uploaded_by})</p>
-    <p>Respond by <strong>{n.response_due}</strong> {n.due_verified_at ? <small className="muted">verified by {n.due_verified_by} {when(n.due_verified_at)}</small> : <small className="error">not verified against the notice yet</small>}</p>
+    <p className="muted">{d.client.name} · {n.agency} {n.notice_type} · {n.tax_period} · notice dated {day(n.notice_date)} · source {d.source.name} ({d.source.channel === 'portal' ? 'client upload' : d.source.uploaded_by})</p>
+    <p>Respond by <strong>{day(n.response_due)}</strong> {n.due_verified_at ? <small className="muted">verified by {n.due_verified_by} {when(n.due_verified_at)}</small> : <small className="error">not verified against the notice yet</small>}</p>
     <p className="muted">Assigned to {n.assignee_email} · authorization: {n.authorization || 'none recorded'}{n.plan && ` · plan: ${n.plan}`}</p>
     {n.status === 'closed' && <p className="notice">Closed {n.outcome === 'resolved' ? 'as resolved' : 'as a documented exception'} by {n.closed_by} {when(n.closed_at)}: {n.outcome_note}</p>}
-    <ol>{d.events.map((e: Row) => <li key={e.id}><strong>{KINDS[e.kind]}</strong>{e.result && ` (${e.result})`}{e.follow_up_on && ` on ${e.follow_up_on}`}: {e.note}
+    <ol>{d.events.map((e: Row) => <li key={e.id}><strong>{KINDS[e.kind]}</strong>{e.result && ` (${e.result})`}{e.follow_up_on && ` on ${day(e.follow_up_on)}`}: {e.note}
       {e.file_name && <> · <a href={`/api/blotter/notices/${n.id}/events/${e.id}/file`}>{e.file_name}</a></>} <small className="muted">{e.by_email} {when(e.at)}</small></li>)}</ol>
     {isOpen && <>
       <details><summary>Verify the response date</summary>
@@ -64,7 +64,7 @@ export function Notices({ actor, run, tick }: { actor: Row; run: Run; tick: numb
     <p className="muted">Open a notice from a client document on a job. Blotter tracks deadlines, work and evidence; it does not give tax advice.</p>
     {!list.length ? <Empty>No notices.</Empty> : <ul className="list">{list.map(n => <li key={n.id}>
       <button className="quiet text-action" onClick={() => setOpen(open === n.id ? '' : n.id)}>{n.client} · {n.agency} {n.notice_type} {n.tax_period}</button> <Status value={n.status} />
-      <small className="muted"> respond by {n.response_due}{!n.due_verified_at && ' (unverified)'} · {n.assignee_email}{n.next_follow_up && ` · follow up ${n.next_follow_up}`}</small>
+      <small className="muted"> respond by {day(n.response_due)}{!n.due_verified_at && ' (unverified)'} · {n.assignee_email}{n.next_follow_up && ` · follow up ${day(n.next_follow_up)}`}</small>
       {open === n.id && <NoticeDetail id={n.id} actor={actor} run={run} tick={tick} />}
     </li>)}</ul>}
   </section>;

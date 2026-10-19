@@ -1,20 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, clock, day, Empty, PageHead, type Row, type Run } from './common';
-import { DoneCard, LiftedCard, RequestCard, workOf } from './inbox-card';
+import { DoneCard, LiftedCard, RequestCard, shortWork, workOf } from './inbox-card';
 import type { Tab } from './workspace';
 
 type Band = 'look' | 'waiting' | 'done';
-const WEEK = 7 * 86_400_000;
-
-/** Which band a job's requests put it in, if any: a returned job or a received document needs a look first. */
-function bandOf(j: Row, now: number): Band | null {
-  const open = j.status !== 'signed_off', reqs: Row[] = j.requests;
-  if (j.returned) return 'look';
-  if (open && reqs.some(r => r.status === 'received')) return 'look';
-  if (open && reqs.some(r => r.status === 'requested')) return 'waiting';
-  const last = reqs.reduce((m, r) => r.updated_at > m ? r.updated_at : m, '');
-  return reqs.every(r => r.status === 'accepted') && Date.parse(last) >= now - WEEK ? 'done' : null;
-}
 
 /**
  * The home screen: what clients still owe the firm, in three bands of cards
@@ -33,7 +22,7 @@ export function Inbox({ state, run, open, go, tick }: { state: Row; run: Run; op
     <AgentLine proposals={proposals} people={state.people} go={go} />
   </PageHead>;
   if (!wall) return <>{head}<p className="opening">Opening the wall…</p></>;
-  const now = Date.parse(wall.now), jobs: Row[] = wall.jobs.map((j: Row) => ({ ...j, band: bandOf(j, now) })).filter((j: Row) => j.band);
+  const jobs: Row[] = wall.jobs;
   if (!jobs.length) return <>{head}<div className="wall-empty"><Empty>{state.actor.role === 'preparer'
     ? 'Nothing to chase yet: none of your jobs has a document request open.'
     : <>Nothing to chase yet. Start a job with document requests, then send the client a reminder from the job. <button className="quiet" onClick={() => go('Clients & templates')}>Start a job</button></>}</Empty></div></>;
@@ -41,14 +30,15 @@ export function Inbox({ state, run, open, go, tick }: { state: Row; run: Run; op
   const shown = chip ? jobs.filter(j => workOf(j) === chip) : jobs;
   const of = (b: Band) => shown.filter(j => j.band === b);
   const prepared = (j: Row) => pending.some(p => JSON.parse(p.payload).jobId === j.id);
-  const card = (j: Row) => j.returned ? <LiftedCard key={j.id} job={j} run={run} open={open} />
+  const preparation = (j: Row) => proposals.find(p => p.status === 'pending' && JSON.parse(p.payload).jobId === j.id);
+  const card = (j: Row) => j.returned ? <LiftedCard key={j.id} job={j} preparation={preparation(j)} run={run} open={open} />
     : <RequestCard key={j.id} job={j} tone={j.band === 'look' ? 'marigold' : 'lilac'} prepared={prepared(j)} run={run} open={open} />;
-  const look = of('look').sort((a, b) => Number(!!b.returned) - Number(!!a.returned)), waiting = of('waiting'), done = of('done');
+  const look = of('look').sort((a, b) => Number(!!b.returned) - Number(!!a.returned)), waiting = of('waiting'), done = of('done').sort((a, b) => String(b.done_at).localeCompare(String(a.done_at)));
   return <>
     {head}
     <div className="chips" role="group" aria-label="Filter by work type">
       <button aria-pressed={!chip} onClick={() => setChip('')}>All work</button>
-      {kinds.map(k => <button key={k} aria-pressed={chip === k} onClick={() => setChip(chip === k ? '' : k)}>{k}</button>)}
+      {kinds.map(k => <button key={k} title={k} aria-pressed={chip === k} onClick={() => setChip(chip === k ? '' : k)}>{shortWork(k)}</button>)}
     </div>
     <div className="wall">
       <section className="band band-waiting" aria-labelledby="band-waiting">

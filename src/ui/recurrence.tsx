@@ -24,7 +24,7 @@ export function RecurrencePanel({ state, run, tick }: { state: Row; run: Run; ti
       </div>
     </article>)}
     {data && <button className="quiet" onClick={() => run(() => api('/rules/run', {}), 'Scheduler ran')}>Run now</button>}
-    {data && data.runs.length > 0 && <details><summary>Scheduler runs</summary><ul className="list">{data.runs.map((x: Row) => <li key={x.id}>{when(x.finished_at)} · {x.trigger} as of {x.as_of}: {x.created} created, {x.claimed} claimed{JSON.parse(x.held).length > 0 && ` · held: ${JSON.parse(x.held).join('; ')}`}</li>)}</ul></details>}
+    {data && data.runs.length > 0 && <details><summary>Scheduler runs</summary><ul className="list">{data.runs.map((x: Row) => <li key={x.id}>{when(x.finished_at)} · {x.trigger} as of {day(x.as_of)}: {x.created} created, {x.claimed} claimed{JSON.parse(x.held).length > 0 && ` · held: ${JSON.parse(x.held).join('; ')}`}</li>)}</ul></details>}
     {state.clients.length > 0 && state.templates.length > 0 && <details><summary>Approve a rule</summary>
       <Form label="Approve rule" submit={async data => run(() => api('/rules', { ...data, months: data.months || undefined, endPeriod: data.endPeriod || undefined, budgetMinutes: data.budgetMinutes || undefined, managerEmail: data.managerEmail || undefined }), 'Rule approved')}>
         <div className="row">

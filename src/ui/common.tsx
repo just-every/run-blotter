@@ -12,9 +12,17 @@ export async function api(path: string, body?: unknown) {
 }
 /** Where a time entry's rate came from (TIME-003 rate cards). */
 export const SOURCE: Record<string, string> = { client_service: 'client and service', client: 'client', service: 'service', staff: 'staff member', role: 'role' };
-export const money = (cents: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
+/** "USD 1,234.50" as plain text, for labels and options. */
+export const moneyText = (cents: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
+/** An amount on one line with tabular figures. */
+export const money = (cents: number, currency = 'USD') => <span className="money">{moneyText(cents, currency)}</span>;
 export const taxId = (value: string) => value ? `${value.length === 11 ? 'Legacy ABN' : 'EIN'} •••••${value.slice(-4)}` : '';
-export const moneyTotals = (rows: Row[], key: string) => Object.entries(rows.reduce((totals: Record<string, number>, r: Row) => { totals[r.currency] = (totals[r.currency] ?? 0) + Number(r[key]); return totals; }, {})).map(([currency, cents]) => money(cents as number, currency)).join(' · ');
+const sums = (rows: Row[], key: string) => Object.entries(rows.reduce((totals: Record<string, number>, r: Row) => { totals[r.currency] = (totals[r.currency] ?? 0) + Number(r[key]); return totals; }, {}));
+/** Per-currency totals ("USD 120.00 · AUD 40.00"), never converted; null when there are none. */
+export const moneyTotals = (rows: Row[], key: string) => { const list = sums(rows, key); return list.length ? <>{list.map(([currency, cents], n) => <Fragment key={currency}>{n > 0 && ' · '}{money(cents, currency)}</Fragment>)}</> : null; };
+export const moneyTotalsText = (rows: Row[], key: string) => sums(rows, key).map(([currency, cents]) => moneyText(cents, currency)).join(' · ');
+/** A person by name where the app knows it; the email otherwise. */
+export const who = (people: Row[] | undefined, email?: string) => !email ? '' : people?.find(p => p.email === email)?.name || email;
 let displayZone = 'America/New_York';
 /** Firm-local dates and instants, US style; date-only deadlines keep their recorded calendar day. Stored values stay UTC. */
 const dateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -32,6 +40,10 @@ export const day = (value?: string) => {
 export const clock = (value?: string) => value ? new Date(value).toLocaleTimeString('en-US', { timeZone: displayZone, hour: 'numeric', minute: '2-digit' }).replace(/\s?([AP])M/, (_, m: string) => ` ${m.toLowerCase()}m`) : '';
 /** "Tue Oct 13 · 8:10 am EDT" in the firm's zone; a date-only value prints its day. */
 export const when = (iso?: string) => !iso ? '' : dateOnly(iso) ? day(iso) : `${day(iso)} · ${clock(iso)} ${parts(new Date(iso)).timeZoneName}`;
+/** Server-written text (summaries, reasons, history details) with its ISO dates and instants printed US style. */
+export const prose = (text?: string) => String(text ?? '').replace(/\b20\d\d-\d\d-\d\d(T[\d:.]+Z)?\b/g, (iso, time) => time ? when(iso) : day(iso));
+/** "Tue Oct 13" to "Mon Oct 19" for a run of calendar days. */
+export const days = (from?: string, to?: string) => from === to ? day(from) : `${day(from)} to ${day(to)}`;
 export const initials = (name = '') => name.replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('');
 
 export async function readFile(file: File) {

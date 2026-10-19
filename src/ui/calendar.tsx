@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, today, type Row, type Run } from './common';
+import { api, day, Empty, Field, Form, today, type Row, type Run } from './common';
 import { FilterBar, JobFlags } from './filters';
 import { statusLabel } from './statuses';
 
@@ -34,9 +34,9 @@ export function Calendar({ state, open, run, tick }: { state: Row; open: (id: st
   return <section className="panel">
     <FilterBar state={state} filter={filter} set={change} client={lead} />
     <Form label="Show" submit={async data => setFrom(String(data.from))}><Field label="From" name="from" type="date" value={from} /></Form>
-    <p className="muted">{view.from} to {view.to}{filter.client && ` · ${state.clients.find((c: Row) => c.id === filter.client)?.name ?? 'one client'}`}</p>
+    <p className="muted">{day(view.from)} to {day(view.to)}{filter.client && ` · ${state.clients.find((c: Row) => c.id === filter.client)?.name ?? 'one client'}`}</p>
     {!view.days.length ? <Empty>Nothing falls due in these dates.</Empty> : view.days.map((d: Row) => <div key={d.date} className="calendar-day">
-      <h3>{d.date}</h3>
+      <h3>{day(d.date)}</h3>
       <ul className="list">
         {d.jobs.map((j: Row) => <li key={j.id}><button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} · {j.period_label}</button>
           <small className="muted"> {j.work_type} · {statusLabel(model, j.stage, j.sub_status)}</small> <JobFlags job={j} />

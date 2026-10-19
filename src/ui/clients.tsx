@@ -43,7 +43,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
     <section className="panel">
       <h2>Job templates</h2>
       {!state.templates.length && <Empty>No templates yet.</Empty>}
-      <ul className="list">{state.templates.map((t: Row) => <li key={t.id}><strong>{t.name}</strong> <small className="muted">{t.recurrence} · {JSON.parse(t.steps).length} steps · {JSON.parse(t.requests).length} document requests{t.fee_cents > 0 && ` · fee ${money(t.fee_cents, t.currency)}`}</small></li>)}</ul>
+      <ul className="list">{state.templates.map((t: Row) => <li key={t.id}><strong>{t.name}</strong> <small className="muted">{t.recurrence} · {JSON.parse(t.steps).length} steps · {JSON.parse(t.requests).length} document requests{t.fee_cents > 0 && <> · fee {money(t.fee_cents, t.currency)}</>}</small></li>)}</ul>
       {lead && <details><summary>Add a template</summary>
         <Form label="Save template" submit={async (data, form) => run(async () => { await api('/templates', { ...data, feeCents: Number(data.feeCents || 0), ...(tasks.length ? { tasks: taskBody(tasks), questions: questionBody(data.questions) } : {}) }); form.reset(); setTasks([]); }, 'Template saved')}>
           <Field label="Name" name="name" value="Quarterly sales-tax return" />
