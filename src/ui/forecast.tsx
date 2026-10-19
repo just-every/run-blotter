@@ -1,3 +1,4 @@
+import { PipelineForecastInputs } from './pipeline-forecast';
 import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, money, today, when, type Row, type Run } from './common';
 
@@ -7,19 +8,22 @@ const range = (r: Row) => `${hours(r.low)}–${hours(r.high)} (likely ${hours(r.
 
 /** Forecast the coming weeks from recurring work and prior actuals and compare a hiring or service scenario (CAPACITY-003). */
 export function Forecast({ state, run, tick }: { state: Row; run: Run; tick: number }) {
+  const [prospects, setProspects] = useState<Row[]>([]), [forecastFrom, setForecastFrom] = useState(monday(today()));
   const [request, setRequest] = useState<Row>(), [view, setView] = useState<Row>(), [saved, setSaved] = useState<Row[]>([]);
-  useEffect(() => { api('/capacity/scenarios').then(setSaved).catch(() => setSaved([])); }, [tick]);
+  useEffect(() => { api('/pipeline').then(p => setProspects(p.prospects.filter((p: Row) => p.stage_kind === 'open'))).catch(e => run(async () => { throw e; })); api('/capacity/scenarios').then(setSaved).catch(() => setSaved([])); }, [tick]);
   const show = (body: Row) => run(async () => { setRequest(body); setView(await api('/capacity/forecast', body)); }, 'Forecast ready');
   const changesFrom = (data: Row) => ({
     hires: data.hireName ? [{ name: data.hireName, weeklyMinutes: Math.round(Number(data.hireHours) * 60), skills: String(data.hireSkills ?? '').split(',').map(s => s.trim()).filter(Boolean), startsOn: data.hireStart }] : [],
     lostClients: data.lostClient ? [data.lostClient] : [],
     services: data.workType ? [{ workType: data.workType, percent: Number(data.percent) }] : [],
+    pipeline: prospects.flatMap(p => p.services.map((service: string, n: number) => ({ prospectId: p.id, service, workTypeId: data[`pipelineWork:${p.id}:${n}`], firstDueDate: data[`pipelineDue:${p.id}`] }))),
   });
   const compared = view?.compared;
   return <section className="panel">
     <h2>Forecast and hiring plans</h2>
     <Form label="Forecast" submit={async data => show({ from: monday(String(data.from)), weeks: Number(data.weeks), changes: changesFrom(data) })}>
-      <div className="row"><Field label="From week of" name="from" type="date" value={monday(today())} /><Field label="Weeks" name="weeks" type="number" value={16} /></div>
+      <div className="row"><Field label="From week of" name="from"><input name="from" type="date" required value={forecastFrom} onChange={e => setForecastFrom(e.target.value)} /></Field><Field label="Weeks" name="weeks" type="number" value={16} /></div>
+      <PipelineForecastInputs state={state} prospects={prospects} from={monday(forecastFrom)} />
       <p className="muted">Scenario (optional): nothing here changes live work.</p>
       <div className="row"><Field label="Hypothetical hire" name="hireName" required={false} /><Field label="Hours a week" name="hireHours" type="number" required={false} />
         <Field label="Skills (comma separated)" name="hireSkills" required={false} /><Field label="Starts" name="hireStart" type="date" required={false} /></div>
@@ -52,10 +56,10 @@ export function Forecast({ state, run, tick }: { state: Row; run: Run; tick: num
         })}</tbody>
       </table>}
       {compared?.removed.length > 0 && <p className="muted">Left out for the scenario: {compared.removed.map((r: Row) => `${r.client} · ${r.workType} ${r.periodLabel} (${r.reason})`).join('; ')}.</p>}
-      <h3>Open pipeline · unestimated demand</h3>
-      <p className="muted">These requested services apply to the baseline{compared ? ' and this scenario' : ''}. They have no work budget or scheduled start, so weekly hours and confidence exclude them. Annual fees are for the whole prospect and are not time estimates.</p>
+      <h3>Open pipeline assumptions</h3>
+      <p className="muted">These requested services contribute possible workload to the baseline{compared ? ' and this scenario' : ''}, with the chosen first work targets and template cadence. Each remains an unweighted assumption at its current stage. Budgets supply hours; annual fees never do.</p>
       {!view.baseline.pipeline.length ? <Empty>No open prospects.</Empty> : <ul className="list">{view.baseline.pipeline.map((p: Row) => <li key={p.prospectId + '|' + p.service}>
-        {p.prospect} · {p.service} · {p.stage} <small className="muted">{p.source} · {p.ownerEmail} · {p.estimatedAnnualFeeCents === null ? 'annual fee not estimated' : `${money(p.estimatedAnnualFeeCents, p.currency)} estimated annual fee for the whole prospect`} · unestimated demand</small>
+        {p.prospect} · {p.service} · {p.stage} <small className="muted">{p.source} · {p.ownerEmail} · {p.estimatedAnnualFeeCents === null ? 'annual fee not estimated' : `${money(p.estimatedAnnualFeeCents, p.currency)} estimated annual fee for the whole prospect`} · {p.status === 'unestimated' ? 'not estimated; choose a work type with a budget or task estimates' : `${range(p)} per engagement · ${p.basis}`} · assumed first target {p.firstDueDate}</small>
       </li>)}</ul>}
       <details><summary>Where each estimate comes from</summary><ul className="list">{view.baseline.lines.map((l: Row) => <li key={l.ruleId + l.periodStart}>
         {l.client} · {l.workType} · {l.periodLabel} <small className="muted">due {l.due} · {range(l)} · {l.basis}{l.samples.length > 0 && `: ${l.samples.map((s: Row) => `${s.periodLabel} ${hours(s.actualMinutes)}`).join(', ')}`}</small></li>)}</ul></details>

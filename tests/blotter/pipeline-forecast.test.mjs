@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
 
-test('CAPACITY-003 / CRM-005: open requested services appear in baseline and saved scenarios with stage, source and annual fee basis, without converting fees to hours or mutating live work', async () => {
+test('CAPACITY-003 / CRM-005: open requested services appear in baseline and saved scenarios as budgeted workload assumptions with stage, source and annual fee context, without converting fees to hours or mutating live work', async () => {
   const h = await harness();
   try {
     for (const [email, role] of [['reviewer@example.test', 'reviewer'], ['preparer@example.test', 'preparer']]) {
@@ -11,7 +11,10 @@ test('CAPACITY-003 / CRM-005: open requested services appear in baseline and sav
     }
     const preparer = await h.login('preparer@example.test');
     const stage = await h.json('/pipeline/stages', { name: 'Scoping work', position: 15 }, h.owner);
-    const base = { contactName: 'Dana', contactEmail: 'dana@example.test', services: ['Monthly bookkeeping', 'Annual return'], source: 'Referral', estimatedFeeCents: 850000, currency: 'USD', ownerEmail: 'reviewer@example.test' };
+    const monthly = await h.json('/templates', { name: 'Monthly source tasks', recurrence: 'monthly', steps: 'Close books', requests: 'Statements', tasks: [{ label: 'Close books', assignee: 'preparer', estimateMinutes: 120 }] }, h.owner);
+    const monthlyType = await h.json('/work-types', { name: 'Monthly bookkeeping', templateId: monthly.id, budgetMinutes: 180 }, h.owner);
+    await h.json('/templates', { name: 'Annual return', recurrence: 'annual', steps: 'Prepare', requests: 'Organizer', tasks: [{ label: 'Prepare return', assignee: 'preparer', estimateMinutes: 240 }] }, h.owner);
+    const base = { contactName: 'Dana', contactEmail: 'dana@example.test', services: ['Monthly bookkeeping', 'Annual return', 'Advisory scope pending'], source: 'Referral', estimatedFeeCents: 850000, currency: 'USD', ownerEmail: 'reviewer@example.test' };
     const open = await h.json('/prospects', { ...base, name: 'Open practice', stageId: stage.id }, h.owner);
     const lost = await h.json('/prospects', { ...base, name: 'Lost practice' }, h.owner);
     const won = await h.json('/prospects', { ...base, name: 'Won practice' }, h.owner);
@@ -31,21 +34,36 @@ test('CAPACITY-003 / CRM-005: open requested services appear in baseline and sav
     const expected = base.services.map(service => [open.id, 'Open practice', service, stage.id, stage.name, base.source, base.ownerEmail, base.estimatedFeeCents, base.currency]);
     assert.deepEqual(view.baseline.pipeline.map(p => [p.prospectId, p.prospect, p.service, p.stageId, p.stage, p.source, p.ownerEmail, p.estimatedAnnualFeeCents, p.currency]), expected);
     assert.deepEqual(view.compared.pipeline, view.baseline.pipeline);
+    const [monthlyLine, annualLine, unknown] = view.baseline.pipeline;
+    assert.deepEqual([monthlyLine.point, monthlyLine.low, monthlyLine.high, monthlyLine.basis, monthlyLine.firstDueDate], [180, 90, 270, 'work type budget', window.from]);
+    assert.deepEqual([annualLine.point, annualLine.low, annualLine.high, annualLine.basis], [240, 120, 360, 'template task estimates']);
+    assert.deepEqual([unknown.status, unknown.point, unknown.minutes], ['unestimated', 0, null]);
+    assert.match(unknown.basis, /no matching work type/);
     for (const line of view.baseline.pipeline) {
-      assert.equal(line.status, 'unestimated');
-      assert.equal(line.minutes, null);
-      assert.equal(line.weekStart, null);
       assert.match(line.feeBasis, /whole prospect/);
-      assert.match(line.basis, /no prospect work budget/);
+      assert.match(line.assumption, /Scoping work.*assumed won without probability weighting/);
     }
-    assert.deepEqual(view.baseline.demand, { point: 0, low: 0, high: 0 });
+    assert.deepEqual(view.baseline.demand, { point: 420, low: 210, high: 630 });
     assert.deepEqual(view.compared.demand, view.baseline.demand);
-    assert.equal(view.baseline.lines.length, 0);
-    assert.ok(view.baseline.weeks.every(w => w.demand.high === 0 && w.confidence.reasons.length === 0));
-    const saved = await h.json('/capacity/scenarios', { name: 'Pipeline hiring context', ...window, changes }, h.owner);
+    assert.equal(view.baseline.lines.length, 3);
+    assert.equal(view.baseline.weeks[0].confidence.level, 'low');
+    assert.ok(view.baseline.weeks[0].confidence.reasons.some(r => r.includes('Open practice (Scoping work)') && r.includes('no budget or estimate')));
+    assert.equal(view.baseline.weeks[1].demand.point, 0);
+    const recurring = await h.json('/capacity/forecast', { ...window, weeks: 6 }, h.owner);
+    assert.deepEqual(recurring.baseline.lines.filter(l => l.service === 'Monthly bookkeeping').map(l => [l.due, l.weekStart, l.point]), [['2032-04-12', '2032-04-12', 180], ['2032-05-12', '2032-05-10', 180]]);
+    assert.equal(recurring.baseline.lines.filter(l => l.service === 'Annual return').length, 1);
+    await h.json('/capacity/forecast', { ...window, changes: { pipeline: [{ prospectId: open.id, service: 'Not requested', workTypeId: monthlyType.id, firstDueDate: window.from }] } }, h.owner, 409);
+    const chosen = { ...changes, services: [{ workType: 'Monthly bookkeeping', percent: 50 }], pipeline: [{ prospectId: open.id, service: 'Advisory scope pending', workTypeId: monthlyType.id, firstDueDate: '2032-04-19' }] };
+    const mapped = await h.json('/capacity/forecast', { ...window, changes: chosen }, h.owner);
+    assert.deepEqual(mapped.baseline.weeks.map(w => w.demand.point), [420, 180]);
+    assert.deepEqual(mapped.compared.weeks.map(w => w.demand.point), [330, 90]);
+    assert.equal(mapped.compared.weeks[0].skills.find(s => s.skill === 'monthly bookkeeping').capacityMinutes, 1200);
+    assert.match(mapped.compared.lines.find(l => l.service === 'Advisory scope pending').basis, /50%/);
+    assert.equal(mapped.baseline.lines.find(l => l.service === 'Advisory scope pending').due, '2032-04-19');
+    const saved = await h.json('/capacity/scenarios', { name: 'Pipeline hiring context', ...window, changes: chosen }, h.owner);
     const reopened = await h.json('/capacity/forecast', { scenarioId: saved.id }, h.owner);
-    assert.deepEqual(reopened.baseline.pipeline, view.baseline.pipeline);
-    assert.deepEqual(reopened.compared.pipeline, view.compared.pipeline);
+    assert.deepEqual(reopened.baseline, mapped.baseline);
+    assert.deepEqual(reopened.compared, mapped.compared);
     assert.deepEqual(await live(), before);
   } finally {
     await h.close();

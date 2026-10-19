@@ -1,3 +1,5 @@
+import { budgetEstimate } from './forecast-estimate';
+import { forecastPipeline, pipelineChoices } from './forecast-pipeline';
 // Capacity forecasts and hiring plans (CAPACITY-003). Future demand comes from
 // the periods of active, approved recurring rules (WORK-002) that fall due in
 // the forecast weeks. Each period's time is traced to its source: the client's
@@ -15,7 +17,7 @@ import { atomic, audit, date, email, human, id, insist, integer, need, now, rows
 
 type Range = { point: number; low: number; high: number };
 type Line = Data & Range & { client: string; skill: string; weekStart: string; samples: Data[]; reason: string | null };
-type Changes = { hires: Data[]; staffing: Data[]; lostClients: string[]; services: Data[] };
+type Changes = { hires: Data[]; staffing: Data[]; lostClients: string[]; services: Data[]; pipeline: Data[] };
 
 const monday = (day: string) => shift(day, -((new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7));
 const zero = (): Range => ({ point: 0, low: 0, high: 0 });
@@ -27,7 +29,7 @@ export const ASSUMPTIONS = [
   'Without prior actuals a period uses the rule’s time budget, else the work type’s budget, else the template’s task estimates, with a range from 50% to 150% of that figure, and its client is named as the reason.',
   'Capacity is each person’s weekly hours less scheduled leave and commitments on that week’s weekdays (CAPACITY-001); a person counts in full under each of their skills. Demand counts under the skill named like its work type.',
   'Confidence: high when every period due that week rests on at least three prior actuals, medium when each rests on at least one, low when any rests on none (each such client is named).',
-  'Open prospects appear as unestimated pipeline demand in the baseline and every scenario, with their current stage, requested services, lead source and estimated annual fee for the whole prospect. Won and lost prospects are excluded. Fees are not converted to time; pipeline has no scheduled week or time budget and is excluded from weekly hours and confidence until work is budgeted and scheduled.',
+  'Each open prospect service is an unweighted assumption: if won, its first work target is the chosen date (the forecast start unless specified), repeated at the chosen template cadence; a work type without a template contributes one engagement. Exact service/work-type name matches are selected automatically unless a choice was supplied. Work-type budgets, then template task estimates, supply a 50%–150% range per engagement; missing matches/budgets remain explicitly unestimated at zero with a named low-confidence reason. Stages and sources stay visible; fees never become hours. Won/lost prospects are excluded; no assignment or promised deadline changes.',
 ];
 
 /** A scenario's changes, checked against the firm's clients, people and work types. */
@@ -49,7 +51,7 @@ async function changesFrom(db: D1Database, raw: unknown): Promise<Changes> {
     insist(type, 'Work type not found', 404);
     services.push({ workType: type.name, percent: integer(s.percent, `Service change ${n + 1} percent of today’s time`, 0, 500) });
   }
-  return { hires, staffing, lostClients, services };
+  return { hires, staffing, lostClients, services, pipeline: await pipelineChoices(db, body.pipeline) };
 }
 
 /** Every forecast line: one rule period due in the window, with its estimate, range and sources. */
@@ -62,7 +64,7 @@ async function lines(db: D1Database, from: string, to: string): Promise<Line[]> 
   ]);
   const out: Line[] = [];
   for (const r of rules) {
-    const templateEstimate = (JSON.parse(r.steps) as unknown[]).reduce((n: number, s) => n + Number((s as Data)?.estimateMinutes ?? 0), 0);
+    const estimate = budgetEstimate(r.budget_minutes, r.type_budget, r.steps);
     for (const start of periods(r, r.recurrence, to)) {
       const due = dueFor(start, r.recurrence, r.due_days);
       if (due < from || due > to) continue;
@@ -76,8 +78,7 @@ async function lines(db: D1Database, from: string, to: string): Promise<Line[]> 
         out.push({ ...base, basis: `mean of ${samples.length} prior actual${samples.length > 1 ? 's' : ''}${season.length ? ' in the same month' : ''}`, point: Math.round(minutes.reduce((a, b) => a + b, 0) / minutes.length),
           low: Math.floor(Math.min(...minutes) * 9 / 10), high: Math.ceil(Math.max(...minutes) * 11 / 10), reason: null });
       } else {
-        const [basis, minutes] = r.budget_minutes ? ['rule time budget', Number(r.budget_minutes)] : r.type_budget ? ['work type budget', Number(r.type_budget)] : templateEstimate ? ['template task estimates', templateEstimate] : ['no estimate', 0];
-        out.push({ ...base, basis, point: minutes, low: Math.round(minutes / 2), high: Math.round(minutes * 3 / 2), reason: `${r.client} has no prior actuals for ${workType}${minutes ? '' : ' and no budget or estimate'}` });
+        out.push({ ...base, ...estimate, reason: `${r.client} has no prior actuals for ${workType}${estimate.point ? '' : ' and no budget or estimate'}` });
       }
     }
   }
@@ -116,7 +117,7 @@ function project(all: Line[], people: Data[], blocks: Data[], weekStarts: string
     add(row.demand, s.demand); row.capacityMinutes += s.capacityMinutes; bySkill.set(s.skill, row);
   }
   const total = zero(); weeks.forEach(w => add(total, w.demand));
-  return { weeks, skills: [...bySkill.values()].map(s => ({ ...s, shortMinutes: Math.max(0, s.demand.high - s.capacityMinutes) })), demand: total, capacityMinutes: weeks.reduce((n, w) => n + w.capacityMinutes, 0), lines: kept, removed, pipeline: pipelineLines };
+  return { weeks, skills: [...bySkill.values()].map(s => ({ ...s, shortMinutes: Math.max(0, s.demand.high - s.capacityMinutes) })), demand: total, capacityMinutes: weeks.reduce((n, w) => n + w.capacityMinutes, 0), lines: kept, removed, pipeline: pipelineLines.map(p => { const percent = scale.get(p.workType.toLowerCase()); return percent === undefined ? p : { ...p, point: Math.round(p.point * percent / 100), low: Math.round(p.low * percent / 100), high: Math.round(p.high * percent / 100), basis: `${p.basis}, at ${percent}% for the service change` }; }) };
 }
 
 async function scenarioRow(db: D1Database, scenarioId: string) {
@@ -140,13 +141,9 @@ export async function forecast(db: D1Database, actor: Actor, body: Data) {
     rows(db, 'SELECT * FROM b_capacity_blocks WHERE starts_on<=? AND ends_on>=?', to, from),
     pipeline(db, actor),
   ]);
-  // CRM has no prospect work budget or scheduled start. Keep this demand visible
-  // without implying a conversion probability, week or number of hours from fees.
-  const pipelineLines = prospects.prospects.filter(p => p.stage_kind === 'open').flatMap(p => (p.services as string[]).map(service => ({
-    prospectId: p.id, prospect: p.name, service, stageId: p.stage_id, stage: p.stage, source: p.source, ownerEmail: p.owner_email,
-    estimatedAnnualFeeCents: p.created_by === 'website' && !p.fee_cents ? null : Number(p.fee_cents), currency: p.currency, feeBasis: 'estimated annual fee for the whole prospect; not allocated to this service',
-    status: 'unestimated', minutes: null, weekStart: null, basis: 'requested service; no prospect work budget or scheduled start; fees are not time estimates',
-  })));
+  const pipelineEstimate = await forecastPipeline(db, prospects.prospects, from, to, changes?.pipeline ?? []);
+  all.push(...pipelineEstimate.lines as Line[]);
+  const pipelineLines = pipelineEstimate.summaries;
   const people = members.map(m => { const s = settings.find(x => x.email === m.email); return { email: m.email, name: m.name, weekly: s ? Number(s.weekly_minutes) : DEFAULT_WEEKLY, skills: s ? JSON.parse(s.skills) as string[] : [] }; });
   const weekStarts = Array.from({ length: count }, (_, n) => shift(from, n * 7));
   return { from, to, weeks: count, assumptions: ASSUMPTIONS, scenario: saved ? { id: saved.id, name: saved.name, createdBy: saved.createdBy, createdAt: saved.createdAt } : null, changes,
