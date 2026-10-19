@@ -10,6 +10,8 @@ Open a job in **Jobs**, then **Client documents → Send a reminder with an uplo
 
 Under **Clients & templates → Message templates** (preparers: **Team & safety**), search templates or filter by category. The principal keeps firm templates and sets the **Firm name**; everyone can keep personal templates and **Save a personal copy** of a firm one. A template has a name, category, subject and message, with placeholders in double braces: `{{firm_name}}`, `{{sender_name}}`, `{{client_name}}`, `{{contact_first_name}}` (the first word of the contact's name), `{{work_item}}`, `{{work_type}}`, `{{period}}`, `{{due_date}}`, `{{outstanding_requests}}` (one line per document), `{{portal_link}}`, `{{invoice_amount}}` and `{{invoice_due_date}}` (no invoices exist yet, so these must be filled in by hand). Saving an edit creates a new version with its author; messages already sent never change, and deleting a template keeps what was sent.
 
+A template can carry up to five attachments of up to 1 MiB each, such as a checklist PDF. Every message sent from it includes them, and the preview lists them. Choosing new files when you save an edit replaces the attachments in the new version; choosing none keeps them. The reminder history names the files each message was sent with.
+
 On a deployed installation, Blotter mails the client their outstanding requests and upload link. Locally, mail is suppressed and you can copy the link shown in the job. The link appears once, replaces earlier links and has a displayed expiry date. Treat it as a private credential.
 
 Reminders are sent when a person sends them, or approves an agent's preparation. They are not scheduled from the due date.

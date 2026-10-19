@@ -5,7 +5,7 @@ import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { clientTasks } from './tasks';
-import { LINK_PREVIEW, render, usable, valuesFor } from './messages';
+import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
 import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
@@ -101,14 +101,15 @@ export async function issueLink(db: D1Database, actor: Actor, jobId: string, ori
 }
 
 /** Mails one person through the operator's provider and says what happened. */
-export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, deliveryId: string, to: string, subject: string, message: string) {
+export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, deliveryId: string, to: string, subject: string, message: string, files: Data[] = []) {
   const sender = operatorMail(bindings);
   if (!sender) return 'not sent: no mail provider is configured';
   insist(bindings.MAIL_FROM, 'Set MAIL_FROM to send client mail', 500);
   try {
     const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)}</p>`).join('');
     // A demo copy reports the provider's acceptance without sending anything.
-    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {} }), { status: 'accepted', provider: 'demo mail', providerMessageId: null });
+    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {},
+      ...(files.length ? { attachments: files.map(f => ({ filename: f.name, contentType: f.mime, content: Uint8Array.from(atob(f.content_base64), c => c.charCodeAt(0)) })) } : {}) }), { status: 'accepted', provider: 'demo mail', providerMessageId: null });
     return result.status === 'development' ? 'suppressed in development (no email sent)' : result.status === 'accepted' ? `accepted by ${result.provider}` : `${result.status} by ${result.provider}`;
   } catch (error) { return `failed: ${error instanceof Error ? error.message : 'mail error'}`; }
 }
@@ -134,7 +135,8 @@ async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<t
   const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : t?.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : t?.body;
   insist(subject && message, 'Choose a template or write the subject and message');
   const rendered = render(subject, message, await valuesFor(db, actor, ctx.j, ctx.client, ctx.outstanding, link), body.values);
-  return { ...rendered, templateId: t?.id ?? null, version: t?.version ?? null, edited: body.subject !== undefined || body.body !== undefined };
+  // The template version's attachments go with the message, even when its text was edited.
+  return { ...rendered, templateId: t?.id ?? null, version: t?.version ?? null, attachments: t?.attachments ?? [], edited: body.subject !== undefined || body.body !== undefined };
 }
 
 /** Render a reminder without sending it; the secure link is created only when sending. */
@@ -149,11 +151,12 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   const ctx = await reminderContext(db, actor, jobId), { j, client, outstanding } = ctx;
   const reminderId = actor.approval?.resultId ?? id(), at = now();
   const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN);
-  let subject = `Documents needed: ${j.title} ${j.period_label}`, message: string, template: { id: string | null; version: number | null } = { id: null, version: null };
+  let subject = `Documents needed: ${j.title} ${j.period_label}`, message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
   if (body.templateId || body.subject !== undefined || body.body !== undefined) {
     const r = await templated(db, actor, ctx, body, url);
     insist(!r.missing.length, `Fill in or remove before sending: ${r.missing.map(m => m.label).join(', ')}`, 409);
     subject = r.subject; message = r.body; template = { id: r.templateId, version: r.edited ? null : r.version };
+    if (r.templateId) files = await templateFiles(db, r.templateId, r.version, true);
   } else {
     const note = optional(body.message, 'Message', 1000);
     message = [
@@ -165,11 +168,11 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   }
   const [check, release] = openGuard(db, j.id);
   await atomic(db, actor, [check, ...statements,
-    stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+    stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version,attachments) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
       reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
-      subject, template.id, template.version),
+      subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 })))),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
-  const delivery = await sendMail(bindings, reminderId, client.contact_email, subject, message);
+  const delivery = await sendMail(bindings, reminderId, client.contact_email, subject, message, files);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();
   return { id: reminderId, delivery, portalUrl: url, expiresAt: expires };
 }

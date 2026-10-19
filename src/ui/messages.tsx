@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, readFile, when, type Row, type Run } from './common';
+
+/** Files chosen in the form replace the template's attachments; none chosen keeps them. */
+const withFiles = async (data: Row, form: HTMLFormElement) => {
+  const chosen = [...((form.elements.namedItem('files') as HTMLInputElement | null)?.files ?? [])];
+  const { files, ...rest } = data;
+  return { ...rest, ...(chosen.length ? { attachments: await Promise.all(chosen.map(readFile)) } : {}) };
+};
 
 /** Firm and personal message templates (MSG-001): search, categories, versions, personal copies. */
 export function MessageTemplates({ actor, run, tick }: { actor: Row; run: Run; tick: number }) {
@@ -12,6 +19,7 @@ export function MessageTemplates({ actor, run, tick }: { actor: Row; run: Run; t
     <div className="row"><Field label="Name" name="name" value={t?.name} /><Field label="Category" name="category" value={t?.category ?? 'Document requests'} /></div>
     <Field label="Subject" name="subject" value={t?.subject} />
     <Field label="Message" name="body" hint={`Placeholders: ${catalog}`}><textarea name="body" rows={6} required defaultValue={t?.body} /></Field>
+    <Field label={t?.attachments?.length ? 'Replace attachments (optional)' : 'Attachments (optional, up to 5 files of 1 MiB)'} name="files"><input name="files" type="file" multiple /></Field>
   </>;
   return <section className="panel wide">
     <h2>Message templates</h2>
@@ -24,16 +32,16 @@ export function MessageTemplates({ actor, run, tick }: { actor: Row; run: Run; t
     </Form>
     {!state.templates.length ? <Empty>No templates match.</Empty> : state.templates.map((t: Row) => <article key={t.id} className="record">
       <div className="split"><strong>{t.name}</strong><small className="muted">{t.scope === 'firm' ? 'Firm' : 'Personal'} · {t.category} · version {t.version} by {t.author} {when(t.updated_at)}</small></div>
-      <p className="muted">{t.subject}</p>
+      <p className="muted">{t.subject}{t.attachments.length > 0 && <> · attached {t.attachments.map((f: Row) => f.name).join(', ')}</>}</p>
       <div className="actions">
         {(t.scope === 'personal' || owner) && <button className="quiet" onClick={() => setEditing(editing === t.id ? '' : t.id)}>Edit</button>}
         {t.scope === 'firm' && <button className="quiet" onClick={() => run(() => api(`/messages/templates/${t.id}/copy`, {}), 'Personal copy saved')}>Save a personal copy</button>}
         {(t.scope === 'personal' || owner) && <button className="quiet" onClick={() => run(() => api(`/messages/templates/${t.id}/delete`, {}), 'Template deleted; sent messages keep their text')}>Delete</button>}
       </div>
-      {editing === t.id && <Form label="Save new version" submit={async data => run(async () => { await api(`/messages/templates/${t.id}`, data); setEditing(''); }, 'New version saved')}>{fields(t)}</Form>}
+      {editing === t.id && <Form label="Save new version" submit={async (data, form) => run(async () => { await api(`/messages/templates/${t.id}`, await withFiles(data, form)); setEditing(''); }, 'New version saved')}>{fields(t)}</Form>}
     </article>)}
     <details><summary>New template</summary>
-      <Form label="Save template" submit={async (data, form) => run(async () => { await api('/messages/templates', data); form.reset(); }, 'Template saved')}>
+      <Form label="Save template" submit={async (data, form) => run(async () => { await api('/messages/templates', await withFiles(data, form)); form.reset(); }, 'Template saved')}>
         {owner && <Field label="Kind" name="scope"><select name="scope"><option value="firm">Firm template</option><option value="personal">Personal template</option></select></Field>}
         {fields()}
       </Form>
@@ -51,6 +59,7 @@ export function ReminderComposer({ jobId, run, sent }: { jobId: string; run: Run
       <option value="">Standard reminder</option>{list.map(t => <option key={t.id} value={t.id}>{t.name} ({t.scope === 'firm' ? 'firm' : 'mine'})</option>)}</select></Field>
     {preview && <div className="notice">
       <p><strong>To {preview.to}: {preview.subject}</strong></p><pre className="message">{preview.body}</pre>
+      {preview.attachments.length > 0 && <p className="muted">Attached: {preview.attachments.map((f: Row) => f.name).join(', ')}</p>}
       {preview.missing.length > 0 && <Form label="Fill in and preview again" submit={async data => run(() => show({ ...draft, values: { ...(draft.values ?? {}), ...data } }), 'Preview updated')}>
         <p className="error">Missing: {preview.missing.map((m: Row) => m.label).join(', ')}. Fill them in, or choose another template.</p>
         {preview.missing.map((m: Row) => <Field key={m.key} label={m.label} name={m.key} />)}

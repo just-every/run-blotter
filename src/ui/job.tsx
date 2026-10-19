@@ -83,7 +83,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
           <ReminderComposer jobId={job.id} run={run} sent={setLink} />
         </details>}
         {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
-        {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}</li>)}</ul></details>}
+        {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}{JSON.parse(m.attachments ?? '[]').length > 0 && <small className="muted"> · attached {JSON.parse(m.attachments).map((f: Row) => f.name).join(', ')}</small>}</li>)}</ul></details>}
       </section>
     </div></Blotter>
     <Deliverables job={job} deliverables={detail.deliverables} run={run} />

@@ -685,11 +685,14 @@ test('CRM-002 groups, typed fields and tags: filter a segment, schedule its annu
   assert.deepEqual(pier.map(c => [c.name, JSON.parse(c.fields), JSON.parse(c.tags)]), [['North Pier LLC', { service_tier: 'Plus', fiscal_year_end: '2026-09-30' }, ['new', 'priority']]]);
 });
 
-test('MSG-001 message templates: a firm template renders per client, unresolved fields are refused by name, edits never change sent messages, preparers copy but cannot edit', async () => {
+test('MSG-001 message templates: a firm template with an attachment renders per client, unresolved fields are refused by name, edits never change sent messages or their files, preparers copy but cannot edit', async () => {
   const body = 'Hello {{contact_first_name}},\n\nFor {{work_item}}, due {{due_date}}, we still need:\n{{outstanding_requests}}\n\nUpload here: {{portal_link}}\n{{sender_name}}, {{firm_name}}';
   await h.json('/messages/templates', { scope: 'firm', name: 'Bad', subject: 'x', body: 'Hi {{nickname}}' }, h.owner, 400);
   await h.json('/messages/templates', { scope: 'firm', name: 'Mine', subject: 'x', body: 'y' }, preparer, 403);
-  const close = await h.json('/messages/templates', { scope: 'firm', name: 'Month-end close request', category: 'Document requests', subject: '{{client_name}}: documents for {{period}}', body }, h.owner);
+  const checklist = { name: 'month-end-checklist.pdf', mime: 'application/pdf', contentBase64: b64('%PDF month-end checklist v1') };
+  const sha = text => createHash('sha256').update(text).digest('hex');
+  await h.json('/messages/templates', { scope: 'firm', name: 'Too many', subject: 'x', body: 'y', attachments: Array(6).fill(checklist) }, h.owner, 400);
+  const close = await h.json('/messages/templates', { scope: 'firm', name: 'Month-end close request', category: 'Document requests', subject: '{{client_name}}: documents for {{period}}', body, attachments: [checklist] }, h.owner);
   const tide = await h.json('/clients', { name: 'Tide Pool Studio', contactEmail: 'studio@tidepool.example', fields: { service_tier: 'Plus' } }, h.owner);
   const tideJob = await h.json('/jobs', { clientId: tide.id, templateId: template.id, periodStart: '2026-04-01', dueDate: '2026-07-28', dueNote: 'Lodgement program', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
   // The firm name is not set yet: preview names it and sending is refused.
@@ -700,10 +703,17 @@ test('MSG-001 message templates: a firm template renders per client, unresolved 
   const harbour = await h.json(`/jobs/${nextJob.id}/reminders/preview`, { templateId: close.id }, reviewer);
   const outstanding = (await h.json('/jobs/' + nextJob.id, undefined, reviewer)).requests.filter(r => r.status === 'requested').map(r => `- ${r.label}`).join('\n');
   assert.equal(harbour.subject, 'Harbour Lane Cafe Pty Ltd: documents for Oct–Dec 2026');
+  assert.deepEqual(harbour.attachments.map(f => [f.name, f.size, f.sha256]), [['month-end-checklist.pdf', 27, sha('%PDF month-end checklist v1')]]);
   assert.equal(harbour.body, `Hello Mia,\n\nFor Quarterly BAS Oct–Dec 2026, due ${nextJob.due_date}, we still need:\n${outstanding}\n\nUpload here: [secure upload link, created when you send]\nRiley Reviewer, Harbour & Co Accounting`);
   // A client with no contact name is refused naming the field, until the sender fills it in.
+  const sales = (await h.json('/jobs/' + tideJob.id, undefined, reviewer)).requests.find(r => r.label === 'Sales invoices');
+  await h.json(`/requests/${sales.id}/files`, { name: 'sales.csv', mime: 'text/csv', contentBase64: b64('INV-7,220') }, reviewer);
+  await h.json(`/requests/${sales.id}/decide`, { decision: 'accept' }, reviewer);
   const studio = await h.json(`/jobs/${tideJob.id}/reminders/preview`, { templateId: close.id }, reviewer);
   assert.deepEqual([studio.subject, studio.missing.map(m => m.label)], ['Tide Pool Studio: documents for Apr–Jun 2026', ['contact first name']]);
+  // Each client's own outstanding list is rendered.
+  assert.match(studio.body, /we still need:\n- Bank statements\n\n/);
+  assert.notEqual(outstanding, '- Bank statements');
   assert.match((await h.json(`/jobs/${tideJob.id}/reminders`, { templateId: close.id }, reviewer, 409)).error, /contact first name/);
   await h.json(`/jobs/${tideJob.id}/reminders`, { templateId: close.id, values: { contact_first_name: 'Lena' } }, reviewer);
   assert.match(h.mails.at(-1).text, /^Hello Lena,/);
@@ -712,11 +722,15 @@ test('MSG-001 message templates: a firm template renders per client, unresolved 
   assert.equal(sent.subject, harbour.subject);
   assert.match(sent.text, /Upload here: https:\/\/127\.0\.0\.1:\d+\/portal\/up_[0-9a-f]{64}\n/);
   assert.deepEqual([stored.subject, stored.template_id, stored.template_version], [harbour.subject, close.id, 1]);
+  // The template's file goes with the message, and the reminder records exactly which file it was.
+  assert.deepEqual(sent.attachments.map(a => [a.filename, a.content_type, Buffer.from(a.content, 'base64').toString()]), [['month-end-checklist.pdf', 'application/pdf', '%PDF month-end checklist v1']]);
+  assert.deepEqual(JSON.parse(stored.attachments).map(f => [f.name, f.sha256]), [['month-end-checklist.pdf', sha('%PDF month-end checklist v1')]]);
   assert.equal(stored.message, harbour.body.replace('[secure upload link, created when you send]', `${h.origin}/portal/…`));
   // Only the principal edits firm templates; a preparer saves a personal copy and edits that.
   await h.json(`/messages/templates/${close.id}`, { subject: 'x', body: 'y' }, reviewer, 403);
   await h.json(`/messages/templates/${close.id}`, { subject: 'x', body: 'y' }, preparer, 403);
   const copy = await h.json(`/messages/templates/${close.id}/copy`, {}, preparer);
+  assert.deepEqual(copy.attachments.map(f => f.name), ['month-end-checklist.pdf']);
   await h.json(`/messages/templates/${copy.id}`, { subject: 'My {{period}} request', body }, preparer);
   assert.deepEqual((await h.json('/messages/templates', undefined, reviewer)).templates.map(t => t.name), ['Month-end close request']);
   assert.deepEqual((await h.json('/messages/templates?q=MONTH-END', undefined, preparer)).templates.map(t => [t.scope, t.version]), [['firm', 1], ['personal', 2]]);
@@ -726,6 +740,14 @@ test('MSG-001 message templates: a firm template renders per client, unresolved 
   await h.json(`/jobs/${tideJob.id}/reminders`, { templateId: close.id, values: { contact_first_name: 'Lena' } }, reviewer);
   assert.equal(h.mails.at(-1).subject, 'Reminder: Tide Pool Studio Apr–Jun 2026');
   assert.equal((await h.json('/jobs/' + tideJob.id, undefined, reviewer)).reminders[0].template_version, 2);
+  assert.deepEqual(h.mails.at(-1).attachments.map(a => a.filename), ['month-end-checklist.pdf']);
+  // Replacing the file is a new version too: the next message carries the new file, the sent ones keep theirs.
+  const revised = { name: 'month-end-checklist-2027.pdf', mime: 'application/pdf', contentBase64: b64('%PDF month-end checklist v2') };
+  assert.equal((await h.json(`/messages/templates/${close.id}`, { subject: 'Reminder: {{client_name}} {{period}}', body, attachments: [revised] }, h.owner)).version, 3);
+  await h.json(`/jobs/${tideJob.id}/reminders`, { templateId: close.id, values: { contact_first_name: 'Lena' } }, reviewer);
+  assert.deepEqual(h.mails.at(-1).attachments.map(a => [a.filename, Buffer.from(a.content, 'base64').toString()]), [['month-end-checklist-2027.pdf', '%PDF month-end checklist v2']]);
+  const tideSent = (await h.json('/jobs/' + tideJob.id, undefined, reviewer)).reminders.map(r => [r.template_version, JSON.parse(r.attachments).map(f => f.name)]);
+  assert.deepEqual(tideSent, [[3, ['month-end-checklist-2027.pdf']], [2, ['month-end-checklist.pdf']], [1, ['month-end-checklist.pdf']]]);
   assert.deepEqual((await h.json('/jobs/' + nextJob.id, undefined, reviewer)).reminders[0], stored);
   await h.json(`/messages/templates/${close.id}/delete`, {}, h.owner);
   await h.json(`/jobs/${nextJob.id}/reminders`, { templateId: close.id }, reviewer, 404);
