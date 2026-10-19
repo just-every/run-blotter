@@ -1,6 +1,6 @@
 # Blotter documentation
 
-Run one client's next quarter through Blotter, then build up your practice's workflow from there.
+Run one client's next month through Blotter, then build up your firm's workflow from there.
 
 Blotter keeps recurring client jobs, document requests, reviewer decisions and time for your own billing together. It is free, open source and MIT licensed. Your installation runs in your own account.
 
@@ -16,6 +16,6 @@ Blotter keeps recurring client jobs, document requests, reviewer decisions and t
 
 ## What Blotter covers
 
-Blotter is job workflow for a small Australian bookkeeping or accounting practice. Due dates are recorded by people, with their source. Blotter does not lodge anything, calculate tax or GST, keep client books or give advice. Billing exports are for your own billing system; Blotter does not send invoices or take payments.
+Blotter is practice management for a small bookkeeping and accounting firm. Today it runs recurring client jobs, document requests, review and sign-off, capacity and time for your own billing. Due dates are entered by people, with their source, and amounts are recorded in Australian dollars, as in the first release. Blotter does not file returns, calculate tax, keep client books or give advice. Billing exports are for your own billing system; Blotter does not send invoices or take payments yet.
 
-The [first-release acceptance scope](https://github.com/just-every/run-blotter/blob/main/ACCEPTANCE.md) records the complete product boundary. The [source repository](https://github.com/just-every/run-blotter) includes operational and development instructions.
+US firm setup (USD, EINs and time zones), calculated federal and state deadlines, signatures, invoices and payments are the product's contract, and the [contract page](/contract) shows what is done and what is next. The [first-release acceptance scope](https://github.com/just-every/run-blotter/blob/main/ACCEPTANCE.md) records the journeys the code passes today. The [source repository](https://github.com/just-every/run-blotter) includes operational and development instructions.

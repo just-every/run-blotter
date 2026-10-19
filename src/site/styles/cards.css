@@ -1,0 +1,22 @@
+/* Shared card pieces for the stages: tape-strip tiles, chips, rails and done pills. */
+.tape-stack{position:relative;display:grid;padding:10px 26px 0 0;min-width:0}
+.tape{grid-area:1/1;border:2px solid var(--bl-ink);border-radius:5px}
+.tape.back{transform:translate(18px,-12px) rotate(-2deg)}
+.tape.mid{transform:translate(9px,-6px) rotate(-1deg)}
+.tape.top{position:relative;padding:13px 20px;font:400 clamp(17px,1.62vw,23px)/1.18 var(--bl-font-hand);font-weight:700;color:var(--bl-ink);letter-spacing:-.01em}
+.tone-mint>.tape.top,.tape.tone-mint{background:var(--bl-mint)}
+.tone-marigold>.tape.top,.tape.tone-marigold{background:var(--bl-marigold-ui)}
+.tone-lilac>.tape.top,.tape.tone-lilac{background:#ebdcfd}
+.date-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.date-chips li{display:grid;padding:7px 18px 8px;min-width:130px;text-align:center;border-radius:10px;background:var(--bl-lilac-tint);font:600 clamp(16px,1.3vw,19px)/1.15 var(--bl-font-body);color:var(--bl-ink)}
+.date-chips small{font-size:.8em;font-weight:500;color:var(--bl-text)}
+.done-chip{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border-radius:12px;background:var(--bl-mint-tint);color:var(--bl-green-deep);font-weight:600}
+.pill-done{display:table;margin:clamp(24px,2.6vw,36px) auto 0;padding:13px 30px;border-radius:999px;background:var(--bl-mint);color:#0f4f35;font:700 clamp(16px,1.4vw,20px)/1.3 var(--bl-font-body);text-align:center}
+.mini-card{display:flex;gap:18px;padding:20px 22px}
+.mini-card>div{min-width:0;flex:1}
+.mini-card h3{font:600 clamp(16px,1.25vw,18px)/1.35 var(--bl-font-body);color:var(--bl-ink);margin-bottom:10px}
+.mini-card h3 .display{font-size:1.14em}
+.mini-card h3.display{font-family:var(--bl-font-display);font-weight:800}
+.mini-card ul li{padding:9px 0;border-top:1px solid #eeeaf6;font-size:clamp(15px,1.15vw,17px);color:var(--bl-text)}
+.mini-card ul li:first-child{border-top:0;padding-top:4px}
+.done-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:var(--bl-mint-tint);border:1px solid var(--bl-mint-line);color:#0f4f35;font-size:clamp(15px,1.2vw,18px)}

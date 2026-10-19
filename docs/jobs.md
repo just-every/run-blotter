@@ -4,15 +4,15 @@ Start a client's job from a template, then carry the same workflow into the next
 
 ## Add a client
 
-Open **Clients & templates → Add a client**. Enter the client name, optional ABN, contact name and contact email. Document reminders go to this contact email.
+Open **Clients & templates → Add a client**. Enter the client name, an optional business number, contact name and contact email. Today that field takes an 11-digit Australian Business Number (ABN); the US EIN arrives with US firm setup. Document reminders go to this contact email.
 
 You can also [bring in a client list](/docs/move-in) from a CSV.
 
 ## Save a template
 
-Under **Job templates → Add a template**, set the name, recurrence, checklist steps, document requests and fixed fee. Each checklist step and document request goes on its own line. The prefilled **Quarterly BAS** template is a starting point; check it against how your practice works before saving.
+Under **Job templates → Add a template**, set the name, recurrence, checklist steps, document requests and fixed fee. Each checklist step and document request goes on its own line. The prefilled **Monthly close** template is a starting point; check it against how your practice works before saving.
 
-The fixed fee is integer AUD cents, ex GST; use `0` for no fixed fee. Monthly, quarterly and annual recurrences describe the job's period. Due dates are recorded separately by a person.
+The fixed fee is in integer cents, before tax (amounts are recorded in Australian dollars today); use `0` for no fixed fee. Monthly, quarterly and annual recurrences describe the job's period. Due dates are recorded separately by a person.
 
 ### Tasks with owners and dates
 
@@ -45,7 +45,7 @@ On the job, each waiting task shows **Blocked** with what it waits for, **Ready*
 
 Under **Start a job**, choose the client and template. Enter the period start, the due date you have checked and **Where the due date comes from**. Assign a preparer and reviewer, and optionally a manager (otherwise the reviewer is the job's manager), then press **Start job**.
 
-For example, a quarterly job starting `2026-07-01` is labelled Jul–Sep 2026. Record the applicable due date from the source you have checked; Blotter does not calculate it.
+For example, a quarterly job starting `2026-07-01` is labeled Jul–Sep 2026. Record the applicable due date from the source you have checked; Blotter does not calculate it.
 
 The **Jobs** tab lists visible work in progress by due date, then signed-off jobs, most recent first, with their status and outstanding checklist steps and documents. Open the job to do the work.
 

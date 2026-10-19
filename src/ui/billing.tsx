@@ -13,7 +13,7 @@ export function Billing({ actor, run, tick }: { actor: Row; run: Run; tick: numb
     <TimeApprovals actor={actor} run={run} tick={tick} />
     <Blotter><section className="panel">
       <h2>Ready to bill</h2>
-      <p className="muted">Approved time and adjustments, fixed fees of signed-off jobs and approved billable expenses. Work in progress: {aud(state.wip.totalCents)} (expenses {aud(state.wip.byKind.expense)}). Each item can go into one export. Amounts are AUD ex GST; Blotter does not calculate GST or send invoices.</p>
+      <p className="muted">Approved time and adjustments, fixed fees of signed-off jobs and approved billable expenses. Work in progress: {aud(state.wip.totalCents)} (expenses {aud(state.wip.byKind.expense)}). Each item can go into one export. Amounts are AUD before tax; Blotter does not calculate sales tax or send invoices.</p>
       {!state.unbilled.length ? <Empty>Nothing waiting to be billed.</Empty> : <>
         <table className="table"><thead><tr><th><span className="sr-only">Include</span></th><th>Client</th><th>Job</th><th>Item</th><th>Amount</th></tr></thead>
           <tbody>{state.unbilled.map((l: Row) => <tr key={l.source_key}>

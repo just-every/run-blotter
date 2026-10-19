@@ -12,7 +12,7 @@ Use UTF-8 CSV with one header row, 1–2,000 client rows and a maximum file size
 | --- | --- | --- |
 | `client_name` | Yes | 1–200 characters. |
 | `client_id` | No | Previous system's identifier, up to 200 characters. Without it, identity is the client's name and ABN. |
-| `abn` | No | Empty or 11 digits; spaces allowed. The checksum is not checked. |
+| `abn` | No | The client's Australian Business Number: empty or 11 digits; spaces allowed. The checksum is not checked. |
 | `contact_name` | No | Up to 200 characters. |
 | `contact_email` | No | Empty or one email address. Reminders go here. |
 | `tags` | No | Up to 20 tags separated by semicolons. |

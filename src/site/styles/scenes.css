@@ -1,0 +1,29 @@
+/* The two painted scenes after the hero: the interlude street and the closing front steps, words set as HTML. */
+.interlude{padding:clamp(24px,3vw,40px) 0 0}
+.interlude-art,.closing-art{position:relative;container-type:inline-size;max-width:1536px;margin:0 auto}
+.interlude-art img,.closing-art img{width:100%;height:auto}
+@media (min-width:1560px){.interlude-art img,.closing-art img{-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}}
+/* The tag hangs at 1034–1174 × 410–526 of the 1536 × 1009 street, tilted as drawn. */
+.interlude-tag{position:absolute;left:67.4%;top:41%;width:9.1%;height:11.2%;display:flex;flex-direction:column;justify-content:center;gap:.1em;padding:0 .2em;transform:rotate(-3.2deg);font:600 max(11px,.9cqw)/1.18 var(--bl-font-body);color:var(--bl-ink)}
+.interlude-tag span{white-space:nowrap}
+.interlude-tag .check{width:1.15em;height:1.15em}
+.closing{padding-top:clamp(20px,3vw,40px)}
+/* The four porch tags at y 458–547 of the 1536 × 722 crop. */
+.porch-tags{position:absolute;left:47.1%;right:12.9%;top:63.4%;height:12.4%;display:grid;grid-template-columns:139fr 6fr 156fr 7fr 136fr 7fr 170fr}
+.porch-tags li{display:flex;align-items:center;justify-content:center;text-align:center;padding:0 4%;font:600 max(11px,.98cqw)/1.16 var(--bl-font-body);color:var(--bl-ink)}
+.porch-tags li:nth-child(1){grid-column:1}.porch-tags li:nth-child(2){grid-column:3}.porch-tags li:nth-child(3){grid-column:5}.porch-tags li:nth-child(4){grid-column:7}
+.porch-tags .check{width:1.2em;height:1.2em}
+.closing-copy{position:relative;text-align:center;padding-top:clamp(20px,2.6vw,36px);padding-bottom:clamp(56px,6vw,90px)}
+.closing-copy h2{font-size:clamp(44px,5.3vw,78px)}
+.closing-copy>p{margin:18px 0 26px;font-size:clamp(18px,1.75vw,25px);color:var(--bl-ink)}
+@media (max-width:1100px){
+  .porch-tags{position:static;display:grid;grid-template-columns:1fr 1fr;gap:12px;height:auto;padding:16px var(--bl-gutter) 0;max-width:720px;margin:0 auto}
+  .porch-tags li,.porch-tags li:nth-child(n){grid-column:auto;padding:12px 14px;border:1.5px solid #c9b2f2;border-radius:12px;background:var(--bl-white);font-size:15px;box-shadow:var(--bl-shadow);position:relative}
+  .porch-tags li::before{content:'';position:absolute;left:50%;top:-12px;height:12px;border-left:2px dotted #8a8597}
+}
+@media (max-width:1199px){
+  .interlude-tag{left:auto;right:4%;top:auto;bottom:4%;width:auto;height:auto;padding:10px 12px;border:2px solid var(--bl-ink);border-radius:6px;background:#fff;box-shadow:var(--bl-shadow);font-size:14px}
+}
+@media (max-width:759px){
+  .porch-tags{grid-template-columns:1fr}
+}

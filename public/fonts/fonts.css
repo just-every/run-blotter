@@ -1,4 +1,7 @@
-/* Red Hat Display and Red Hat Text, SIL Open Font License 1.1. Self-hosted. */
+/* Self-hosted, SIL Open Font License 1.1 (licences beside each font; see README.md). */
 @font-face {font-family:"Red Hat Display";font-style:normal;font-weight:300 900;font-display:swap;src:url('/fonts/red-hat-display/RedHatDisplay.ttf') format('truetype')}
 @font-face {font-family:"Red Hat Text";font-style:normal;font-weight:300 700;font-display:swap;src:url('/fonts/red-hat-text/RedHatText.ttf') format('truetype')}
+@font-face {font-family:"Roboto Serif Display";font-style:normal;font-weight:500 900;font-stretch:50% 100%;font-display:swap;src:url('/fonts/roboto-serif/roboto-serif-display.woff2') format('woff2')}
+@font-face {font-family:"Kalam";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/kalam/kalam-400.woff2') format('woff2')}
+@font-face {font-family:"Kalam";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/kalam/kalam-700.woff2') format('woff2')}
 button,input,select,textarea {font-family:inherit}

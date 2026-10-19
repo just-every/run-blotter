@@ -29,7 +29,7 @@ rer import --input exports/practice.rer --yes
 rer dev
 ```
 
-The checkout gets a new local owner. Open the new `RER_OPEN` link and finish setup to use the restored practice.
+The checkout gets a new local owner. Open the new sign-in link `rer dev` prints and finish setup to use the restored practice.
 
 ## After erasing a file
 

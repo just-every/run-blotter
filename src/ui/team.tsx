@@ -43,7 +43,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
           <Field label="Role (role rates)" name="role"><select name="role"><option value="preparer">Preparer</option><option value="reviewer">Reviewer</option><option value="owner">Principal</option></select></Field>
           <Field label="Service (service rates)" name="templateId"><select name="templateId">{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
           <Field label="Client (client rates)" name="clientId"><select name="clientId">{state.clients.map((c: Row) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-          <Field label="Hourly rate in cents, ex GST (15000 = $150.00)" name="rateCents" type="number" />
+          <Field label="Hourly rate in cents, before tax (15000 = $150.00)" name="rateCents" type="number" />
           <Field label="Effective from" name="effectiveFrom" type="date" value={today()} />
         </Form>
       </details>

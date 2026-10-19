@@ -20,7 +20,7 @@ export function Portal({ token }: { token: string }) {
     await load(); return `Uploaded ${file.name}. Thank you.`;
   });
   return <div className="portal" aria-busy={busy}>
-    <header className="topbar"><span className="brand"><img src="/brand/mark.svg" alt="" width="28" height="28" /><span>{view?.practice ?? 'Document upload'}</span></span></header>
+    <header className="topbar"><span className="brand"><img src="/brand/mark-32.svg" alt="" width="28" height="28" /><span>{view?.practice ?? 'Document upload'}</span></span></header>
     <main>
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}

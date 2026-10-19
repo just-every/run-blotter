@@ -16,7 +16,7 @@
     "deploy": "rer deploy",
     "onboard": "node scripts/install.mjs",
     "build:app": "rer queue build:app -- sh -c \"vite build\"",
-    "verify:app": "rer queue verify:app -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:blotter && pnpm run test:email-link\"",
+    "verify:app": "rer queue verify:app -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:blotter && pnpm run test:email-link && pnpm run test:site\"",
     "reset": "rer reset",
     "export": "rer export",
     "import": "rer import",
@@ -27,7 +27,8 @@
     "deps": "rer install",
     "rer": "rer",
     "test:blotter": "rer queue test:blotter -- node --test --test-concurrency=1 tests/blotter/*.test.mjs",
-    "test:email-link": "rer queue test:email-link -- sh -c \"node tests/email-link.mjs\""
+    "test:email-link": "rer queue test:email-link -- sh -c \"node tests/email-link.mjs\"",
+    "test:site": "node --test tests/site/*.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",

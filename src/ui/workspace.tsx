@@ -28,7 +28,7 @@ export function Workspace() {
   const open = (id: string) => { setJobId(id); setTab('Jobs'); setNotice(''); setError(''); };
   return <div className="workspace" aria-busy={busy}>
     <header className="topbar">
-      <a className="brand" href="/app"><img src="/brand/mark.svg" alt="" width="28" height="28" /><span data-rer-name>Blotter</span></a>
+      <a className="brand" href="/app"><img src="/brand/mark-32.svg" alt="" width="28" height="28" /><span data-rer-name>Blotter</span></a>
       <span className="muted">Practice workflow</span>
       {actor ? <span className="badge">{actor.name} · {actor.role}</span> : null}
       <button className="quiet signout" onClick={async () => { await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' }); location.href = '/signin'; }}>Sign out</button>
@@ -36,7 +36,7 @@ export function Workspace() {
     <div className="layout">
       <nav aria-label="Workspace">
         {(actor ? visible(actor.role) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => { setTab(t); setNotice(''); setError(''); if (t === 'Jobs') setJobId(''); }}>{t}</button>)}
-        <p className="boundary">AUD time and fees for your own billing. No lodgement, tax calculation or advice.</p>
+        <p className="boundary">AUD time and fees for your own billing. No filing, tax calculation or advice.</p>
       </nav>
       <main>
         <h1>{tab}</h1>

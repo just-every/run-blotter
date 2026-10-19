@@ -4,11 +4,23 @@ Run Blotter on your computer and set up the people who will prepare and review t
 
 ## Run Blotter
 
-You need macOS, Linux or Windows with WSL2, and Git. Run the one line on [Run Blotter](/run), `npx -y @runeditrun/rer dev just-every/run-blotter`, which clones the source and starts the app. No Node? `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-blotter` brings its own and does the same. To start it again later, run `rer dev` from the checkout.
+You need macOS, Linux or Windows with WSL2, and Git. [Run Blotter](/run) has the same two steps. First install rer; it brings its own Node if you have none:
+
+```sh
+curl -fsSL https://runeditrun.com/install.sh | sh
+```
+
+If the installer ends with a line to run, run it. Then start Blotter:
+
+```sh
+rer dev just-every/run-blotter
+```
+
+Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-blotter` does both steps in one line. To start Blotter again later, run `cd run-blotter && rer dev`.
 
 The first launch installs the locked dependencies, selects the project's pinned runtime, prepares a local database and starts the app on a free port. It can take several minutes. If interrupted, run `rer dev` again to resume.
 
-The command prints `RER_READY` with the address and `RER_OPEN` with a sign-in link. Open the `RER_OPEN` link on this computer. Keep that link private: it signs you in as the principal.
+rer gets Blotter, installs everything, makes you the owner and prints a link that opens Blotter signed in. Open that link on this computer. Keep it private: it signs you in as the principal.
 
 Review your owner account on **Finish setup**, tick the confirmation and press **Finish setup**. The workspace opens at `/app`.
 
@@ -47,7 +59,7 @@ rer dev --stop
 rer dev --as reviewer
 ```
 
-Use `rer dev --as preparer` to try the preparer. Open the new `RER_OPEN` link each time. Starting `rer dev` without `--as` returns to the principal.
+Use `rer dev --as preparer` to try the preparer. Open the new sign-in link it prints each time. Starting `rer dev` without `--as` returns to the principal.
 
 ## Start the first client
 

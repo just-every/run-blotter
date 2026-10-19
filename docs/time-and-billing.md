@@ -54,7 +54,7 @@ As the principal, set the firm's mileage rate (cents per mile and the date it ta
 
 As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved billable time and its adjustments, the fixed fees of signed-off jobs and approved billable expenses, with their total as work in progress. Choose the items, give the export a title and press **Prepare export**.
 
-Each time entry, adjustment, fixed fee or expense can belong to one export. Amounts are AUD ex GST. Blotter does not calculate GST or send invoices.
+Each time entry, adjustment, fixed fee or expense can belong to one export. Amounts are Australian dollars before tax. Blotter does not calculate sales tax or send invoices.
 
 ## Approve and download
 

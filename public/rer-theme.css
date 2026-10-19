@@ -1,5 +1,5 @@
-/* Blotter's palette and shared surfaces. Native auth, setup, Lobby and site use
-   these same tokens; no screen declares a second palette. */
+/* Blotter's app palette and shared surfaces. Native auth, setup and the Lobby use
+   these tokens; the run site's desk-approved tokens are in /site/theme.css. */
 @import url('/fonts/fonts.css');
 :root {
   --paper:#FBFAF7; --surface:#FFFFFF; --ink:#14161C; --muted:#5B6070;

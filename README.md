@@ -1,24 +1,39 @@
+<p><img src="public/brand/mark.svg" alt="Blotter's mark: a smiling day tile ringed in marigold marker" width="88" height="88"></p>
+
 # Blotter
 
-Blotter is the job workflow for a small Australian bookkeeping or accounting
-practice: recurring client jobs such as the quarterly BAS, document requests
-that clients answer through a private upload link, reviewer sign-off, and time
-exported for your own billing. It runs in your own Cloudflare account. MIT licensed.
+Blotter is practice management for a small bookkeeping and accounting firm:
+recurring client jobs with their due dates, document requests that clients
+answer through a private upload link, reviewer sign-off, staff capacity, and
+time exported for your own billing. It runs in your own Cloudflare account.
+100% free and open source, MIT licensed.
 
-Blotter does not lodge anything with the ATO, calculate tax, GST or due dates,
-keep client books, or give advice. Due dates are recorded by people.
+Blotter's contract is the practice manager a US firm moves to from Karbon,
+TaxDome or Canopy: US firm setup in USD, calculated federal and state
+deadlines, IRS e-file signatures, invoices and payments. [CONTRACT.md](CONTRACT.md)
+and the run site's [/contract](https://run-blotter.com/contract) page show what
+the code does today and what is next. Today's release records amounts in
+Australian dollars, takes due dates entered by people with their source, and
+does not file returns, calculate tax, keep client books or give advice.
 
-## Clone and run
+## Run Blotter
 
-You need macOS, Linux or Windows with WSL2, and Git.
+You need macOS, Linux or Windows with WSL2, and Git. These are the two steps on
+[run-blotter.com/run](https://run-blotter.com/run). Install rer (it brings its
+own Node if you have none; if the installer ends with a line to run, run it):
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-blotter
+curl -fsSL https://runeditrun.com/install.sh | sh
 ```
 
-No Node? `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-blotter` brings its own Node and does the same.
+Then start Blotter:
 
-That line clones Blotter and starts the app. To start it again later, run `cd run-blotter && rer dev`.
+```sh
+rer dev just-every/run-blotter
+```
+
+Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-blotter`
+does both steps in one line. To start it again later, run `cd run-blotter && rer dev`.
 
 `rer dev` installs the locked dependencies, selects pinned Node 22.20.0 and
 pnpm 10.12.4, prepares a local D1 database and starts the app on a free port.
@@ -53,13 +68,13 @@ ships as `/docs` and its guide pages in that same static build.
 
 ## Do the first jobs
 
-1. **Team & safety:** set your own hourly rate (in cents, ex GST; `15000` is
+1. **Team & safety:** set your own hourly rate (in cents, before tax; `15000` is
    $150.00), add a reviewer and a preparer, and set their rates. On a deployed
    installation, **Send an invitation** emails them a sign-in link.
 2. **Clients & templates:** add a client with a contact email, and save the
-   prefilled **Quarterly BAS** template (checklist, document requests, fixed
+   prefilled **Monthly close** template (checklist, document requests, fixed
    fee). Under **Start a job**, choose the client, template, period start
-   (for example `2026-07-01`), the due date you have checked, where it comes
+   (for example `2026-09-01`), the due date you have checked, where it comes
    from, the preparer and the reviewer.
 3. **Jobs → open the job → Client documents:** **Send a reminder with an
    upload link.** Blotter mails the client the link (on a deployed
@@ -70,7 +85,7 @@ ships as `/docs` and its guide pages in that same static build.
    reviewer (or the principal, for someone else's work), choose **Sign off**
    with a note. Signing off closes the upload link.
 5. **Roll forward:** on the signed-off job, record the next period's due date
-   under **Roll forward to the next period**. Blotter creates the next quarter's
+   under **Roll forward to the next period**. Blotter creates the next period's
    job with the same client, template and people. It refuses a second copy.
 6. **Time & billing:** record time on a job (**Time** section; it uses your
    current rate). In **Time & billing**, choose items, **Prepare export**, then
