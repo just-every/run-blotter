@@ -1,6 +1,7 @@
 import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './common';
 import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
+import { questionBody } from './flow';
 import { TaskEditor, taskBody } from './tasks';
 import { MessageTemplates } from './messages';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
@@ -35,11 +36,12 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
       {!state.templates.length && <Empty>No templates yet.</Empty>}
       <ul className="list">{state.templates.map((t: Row) => <li key={t.id}><strong>{t.name}</strong> <small className="muted">{t.recurrence} · {JSON.parse(t.steps).length} steps · {JSON.parse(t.requests).length} document requests{t.fee_cents > 0 && ` · fee ${aud(t.fee_cents)}`}</small></li>)}</ul>
       {lead && <details><summary>Add a template</summary>
-        <Form label="Save template" submit={async (data, form) => run(async () => { await api('/templates', { ...data, feeCents: Number(data.feeCents || 0), ...(tasks.length ? { tasks: taskBody(tasks) } : {}) }); form.reset(); setTasks([]); }, 'Template saved')}>
+        <Form label="Save template" submit={async (data, form) => run(async () => { await api('/templates', { ...data, feeCents: Number(data.feeCents || 0), ...(tasks.length ? { tasks: taskBody(tasks), questions: questionBody(data.questions) } : {}) }); form.reset(); setTasks([]); }, 'Template saved')}>
           <Field label="Name" name="name" value="Quarterly BAS" />
           <Field label="Repeats" name="recurrence"><select name="recurrence" defaultValue="quarterly"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></Field>
           <Field label="Checklist steps (one per line)" name="steps"><textarea name="steps" rows={4} required defaultValue={BAS_STEPS} /></Field>
-          <TaskEditor people={people} tasks={tasks} setTasks={setTasks} />
+          <TaskEditor people={people} templates={state.templates} tasks={tasks} setTasks={setTasks} />
+          {tasks.length > 0 && <Field label="Job questions for branches, one per line: key | question | answer, answer" name="questions" required={false}><textarea name="questions" rows={2} placeholder="itemized | Itemizing deductions this year? | yes, no" /></Field>}
           <Field label="Documents to request from the client (one per line)" name="requests"><textarea name="requests" rows={3} required defaultValue={BAS_REQUESTS} /></Field>
           <Field label="Fixed fee in cents, ex GST (0 for none)" name="feeCents" type="number" value={0} />
         </Form>

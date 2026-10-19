@@ -3,6 +3,7 @@
 import { operatorMail } from '../mail.server.mjs';
 import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
+import { advance } from './flow';
 import { clientTasks } from './tasks';
 import { LINK_PREVIEW, render, usable, valuesFor } from './messages';
 import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
@@ -52,8 +53,9 @@ export async function staffUpload(db: D1Database, actor: Actor, requestId: strin
   return { id: fileId };
 }
 
-export async function decideRequest(db: D1Database, actor: Actor, requestId: string, body: Data) {
+export async function decideRequest(env: Bindings, actor: Actor, requestId: string, body: Data) {
   human(actor);
+  const db = runtimeBindings(env).DB;
   const { request, job: j } = await visibleRequest(db, actor, requestId);
   insist(j.status === 'open', 'This job is not open for work', 409);
   if (body.decision === 'accept') {
@@ -66,6 +68,7 @@ export async function decideRequest(db: D1Database, actor: Actor, requestId: str
     const [check, release] = openGuard(db, j.id);
     await atomic(db, actor, [check, stmt(db, "UPDATE b_requests SET status='requested',note=?,updated_by=?,updated_at=? WHERE id=?", note, actor.email, now(), request.id), release, audit(db, actor, 'request.returned', request.id, note)]);
   }
+  await advance(env, [j.id], actor.email);
   return { ok: true };
 }
 

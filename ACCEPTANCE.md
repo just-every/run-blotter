@@ -42,9 +42,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
    Current evidence: `src/blotter/jobs.ts`; `src/blotter/proposals.ts`; `tests/blotter/flows.test.mjs`.
    Remaining: Manual/human-approved roll-forward copies monthly/quarterly/annual work once; scheduled generation, creation lead time, custom rules, end dates, budgets, claiming existing future periods and due-date calculation are missing.
 
-13. **WORK-003 — Dependencies and conditional workflow.** Status: **partial**. Create a close feeding a tax engagement, branch on an organizer answer and complete prerequisite tasks. Inspect automatic advancement and blocked successors; reject a cycle and record an authorized exception without fabricating evidence.
-   Current evidence: `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs`.
-   Remaining: Hard document/checklist/review gates exist; configurable dependencies, conditional branches and automatic advancement are missing.
+13. **WORK-003 — Dependencies and conditional workflow.** Status: **done**. Create a close feeding a tax engagement, branch on an organizer answer and complete prerequisite tasks. Inspect automatic advancement and blocked successors; reject a cycle and record an authorized exception without fabricating evidence. Organizer answers are the job's questions, answered by its staff until PORTAL-004 organizers write the same questions (see CONTRACT.md WORK-003 semantics).
+   Current evidence: `src/blotter/flow.ts`; `src/blotter/tasks.ts`; `src/blotter/jobs.ts`; `migrations/core/0027_task_flow.sql`; `src/ui/flow.tsx`; `tests/blotter/flows.test.mjs` ("WORK-003 dependencies").
 
 14. **WORK-004 — Bulk work scheduling and assignment.** Status: **done**. Preview quarterly jobs for a client group, override two assignees, exclude one client and commit. Re-submit the same batch and inspect no duplicates, then bulk reassign work while refusing inactive or self-review assignments.
    Current evidence: `src/blotter/bulk.ts`; `src/ui/bulk.tsx`; `tests/blotter/flows.test.mjs`.

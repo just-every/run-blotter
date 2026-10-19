@@ -812,6 +812,86 @@ const passkey = origin => {
 const wrongCode = secret => String((Number(totp(secret)) + 500000) % 1e6).padStart(6, '0');
 
 // Runs last: once the policy is on, every later request needs a verified second factor.
+test('WORK-003 dependencies: a close feeds a tax engagement, an organizer answer picks the branch, completions advance only eligible tasks, cycles are refused and an exception is recorded without faking evidence', async () => {
+  const close = await h.json('/templates', { name: 'Monthly close', recurrence: 'monthly', steps: 'Reconcile bank\nClose the books', requests: 'Bank statements' }, h.owner);
+  const questions = [{ key: 'itemized', label: 'Itemizing deductions this year?', options: ['yes', 'no'] }];
+  const base = { name: '1040 with close', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms\nCharity receipts', questions };
+  // Cycles, self-waits and unknown references are refused when the template is saved.
+  assert.match((await h.json('/templates', { ...base, tasks: [{ label: 'A', after: [2] }, { label: 'B', after: [3] }, { label: 'C', after: [1] }] }, h.owner, 400)).error, /Dependency cycle: task 1 → task 2 → task 3 → task 1/);
+  await h.json('/templates', { ...base, tasks: [{ label: 'A', after: [1] }] }, h.owner, 400);
+  await h.json('/templates', { ...base, tasks: [{ label: 'A', when: { question: 'married', equals: 'yes' } }] }, h.owner, 400);
+  await h.json('/templates', { ...base, tasks: [{ label: 'A', when: { question: 'itemized', equals: 'maybe' } }] }, h.owner, 400);
+  await h.json('/templates', { ...base, tasks: [{ label: 'A', afterDocuments: [3] }] }, h.owner, 400);
+  await h.json('/templates', { ...base, tasks: [{ label: 'A', afterJob: { templateId: 'nope' } }] }, h.owner, 404);
+  const tax = await h.json('/templates', { ...base, tasks: [
+    { label: 'Collect organizer', assignee: 'preparer' },
+    { label: 'Review Schedule A', assignee: 'preparer', after: [1], afterDocuments: [2], when: { question: 'itemized', equals: 'yes' } },
+    { label: 'Standard deduction check', assignee: 'reviewer', after: [1], when: { question: 'itemized', equals: ['no'] } },
+    { label: 'Prepare return', assignee: 'preparer', after: [2, 3], afterJob: { templateId: close.id, gate: 'signed_off' } },
+    { label: 'Reconcile W-2 wages', assignee: 'preparer', afterDocuments: [1], requiresAttachment: true },
+  ] }, h.owner);
+  const bakery = await h.json('/clients', { name: 'Okafor Bakery LLC', contactName: 'Ada Okafor', contactEmail: 'ada@okafor.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const people = { preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const work = await h.json('/jobs', { clientId: bakery.id, templateId: tax.id, periodStart: '2026-01-01', dueDate: '2027-04-15', dueNote: 'Federal filing deadline', ...people }, h.owner);
+  const view = async (who = preparer) => h.json('/jobs/' + work.id, undefined, who);
+  const state = async () => (await view()).steps.map(s => [s.state, s.blockers]);
+  assert.deepEqual(await state(), [
+    ['ready', []],
+    ['blocked', ['Waiting for the answer to "Itemizing deductions this year?"', 'Waiting for task 1: Collect organizer', "Waiting for the client's Charity receipts to be accepted"]],
+    ['blocked', ['Waiting for the answer to "Itemizing deductions this year?"', 'Waiting for task 1: Collect organizer']],
+    ['blocked', ['Waiting for task 2: Review Schedule A', 'Waiting for task 3: Standard deduction check', 'Waiting for a Monthly close job covering 2026-12-31; none exists yet']],
+    ['blocked', ["Waiting for the client's W-2 forms to be accepted"]]]);
+  // A blocked task cannot be completed; the refusal names what it waits for.
+  assert.deepEqual((await h.json(`/jobs/${work.id}/steps`, { ordinal: 3, done: true }, reviewer, 409)).blockers.length, 2);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 1, done: true }, preparer);
+  // An exception never chooses a branch: the answer must be recorded.
+  assert.match((await h.json(`/jobs/${work.id}/steps/3/exception`, { reason: 'Skip' }, reviewer, 409)).error, /Record the answer/);
+  await h.json(`/jobs/${work.id}/answers`, { key: 'itemized', value: 'maybe' }, preparer, 400);
+  let detail = await h.json(`/jobs/${work.id}/answers`, { key: 'itemized', value: 'no' }, preparer);
+  assert.deepEqual([detail.answers[0].value, detail.answers[0].answered_by], ['no', 'preparer@example.test']);
+  // The organizer answer takes the standard-deduction branch: Schedule A no longer applies and is never required.
+  assert.deepEqual(detail.steps.map(s => s.state), ['done', 'not_applicable', 'ready', 'blocked', 'blocked']);
+  assert.ok(detail.steps[2].ready_at);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 2, done: true }, preparer, 409);
+  assert.ok((await h.json('/notifications', undefined, reviewer)).some(n => n.kind === 'task_ready' && n.job_id === work.id && n.summary.startsWith('Standard deduction check is ready')));
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 3, done: true }, reviewer);
+  assert.deepEqual((await view()).steps[3].blockers, ['Waiting for a Monthly close job covering 2026-12-31; none exists yet']);
+  // The December close feeds the return: until it is signed off the return waits for it, then it advances on its own.
+  const closeJob = await h.json('/jobs', { clientId: bakery.id, templateId: close.id, periodStart: '2026-12-01', dueDate: '2027-01-20', dueNote: 'Firm close calendar', ...people }, h.owner);
+  assert.deepEqual((await view()).steps[3].blockers, ['Waiting for Monthly close Dec 2026 to be signed off']);
+  const closeDetail = await h.json('/jobs/' + closeJob.id, undefined, preparer);
+  for (const s of closeDetail.steps) await h.json(`/jobs/${closeJob.id}/steps`, { ordinal: s.ordinal, done: true }, preparer);
+  await h.json(`/requests/${closeDetail.requests[0].id}/files`, { name: 'dec.pdf', mime: 'application/pdf', contentBase64: b64('%PDF dec') }, preparer);
+  await h.json(`/requests/${closeDetail.requests[0].id}/decide`, { decision: 'accept' }, preparer);
+  const submitted = await h.json(`/jobs/${closeJob.id}/submit`, {}, preparer);
+  assert.equal((await view()).steps[3].state, 'blocked');
+  await h.json(`/jobs/${closeJob.id}/review`, { revision: submitted.job.revision, decision: 'signoff', note: 'December close reviewed' }, reviewer);
+  detail = await view();
+  assert.deepEqual([detail.steps[3].state, detail.steps[3].prerequisite.status, !!detail.steps[3].ready_at], ['ready', 'signed_off', true]);
+  assert.ok((await h.json('/notifications', undefined, preparer)).some(n => n.kind === 'task_ready' && n.summary.startsWith('Prepare return is ready')));
+  assert.ok((await h.json('/team', undefined, h.owner)).audit.some(a => a.action === 'task.ready' && a.object_id === work.id && a.detail === '4: Prepare return'));
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 4, done: true }, preparer);
+  // An authorized exception needs a reason; it lets the wage task go ahead without accepting the W-2 or its own attachment.
+  await h.json(`/jobs/${work.id}/steps/5/exception`, { reason: 'Client is mailing the W-2; wages agreed from payroll report' }, preparer, 403);
+  await h.json(`/jobs/${work.id}/steps/5/exception`, {}, reviewer, 400);
+  detail = await h.json(`/jobs/${work.id}/steps/5/exception`, { reason: 'Client is mailing the W-2; wages agreed from payroll report' }, reviewer);
+  assert.deepEqual([detail.steps[4].state, detail.steps[4].exception_by, detail.steps[4].exception_waived], ['ready', 'reviewer@example.test', ["Waiting for the client's W-2 forms to be accepted"]]);
+  await h.json(`/jobs/${work.id}/steps/5/exception`, { reason: 'again' }, reviewer, 409);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 5, done: true }, preparer, 400);
+  await h.json(`/jobs/${work.id}/steps`, { ordinal: 5, done: true, attachment: { name: 'payroll.csv', mime: 'text/csv', contentBase64: b64('wages,52000') } }, preparer);
+  detail = await view();
+  assert.deepEqual(detail.requests.map(r => r.status), ['requested', 'requested']);
+  assert.ok((await h.json('/team', undefined, h.owner)).audit.some(a => a.action === 'step.exception' && a.detail.startsWith('5: Client is mailing the W-2')));
+  // Review still needs every client document: the exception completed nothing it waited for.
+  assert.match((await h.json(`/jobs/${work.id}/submit`, {}, preparer, 409)).error, /Accept every requested client document/);
+  for (const r of detail.requests) {
+    await h.json(`/requests/${r.id}/files`, { name: r.label + '.pdf', mime: 'application/pdf', contentBase64: b64('%PDF ' + r.label) }, preparer);
+    await h.json(`/requests/${r.id}/decide`, { decision: 'accept' }, preparer);
+  }
+  assert.equal((await h.json('/state', undefined, preparer)).jobs.find(j => j.id === work.id).open_steps, 0);
+  assert.equal((await h.json(`/jobs/${work.id}/submit`, {}, preparer)).job.status, 'review');
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

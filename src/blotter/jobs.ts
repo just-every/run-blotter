@@ -3,7 +3,8 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { deliverablesFor } from './deliverables';
 import { jobExpenses } from './expenses';
-import { completion, jobTasks, stepInsert } from './tasks';
+import { advance, dependents, flowSteps, jobAnswers, pendingStep, readyGuard } from './flow';
+import { completion, stepInsert } from './tasks';
 import { notify, reviewRequested } from './notifications';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -18,6 +19,8 @@ export function addMonths(start: string, months: number) {
   const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
 }
+/** The start of the period after the one starting on `start`. */
+export const nextPeriod = (start: string, recurrence: Recurrence) => addMonths(start, STEP[recurrence]);
 export function periodLabel(start: string, recurrence: Recurrence) {
   const name = (value: string) => { const [y, m] = value.split('-').map(Number); return { month: MONTHS[m - 1], year: y }; };
   const first = name(start), last = name(addMonths(start, STEP[recurrence] - 1));
@@ -48,13 +51,16 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
     ...[...new Set(JSON.parse(template.steps).map((entry: Data) => entry?.assigneeEmail).filter(Boolean))].map(person =>
       audit(db, actor, 'job.task_access', jobId, `${person} can read this job and act on their own tasks`)),
     ...JSON.parse(template.requests).map((label: string, n: number) => stmt(db, "INSERT INTO b_requests(id,job_id,ordinal,label,status,updated_by,updated_at) VALUES(?,?,?,?,'requested',?,?)", id(), jobId, n + 1, label, actor.email, now())),
+    // The template's questions (WORK-003), unanswered; branches wait for them.
+    ...JSON.parse(template.questions ?? '[]').map((q: Data, n: number) => stmt(db, 'INSERT INTO b_job_answers(job_id,key,ordinal,label,options) VALUES(?,?,?,?,?)', jobId, q.key, n + 1, q.label, JSON.stringify(q.options))),
     audit(db, actor, values.rolledFrom ? 'job.rolled_forward' : 'job.started', jobId, `${template.name} ${values.periodStart}`),
   ];
   return statements;
 }
 
-export async function startJob(db: D1Database, actor: Actor, body: Data) {
+export async function startJob(env: Bindings, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
+  const db = runtimeBindings(env).DB;
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', text(body.clientId, 'Client')).first<Data>();
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
@@ -68,12 +74,14 @@ export async function startJob(db: D1Database, actor: Actor, body: Data) {
     manager: body.managerEmail ? await assignee(db, body.managerEmail, 'Manager', ['reviewer']) : null,
   };
   await atomic(db, actor, createStatements(db, actor, template, values));
+  await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }
 
 /** The next period's job: same client, template and people; a person records the due date. */
-export async function rollForward(db: D1Database, actor: Actor, jobId: string, body: Data) {
+export async function rollForward(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
+  const db = runtimeBindings(env).DB;
   const previous = await job(db, actor, jobId);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', previous.template_id).first<Data>();
   insist(template, 'Template not found', 404);
@@ -90,14 +98,15 @@ export async function rollForward(db: D1Database, actor: Actor, jobId: string, b
   const exists = await stmt(db, 'SELECT id FROM b_jobs WHERE client_id=? AND template_id=? AND period_start=?', previous.client_id, template.id, periodStart).first();
   insist(!exists, `The ${periodLabel(periodStart, template.recurrence)} job already exists`, 409);
   await atomic(db, actor, createStatements(db, actor, template, values));
+  await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }
 
 export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   const j = await readableJob(db, actor, jobId);
-  const [client, steps, requests, files, reminders, time, links, deliverables, money] = await Promise.all([
+  const [client, steps, requests, files, reminders, time, links, deliverables, money, answers] = await Promise.all([
     stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>(),
-    jobTasks(db, j),
+    flowSteps(db, j),
     rows(db, 'SELECT * FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id),
     rows(db, 'SELECT id,request_id,name,mime,size,sha256,uploaded_by,channel,uploaded_at,erased_at,erased_by,erase_reason FROM b_files WHERE job_id=? ORDER BY uploaded_at', j.id),
     rows(db, 'SELECT * FROM b_reminders WHERE job_id=? ORDER BY sent_at DESC', j.id),
@@ -105,9 +114,10 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
     rows(db, 'SELECT id,created_by,created_at,expires_at,revoked_at FROM b_portal_links WHERE job_id=? ORDER BY created_at DESC', j.id),
     deliverablesFor(db, j.id),
     jobExpenses(db, j),
+    jobAnswers(db, j.id),
   ]);
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
-  return { job: j, client, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, nextJobId: next?.id ?? null };
+  return { job: j, client, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {
@@ -115,18 +125,22 @@ const openJob = (j: Data, revision: unknown) => {
   insist(revision === undefined || revision === j.revision, 'The job changed. Refresh and try again.', 409);
 };
 
-export async function setStep(db: D1Database, actor: Actor, jobId: string, body: Data) {
+export async function setStep(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor);
+  const db = runtimeBindings(env).DB;
   const j = await readableJob(db, actor, jobId); openJob(j, body.revision);
   const ordinal = integer(body.ordinal, 'Step', 1, 100), done = body.done === true;
   const step = await stmt(db, 'SELECT * FROM b_job_steps WHERE job_id=? AND ordinal=?', j.id, ordinal).first<Data>();
   insist(step, 'Checklist step not found', 404);
   insist(j.access === 'full' || step.assignee_email === actor.email, 'You can act only on your own tasks on this job', 403);
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status='open')", j.id);
-  await atomic(db, actor, [check,
+  // A task that is blocked or outside its answered branch cannot be completed (WORK-003).
+  const ready = done && !step.done_at ? await readyGuard(db, j, ordinal) : [];
+  await atomic(db, actor, [check, ...ready,
     await completion(db, j, step, done, actor.email, now(), body),
     stmt(db, 'UPDATE b_jobs SET revision=? WHERE id=?', id(), j.id), release,
     audit(db, actor, done ? 'step.done' : 'step.reopened', j.id, String(ordinal))]);
+  await advance(env, [j.id], actor.email);
   return jobDetail(db, actor, j.id);
 }
 
@@ -134,16 +148,17 @@ export async function submitJob(env: Bindings, actor: Actor, jobId: string, body
   human(actor);
   const db = runtimeBindings(env).DB;
   const j = await job(db, actor, jobId); openJob(j, body.revision);
-  const pending = await stmt(db, `SELECT (SELECT COUNT(*) FROM b_job_steps WHERE job_id=? AND done_at IS NULL) steps,
+  const pending = await stmt(db, `SELECT (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')}) steps,
     (SELECT COUNT(*) FROM b_requests WHERE job_id=? AND status<>'accepted') requests`, j.id, j.id).first<Data>();
   insist(pending!.steps === 0, 'Finish every checklist step before submitting for review', 409);
   insist(pending!.requests === 0, 'Accept every requested client document before submitting for review', 409);
-  const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?) AND NOT EXISTS(SELECT 1 FROM b_job_steps WHERE job_id=? AND done_at IS NULL)
+  const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?) AND NOT EXISTS(SELECT 1 FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')})
     AND NOT EXISTS(SELECT 1 FROM b_requests WHERE job_id=? AND status<>'accepted')`, j.id, j.revision, j.id, j.id);
   await atomic(db, actor, [check,
     stmt(db, "UPDATE b_jobs SET status='review',submitted_by=?,submitted_at=?,revision=? WHERE id=?", actor.email, now(), id(), j.id), release,
     audit(db, actor, 'job.submitted', j.id)]);
   await reviewRequested(env, j.id, actor.name || actor.email);
+  await advance(env, await dependents(db, j), actor.email);
   return jobDetail(db, actor, j.id);
 }
 
@@ -160,6 +175,7 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
   if (body.decision === 'return') {
     await atomic(db, actor, [check, stmt(db, "UPDATE b_jobs SET status='open',revision=? WHERE id=?", id(), j.id), release, audit(db, actor, 'job.returned', j.id, note)]);
     await notify(env, [j.preparer_email], { kind: 'review_returned', jobId: j.id, summary: `${actor.name || actor.email} returned ${j.title} ${j.period_label} to you: ${note}` }, actor.email);
+    await advance(env, await dependents(db, j), actor.email);
     return jobDetail(db, actor, j.id);
   }
   insist(body.decision === 'signoff', 'Choose sign off or return');
@@ -171,5 +187,6 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
     stmt(db, "UPDATE b_jobs SET status='signed_off',signed_off_by=?,signed_off_at=?,sign_off_note=?,revision=? WHERE id=?", actor.email, now(), recorded, id(), j.id),
     stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', now(), j.id), release,
     audit(db, actor, 'job.signed_off', j.id, recorded)]);
+  await advance(env, await dependents(db, j), actor.email);
   return jobDetail(db, actor, j.id);
 }

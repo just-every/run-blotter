@@ -4,6 +4,8 @@
 // Existing jobs are kept, signed-off work never changes, and nobody is
 // assigned to review their own work.
 import { atomic, audit, date, digest, guard, human, id, insist, need, optional, stmt, text, type Actor, type Data } from './model';
+import { runtimeBindings, type Bindings } from '../auth.server';
+import { advance } from './flow';
 import { createStatements, eligible, periodLabel } from './jobs';
 
 const MAX = 50;
@@ -61,7 +63,8 @@ export async function previewSchedule(db: D1Database, actor: Actor, body: Data) 
   return (await schedulePlan(db, actor, body)).plan;
 }
 
-export async function commitSchedule(db: D1Database, actor: Actor, body: Data) {
+export async function commitSchedule(env: Bindings, actor: Actor, body: Data) {
+  const db = runtimeBindings(env).DB;
   const { template, plan } = await schedulePlan(db, actor, body);
   insist(body.fingerprint === plan.fingerprint, 'The plan changed since the preview. Preview again before committing.', 409);
   const blocked = plan.lines.filter(l => l.action === 'conflict');
@@ -71,6 +74,7 @@ export async function commitSchedule(db: D1Database, actor: Actor, body: Data) {
     ...created.flatMap(l => createStatements(db, actor, template, { id: l.jobId, clientId: l.clientId, periodStart: plan.periodStart, dueDate: plan.dueDate, dueNote: plan.dueNote, preparer: l.preparer, reviewer: l.reviewer })),
     audit(db, actor, 'jobs.bulk_scheduled', template.id, `${plan.periodLabel}: ${created.length} created, ${plan.lines.length - created.length} kept or excluded`),
   ]);
+  await advance(env, created.map(l => l.jobId), actor.email);
   return { ...plan, created: created.map(l => ({ clientId: l.clientId, jobId: l.jobId })) };
 }
 

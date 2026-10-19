@@ -55,7 +55,7 @@ export async function decideProposal(env: Bindings, actor: Actor, proposalId: st
   // The effect and the approval record commit in one batch (see atomic());
   // a reminder's mail is sent after that batch commits.
   const approving: Actor = { ...actor, approval: { id: proposalId, resultId: id() } };
-  if (p.kind === 'rollforward') return { status: 'approved', result: await rollForward(db, approving, payload.jobId, { dueDate: body.dueDate ?? payload.dueDate, dueNote: body.dueNote ?? payload.dueNote }) };
+  if (p.kind === 'rollforward') return { status: 'approved', result: await rollForward(env, approving, payload.jobId, { dueDate: body.dueDate ?? payload.dueDate, dueNote: body.dueNote ?? payload.dueNote }) };
   if (p.kind === 'reminder') return { status: 'approved', result: await sendReminder(env, approving, payload.jobId, payload) };
   return { status: 'approved', result: await prepareExport(db, approving, payload) };
 }

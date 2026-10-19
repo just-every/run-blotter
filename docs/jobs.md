@@ -26,6 +26,17 @@ Instead of plain checklist steps, press **Add a task** for each task. A task can
 
 When tasks are listed, they replace the checklist steps text.
 
+### Dependencies, branches and exceptions
+
+A task can also wait before it can be ticked off:
+
+- **Waits for tasks**: the numbers of other tasks in the template (a loop of tasks waiting on each other is refused when you save).
+- **Waits for accepted documents**: the numbers of the client documents the template requests; the task waits until each is accepted.
+- **Waits for the client's job**: another template, until the same client's job from it is submitted for review or signed off. That is the job whose period contains this job's last day, for example the December close for a calendar-year 1040.
+- **Only when question … is answered …**: add job questions (one per line: `key | question | answer, answer`). The task applies only when the question gets one of those answers; answered otherwise, it does not apply and is not needed for review.
+
+On the job, each waiting task shows **Blocked** with what it waits for, **Ready** or **Does not apply**. When the last thing a task waits for is done, it becomes ready and its owner gets an alert. The job's reviewer, its manager or the principal can **Record an exception** with a reason: the task may then go ahead, but nothing it waited for is marked done, its own attachment is still needed and review still needs every document accepted. An exception never answers a question.
+
 ## Start a job
 
 Under **Start a job**, choose the client and template. Enter the period start, the due date you have checked and **Where the due date comes from**. Assign a preparer and reviewer, and optionally a manager (otherwise the reviewer is the job's manager), then press **Start job**.

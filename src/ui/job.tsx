@@ -5,6 +5,7 @@ import { Discussions } from './discussions';
 import { JobExpenses } from './expenses';
 import { ReminderComposer } from './messages';
 import { OpenNotice } from './notices';
+import { Answers, TaskFlow } from './flow';
 import { attachmentBody, TaskInfo } from './tasks';
 import { EntryHistory } from './timesheet';
 
@@ -37,8 +38,9 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
     <div className="grid">
       <section className="panel">
         <h2>Checklist</h2>
+        <Answers jobId={job.id} answers={detail.answers} open={isOpen && job.access === 'full'} run={run} />
         <ul className="checklist">{detail.steps.map((s: Row) => <li key={s.ordinal}>
-          <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen || (!s.done_at && !!s.requires_attachment)} onChange={e => {
+          <label className="check"><input type="checkbox" checked={!!s.done_at} disabled={!isOpen || (!s.done_at && (!!s.requires_attachment || s.state !== 'ready'))} onChange={e => {
             const done = e.target.checked;
             setDetail({ ...detail, steps: detail.steps.map((step: Row) => step.ordinal === s.ordinal ? { ...step, done_at: done ? new Date().toISOString() : null, done_by: done ? actor.email : null } : step) });
             run(async () => {
@@ -46,8 +48,8 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
               catch (error) { setDetail(detail); throw error; }
             }, done ? 'Step done' : 'Step reopened');
           }} />
-            <span>{s.label}{s.done_at && <small className="muted"> — {s.done_by}, {when(s.done_at)}</small>}<TaskInfo jobId={job.id} step={s} /></span></label>
-          {isOpen && !s.done_at && !!s.requires_attachment && <label className="upload">Complete with the required attachment<input type="file" onChange={e => { const file = e.target.files?.[0]; if (file) run(async () => api(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done: true, ...await attachmentBody(file) }), 'Step done'); }} /></label>}
+            <span>{s.label}{s.done_at && <small className="muted"> — {s.done_by}, {when(s.done_at)}</small>}<TaskInfo jobId={job.id} step={s} /><TaskFlow jobId={job.id} step={s} lead={lead} open={isOpen} run={run} /></span></label>
+          {isOpen && s.state === 'ready' && !!s.requires_attachment && <label className="upload">Complete with the required attachment<input type="file" onChange={e => { const file = e.target.files?.[0]; if (file) run(async () => api(`/jobs/${job.id}/steps`, { ordinal: s.ordinal, done: true, ...await attachmentBody(file) }), 'Step done'); }} /></label>}
         </li>)}</ul>
         {isOpen && <button onClick={() => run(() => api(`/jobs/${job.id}/submit`, { revision: job.revision }), 'Submitted for review')}>Submit for review</button>}
         {canReview && <div className="review">
