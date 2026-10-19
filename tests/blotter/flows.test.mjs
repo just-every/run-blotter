@@ -1425,13 +1425,18 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
   const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);
   await h.json('/work-types', { name: '1040', templateId: returns.id }, reviewer, 403);
-  const t1040 = await h.json('/work-types', { name: '1040', templateId: returns.id, budgetMinutes: 600, color: '#2563EB' }, h.owner);
+  await h.json('/work-types', { name: '1040', roles: ['partner', 'auditor'] }, h.owner, 400);
+  const t1040 = await h.json('/work-types', { name: '1040', templateId: returns.id, budgetMinutes: 600, color: '#2563EB', roles: ['partner'] }, h.owner);
   await h.json('/work-types', { name: '1040' }, h.owner, 409);
   const docs = await h.json('/sub-statuses', { stage: 'waiting', name: 'on client documents' }, h.owner);
   const sig = await h.json('/sub-statuses', { stage: 'waiting', name: 'on 8879 signature', workTypeIds: [t1040.id], clientLabel: 'Waiting for your e-file signature' }, h.owner);
   const lane = await h.json('/clients', { name: 'Diaz household', contactName: 'Rosa Diaz', contactEmail: 'rosa@diaz.example', fields: { service_tier: 'Plus' } }, h.owner);
   const people = { clientId: lane.id, dueNote: 'Filing', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
-  const ret = await h.json('/jobs', { ...people, templateId: returns.id, workTypeId: t1040.id, periodStart: '2028-01-01', dueDate: '2029-04-15' }, h.owner);
+  // 1040 work needs a partner for sign-off: named at the start, never the preparer.
+  const start1040 = { ...people, templateId: returns.id, workTypeId: t1040.id, periodStart: '2028-01-01', dueDate: '2029-04-15' };
+  assert.match((await h.json('/jobs', start1040, h.owner, 400)).error, /needs a partner/);
+  await h.json('/jobs', { ...start1040, partnerEmail: 'preparer@example.test' }, h.owner, 400);
+  const ret = await h.json('/jobs', { ...start1040, partnerEmail: 'owner@example.test' }, h.owner);
   const book = await h.json('/jobs', { ...people, templateId: books.id, periodStart: '2028-02-01', dueDate: '2028-03-20' }, h.owner);
   // Every job has one work type (the chosen one, else its template's own) and starts Planned; the type's budget applies.
   assert.equal(ret.budget_minutes, 600);
@@ -1487,11 +1492,22 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   await h.json(`/requests/${request.id}/files`, { name: 'w2.pdf', mime: 'application/pdf', contentBase64: b64('%PDF') }, preparer);
   await h.json(`/requests/${request.id}/decide`, { decision: 'accept' }, preparer);
   await h.json(`/jobs/${ret.id}/steps`, { ordinal: 1, done: true }, preparer);
+  const handover = { jobIds: [ret.id], preparerEmail: 'owner@example.test' };
+  assert.deepEqual((await h.json('/bulk/reassign/preview', handover, h.owner)).lines[0].reasons, ['owner@example.test is the partner and cannot prepare this job']);
   await h.json(`/jobs/${ret.id}/submit`, {}, preparer);
   detail = await h.json('/jobs/' + ret.id, undefined, reviewer);
+  // The reviewer's sign-off leaves it In review for the partner, who alone (with the principal) completes it.
   await h.json(`/jobs/${ret.id}/review`, { decision: 'signoff', note: 'Ready to file', revision: detail.job.revision }, reviewer);
   detail = await h.json('/jobs/' + ret.id, undefined, reviewer);
-  assert.deepEqual(detail.statusHistory.slice(-2).map(trail), [['in_progress', null, 'in_review', null, 'preparer@example.test'], ['in_review', null, 'completed', null, 'reviewer@example.test']]);
+  assert.deepEqual([detail.job.status, detail.job.reviewed_by], ['review', 'reviewer@example.test']);
+  assert.equal((await h.json('/queue?workType=' + t1040.id, undefined, h.owner))[0].sub_status, 'partner sign-off');
+  assert.ok((await h.json(`/clients/${lane.id}/history`, undefined, h.owner)).unresolved.some(i => i.kind === 'partner_sign_off' && i.owner === 'owner@example.test'));
+  await h.json(`/jobs/${ret.id}/review`, { decision: 'signoff', note: 'Again', revision: detail.job.revision }, reviewer, 403);
+  await move(ret, { stage: 'in_review' }, h.owner, 409);
+  await h.json(`/jobs/${ret.id}/review`, { decision: 'signoff', note: 'Partner approved', revision: detail.job.revision }, h.owner);
+  detail = await h.json('/jobs/' + ret.id, undefined, reviewer);
+  assert.deepEqual(detail.statusHistory.slice(-3).map(trail), [['in_progress', null, 'in_review', null, 'preparer@example.test'],
+    ['in_review', null, 'in_review', 'partner sign-off', 'reviewer@example.test'], ['in_review', 'partner sign-off', 'completed', null, 'owner@example.test']]);
   assert.equal((await h.json('/queue?workType=' + t1040.id, undefined, h.owner))[0].stage, 'completed');
   await move(ret, { stage: 'planned' }, h.owner, 409);
 });

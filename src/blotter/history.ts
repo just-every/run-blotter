@@ -58,7 +58,7 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
       WHERE j.id IN (${open}) AND j.status='open' AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
     rows(db, `SELECT s.ordinal,s.label,s.assignee_email,s.assignee_role,j.id job_id,j.title,j.period_label,j.preparer_email,j.reviewer_email,j.manager_email,j.due_date FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
       WHERE j.id IN (${open}) AND j.status='open' AND s.done_at IS NULL ORDER BY j.due_date,s.ordinal`, ids),
-    rows(db, `SELECT j.id job_id,j.title,j.period_label,j.reviewer_email,j.due_date FROM b_jobs j WHERE j.id IN (${open}) AND j.status='review' ORDER BY j.due_date`, ids),
+    rows(db, `SELECT j.id job_id,j.title,j.period_label,j.reviewer_email,j.partner_email,j.reviewed_at,j.due_date FROM b_jobs j WHERE j.id IN (${open}) AND j.status='review' ORDER BY j.due_date`, ids),
     rows(db, `SELECT t.id,t.title,t.owner_email,t.follow_up_due,t.job_id FROM b_threads t WHERE t.status='open' AND (t.job_id IN (${open}) OR (?2 IS NOT NULL AND t.client_id=?2 AND t.job_id IS NULL)) ORDER BY t.created_at`, ids, clientId),
     rows(db, `SELECT n.id,n.agency,n.notice_type,n.assignee_email,n.response_due,n.job_id FROM b_notices n WHERE n.status='open' AND n.job_id IN (${open}) ORDER BY n.response_due`, ids),
     rows(db, `SELECT p.id,p.kind,p.body,p.owner_email,p.due_date item_due,j.id job_id,j.title,j.period_label,j.due_date FROM b_portal_items p JOIN b_jobs j ON j.id=p.job_id
@@ -71,7 +71,9 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
       const role = t.assignee_role === 'reviewer' ? t.reviewer_email : t.assignee_role === 'manager' ? t.manager_email || t.reviewer_email : t.preparer_email;
       return { kind: 'task', id: `${t.job_id}:${t.ordinal}`, jobId: t.job_id, work: work(t), owner: t.assignee_email || role, nextAction: `Complete “${t.label}”`, due: `job due ${t.due_date}` };
     }),
-    ...reviews.map(r => ({ kind: 'review', id: r.job_id, jobId: r.job_id, work: work(r), owner: r.reviewer_email, nextAction: 'Review and sign off, or return', due: `job due ${r.due_date}` })),
+    ...reviews.map(r => r.reviewed_at
+      ? { kind: 'partner_sign_off', id: r.job_id, jobId: r.job_id, work: work(r), owner: r.partner_email, nextAction: 'Partner sign-off, or return', due: `job due ${r.due_date}` }
+      : { kind: 'review', id: r.job_id, jobId: r.job_id, work: work(r), owner: r.reviewer_email, nextAction: 'Review and sign off, or return', due: `job due ${r.due_date}` }),
     ...threads.map(t => ({ kind: 'discussion', id: t.id, jobId: t.job_id, work: t.title, owner: t.owner_email, nextAction: `Resolve “${t.title}”`, due: t.follow_up_due ? `follow up by ${t.follow_up_due}` : 'no follow-up date' })),
     ...portal.map(p => {
       const about = p.body.length > 60 ? p.body.slice(0, 59) + '…' : p.body;
@@ -102,9 +104,15 @@ export async function changeOwner(db: D1Database, actor: Actor, clientId: string
     const preparer = item.kind === 'request' ? to : j!.preparer_email, reviewer = item.kind === 'review' ? to : j!.reviewer_email;
     insist(await can(item.kind === 'review' ? ['reviewer'] : ['preparer', 'reviewer']), `${to} must be an active member who can do that work`);
     insist(reviewer !== preparer && reviewer !== (item.kind === 'review' ? j!.submitted_by : null), `${reviewer} cannot review their own work`, 409);
+    insist(!j!.partner_email || j!.partner_email !== preparer, `${preparer} is the partner and cannot prepare this job`, 409);
     const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?)', j!.id, j!.revision);
     change = [check, stmt(db, 'UPDATE b_jobs SET preparer_email=?,reviewer_email=?,revision=? WHERE id=?', preparer, reviewer, id(), j!.id), release,
       audit(db, actor, 'job.reassigned', j!.id, `preparer ${preparer}, reviewer ${reviewer}`)];
+  } else if (item.kind === 'partner_sign_off') {
+    insist(await can(['reviewer']), `${to} must be an active reviewer or the principal`);
+    insist(to !== j!.preparer_email && to !== j!.submitted_by, `${to} cannot give partner sign-off on their own work`, 409);
+    const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?)', j!.id, j!.revision);
+    change = [check, stmt(db, 'UPDATE b_jobs SET partner_email=?,revision=? WHERE id=?', to, id(), j!.id), release, audit(db, actor, 'job.reassigned', j!.id, `partner ${to}`)];
   } else if (item.kind === 'task') {
     insist(await can(['preparer', 'reviewer']), `${to} must be an active practice member`);
     const ordinal = Number(itemId.split(':')[1]);

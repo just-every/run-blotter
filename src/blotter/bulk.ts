@@ -94,6 +94,7 @@ async function reassignPlan(db: D1Database, actor: Actor, body: Data) {
       from: { preparer: j.preparer_email, reviewer: j.reviewer_email, dueDate: j.due_date }, to };
     const reasons = j.status === 'signed_off' ? ['Signed-off work is not changed'] : await conflicts(db, to.preparer, to.reviewer, j.status === 'review' ? j.submitted_by : null);
     if (to.dueDate < j.period_start) reasons.push('The due date is before the period starts');
+    if (j.partner_email && to.preparer === j.partner_email) reasons.push(`${j.partner_email} is the partner and cannot prepare this job`);
     const same = to.preparer === j.preparer_email && to.reviewer === j.reviewer_email && to.dueDate === j.due_date;
     lines.push({ ...line, action: reasons.length ? 'conflict' : same ? 'unchanged' : 'change', reasons });
   }

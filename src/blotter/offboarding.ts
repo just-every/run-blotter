@@ -14,8 +14,8 @@ const OPEN_JOB = "b_jobs.status<>'signed_off'";
 /** Everything a member owns that would be orphaned by their departure. */
 async function owned(db: D1Database, leaver: string) {
   const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions] = await Promise.all([
-    rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.status,b_jobs.revision,b_jobs.submitted_by,b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,c.name client
-      FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${OPEN_JOB} AND ?1 IN (b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email) ORDER BY b_jobs.due_date`, leaver),
+    rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.status,b_jobs.revision,b_jobs.submitted_by,b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email,c.name client
+      FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${OPEN_JOB} AND ?1 IN (b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email) ORDER BY b_jobs.due_date`, leaver),
     rows(db, `SELECT s.job_id,s.ordinal,s.label,b_jobs.title job FROM b_job_steps s JOIN b_jobs ON b_jobs.id=s.job_id WHERE ${OPEN_JOB} AND s.done_at IS NULL AND s.assignee_email=? ORDER BY b_jobs.due_date,s.ordinal`, leaver),
     rows(db, `SELECT r.id,r.revision,r.preparer_email,r.reviewer_email,r.manager_email,c.name client,t.name template FROM b_recurrence_rules r JOIN b_clients c ON c.id=r.client_id JOIN b_templates t ON t.id=r.template_id
       WHERE ?1 IN (r.preparer_email,r.reviewer_email,r.manager_email) ORDER BY c.name`, leaver),
@@ -44,8 +44,9 @@ async function plan(db: D1Database, actor: Actor, body: Data) {
   if (!await eligible(db, work, ['preparer', 'reviewer'])) problems.push(`${work} is not an active member who can prepare work`);
   const o = await owned(db, leaver), swap = (person: string | null, to: string) => person === leaver ? to : person;
   const jobs = o.jobs.map((j): Data => {
-    const to = { preparer: swap(j.preparer_email, work), reviewer: swap(j.reviewer_email, review), manager: swap(j.manager_email, review) };
+    const to = { preparer: swap(j.preparer_email, work), reviewer: swap(j.reviewer_email, review), manager: swap(j.manager_email, review), partner: swap(j.partner_email, review) };
     const reasons = to.reviewer === to.preparer || (j.status === 'review' && to.reviewer === j.submitted_by) ? [`${to.reviewer} cannot review their own work`] : [];
+    if (to.partner && to.partner === to.preparer) reasons.push(`${to.partner} cannot give partner sign-off on their own work`);
     return { ...j, to, reasons };
   });
   const rules = o.rules.map((r): Data => {
@@ -53,7 +54,7 @@ async function plan(db: D1Database, actor: Actor, body: Data) {
     return { ...r, to, reasons: to.reviewer === to.preparer ? [`${to.reviewer} cannot review their own work`] : [] };
   });
   // The review successor matters only when there are reviews, manager roles or proposals to hand over.
-  const reviews = [...o.jobs, ...o.rules].some(x => x.reviewer_email === leaver || x.manager_email === leaver) || o.proposals.length > 0;
+  const reviews = [...o.jobs, ...o.rules].some(x => x.reviewer_email === leaver || x.manager_email === leaver || x.partner_email === leaver) || o.proposals.length > 0;
   if (reviews && !await eligible(db, review, ['reviewer'])) problems.push(`${review} is not an active reviewer or the principal`);
   for (const line of [...jobs, ...rules]) for (const reason of line.reasons) problems.push(`${line.client} ${line.title ?? line.template}: ${reason}`);
   const result = { email: leaver, name: member.name, active: !!member.active, workSuccessor: work, reviewSuccessor: review, ...o, jobs, rules, problems };
@@ -71,8 +72,8 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
   for (const j of p.jobs) {
     // Each job must still be at its previewed revision, so nothing changed underneath the preview.
     const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=? AND status<>'signed_off')", j.id, j.revision);
-    statements.push(check, stmt(db, 'UPDATE b_jobs SET preparer_email=?,reviewer_email=?,manager_email=?,revision=? WHERE id=?', j.to.preparer, j.to.reviewer, j.to.manager, id(), j.id), release,
-      audit(db, actor, 'job.reassigned', j.id, `offboarding ${leaver}: preparer ${j.to.preparer}, reviewer ${j.to.reviewer}${j.to.manager ? `, manager ${j.to.manager}` : ''}`));
+    statements.push(check, stmt(db, 'UPDATE b_jobs SET preparer_email=?,reviewer_email=?,manager_email=?,partner_email=?,revision=? WHERE id=?', j.to.preparer, j.to.reviewer, j.to.manager, j.to.partner, id(), j.id), release,
+      audit(db, actor, 'job.reassigned', j.id, `offboarding ${leaver}: preparer ${j.to.preparer}, reviewer ${j.to.reviewer}${j.to.manager ? `, manager ${j.to.manager}` : ''}${j.to.partner ? `, partner ${j.to.partner}` : ''}`));
   }
   for (const r of p.rules) {
     const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_recurrence_rules WHERE id=? AND revision=?)', r.id, r.revision);

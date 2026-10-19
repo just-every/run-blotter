@@ -18,7 +18,8 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
   if (!detail) return <p>Opening job…</p>;
   const { job, client } = detail, isOpen = job.status === 'open';
   const lead = actor.role !== 'preparer';
-  const canReview = job.status === 'review' && (actor.role === 'owner' || actor.email === job.reviewer_email);
+  // After the reviewer's sign-off, work that needs a partner waits for the partner (WORK-007).
+  const canReview = job.status === 'review' && (actor.role === 'owner' || actor.email === (job.reviewed_at ? job.partner_email : job.reviewer_email));
   const selfReview = actor.email === job.preparer_email || actor.email === job.submitted_by;
   return <div className="stack">
     <button className="quiet back" onClick={back}>← All jobs</button>
@@ -27,7 +28,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {job.due_date} ({job.due_note})</p></div>
         <Status value={job.status} />
       </div>
-      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
+      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.partner_email && <> · partner {job.partner_email}</>}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
       {job.status === 'signed_off' && <p className="notice">Signed off by {job.signed_off_by} on {when(job.signed_off_at)}: {job.sign_off_note}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>
@@ -57,7 +58,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         {isOpen && <button onClick={() => run(() => api(`/jobs/${job.id}/submit`, { revision: job.revision }), 'Submitted for review')}>Submit for review</button>}
         {canReview && <div className="review">
           <h3>Review</h3>
-          <Form label="Record decision" submit={async data => run(() => api(`/jobs/${job.id}/review`, { revision: job.revision, decision: data.decision, note: data.note, selfReview: data.selfReview === 'on' }), data.decision === 'signoff' ? 'Job signed off' : 'Job returned to the preparer')}>
+          <Form label="Record decision" submit={async data => run(() => api(`/jobs/${job.id}/review`, { revision: job.revision, decision: data.decision, note: data.note, selfReview: data.selfReview === 'on' }), data.decision !== 'signoff' ? 'Job returned to the preparer' : job.partner_email && !job.reviewed_at ? 'Reviewed; waiting for partner sign-off' : 'Job signed off')}>
             <Field label="Decision" name="decision"><select name="decision"><option value="signoff">Sign off</option><option value="return">Return to preparer</option></select></Field>
             <Field label="Review note" name="note"><textarea name="note" required rows={3} /></Field>
             {selfReview && actor.role === 'owner' && <label className="check"><input type="checkbox" name="selfReview" /> I am reviewing my own work (recorded)</label>}

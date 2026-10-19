@@ -8,7 +8,7 @@ import { completion, stepInsert } from './tasks';
 import { notify, reviewRequested } from './notifications';
 import { budget, myTimer } from './timers';
 import { staffPortal } from './portal-items';
-import { historyRow, historyWhen, stageOf, statusHistory } from './statuses';
+import { historyRow, historyWhen, PARTNER_SIGN_OFF, stageOf, statusHistory, subOf } from './statuses';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -46,10 +46,10 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
   const jobId = values.id;
   const statements = [
     // A job carries the work type chosen for it, else its template's own (WORK-007), and starts Planned.
-    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned')`,
+    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage,partner_email)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned',?)`,
       jobId, values.clientId, template.id, template.name, values.periodStart, periodLabel(values.periodStart, template.recurrence),
-      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now(), values.workTypeId ?? 'wt-' + template.id),
+      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now(), values.workTypeId ?? 'wt-' + template.id, values.partner ?? null),
     historyRow(db, jobId, { stage: null, sub: null }, { stage: 'planned', sub: null }, actor.email),
     ...JSON.parse(template.steps).map((entry: Data, n: number) => stepInsert(db, jobId, entry as never, n)),
     // A task assigned by name lets that person read this job (ACCESS-001); each grant is audited.
@@ -81,7 +81,13 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   // The work type (WORK-007): the one chosen, else the template's own; its default budget applies unless one is given.
   const type = await stmt(db, 'SELECT * FROM b_work_types WHERE id=?', body.workTypeId ? text(body.workTypeId, 'Work type') : 'wt-' + template.id).first<Data>();
   insist(type, 'Work type not found', 404);
-  Object.assign(values, { workTypeId: type.id });
+  // The roles the work type needs beyond preparer and reviewer: a manager and a partner (never the preparer) must be named.
+  const roles: string[] = JSON.parse(type.roles);
+  insist(!roles.includes('manager') || values.manager, `${type.name} work needs a manager`);
+  const partner = body.partnerEmail ? await assignee(db, body.partnerEmail, 'Partner', ['reviewer']) : null;
+  insist(!roles.includes('partner') || partner, `${type.name} work needs a partner for sign-off`);
+  insist(partner !== values.preparer, 'The partner cannot be the preparer', 400);
+  Object.assign(values, { workTypeId: type.id, partner: roles.includes('partner') ? partner : null });
   // An optional time budget, approved by the reviewer or principal who starts the job (TIME-001).
   const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? type.budget_minutes : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
   await atomic(db, actor, [...createStatements(db, actor, template, values), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
@@ -105,6 +111,7 @@ export async function rollForward(env: Bindings, actor: Actor, jobId: string, bo
     reviewer: await assignee(db, previous.reviewer_email, 'Reviewer', ['reviewer']),
     manager: previous.manager_email ? await assignee(db, previous.manager_email, 'Manager', ['reviewer']) : null,
   workTypeId: previous.work_type_id,
+    partner: previous.partner_email ? await assignee(db, previous.partner_email, 'Partner', ['reviewer']) : null,
   };
   insist(values.dueDate >= periodStart, 'The due date is before the period starts');
   const exists = await stmt(db, 'SELECT id FROM b_jobs WHERE client_id=? AND template_id=? AND period_start=?', previous.client_id, template.id, periodStart).first();
@@ -184,12 +191,15 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
   const j = await job(db, actor, jobId);
   insist(j.status === 'review', 'This job is not waiting for review', 409);
   insist(body.revision === j.revision, 'The job changed. Refresh and try again.', 409);
-  insist(actor.role === 'owner' || actor.email === j.reviewer_email, 'Only the assigned reviewer or the principal can review this job', 403);
-  const note = text(body.note, 'Review note', 2000);
+  // After the reviewer's sign-off a partner-sign-off job waits for its partner (WORK-007); only they or the principal act on it.
+  const partnerStep = !!j.reviewed_at;
+  insist(actor.role === 'owner' || actor.email === (partnerStep ? j.partner_email : j.reviewer_email),
+    partnerStep ? 'Only the named partner or the principal can sign off or return this job' : 'Only the assigned reviewer or the principal can review this job', 403);
+  const note = text(body.note, 'Review note', 2000), from = { stage: stageOf(j), sub: subOf(j) };
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=? AND status='review')", j.id, j.revision);
   if (body.decision === 'return') {
-    await atomic(db, actor, [check, stmt(db, "UPDATE b_jobs SET status='open',open_stage='in_progress',sub_status_id=NULL,revision=? WHERE id=?", id(), j.id), release,
-      historyRow(db, j.id, { stage: stageOf(j), sub: j.sub_status_id ?? null }, { stage: 'in_progress', sub: null }, actor.email), audit(db, actor, 'job.returned', j.id, note)]);
+    await atomic(db, actor, [check, stmt(db, "UPDATE b_jobs SET status='open',open_stage='in_progress',sub_status_id=NULL,reviewed_by=NULL,reviewed_at=NULL,revision=? WHERE id=?", id(), j.id), release,
+      historyRow(db, j.id, from, { stage: 'in_progress', sub: null }, actor.email), audit(db, actor, 'job.returned', j.id, note)]);
     await notify(env, [j.preparer_email], { kind: 'review_returned', jobId: j.id, summary: `${actor.name || actor.email} returned ${j.title} ${j.period_label} to you: ${note}` }, actor.email);
     await advance(env, await dependents(db, j), actor.email);
     return jobDetail(db, actor, j.id);
@@ -199,9 +209,15 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
   // A solo principal may review their own work, but must say so; it is recorded.
   insist(!selfReview || (actor.role === 'owner' && body.selfReview === true), 'A different person must review this job', 403);
   const recorded = selfReview ? `${note} [self-review acknowledged]` : note;
+  if (j.partner_email && !partnerStep) {
+    await atomic(db, actor, [check, stmt(db, 'UPDATE b_jobs SET sub_status_id=NULL,reviewed_by=?,reviewed_at=?,revision=? WHERE id=?', actor.email, now(), id(), j.id), release,
+      historyRow(db, j.id, from, { stage: 'in_review', sub: PARTNER_SIGN_OFF }, actor.email), audit(db, actor, 'job.reviewed', j.id, `${recorded} (partner sign-off by ${j.partner_email})`)]);
+    await notify(env, [j.partner_email], { kind: 'partner_sign_off', jobId: j.id, summary: `${actor.name || actor.email} reviewed ${j.title} ${j.period_label}; it waits for your partner sign-off` }, actor.email);
+    return jobDetail(db, actor, j.id);
+  }
   await atomic(db, actor, [check,
     stmt(db, "UPDATE b_jobs SET status='signed_off',sub_status_id=NULL,signed_off_by=?,signed_off_at=?,sign_off_note=?,revision=? WHERE id=?", actor.email, now(), recorded, id(), j.id),
-    historyRow(db, j.id, { stage: stageOf(j), sub: j.sub_status_id ?? null }, { stage: 'completed', sub: null }, actor.email),
+    historyRow(db, j.id, from, { stage: 'completed', sub: null }, actor.email),
     stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', now(), j.id), release,
     audit(db, actor, 'job.signed_off', j.id, recorded)]);
   await advance(env, await dependents(db, j), actor.email);

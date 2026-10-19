@@ -13,6 +13,10 @@ export const STAGE_LABELS: Record<string, string> = { planned: 'Planned', ready:
 const OPEN_STAGES = ['planned', 'ready', 'in_progress', 'waiting'];
 /** A job row's stage in SQL. */
 export const stageSql = (j: string) => `CASE ${j}.status WHEN 'review' THEN 'in_review' WHEN 'signed_off' THEN 'completed' ELSE COALESCE(${j}.open_stage,'in_progress') END`;
+/** The built-in step after a reviewer's sign-off on work that needs a partner (WORK-007 job roles); recorded in history under this key. */
+export const PARTNER_SIGN_OFF = 'partner_sign_off';
+export const subOf = (j: Data) => j.status === 'review' && j.reviewed_at ? PARTNER_SIGN_OFF : j.sub_status_id ?? null;
+const subName = (alias: string, key: string) => `COALESCE(${alias}.name,CASE WHEN ${key}='${PARTNER_SIGN_OFF}' THEN 'partner sign-off' END)`;
 export const stageOf = (j: Data) => j.status === 'review' ? 'in_review' : j.status === 'signed_off' ? 'completed' : (j.open_stage ?? 'in_progress');
 
 /** A history row for a stage or sub-status change (written in the same batch as the change). */
@@ -33,7 +37,7 @@ export async function statusModel(db: D1Database) {
     rows(db, `SELECT w.*,t.name template,(SELECT COUNT(*) FROM b_jobs j WHERE j.work_type_id=w.id) jobs FROM b_work_types w LEFT JOIN b_templates t ON t.id=w.template_id ORDER BY w.name`),
     rows(db, `SELECT s.*,(SELECT COUNT(*) FROM b_jobs j WHERE j.sub_status_id=s.id) jobs FROM b_sub_statuses s WHERE s.deleted_at IS NULL ORDER BY s.created_at`),
   ]);
-  return { stages: STAGES.map(key => ({ key, label: STAGE_LABELS[key] })), workTypes: types, subStatuses: subs.map(s => ({ ...s, work_types: JSON.parse(s.work_types) })) };
+  return { stages: STAGES.map(key => ({ key, label: STAGE_LABELS[key] })), workTypes: types.map(t => ({ ...t, roles: JSON.parse(t.roles) })), subStatuses: subs.map(s => ({ ...s, work_types: JSON.parse(s.work_types) })) };
 }
 
 /** The principal defines a work type: default template, default budget and color. */
@@ -43,10 +47,11 @@ export async function saveWorkType(db: D1Database, actor: Actor, body: Data) {
   if (templateId) insist(await stmt(db, 'SELECT 1 FROM b_templates WHERE id=?', templateId).first(), 'Template not found', 404);
   insist(!await stmt(db, 'SELECT 1 FROM b_work_types WHERE lower(name)=lower(?)', name).first(), `${name} already exists`, 409);
   const budget = body.budgetMinutes === undefined || body.budgetMinutes === '' ? null : integer(body.budgetMinutes, 'Default budget in minutes', 1, 100_000);
-  const typeId = id();
-  await atomic(db, actor, [stmt(db, 'INSERT INTO b_work_types(id,name,template_id,budget_minutes,color,created_by,created_at) VALUES(?,?,?,?,?,?,?)', typeId, name, templateId, budget, color(body.color), actor.email, now()),
+  insist(body.roles === undefined || (Array.isArray(body.roles) && body.roles.every((r: unknown) => r === 'manager' || r === 'partner')), 'Roles: choose from manager and partner (preparer and reviewer are always needed)');
+  const roles = [...new Set((body.roles ?? []) as string[])], typeId = id();
+  await atomic(db, actor, [stmt(db, 'INSERT INTO b_work_types(id,name,template_id,budget_minutes,color,roles,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)', typeId, name, templateId, budget, color(body.color), JSON.stringify(roles), actor.email, now()),
     audit(db, actor, 'work_type.saved', typeId, name)]);
-  return { id: typeId, name };
+  return { id: typeId, name, roles };
 }
 
 async function permittedTypes(db: D1Database, value: unknown) {
@@ -99,7 +104,8 @@ export async function moveJob(db: D1Database, actor: Actor, jobId: string, body:
   const j = await readableJob(db, actor, jobId);
   insist(j.access === 'full', 'Only the job’s people can change its status', 403);
   insist(body.revision === undefined || body.revision === j.revision, 'The job changed. Refresh and try again.', 409);
-  const from = { stage: stageOf(j), sub: j.sub_status_id ?? null };
+  const from = { stage: stageOf(j), sub: subOf(j) };
+  insist(from.sub !== PARTNER_SIGN_OFF, 'This job waits for its partner’s sign-off', 409);
   if (body.stage === 'in_review' || body.stage === 'completed') {
     insist(from.stage === body.stage, body.stage === 'in_review' ? 'Submit the job for review: every step done and document accepted' : 'Only the reviewer’s sign-off completes a job', 409);
   } else insist(j.status === 'open', 'A job in review or completed moves only by review', 409);
@@ -163,7 +169,7 @@ export async function deleteSubStatus(db: D1Database, actor: Actor, subId: strin
 /** A job's status history, oldest first, with sub-status names as they are now (renames keep history). */
 export async function statusHistory(db: D1Database, actor: Actor, jobId: string) {
   const j = await readableJob(db, actor, jobId);
-  return rows(db, `SELECT h.*,f.name from_sub_status,t.name to_sub_status FROM b_job_status_history h LEFT JOIN b_sub_statuses f ON f.id=h.from_sub_status_id
+  return rows(db, `SELECT h.*,${subName('f', 'h.from_sub_status_id')} from_sub_status,${subName('t', 'h.to_sub_status_id')} to_sub_status FROM b_job_status_history h LEFT JOIN b_sub_statuses f ON f.id=h.from_sub_status_id
     LEFT JOIN b_sub_statuses t ON t.id=h.to_sub_status_id WHERE h.job_id=? ORDER BY h.at,h.id`, j.id);
 }
 
@@ -175,7 +181,7 @@ export async function queue(db: D1Database, actor: Actor, query: Data) {
   const type = optional(f.workType, 'Work type', 100), stage = optional(f.stage, 'Stage', 20), sub = optional(f.subStatus, 'Sub-status', 100);
   insist(!stage || STAGES.includes(stage as never), 'Choose a stage');
   return rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.due_date,b_jobs.status,b_jobs.preparer_email,b_jobs.reviewer_email,${stageSql('b_jobs')} stage,
-      b_jobs.sub_status_id,s.name sub_status,b_jobs.work_type_id,w.name work_type,w.color,c.name client_name
+      b_jobs.sub_status_id,CASE WHEN b_jobs.status='review' AND b_jobs.reviewed_at IS NOT NULL THEN 'partner sign-off' ELSE s.name END sub_status,b_jobs.partner_email,b_jobs.work_type_id,w.name work_type,w.color,c.name client_name
     FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id LEFT JOIN b_work_types w ON w.id=b_jobs.work_type_id LEFT JOIN b_sub_statuses s ON s.id=b_jobs.sub_status_id
     WHERE ${readableJobSql} AND (?5='' OR b_jobs.work_type_id=?5) AND (?6='' OR ${stageSql('b_jobs')}=?6) AND (?7='' OR b_jobs.sub_status_id=?7)
     ORDER BY b_jobs.due_date,c.name`, ...readableJobParams(actor), type, stage, sub);
@@ -188,7 +194,7 @@ export async function queue(db: D1Database, actor: Actor, query: Data) {
  */
 export async function statusReport(db: D1Database, actor: Actor, query: Data) {
   const type = optional(query.workType, 'Work type', 100), at = now();
-  const history = await rows(db, `SELECT h.job_id,h.to_stage,h.to_sub_status_id,h.at,s.name sub FROM b_job_status_history h JOIN b_jobs ON b_jobs.id=h.job_id LEFT JOIN b_sub_statuses s ON s.id=h.to_sub_status_id
+  const history = await rows(db, `SELECT h.job_id,h.to_stage,h.to_sub_status_id,h.at,${subName('s', 'h.to_sub_status_id')} sub FROM b_job_status_history h JOIN b_jobs ON b_jobs.id=h.job_id LEFT JOIN b_sub_statuses s ON s.id=h.to_sub_status_id
     WHERE ${readableJobSql} AND (?5='' OR b_jobs.work_type_id=?5) ORDER BY h.job_id,h.at,h.id`, ...readableJobParams(actor), type);
   const report = new Map<string, Data>();
   history.forEach((h, n) => {

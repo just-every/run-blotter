@@ -61,6 +61,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
           <div className="row">
             <Field label="Client" name="clientId"><select name="clientId" required>{state.clients.map((c: Row) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
             <Field label="Template" name="templateId"><select name="templateId" required>{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
+            <Field label="Work type" name="workTypeId" required={false}><select name="workTypeId"><option value="">The template's own</option>{state.statusModel.workTypes.map((w: Row) => <option key={w.id} value={w.id}>{w.name}{w.roles.length > 0 && ` (needs ${w.roles.join(' and ')})`}</option>)}</select></Field>
           </div>
           <div className="row">
             <Field label="Period starts" name="periodStart" type="date" />
@@ -72,6 +73,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
             <Field label="Preparer" name="preparerEmail"><select name="preparerEmail" required>{people.map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
             <Field label="Reviewer" name="reviewerEmail"><select name="reviewerEmail" required>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
             <Field label="Manager" name="managerEmail"><select name="managerEmail"><option value="">Same as the reviewer</option>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
+            <Field label="Partner sign-off" name="partnerEmail" required={false}><select name="partnerEmail"><option value="">Not needed</option>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>
           </div>
         </Form>}
     </section>}
