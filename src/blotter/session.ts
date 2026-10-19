@@ -1,8 +1,10 @@
 // Who is calling: a signed-in person (native session) or an agent key.
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server';
+import { agentGate, mfaGate } from './mfa';
 import { digest, insist, stmt, type Actor, type Role } from './model';
 
-export async function person(request: Request, original: Bindings): Promise<Actor> {
+/** `open` admits a person who still owes a second factor: only the enrollment and verification doors pass it. */
+export async function person(request: Request, original: Bindings, open = false): Promise<Actor> {
   const env = runtimeBindings(original), url = new URL(request.url);
   insist(url.origin === env.AUTH_ORIGIN, 'Invalid host', 403);
   if (!['GET', 'HEAD'].includes(request.method)) {
@@ -14,7 +16,9 @@ export async function person(request: Request, original: Bindings): Promise<Acto
   const member = await stmt(env.DB, 'SELECT role FROM b_members WHERE email=? AND active=1', o.email).first<{ role: Role }>();
   const role = o.role === 'owner' ? 'owner' : member?.role;
   insist(role, 'Ask the principal to add you to the practice', 403);
-  return { id: o.id, email: o.email, name: o.displayName, role, channel: 'person' };
+  const actor: Actor = { id: o.id, email: o.email, name: o.displayName, role, channel: 'person', sessionId: session.id, sessionStartedAt: Number(session.createdAt) };
+  await mfaGate(env.DB, actor, open);
+  return actor;
 }
 
 export async function agent(request: Request, env: Bindings): Promise<Actor> {
@@ -26,5 +30,6 @@ export async function agent(request: Request, env: Bindings): Promise<Actor> {
   insist(record, 'Invalid or revoked agent key', 401);
   const role = record.role === 'owner' ? 'owner' : record.member_role;
   insist(role, 'This agent no longer has practice access', 403);
+  await agentGate(env.DB, record.email);
   return { id: record.id, email: record.email, name: record.display_name, role, channel: 'agent', label: record.label };
 }

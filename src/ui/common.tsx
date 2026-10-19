@@ -6,7 +6,7 @@ export type Run = (job: () => Promise<any>, message?: string) => Promise<void>;
 export async function api(path: string, body?: unknown) {
   const response = await fetch('/api/blotter' + path, { credentials: 'same-origin', ...(body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }) });
   const result: any = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error ?? 'The request could not be completed');
+  if (!response.ok) throw Object.assign(new Error(result.error ?? 'The request could not be completed'), { mfa: result.mfa as string | undefined });
   return result;
 }
 /** Where a time entry's rate came from (TIME-003 rate cards). */

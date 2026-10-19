@@ -20,6 +20,18 @@ The principal manages people, approves billing exports, imports clients and hand
 
 On a deployed installation, **Send an invitation** emails a saved person a sign-in link. Local mail is suppressed; use the local personas to try the other roles.
 
+## Require a second factor
+
+Under **Team & safety → Sign-in security**, anyone can press **Add an authenticator app or passkey**. For an authenticator app, add the key shown to the app (or open the setup link on the same device), then enter its 6-digit code. For a passkey or security key, press **Use a passkey or security key** and follow your browser. After your first factor, Blotter shows ten one-time recovery codes; store them safely, because they are shown only once. From then on, every new sign-in asks for a code from the app or your passkey, or a recovery code if you lose both. **New recovery codes** replaces the old set.
+
+As the principal, press **Require a second factor for every staff sign-in**. From then on, nobody sees client work until they have set up an authenticator, and every session, including ones that were already open, must confirm a code first. Agent keys stop working while the person who created them has no second factor. Five wrong codes in 15 minutes pause verification for 15 minutes.
+
+Under **Session lifetime and idle timeout**, the principal can sign everyone out a set number of minutes after they sign in, and after a number of idle minutes. Leave either empty to keep the standard limit.
+
+If someone loses their authenticator and recovery codes, open **Reset someone's lost second factor**, choose the person and record a reason. Their factors and recovery codes are removed and every session they have is signed out; the audit shows who reset it and why. They set up a new authenticator at their next sign-in. The principal recovers their own factor with a recovery code.
+
+**Download enrollment report (CSV)** lists each person, whether they are enrolled and since when, when they last verified and how many recovery codes they have left, as evidence for your WISP and the FTC Safeguards Rule's multi-factor control. It records facts; it does not certify compliance.
+
 ## Try reviewer and preparer roles locally
 
 Save `reviewer@dev.localhost` as a reviewer and `preparer@dev.localhost` as a preparer in **Team & safety**. Stop the app, then start as the role you want:

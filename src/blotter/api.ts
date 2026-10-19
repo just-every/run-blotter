@@ -15,6 +15,7 @@ import { openThread, readThread, reply, resolveThread, threadsFor } from './thre
 import { decideRequest, downloadFile, portalUpload, portalView, sendReminder, staffUpload } from './documents';
 import { decideExpense, downloadReceipt, recordExpense, reimburseExpense, setMileageRate } from './expenses';
 import { downloadAttachment, weeklyPlan } from './tasks';
+import { confirmPasskey, confirmTotp, enrollmentReport, mfaOverview, mfaState, newRecoveryCodes, passkeyChallenge, resetMember, setPolicy, setSessionLimits, startPasskey, startTotp, verifySession } from './mfa';
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
@@ -29,7 +30,7 @@ export const api = new Hono<{ Bindings: Bindings }>();
 api.get('/health', c => c.json({ status: 'ok', ...deploymentHealth(c.env) }));
 api.use('/api/*', async (c, next) => { await next(); c.header('cache-control', 'no-store'); c.header('x-content-type-options', 'nosniff'); c.header('referrer-policy', 'no-referrer'); });
 api.onError((e, c) => {
-  if (e instanceof Fault) return c.json({ error: e.message }, e.status as 400);
+  if (e instanceof Fault) return c.json({ error: e.message, ...e.detail }, e.status as 400);
   if (e instanceof SyntaxError) return c.json({ error: 'Supply valid JSON' }, 400);
   if ('code' in e && /^(erasure_epoch|erased_row)/.test(String(e.code))) return c.json({ error: `This archive predates an erasure. Restore the latest archive (${String(e.code)}).` }, 409);
   if ('code' in e) return c.json({ error: String(e.code) }, ('status' in e ? Number(e.status) : 409) as 400);
@@ -47,10 +48,27 @@ async function body(c: C): Promise<Data> {
 const db = (c: C) => runtimeBindings(c.env).DB;
 const param = (c: C, key = 'id') => c.req.param(key)!;
 const as = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const result = await fn(await person(c.req.raw, c.env), c); return result instanceof Response ? result : c.json(result); };
+// Second-factor enrollment and verification: open to a signed-in person who still owes a factor.
+const asOpen = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await person(c.req.raw, c.env, true), c));
+const sealer = (c: C) => runtimeBindings(c.env).SESSION_SECRET;
+const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH_ORIGIN });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
 
 api.get(`${P}/state`, as((a, c) => workspace(db(c), a)));
+api.get(`${P}/mfa`, asOpen((a, c) => mfaState(db(c), a)));
+api.post(`${P}/mfa/totp/start`, asOpen(async (a, c) => startTotp(db(c), a, sealer(c), await body(c))));
+api.post(`${P}/mfa/totp/confirm`, asOpen(async (a, c) => confirmTotp(db(c), a, sealer(c), await body(c))));
+api.post(`${P}/mfa/passkey/start`, asOpen((a, c) => startPasskey(db(c), a, site(c))));
+api.post(`${P}/mfa/passkey/confirm`, asOpen(async (a, c) => confirmPasskey(db(c), a, site(c), await body(c))));
+api.post(`${P}/mfa/passkey/challenge`, asOpen((a, c) => passkeyChallenge(db(c), a, site(c))));
+api.post(`${P}/mfa/verify`, asOpen(async (a, c) => verifySession(db(c), a, site(c), await body(c))));
+api.post(`${P}/mfa/recovery-codes`, as((a, c) => newRecoveryCodes(db(c), a)));
+api.get(`${P}/team/mfa`, as((a, c) => mfaOverview(db(c), a)));
+api.get(`${P}/team/mfa-report`, as((a, c) => enrollmentReport(db(c), a)));
+api.post(`${P}/team/mfa-policy`, as(async (a, c) => setPolicy(db(c), a, await body(c))));
+api.post(`${P}/team/session-limits`, as(async (a, c) => setSessionLimits(db(c), a, await body(c))));
+api.post(`${P}/team/mfa-reset`, as(async (a, c) => resetMember(db(c), a, await body(c))));
 api.post(`${P}/clients`, as(async (a, c) => addClient(db(c), a, await body(c))));
 api.post(`${P}/clients/fields`, as(async (a, c) => defineField(db(c), a, await body(c))));
 api.get(`${P}/clients/segment`, as((a, c) => segment(db(c), a, c.req.query())));

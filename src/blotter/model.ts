@@ -3,11 +3,11 @@
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent';
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number;
   label?: string; approval?: { id: string; resultId: string };
 };
 
-export class Fault extends Error { constructor(message: string, public status = 400) { super(message); } }
+export class Fault extends Error { constructor(message: string, public status = 400, public detail: Data = {}) { super(message); } }
 export function insist(value: unknown, message: string, status = 400): asserts value { if (!value) throw new Fault(message, status); }
 
 export function text(value: unknown, label: string, max = 1000) {

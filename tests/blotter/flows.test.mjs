@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, generateKeyPairSync, randomBytes, sign as signWith } from 'node:crypto';
 import { harness } from './harness.mjs';
 
 let h, reviewer, preparer, client, template, job, nextJob, csv, oldArchive, newArchive, erasedFile, keptFile;
@@ -687,4 +687,108 @@ test('CRM-002 groups, typed fields and tags: filter a segment, schedule its annu
   while (imported.job.state !== 'completed') imported = await h.json('/import/resume', { id: imported.job.id }, h.owner);
   const pier = await h.json('/clients/segment?tag=new', undefined, h.owner);
   assert.deepEqual(pier.map(c => [c.name, JSON.parse(c.fields), JSON.parse(c.tags)]), [['North Pier LLC', { service_tier: 'Plus', fiscal_year_end: '2026-09-30' }, ['new', 'priority']]]);
+});
+
+// RFC 6238 codes as an authenticator app computes them; `offset` moves whole 30-second steps.
+const totp = (secret, offset = 0) => {
+  let bits = 0, value = 0; const key = [];
+  for (const c of secret) { value = (value << 5) | 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c); bits += 5; if (bits >= 8) { key.push((value >>> (bits - 8)) & 255); bits -= 8; } }
+  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000) + offset));
+  const mac = createHmac('sha1', Buffer.from(key)).update(counter).digest(), o = mac[19] & 15;
+  return String((mac.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
+};
+// A software passkey: a P-256 key, "none" attestation in CBOR, and assertions it signs with a rising counter.
+const cbor = v => {
+  const head = (major, n) => n < 24 ? [major << 5 | n] : n < 256 ? [major << 5 | 24, n] : [major << 5 | 25, n >> 8, n & 255];
+  if (typeof v === 'number') return v >= 0 ? head(0, v) : head(1, -1 - v);
+  if (typeof v === 'string') return [...head(3, Buffer.byteLength(v)), ...Buffer.from(v)];
+  if (v instanceof Uint8Array) return [...head(2, v.length), ...v];
+  return [...head(5, v.size), ...[...v].flatMap(([k, x]) => [...cbor(k), ...cbor(x)])];
+};
+const passkey = origin => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' }), jwk = publicKey.export({ format: 'jwk' }), id = randomBytes(16);
+  const rp = createHash('sha256').update(new URL(origin).hostname).digest();
+  let count = 0;
+  const data = (flags, extra = []) => { const n = Buffer.alloc(4); n.writeUInt32BE(count); return Buffer.from([...rp, flags, ...n, ...extra]); };
+  const client = (type, challenge) => Buffer.from(JSON.stringify({ type, challenge, origin }));
+  return {
+    register: options => ({ id: id.toString('base64url'), clientDataJSON: client('webauthn.create', options.challenge).toString('base64url'),
+      attestationObject: Buffer.from(cbor(new Map([['fmt', 'none'], ['attStmt', new Map()], ['authData', data(0x41, [...Buffer.alloc(16), 0, id.length, ...id,
+        ...cbor(new Map([[1, 2], [3, -7], [-1, 1], [-2, Buffer.from(jwk.x, 'base64url')], [-3, Buffer.from(jwk.y, 'base64url')]]))])]]))).toString('base64url') }),
+    assert: options => {
+      count += 1;
+      const auth = data(0x01), c = client('webauthn.get', options.challenge);
+      return { id: id.toString('base64url'), clientDataJSON: c.toString('base64url'), authenticatorData: auth.toString('base64url'),
+        signature: signWith('sha256', Buffer.concat([auth, createHash('sha256').update(c).digest()]), privateKey).toString('base64url') };
+    },
+  };
+};
+const wrongCode = secret => String((Number(totp(secret)) + 500000) % 1e6).padStart(6, '0');
+
+// Runs last: once the policy is on, every later request needs a verified second factor.
+test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
+  const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
+  await h.json('/team/mfa-policy', { required: true }, reviewer, 403);
+  await h.json('/team/mfa-policy', { required: true }, h.owner);
+  // Sessions from before the policy see no client data until they enroll; agent keys cannot go around it.
+  for (const who of [h.owner, preparer, reviewer]) assert.equal((await h.json('/state', undefined, who, 403)).mfa, 'enroll');
+  assert.equal((await h.json('/jobs/' + job.id, undefined, preparer, 403)).mfa, 'enroll');
+  await h.json('/agent/context', undefined, '', 403, auth);
+  const start = await h.json('/mfa/totp/start', {}, preparer);
+  assert.match(start.uri, /^otpauth:\/\/totp\/Blotter%3Apreparer%40example\.test\?secret=[A-Z2-7]{32}&/);
+  await h.json('/mfa/totp/confirm', { id: start.id, code: wrongCode(start.secret) }, preparer, 400);
+  const enrolled = await h.json('/mfa/totp/confirm', { id: start.id, code: totp(start.secret) }, preparer);
+  assert.equal(enrolled.recoveryCodes.length, 10);
+  assert.deepEqual((await h.json('/state', undefined, preparer)).jobs.map(j => j.id).includes(job.id), true);
+  // A sign-in with the right first factor and no second factor is refused until it passes TOTP; a used code never works twice.
+  const second = await h.login('preparer@example.test');
+  assert.equal((await h.json('/state', undefined, second, 403)).mfa, 'verify');
+  await h.json('/mfa/totp/start', {}, second, 403);
+  await h.json('/mfa/verify', { code: totp(start.secret) }, second, 400);
+  assert.equal((await h.json('/mfa/verify', { code: totp(start.secret, 1) }, second)).method, 'totp');
+  await h.json('/state', undefined, second);
+  // A recovery code verifies one session, once.
+  const third = await h.login('preparer@example.test'), fourth = await h.login('preparer@example.test');
+  await h.json('/mfa/verify', { recoveryCode: enrolled.recoveryCodes[0].toUpperCase() }, third);
+  await h.json('/mfa/verify', { recoveryCode: enrolled.recoveryCodes[0] }, fourth, 400);
+  assert.equal((await h.json('/mfa', undefined, fourth)).recoveryCodesLeft, 9);
+  // A passkey is added from a verified session only, and a new sign-in steps up with it; a replayed assertion fails.
+  const device = passkey(h.origin);
+  await h.json('/mfa/passkey/start', {}, fourth, 403);
+  await h.json('/mfa/passkey/confirm', device.register(await h.json('/mfa/passkey/start', {}, second)), second);
+  const answer = device.assert(await h.json('/mfa/passkey/challenge', {}, fourth));
+  assert.equal((await h.json('/mfa/verify', { passkey: answer }, fourth)).method, 'passkey');
+  await h.json('/state', undefined, fourth);
+  await h.json('/mfa/passkey/challenge', {}, third);
+  await h.json('/mfa/verify', { passkey: answer }, third, 400);
+  // The principal enrolls, then resets the preparer's lost factor: every preparer session ends and the audit names who reset it.
+  const own = await h.json('/mfa/totp/start', {}, h.owner);
+  await h.json('/mfa/totp/confirm', { id: own.id, code: totp(own.secret) }, h.owner);
+  await h.json('/team/mfa-reset', { email: 'owner@example.test', reason: 'Self' }, h.owner, 400);
+  await h.json('/team/mfa-reset', { email: 'preparer@example.test', reason: 'Lost phone' }, h.owner);
+  for (const who of [preparer, second, third, fourth]) await h.json('/state', undefined, who, 401);
+  const reset = (await h.json('/team', undefined, h.owner)).audit.find(a => a.action === 'mfa.reset');
+  assert.deepEqual([reset.actor, reset.object_id, reset.detail], ['owner@example.test', 'preparer@example.test', 'Lost phone; all sessions revoked']);
+  assert.equal((await h.json('/state', undefined, await h.login('preparer@example.test'), 403)).mfa, 'enroll');
+  // The enrollment report lists every person's factor state.
+  const report = (await (await h.request('/api/blotter/team/mfa-report', undefined, h.owner)).text()).trim().split('\r\n').map(line => line.split(','));
+  const column = name => report[0].indexOf(name), row = address => report.find(r => r[0] === address);
+  assert.deepEqual(['owner@example.test', 'preparer@example.test', 'reviewer@example.test'].map(a => row(a)[column('enrolled')]), ['yes', 'no', 'no']);
+  assert.ok(report.slice(1).every(r => r[column('policy_required')] === 'yes'));
+  // Once the reviewer enrolls, their agent key works again; five wrong codes lock verification for a while.
+  const rs = await h.json('/mfa/totp/start', {}, reviewer);
+  await h.json('/mfa/totp/confirm', { id: rs.id, code: totp(rs.secret) }, reviewer);
+  await h.json('/agent/context', undefined, '', 200, auth);
+  const later = await h.login('reviewer@example.test');
+  for (let i = 0; i < 5; i++) await h.json('/mfa/verify', { code: wrongCode(rs.secret) }, later, 400);
+  await h.json('/mfa/verify', { code: totp(rs.secret, 1) }, later, 429);
+  // Configurable limits: an idle session ends; a session older than the lifetime ends even while in use.
+  await h.json('/team/session-limits', { idleMinutes: 0 }, h.owner, 400);
+  await h.json('/team/session-limits', { idleMinutes: 1 }, h.owner);
+  await h.json('/state', undefined, reviewer);
+  for (let i = 0; i < 3; i++) { await new Promise(r => setTimeout(r, 21_000)); await h.json('/state', undefined, h.owner); }
+  assert.match((await h.json('/state', undefined, reviewer, 401)).error, /inactivity/);
+  await h.json('/state', undefined, reviewer, 401);
+  await h.json('/team/session-limits', { idleMinutes: 1, sessionMinutes: 1 }, h.owner);
+  assert.match((await h.json('/state', undefined, h.owner, 401)).error, /time limit/);
 });
