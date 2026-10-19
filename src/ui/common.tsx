@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useId, type FormEvent, type ReactElement, type ReactNode } from 'react';
+import { Fragment, cloneElement, isValidElement, useId, type FormEvent, type ReactElement, type ReactNode } from 'react';
 
 export type Row = Record<string, any>;
 export type Run = (job: () => Promise<any>, message?: string) => Promise<void>;
@@ -51,4 +51,9 @@ export function Status({ value }: { value: string }) {
 /** The one working sheet on a screen; cards and controls remain real children. */
 export function Blotter({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <div className={`blotter ${className}`}>{children}</div>;
+}
+
+/** Message paragraphs wrap normally while preserving the sender's line breaks. */
+export function MessageText({ children }: { children: string }) {
+  return <div className="message">{children.split('\n\n').map((paragraph, n) => <p key={n}>{paragraph.split('\n').map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}</p>)}</div>;
 }

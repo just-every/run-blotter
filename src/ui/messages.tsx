@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, readFile, when, type Row, type Run } from './common';
+import { api, MessageText, Empty, Field, Form, readFile, when, type Row, type Run } from './common';
 
 /** Files chosen in the form replace the template's attachments; none chosen keeps them. */
 const withFiles = async (data: Row, form: HTMLFormElement) => {
@@ -50,15 +50,16 @@ export function MessageTemplates({ actor, run, tick }: { actor: Row; run: Run; t
 }
 
 /** Compose a document reminder from a template: preview it for this client, fill any missing field, then send. */
-export function ReminderComposer({ jobId, run, sent }: { jobId: string; run: Run; sent: (result: Row) => void }) {
+export function ReminderComposer({ jobId, run, sent, copied = [] }: { jobId: string; run: Run; sent: (result: Row) => void; copied?: Row[] }) {
   const [list, setList] = useState<Row[]>([]), [draft, setDraft] = useState<Row>({ templateId: '' }), [preview, setPreview] = useState<Row>();
   useEffect(() => { api('/messages/templates').then(s => setList(s.templates)).catch(() => setList([])); }, []);
   const show = async (next: Row) => { setDraft(next); setPreview(next.templateId || next.subject ? await api(`/jobs/${jobId}/reminders/preview`, next) : undefined); };
   return <div className="stack">
+    {copied.map(m => <button key={m.id} className="quiet" onClick={() => run(() => show({ templateId: m.id }), 'Copied starter message previewed')}>Preview copied {m.name}</button>)}
     <Field label="Template" name="templateId"><select name="templateId" value={draft.templateId} onChange={e => run(() => show({ templateId: e.target.value }), 'Preview updated')}>
       <option value="">Standard reminder</option>{list.map(t => <option key={t.id} value={t.id}>{t.name} ({t.scope === 'firm' ? 'firm' : 'mine'})</option>)}</select></Field>
     {preview && <div className="notice">
-      <p><strong>To {preview.to}: {preview.subject}</strong></p><pre className="message">{preview.body}</pre>
+      <p><strong>To {preview.to}: {preview.subject}</strong></p><MessageText>{preview.body}</MessageText>
       {preview.attachments.length > 0 && <p className="muted">Attached: {preview.attachments.map((f: Row) => f.name).join(', ')}</p>}
       {preview.missing.length > 0 && <Form label="Fill in and preview again" submit={async data => run(() => show({ ...draft, values: { ...(draft.values ?? {}), ...data } }), 'Preview updated')}>
         <p className="error">Missing: {preview.missing.map((m: Row) => m.label).join(', ')}. Fill them in, or choose another template.</p>

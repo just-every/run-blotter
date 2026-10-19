@@ -1,3 +1,4 @@
+import { StarterLibrary } from './starter-library';
 import { StatusSettings } from './statuses';
 import { Blotter, api, money, taxId, Empty, Field, Form, type Row, type Run } from './common';
 import { useState } from 'react';
@@ -56,6 +57,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
         </Form>
       </details>}
     </section>
+    {lead && <StarterLibrary state={state} run={run} tick={tick} />}
     {lead && <RecurrencePanel state={state} run={run} tick={tick} />}
     {lead && <section className="panel wide">
       <h2>Start a job</h2>
