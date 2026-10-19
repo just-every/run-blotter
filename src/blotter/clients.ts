@@ -54,8 +54,8 @@ export async function workspace(db: D1Database, actor: Actor) {
   return {
     actor: { email: actor.email, name: actor.name, role: actor.role },
     jobs,
-    clients: wide ? await rows(db, 'SELECT * FROM b_clients ORDER BY name')
-      : await rows(db, 'SELECT * FROM b_clients WHERE id IN (SELECT client_id FROM b_jobs WHERE preparer_email=?) ORDER BY name', actor.email),
+    clients: wide ? await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL ORDER BY name')
+      : await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL AND id IN (SELECT client_id FROM b_jobs WHERE preparer_email=?) ORDER BY name', actor.email),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),
     fields: await fieldDefs(db),
     groups: wide ? await groups(db) : [],

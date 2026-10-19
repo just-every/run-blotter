@@ -11,6 +11,7 @@ import { commitFields, defineField, previewFields, saveGroup, saveProfile, segme
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
 import { grantException, recordAnswer } from './flow';
 import { compareClients, dismissPair, duplicates } from './duplicates';
+import { mergeClients, merges, undoMerge } from './merges';
 import { claimJob, createRule, previewRule, rules, runNow, setRuleStatus, skipPeriod } from './recurrence';
 import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, sendDeliverable } from './deliverables';
 import { myNotifications } from './notifications';
@@ -82,6 +83,9 @@ api.post(`${P}/clients/bulk-fields`, as(async (a, c) => commitFields(db(c), a, a
 api.get(`${P}/clients/duplicates`, as((a, c) => duplicates(db(c), a)));
 api.get(`${P}/clients/compare`, as((a, c) => compareClients(db(c), a, c.req.query())));
 api.post(`${P}/clients/duplicates/dismiss`, as(async (a, c) => dismissPair(db(c), a, await body(c))));
+api.get(`${P}/clients/merges`, as((a, c) => merges(db(c), a)));
+api.post(`${P}/clients/merge`, as(async (a, c) => mergeClients(db(c), a, await body(c))));
+api.post(`${P}/clients/merges/:id/undo`, as((a, c) => undoMerge(db(c), a, param(c))));
 api.post(`${P}/clients/:id/profile`, as(async (a, c) => saveProfile(db(c), a, param(c), await body(c))));
 api.post(`${P}/groups`, as(async (a, c) => saveGroup(db(c), a, await body(c))));
 api.post(`${P}/templates`, as(async (a, c) => saveTemplate(db(c), a, await body(c))));

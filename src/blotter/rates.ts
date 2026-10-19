@@ -57,7 +57,7 @@ export async function setRate(db: D1Database, actor: Actor, body: Data) {
     card.templateId = String(body.templateId);
   }
   if (scope === 'client' || scope === 'client_service') {
-    insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=?', String(body.clientId ?? '')).first(), 'Client not found', 404);
+    insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=? AND merged_into IS NULL', String(body.clientId ?? '')).first(), 'Client not found', 404);
     card.clientId = String(body.clientId);
   }
   await atomic(db, actor, [

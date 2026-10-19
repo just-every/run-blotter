@@ -44,7 +44,7 @@ function schedule(rule: Data, recurrence: Recurrence, held: Data[], today: strin
 }
 
 async function ruleBody(db: D1Database, body: Data) {
-  const client = await stmt(db, 'SELECT id FROM b_clients WHERE id=?', text(body.clientId, 'Client')).first<Data>();
+  const client = await stmt(db, 'SELECT id FROM b_clients WHERE id=? AND merged_into IS NULL', text(body.clientId, 'Client')).first<Data>();
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
   insist(template, 'Template not found', 404);

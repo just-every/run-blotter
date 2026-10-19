@@ -17,7 +17,7 @@ export function MoveIn({ run, tick }: { run: Run; tick: number }) {
         <p>{preview.summary.clients} {preview.summary.clients === 1 ? 'row' : 'rows'} · {preview.counts?.create ?? preview.clients.length} to create</p>
         {preview.summary.errors.map((m: string) => <p key={m} className="error">{m}</p>)}
         {preview.summary.warnings.map((m: string) => <p key={m} className="muted">{m}</p>)}
-        <ul className="list">{preview.clients.slice(0, 50).map((c: Row) => <li key={c.sourceId}>{c.name} <small className="muted">{c.abn} {c.contactEmail}</small></li>)}</ul>
+        <ul className="list">{preview.clients.slice(0, 50).map((c: Row) => <li key={c.sourceId}>{c.name} <small className="muted">{c.abn} {c.contactEmail}{c.matches ? ` · already matches ${c.matches.name}` : ''}</small></li>)}</ul>
         <button disabled={preview.summary.errors.length > 0} onClick={() => run(() => api('/import/commit', { csv, filename, fingerprint: preview.fingerprint }), 'Import committed. The journal below shows its progress.')}>Import these clients</button>
       </div>}
     </section></Blotter>

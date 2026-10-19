@@ -2,7 +2,8 @@
 // Adapted from just-every/run-satchel src/satchel/imports.ts (MIT).
 import { applyD1ImportBatches, createD1ImportJob, planD1Import, readD1ImportJob, readD1ImportOriginals, readD1ImportUndoReport, resumeD1Import, undoD1Import, type D1ImportContext } from '../modules/import-kit/src/d1/index';
 import { Fault, human, insist, integer, need, stmt, text, type Actor, type Data } from './model';
-import { clientListSource, MAPPING_VERSION, NAMESPACE } from './imports/client-list';
+import { clientListSource, importTargetId, MAPPING_VERSION, NAMESPACE } from './imports/client-list';
+import { survivorOf } from './merges';
 import { clientTargets } from './imports/target';
 import { fieldDefs } from './profiles';
 
@@ -40,7 +41,9 @@ async function action(db: D1Database, actor: Actor, op: string, body: Data) {
   if (op === 'preview' || op === 'commit') {
     const { source, mapping, summary, clients } = clientListSource(body.csv, body.filename, await fieldDefs(db));
     const plan = await planD1Import(source, mapping, ctx);
-    const review = { fingerprint: plan.fingerprint, mappingVersion: mapping.version, counts: plan.counts, summary, clients, diagnostics: plan.diagnostics };
+    // Each row shows the client it already matches: the one it created, or that client's merge survivor.
+    const matched = await Promise.all(clients.map(async c => ({ ...c, matches: await survivorOf(db, importTargetId(c.sourceId)) ?? null })));
+    const review = { fingerprint: plan.fingerprint, mappingVersion: mapping.version, counts: plan.counts, summary, clients: matched, diagnostics: plan.diagnostics };
     if (op === 'preview') return review;
     insist(summary.errors.length === 0 && plan.counts.rejected === 0, 'Resolve the CSV errors before importing', 409);
     insist(body.fingerprint === plan.fingerprint, 'The file changed since preview; preview it again before committing', 409);

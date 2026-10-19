@@ -11,6 +11,8 @@ const REQUIRED = ['client_name'];
 const OPTIONAL = ['client_id', 'abn', 'contact_name', 'contact_email', 'tags'];
 /** Firm-defined fields arrive as `field:<key>` columns (CRM-002). */
 const FIELD = 'field:';
+/** The client a source row creates; a later merge keeps this id attached to its survivor (CRM-004). */
+export const importTargetId = (sourceId: string) => `import:${sha256(sourceId)}`;
 
 export function clientListSource(raw: unknown, filename: unknown, defs: FieldDef[]) {
   insist(typeof raw === 'string' && raw.length > 0, 'Choose a client list CSV');
@@ -62,7 +64,7 @@ export function clientListSource(raw: unknown, filename: unknown, defs: FieldDef
   const mapping: ImportMapping = {
     version: MAPPING_VERSION,
     map: record => blocked ? { effects: [], rejection: 'Resolve the CSV errors before importing' } : {
-      effects: [{ targetKind: 'client', targetId: `import:${sha256(record.sourceId)}`, value: values.get(record.sourceId)! }],
+      effects: [{ targetKind: 'client', targetId: importTargetId(record.sourceId), value: values.get(record.sourceId)! }],
     },
   };
   return { source, mapping, clients, summary: {

@@ -43,7 +43,7 @@ async function schedulePlan(db: D1Database, actor: Actor, body: Data) {
   for (const choice of body.clients as Data[]) {
     const clientId = text(choice?.clientId, 'Client');
     insist(!seen.has(clientId), 'Each client can appear once'); seen.add(clientId);
-    const client = await stmt(db, 'SELECT id,name FROM b_clients WHERE id=?', clientId).first<Data>();
+    const client = await stmt(db, 'SELECT id,name FROM b_clients WHERE id=? AND merged_into IS NULL', clientId).first<Data>();
     insist(client, 'Client not found', 404);
     const line: Data = { clientId, client: client.name };
     if (choice.exclude === true) { lines.push({ ...line, action: 'excluded', reasons: [] }); continue; }

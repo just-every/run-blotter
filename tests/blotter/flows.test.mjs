@@ -983,6 +983,69 @@ test('CRM-004 duplicate proposals: an imported client that duplicates a native o
   assert.ok(!(await h.json('/clients/duplicates', undefined, h.owner)).some(p => [p.a.id, p.b.id].includes(native.id) && [p.a.id, p.b.id].includes(copy.id)));
 });
 
+test('CRM-004 merge and undo: an imported duplicate keeps its source ID, takes signed-off jobs, resolved discussions, closed notices and expenses, undoes exactly, and a re-import matches the survivor; differing EINs need the principal\'s authority', async () => {
+  const importAll = async csv => {
+    const preview = await h.json('/import/preview', { csv }, h.owner);
+    let run = await h.json('/import/commit', { csv, fingerprint: preview.fingerprint }, h.owner);
+    while (run.job.state !== 'completed') run = await h.json('/import/resume', { id: run.job.id }, h.owner);
+    return preview;
+  };
+  // The native client already carries a signed-off job, a closed notice and expenses; add a resolved client-wide discussion.
+  const talk = await h.json(`/jobs/${nextJob.id}/threads`, { anchor: 'client', title: 'Entity check', body: 'Same cafe as the Karbon record.' }, h.owner);
+  await h.json(`/threads/${talk.thread.id}/resolve`, { resolution: 'Confirmed one entity' }, h.owner);
+  const csv = 'client_id,client_name,abn,contact_name,contact_email,field:service_tier\nK-90,Harbour Lane Cafe,10000000001,Mia Chen-Wu,MIA@harbourlane.example,Plus\n';
+  await importAll(csv);
+  const state = async () => (await h.json('/state', undefined, h.owner)).clients;
+  const copy = (await state()).find(c => c.name === 'Harbour Lane Cafe');
+  const proposed = (await h.json('/clients/duplicates', undefined, reviewer)).find(p => [p.a.id, p.b.id].sort().join() === [client.id, copy.id].sort().join());
+  assert.deepEqual(proposed.reasons, ['same EIN', 'same contact email', 'same name']);
+  const before = (await h.json(`/clients/compare?a=${client.id}&b=${copy.id}`, undefined, h.owner)).a.linked;
+  assert.ok(before.jobs >= 2 && before.notices >= 1 && before.expenses >= 1 && before.threads >= 1);
+  // The imported record survives with the native name and the imported contact; every differing field needs a choice.
+  const merge = { survivor: copy.id, merged: client.id, keep: { name: 'merged', contact_name: 'survivor', 'fields.service_tier': 'survivor' } };
+  await h.json('/clients/merge', merge, preparer, 403);
+  assert.match((await h.json('/clients/merge', { ...merge, keep: { name: 'merged', 'fields.service_tier': 'survivor' } }, reviewer, 400)).error, /Contact name/);
+  let done = await h.json('/clients/merge', { ...merge, keep: { ...merge.keep, name: 'survivor' } }, reviewer);
+  assert.deepEqual([done.moved.jobs, done.moved.notices, done.moved.expenses, done.moved.threads], [before.jobs, before.notices, before.expenses, before.threads]);
+  assert.deepEqual([done.undo, done.sourceIds.map(s => s.source_id)], ['available', ['K-90']]);
+  const after = await state();
+  assert.ok(!after.some(c => c.id === client.id));
+  assert.deepEqual(['name', 'contact_name', 'contact_email'].map(k => after.find(c => c.id === copy.id)[k]), ['Harbour Lane Cafe', 'Mia Chen-Wu', 'mia@harbourlane.example']);
+  // Invoice drafts follow: the moved jobs' unbilled fees, time and expenses bill to the survivor.
+  const billed = async () => (await h.json('/billing', undefined, reviewer)).unbilled.filter(l => [job.id, nextJob.id].includes(l.job_id)).map(l => l.client);
+  assert.ok((await billed()).length > 0 && (await billed()).every(n => n === 'Harbour Lane Cafe'));
+  // The signed-off job, its time and portal history now belong to the survivor, and its people still see it.
+  const moved = await h.json('/jobs/' + job.id, undefined, preparer);
+  assert.deepEqual([moved.job.status, moved.client.id], ['signed_off', copy.id]);
+  assert.equal((await h.json(`/clients/compare?a=${copy.id}&b=${client.id}`, undefined, h.owner)).b.linked.jobs, 0);
+  await h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart: '2030-01-01', dueDate: '2030-02-01', dueNote: 'x', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner, 404);
+  // Undo before any further edit restores both records exactly; it cannot run twice.
+  await h.json(`/clients/merges/${done.id}/undo`, {}, preparer, 403);
+  await h.json(`/clients/merges/${done.id}/undo`, {}, reviewer);
+  await h.json(`/clients/merges/${done.id}/undo`, {}, reviewer, 409);
+  const restored = await h.json(`/clients/compare?a=${client.id}&b=${copy.id}`, undefined, h.owner);
+  assert.deepEqual([restored.a.linked, restored.b.linked.jobs], [before, 0]);
+  assert.ok((await billed()).every(n => n === 'Harbour Lane Cafe Pty Ltd'));
+  assert.deepEqual([restored.a.name, restored.b.name, (await h.json('/jobs/' + job.id, undefined, preparer)).client.id], ['Harbour Lane Cafe Pty Ltd', 'Harbour Lane Cafe', client.id]);
+  // Merge again, then re-import the same source with a new row: K-90 matches the survivor and only the new client is created.
+  done = await h.json('/clients/merge', merge, h.owner);
+  const count = (await state()).length;
+  const again = await importAll(csv + 'K-91,Bayside Bakery,,,,Plus\n');
+  assert.deepEqual(again.clients.map(c => c.matches?.id ?? null), [copy.id, null]);
+  assert.deepEqual((await state()).map(c => c.name).filter(n => /Harbour Lane|Bayside/.test(n)).sort(), ['Bayside Bakery', 'Harbour Lane Cafe Pty Ltd']);
+  assert.equal((await state()).length, count + 1);
+  // Once the survivor is edited, the merge can no longer be undone.
+  await h.json(`/clients/${copy.id}/profile`, { tags: ['merged'] }, h.owner);
+  assert.equal((await h.json('/clients/merges', undefined, reviewer)).find(m => m.id === done.id).undo, 'changed');
+  assert.match((await h.json(`/clients/merges/${done.id}/undo`, {}, h.owner, 409)).error, /changed after the merge/);
+  // Two entities with different EINs: a reviewer cannot join them; the principal can, only with a recorded reason.
+  const [x, y] = [await h.json('/clients', { name: 'Acme Holdings', abn: '11111111111', fields: { service_tier: 'Plus' } }, h.owner), await h.json('/clients', { name: 'Acme Holdings', abn: '22222222222', fields: { service_tier: 'Plus' } }, h.owner)];
+  const join = { survivor: x.id, merged: y.id, keep: { abn: 'survivor' } };
+  assert.match((await h.json('/clients/merge', join, reviewer, 403)).error, /only the principal/);
+  await h.json('/clients/merge', join, h.owner, 400);
+  assert.equal((await h.json('/clients/merge', { ...join, authority: 'One company; the second EIN was a typo on the old engagement letter' }, h.owner)).authority, 'One company; the second EIN was a typo on the old engagement letter');
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

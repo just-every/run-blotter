@@ -1,5 +1,5 @@
-// Duplicate client proposals (CRM-004 slice: proposals, side-by-side compare
-// and dismissal; merge and undo are not built yet). Blotter proposes two
+// Duplicate client proposals (CRM-004: proposals, side-by-side compare and
+// dismissal; merging and undo are in merges.ts). Blotter proposes two
 // clients as likely duplicates, whatever created them (by hand, a CSV move-in,
 // or any later source), when they share a contact email (case-insensitive), an
 // EIN (the client's tax id column), or a name: equal once lower-cased, accents, punctuation, "&"/"and"
@@ -13,7 +13,7 @@ const SUFFIXES = new Set(['inc', 'llc', 'ltd', 'pty', 'co', 'corp', 'corporation
 export function nameWords(name: string) {
   return name.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(w => w && !SUFFIXES.has(w));
 }
-function reasons(a: Data, b: Data) {
+export function reasons(a: Data, b: Data) {
   const found: string[] = [];
   if (a.abn && a.abn === b.abn) found.push('same EIN');
   if (a.contact_email && a.contact_email.toLowerCase() === b.contact_email?.toLowerCase()) found.push('same contact email');
@@ -29,7 +29,7 @@ const pair = (a: string, b: string) => a < b ? [a, b] : [b, a];
 /** Likely duplicate pairs, strongest first, without pairs a person dismissed. */
 export async function duplicates(db: D1Database, actor: Actor) {
   need(actor, 'owner', 'reviewer');
-  const clients = await rows(db, 'SELECT id,name,abn,contact_name,contact_email,source,created_at FROM b_clients ORDER BY created_at,id');
+  const clients = await rows(db, 'SELECT id,name,abn,contact_name,contact_email,source,created_at FROM b_clients WHERE merged_into IS NULL ORDER BY created_at,id');
   const dismissed = new Set((await rows(db, 'SELECT client_a,client_b FROM b_duplicate_dismissals')).map(d => d.client_a + ' ' + d.client_b));
   const found: Data[] = [];
   for (const [i, a] of clients.entries()) for (const b of clients.slice(i + 1)) {
@@ -39,26 +39,30 @@ export async function duplicates(db: D1Database, actor: Actor) {
   return found.sort((x, y) => y.score - x.score);
 }
 
-async function client(db: D1Database, clientId: unknown) {
+export async function client(db: D1Database, clientId: unknown) {
   const c = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', text(clientId, 'Client')).first<Data>();
   insist(c, 'Client not found', 404);
   return c;
 }
-const linked = async (db: D1Database, id: string) => stmt(db, `SELECT
+export const linked = async (db: D1Database, id: string) => stmt(db, `SELECT
   (SELECT COUNT(*) FROM b_jobs WHERE client_id=?1) jobs, (SELECT COUNT(*) FROM b_jobs WHERE client_id=?1 AND status<>'signed_off') open_jobs,
   (SELECT COUNT(*) FROM b_threads WHERE client_id=?1) threads, (SELECT COUNT(*) FROM b_notices WHERE client_id=?1) notices,
   (SELECT COUNT(*) FROM b_expenses WHERE client_id=?1) expenses, (SELECT COUNT(*) FROM b_recurrence_rules WHERE client_id=?1) rules,
-  (SELECT COUNT(*) FROM b_client_group_members WHERE client_id=?1) groups`, id).first<Data>();
+  (SELECT COUNT(*) FROM b_client_group_members WHERE client_id=?1) groups, (SELECT COUNT(*) FROM b_rate_cards WHERE client_id=?1) rates`, id).first<Data>() as Promise<Data>;
+/** Every field a merge chooses between, with both values; `source` is shown but each record keeps its own source IDs. */
+export function fieldRows(a: Data, b: Data) {
+  const fa = JSON.parse(a.fields), fb = JSON.parse(b.fields);
+  return [['name', 'Name'], ['abn', 'EIN'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
+    .map(([key, label]) => ({ key, label, a: a[key], b: b[key], same: a[key] === b[key] }))
+    .concat([...new Set([...Object.keys(fa), ...Object.keys(fb)])].sort().map(key => ({ key: 'fields.' + key, label: key, a: fa[key] ?? '', b: fb[key] ?? '', same: fa[key] === fb[key] })));
+}
 
 /** Two clients side by side: each field, whether it matches, what is linked to each, and why they were proposed. */
 export async function compareClients(db: D1Database, actor: Actor, query: Data) {
   need(actor, 'owner', 'reviewer');
   const [a, b] = [await client(db, query.a), await client(db, query.b)];
   insist(a.id !== b.id, 'Choose two different clients');
-  const fa = JSON.parse(a.fields), fb = JSON.parse(b.fields);
-  const fields = [['name', 'Name'], ['abn', 'EIN'], ['contact_name', 'Contact name'], ['contact_email', 'Contact email'], ['source', 'Came from'], ['tags', 'Tags']]
-    .map(([key, label]) => ({ key, label, a: a[key], b: b[key], same: a[key] === b[key] }))
-    .concat([...new Set([...Object.keys(fa), ...Object.keys(fb)])].sort().map(key => ({ key: 'fields.' + key, label: key, a: fa[key] ?? '', b: fb[key] ?? '', same: fa[key] === fb[key] })));
+  const fields = fieldRows(a, b);
   return { a: { id: a.id, name: a.name, linked: await linked(db, a.id) }, b: { id: b.id, name: b.name, linked: await linked(db, b.id) }, reasons: reasons(a, b), fields };
 }
 

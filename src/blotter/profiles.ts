@@ -57,7 +57,7 @@ export async function defineField(db: D1Database, actor: Actor, body: Data) {
 /** Changes one client's fields and tags; the same validation as creation. */
 export async function saveProfile(db: D1Database, actor: Actor, clientId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
-  const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', clientId).first<Data>();
+  const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=? AND merged_into IS NULL', clientId).first<Data>();
   insist(client, 'Client not found', 404);
   insist(body.revision === undefined || body.revision === client.revision, 'The client changed. Refresh and try again.', 409);
   const fields = profileFields(await fieldDefs(db), body.fields, JSON.parse(client.fields));
@@ -78,7 +78,7 @@ export async function saveGroup(db: D1Database, actor: Actor, body: Data) {
   insist(Array.isArray(body.members) && body.members.length > 0 && body.members.length <= 50, 'Add between 1 and 50 clients');
   const members: D1PreparedStatement[] = [];
   for (const m of body.members as Data[]) {
-    insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=?', text(m?.clientId, 'Client')).first(), 'Client not found', 404);
+    insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=? AND merged_into IS NULL', text(m?.clientId, 'Client')).first(), 'Client not found', 404);
     insist(RELATIONSHIPS.includes(m.relationship), 'Relationship must be parent, subsidiary, household or member');
     members.push(stmt(db, 'INSERT INTO b_client_group_members(group_id,client_id,relationship,added_by,added_at) VALUES(?,?,?,?,?) ON CONFLICT(group_id,client_id) DO UPDATE SET relationship=excluded.relationship', groupId, m.clientId, m.relationship, actor.email, at));
   }
@@ -99,7 +99,7 @@ export async function segment(db: D1Database, actor: Actor, query: Data) {
   const groupId = String(query.groupId ?? ''), tag = String(query.tag ?? '').trim().toLowerCase(), field = String(query.field ?? ''), value = String(query.value ?? '');
   insist(groupId || tag || field, 'Choose a group, a tag or a field');
   if (field) insist(/^[a-z][a-z0-9_]*$/.test(field), 'Unknown client field');
-  return rows(db, `SELECT * FROM b_clients c WHERE (?='' OR c.id IN (SELECT client_id FROM b_client_group_members WHERE group_id=?))
+  return rows(db, `SELECT * FROM b_clients c WHERE c.merged_into IS NULL AND (?='' OR c.id IN (SELECT client_id FROM b_client_group_members WHERE group_id=?))
     AND (?='' OR EXISTS(SELECT 1 FROM json_each(c.tags) WHERE value=?)) AND (?='' OR json_extract(c.fields,'$.'||?)=?) ORDER BY c.name`,
     groupId, groupId, tag, tag, field, field, value);
 }
@@ -114,7 +114,7 @@ export async function previewFields(db: D1Database, actor: Actor, body: Data) {
   for (const line of body.lines as Data[]) {
     const clientId = text(line?.clientId, 'Client');
     insist(!seen.has(clientId), 'Each client can appear once'); seen.add(clientId);
-    const client = await stmt(db, 'SELECT id,name,fields,revision FROM b_clients WHERE id=?', clientId).first<Data>();
+    const client = await stmt(db, 'SELECT id,name,fields,revision FROM b_clients WHERE id=? AND merged_into IS NULL', clientId).first<Data>();
     insist(client, 'Client not found', 404);
     const from = JSON.parse(client.fields)[def.key] ?? '', result = fieldValue(def, line.value);
     const base = { clientId, client: client.name, revision: client.revision, from };

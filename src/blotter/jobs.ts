@@ -61,7 +61,7 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
 export async function startJob(env: Bindings, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const db = runtimeBindings(env).DB;
-  const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', text(body.clientId, 'Client')).first<Data>();
+  const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=? AND merged_into IS NULL', text(body.clientId, 'Client')).first<Data>();
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
   insist(template, 'Template not found', 404);
