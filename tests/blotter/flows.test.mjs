@@ -1421,6 +1421,68 @@ test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and 
   assert.deepEqual((await h.json('/capacity?week=2029-03-05', undefined, preparer)).people.map(p => p.email), ['preparer@example.test']);
 });
 
+test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
+  const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
+  const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);
+  await h.json('/work-types', { name: '1040', templateId: returns.id }, reviewer, 403);
+  const t1040 = await h.json('/work-types', { name: '1040', templateId: returns.id, budgetMinutes: 600, color: '#2563EB' }, h.owner);
+  await h.json('/work-types', { name: '1040' }, h.owner, 409);
+  const docs = await h.json('/sub-statuses', { stage: 'waiting', name: 'on client documents' }, h.owner);
+  const sig = await h.json('/sub-statuses', { stage: 'waiting', name: 'on 8879 signature', workTypeIds: [t1040.id] }, h.owner);
+  const lane = await h.json('/clients', { name: 'Diaz household', fields: { service_tier: 'Plus' } }, h.owner);
+  const people = { clientId: lane.id, dueNote: 'Filing', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const ret = await h.json('/jobs', { ...people, templateId: returns.id, workTypeId: t1040.id, periodStart: '2028-01-01', dueDate: '2029-04-15' }, h.owner);
+  const book = await h.json('/jobs', { ...people, templateId: books.id, periodStart: '2028-02-01', dueDate: '2028-03-20' }, h.owner);
+  // Every job has one work type (the chosen one, else its template's own) and starts Planned; the type's budget applies.
+  assert.equal(ret.budget_minutes, 600);
+  const model = await h.json('/work-types', undefined, preparer);
+  assert.equal(model.workTypes.find(w => w.id === t1040.id).color, '#2563eb');
+  const queued = await h.json('/queue', undefined, preparer);
+  assert.deepEqual([ret.id, book.id].map(id => { const j = queued.find(q => q.id === id); return [j.work_type, j.stage]; }), [['1040', 'planned'], ['Monthly Bookkeeping', 'planned']]);
+  // The 8879 sub-status is offered only for 1040 work.
+  const move = (job, body, who = preparer, expected = 200) => h.json(`/jobs/${job.id}/status`, body, who, expected);
+  assert.match((await move(book, { stage: 'waiting', subStatusId: sig.id }, preparer, 409)).error, /not offered for this work type/);
+  await move(book, { stage: 'waiting', subStatusId: docs.id });
+  await move(ret, { stage: 'waiting', subStatusId: docs.id });
+  await move(ret, { stage: 'waiting', subStatusId: sig.id });
+  await move(ret, { stage: 'in_progress', subStatusId: sig.id }, preparer, 400);
+  // No sub-status or move reaches In review or Completed around the review gates.
+  assert.match((await move(ret, { stage: 'in_review' }, preparer, 409)).error, /Submit the job for review/);
+  assert.match((await move(ret, { stage: 'completed' }, h.owner, 409)).error, /sign-off completes/);
+  // The queue filters by sub-status and work type; the report shows time in each status.
+  assert.deepEqual((await h.json('/queue?subStatus=' + sig.id, undefined, preparer)).map(j => [j.id, j.sub_status]), [[ret.id, 'on 8879 signature']]);
+  assert.deepEqual((await h.json('/queue?workType=' + t1040.id + '&stage=waiting', undefined, preparer)).map(j => j.id), [ret.id]);
+  const report = await h.json('/reports/status-time?workType=' + t1040.id, undefined, h.owner);
+  assert.deepEqual(report.map(r => [r.stage, r.subStatus, r.entries, r.now]), [['planned', null, 1, 0], ['waiting', 'on 8879 signature', 1, 1], ['waiting', 'on client documents', 1, 0]]);
+  assert.ok(report.every(r => r.minutes >= 0 && r.averageMinutes >= 0));
+  // Renaming keeps history; deleting a used sub-status is refused until a previewed move of its jobs.
+  await h.json(`/sub-statuses/${sig.id}`, { name: 'on Form 8879 signature' }, h.owner);
+  await h.json(`/sub-statuses/${sig.id}/delete`, {}, h.owner, 409);
+  const preview = await h.json(`/sub-statuses/${sig.id}/delete/preview`, { toStage: 'in_progress' }, h.owner);
+  assert.deepEqual([preview.jobs.map(j => j.id), preview.to], [[ret.id], { stage: 'in_progress', sub: null }]);
+  await h.json(`/sub-statuses/${sig.id}/delete`, { toStage: 'in_progress', fingerprint: 'stale' }, h.owner, 409);
+  assert.deepEqual(await h.json(`/sub-statuses/${sig.id}/delete`, { toStage: 'in_progress', fingerprint: preview.fingerprint }, h.owner), { deleted: sig.id, moved: 1 });
+  assert.ok(!(await h.json('/work-types', undefined, h.owner)).subStatuses.some(s => s.id === sig.id));
+  let detail = await h.json('/jobs/' + ret.id, undefined, preparer);
+  assert.deepEqual([detail.job.open_stage, detail.job.sub_status_id], ['in_progress', null]);
+  const trail = h => [h.from_stage, h.from_sub_status, h.to_stage, h.to_sub_status, h.by];
+  assert.deepEqual(detail.statusHistory.map(trail), [
+    [null, null, 'planned', null, 'owner@example.test'], ['planned', null, 'waiting', 'on client documents', 'preparer@example.test'],
+    ['waiting', 'on client documents', 'waiting', 'on Form 8879 signature', 'preparer@example.test'], ['waiting', 'on Form 8879 signature', 'in_progress', null, 'owner@example.test']]);
+  // Submission and sign-off move the stage and are recorded.
+  const request = detail.requests[0];
+  await h.json(`/requests/${request.id}/files`, { name: 'w2.pdf', mime: 'application/pdf', contentBase64: b64('%PDF') }, preparer);
+  await h.json(`/requests/${request.id}/decide`, { decision: 'accept' }, preparer);
+  await h.json(`/jobs/${ret.id}/steps`, { ordinal: 1, done: true }, preparer);
+  await h.json(`/jobs/${ret.id}/submit`, {}, preparer);
+  detail = await h.json('/jobs/' + ret.id, undefined, reviewer);
+  await h.json(`/jobs/${ret.id}/review`, { decision: 'signoff', note: 'Ready to file', revision: detail.job.revision }, reviewer);
+  detail = await h.json('/jobs/' + ret.id, undefined, reviewer);
+  assert.deepEqual(detail.statusHistory.slice(-2).map(trail), [['in_progress', null, 'in_review', null, 'preparer@example.test'], ['in_review', null, 'completed', null, 'reviewer@example.test']]);
+  assert.equal((await h.json('/queue?workType=' + t1040.id, undefined, h.owner))[0].stage, 'completed');
+  await move(ret, { stage: 'planned' }, h.owner, 409);
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

@@ -42,7 +42,14 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
     bulk(db, 'b_rate_cards', people.map(p => ({ id: fixedId('rate:' + p.email), scope: 'staff', person_email: p.email, rate_cents: p.rateCents, effective_from: iso(opened).slice(0, 10), created_by: owner.email, created_at: iso(opened + DAY) }))),
     bulk(db, 'b_clients', Object.values(clients).map((c, n) => ({ id: c.id, name: c.name, abn: c.abn, contact_name: c.contactName, contact_email: c.contactEmail, source: 'native', revision: fixedId('revision:' + c.id), created_at: iso(opened + (2 + n) * DAY) }))),
     bulk(db, 'b_templates', Object.values(templates).map(t => ({ id: t.id, name: t.name, recurrence: t.recurrence, steps: JSON.stringify(t.steps), requests: JSON.stringify(t.requests), fee_cents: t.feeCents, created_by: owner.email, created_at: iso(opened + DAY) }))),
-    bulk(db, 'b_jobs', work.jobs),
+    // Each template's own work type, every job in it, and the status history its dates imply (WORK-007).
+    bulk(db, 'b_work_types', Object.values(templates).map(t => ({ id: 'wt-' + t.id, name: t.name, template_id: t.id, created_by: owner.email, created_at: iso(opened + DAY) }))),
+    bulk(db, 'b_jobs', work.jobs.map(j => ({ ...j, work_type_id: 'wt-' + j.template_id, open_stage: 'in_progress' }))),
+    bulk(db, 'b_job_status_history', work.jobs.flatMap(j => [
+      { id: fixedId('status:' + j.id), job_id: j.id, from_stage: null, to_stage: 'in_progress', by: j.created_by, at: j.created_at },
+      ...(j.submitted_at ? [{ id: fixedId('status:review:' + j.id), job_id: j.id, from_stage: 'in_progress', to_stage: 'in_review', by: j.submitted_by, at: j.submitted_at }] : []),
+      ...(j.signed_off_at ? [{ id: fixedId('status:done:' + j.id), job_id: j.id, from_stage: 'in_review', to_stage: 'completed', by: j.signed_off_by, at: j.signed_off_at }] : []),
+    ])),
     bulk(db, 'b_job_steps', work.steps),
     bulk(db, 'b_requests', work.requests),
     bulk(db, 'b_files', work.files),

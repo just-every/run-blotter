@@ -8,6 +8,7 @@ import { completion, stepInsert } from './tasks';
 import { notify, reviewRequested } from './notifications';
 import { budget, myTimer } from './timers';
 import { staffPortal } from './portal-items';
+import { historyRow, historyWhen, stageOf, statusHistory } from './statuses';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,10 +45,12 @@ async function assignee(db: D1Database, address: unknown, label: string, roles: 
 export function createStatements(db: D1Database, actor: Actor, template: Data, values: Data) {
   const jobId = values.id;
   const statements = [
-    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)`,
+    // A job carries the work type chosen for it, else its template's own (WORK-007), and starts Planned.
+    stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned')`,
       jobId, values.clientId, template.id, template.name, values.periodStart, periodLabel(values.periodStart, template.recurrence),
-      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now()),
+      values.dueDate, values.dueNote, values.preparer, values.reviewer, values.manager ?? null, template.fee_cents, values.rolledFrom ?? null, id(), actor.email, actor.channel, now(), values.workTypeId ?? 'wt-' + template.id),
+    historyRow(db, jobId, { stage: null, sub: null }, { stage: 'planned', sub: null }, actor.email),
     ...JSON.parse(template.steps).map((entry: Data, n: number) => stepInsert(db, jobId, entry as never, n)),
     // A task assigned by name lets that person read this job (ACCESS-001); each grant is audited.
     ...[...new Set(JSON.parse(template.steps).map((entry: Data) => entry?.assigneeEmail).filter(Boolean))].map(person =>
@@ -75,8 +78,12 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
     // The manager job role (WORK-009) is the reviewer unless someone is named.
     manager: body.managerEmail ? await assignee(db, body.managerEmail, 'Manager', ['reviewer']) : null,
   };
+  // The work type (WORK-007): the one chosen, else the template's own; its default budget applies unless one is given.
+  const type = await stmt(db, 'SELECT * FROM b_work_types WHERE id=?', body.workTypeId ? text(body.workTypeId, 'Work type') : 'wt-' + template.id).first<Data>();
+  insist(type, 'Work type not found', 404);
+  Object.assign(values, { workTypeId: type.id });
   // An optional time budget, approved by the reviewer or principal who starts the job (TIME-001).
-  const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? null : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
+  const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? type.budget_minutes : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
   await atomic(db, actor, [...createStatements(db, actor, template, values), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
   await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
@@ -97,6 +104,7 @@ export async function rollForward(env: Bindings, actor: Actor, jobId: string, bo
     preparer: await assignee(db, previous.preparer_email, 'Preparer', ['preparer', 'reviewer']),
     reviewer: await assignee(db, previous.reviewer_email, 'Reviewer', ['reviewer']),
     manager: previous.manager_email ? await assignee(db, previous.manager_email, 'Manager', ['reviewer']) : null,
+  workTypeId: previous.work_type_id,
   };
   insist(values.dueDate >= periodStart, 'The due date is before the period starts');
   const exists = await stmt(db, 'SELECT id FROM b_jobs WHERE client_id=? AND template_id=? AND period_start=?', previous.client_id, template.id, periodStart).first();
@@ -123,7 +131,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
   // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
   const portal = j.access === 'full' ? await staffPortal(db, j) : null;
-  return { job: j, portal, client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  return { job: j, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {
@@ -158,11 +166,12 @@ export async function submitJob(env: Bindings, actor: Actor, jobId: string, body
     (SELECT COUNT(*) FROM b_requests WHERE job_id=? AND status<>'accepted') requests`, j.id, j.id).first<Data>();
   insist(pending!.steps === 0, 'Finish every checklist step before submitting for review', 409);
   insist(pending!.requests === 0, 'Accept every requested client document before submitting for review', 409);
+  const at = now();
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?) AND NOT EXISTS(SELECT 1 FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')})
     AND NOT EXISTS(SELECT 1 FROM b_requests WHERE job_id=? AND status<>'accepted')`, j.id, j.revision, j.id, j.id);
   await atomic(db, actor, [check,
-    stmt(db, "UPDATE b_jobs SET status='review',submitted_by=?,submitted_at=?,revision=? WHERE id=?", actor.email, now(), id(), j.id), release,
-    audit(db, actor, 'job.submitted', j.id)]);
+    stmt(db, "UPDATE b_jobs SET status='review',sub_status_id=NULL,submitted_by=?,submitted_at=?,revision=? WHERE id=?", actor.email, at, id(), j.id), release,
+    historyWhen(db, j, 'in_review', actor.email, at, 'submitted_at'), audit(db, actor, 'job.submitted', j.id)]);
   await reviewRequested(env, j.id, actor.name || actor.email);
   await advance(env, await dependents(db, j), actor.email);
   return jobDetail(db, actor, j.id);
@@ -179,7 +188,8 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
   const note = text(body.note, 'Review note', 2000);
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=? AND status='review')", j.id, j.revision);
   if (body.decision === 'return') {
-    await atomic(db, actor, [check, stmt(db, "UPDATE b_jobs SET status='open',revision=? WHERE id=?", id(), j.id), release, audit(db, actor, 'job.returned', j.id, note)]);
+    await atomic(db, actor, [check, stmt(db, "UPDATE b_jobs SET status='open',open_stage='in_progress',sub_status_id=NULL,revision=? WHERE id=?", id(), j.id), release,
+      historyRow(db, j.id, { stage: stageOf(j), sub: j.sub_status_id ?? null }, { stage: 'in_progress', sub: null }, actor.email), audit(db, actor, 'job.returned', j.id, note)]);
     await notify(env, [j.preparer_email], { kind: 'review_returned', jobId: j.id, summary: `${actor.name || actor.email} returned ${j.title} ${j.period_label} to you: ${note}` }, actor.email);
     await advance(env, await dependents(db, j), actor.email);
     return jobDetail(db, actor, j.id);
@@ -190,7 +200,8 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
   insist(!selfReview || (actor.role === 'owner' && body.selfReview === true), 'A different person must review this job', 403);
   const recorded = selfReview ? `${note} [self-review acknowledged]` : note;
   await atomic(db, actor, [check,
-    stmt(db, "UPDATE b_jobs SET status='signed_off',signed_off_by=?,signed_off_at=?,sign_off_note=?,revision=? WHERE id=?", actor.email, now(), recorded, id(), j.id),
+    stmt(db, "UPDATE b_jobs SET status='signed_off',sub_status_id=NULL,signed_off_by=?,signed_off_at=?,sign_off_note=?,revision=? WHERE id=?", actor.email, now(), recorded, id(), j.id),
+    historyRow(db, j.id, { stage: stageOf(j), sub: j.sub_status_id ?? null }, { stage: 'completed', sub: null }, actor.email),
     stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', now(), j.id), release,
     audit(db, actor, 'job.signed_off', j.id, recorded)]);
   await advance(env, await dependents(db, j), actor.email);

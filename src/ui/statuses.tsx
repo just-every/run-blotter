@@ -1,0 +1,90 @@
+import { useEffect, useState } from 'react';
+import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+
+const OPEN = ['planned', 'ready', 'in_progress', 'waiting'];
+const hours = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+const allowed = (sub: Row, workTypeId: string) => !sub.work_types.length || sub.work_types.includes(workTypeId);
+/** "Waiting – on client documents" for a stage and sub-status. */
+export const statusLabel = (model: Row, stage: string, sub?: string | null) => `${model.stages.find((s: Row) => s.key === stage)?.label ?? stage}${sub ? ` – ${sub}` : ''}`;
+
+/** The stages and sub-statuses a job may move to (WORK-007): open stages while open; In review and Completed only by review. */
+function MoveTo({ model, job, run }: { model: Row; job: Row; run: Run }) {
+  const stage = job.stage, options = (job.status === 'open' ? OPEN : [stage]).flatMap(key => [
+    { value: key, label: statusLabel(model, key) },
+    ...model.subStatuses.filter((s: Row) => s.stage === key && allowed(s, job.work_type_id)).map((s: Row) => ({ value: `${key}|${s.id}`, label: statusLabel(model, key, s.name) })),
+  ]);
+  return <select aria-label={`Move ${job.client_name ?? ''} ${job.title}`.trim()} value={job.sub_status_id ? `${stage}|${job.sub_status_id}` : stage}
+    onChange={e => { const [to, sub] = e.target.value.split('|'); run(() => api(`/jobs/${job.id}/status`, { stage: to, subStatusId: sub || undefined }), 'Status changed'); }}>
+    {options.map((o: Row) => <option key={o.value} value={o.value}>{o.label}</option>)}
+  </select>;
+}
+
+/** The job's status, its move control and history. */
+export function JobStatus({ detail, run, tick }: { detail: Row; run: Run; tick: number }) {
+  const [model, setModel] = useState<Row>();
+  useEffect(() => { api('/work-types').then(setModel).catch(() => setModel(undefined)); }, [tick]);
+  if (!model) return null;
+  const { job } = detail, type = model.workTypes.find((w: Row) => w.id === job.work_type_id);
+  const sub = model.subStatuses.find((s: Row) => s.id === job.sub_status_id);
+  const stage = job.status === 'review' ? 'in_review' : job.status === 'signed_off' ? 'completed' : job.open_stage ?? 'in_progress';
+  return <section className="panel">
+    <h2>Status</h2>
+    <p><span className="badge" style={{ borderColor: type?.color }}>{type?.name}</span> {statusLabel(model, stage, sub?.name)}</p>
+    {detail.portal && job.status !== 'signed_off' && <label>Move to <MoveTo model={model} job={{ ...job, stage }} run={run} /></label>}
+    <p className="muted">In review and Completed are reached only by submitting for review and signing off.</p>
+    <details><summary>Status history ({detail.statusHistory.length})</summary><ol className="list">{detail.statusHistory.map((h: Row) => <li key={h.id}>
+      {h.from_stage ? statusLabel(model, h.from_stage, h.from_sub_status) : 'Created'} → {statusLabel(model, h.to_stage, h.to_sub_status)} <small className="muted">{h.by} · {when(h.at)}</small></li>)}</ol></details>
+  </section>;
+}
+
+/** The queue as columns by stage, filtered by work type and sub-status; each card moves in place. */
+export function Board({ state, open, run, tick }: { state: Row; open: (id: string) => void; run: Run; tick: number }) {
+  const model = state.statusModel, [filter, setFilter] = useState({ workType: '', subStatus: '' }), [jobs, setJobs] = useState<Row[]>([]);
+  useEffect(() => { api('/queue?' + new URLSearchParams(filter)).then(setJobs).catch(e => run(async () => { throw e; })); }, [filter, tick]);
+  return <section className="panel">
+    <div className="row">
+      <label>Work type<select value={filter.workType} onChange={e => setFilter({ ...filter, workType: e.target.value })}><option value="">All</option>{model.workTypes.map((w: Row) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
+      <label>Sub-status<select value={filter.subStatus} onChange={e => setFilter({ ...filter, subStatus: e.target.value })}><option value="">All</option>{model.subStatuses.map((s: Row) => <option key={s.id} value={s.id}>{statusLabel(model, s.stage, s.name)}</option>)}</select></label>
+    </div>
+    <div className="board">{model.stages.map((s: Row) => <div key={s.key} className="board-column"><h3>{s.label}</h3>
+      {jobs.filter(j => j.stage === s.key).map(j => <article key={j.id} className="record" style={{ borderLeftColor: j.color }}>
+        <button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} · {j.period_label}</button>
+        <small className="muted"> {j.work_type}{j.sub_status && ` · ${j.sub_status}`} · due {j.due_date}</small>
+        {j.status !== 'signed_off' && <MoveTo model={model} job={j} run={run} />}
+      </article>)}</div>)}</div>
+  </section>;
+}
+
+/** The principal's work types and sub-statuses, and the time-in-status report. */
+export function StatusSettings({ state, run, tick }: { state: Row; run: Run; tick: number }) {
+  const model = state.statusModel, owner = state.actor.role === 'owner', [report, setReport] = useState<Row[]>([]), [plan, setPlan] = useState<Row>();
+  useEffect(() => { api('/reports/status-time').then(setReport).catch(() => setReport([])); }, [tick]);
+  const types = (data: Row) => model.workTypes.filter((w: Row) => data['type:' + w.id] === 'on').map((w: Row) => w.id);
+  return <section className="panel">
+    <h2>Work types and statuses</h2>
+    <ul className="list">{model.workTypes.map((w: Row) => <li key={w.id}><span className="badge" style={{ borderColor: w.color }}>{w.name}</span> <small className="muted">{w.template ? `default template ${w.template}` : 'no default template'}{w.budget_minutes && ` · default budget ${hours(w.budget_minutes)}`} · {w.jobs} jobs</small></li>)}</ul>
+    <ul className="list">{model.subStatuses.map((s: Row) => <li key={s.id}>{statusLabel(model, s.stage, s.name)} <small className="muted">{s.work_types.length ? `only ${s.work_types.map((t: string) => model.workTypes.find((w: Row) => w.id === t)?.name).join(', ')}` : 'every work type'} · {s.jobs} jobs</small>
+      {owner && <details><summary>Rename or delete</summary>
+        <Form label="Rename" submit={async data => run(() => api(`/sub-statuses/${s.id}`, { name: data.name }), 'Renamed; history kept')}><Field label="Name" name="name" value={s.name} /></Form>
+        <Form label="Preview deletion" submit={async data => run(async () => setPlan({ id: s.id, body: { toStage: data.toStage }, ...await api(`/sub-statuses/${s.id}/delete/preview`, { toStage: data.toStage }) }), 'Preview ready')}>
+          <Field label="Move its jobs to" name="toStage"><select name="toStage" defaultValue={s.stage}>{model.stages.map((st: Row) => <option key={st.key} value={st.key}>{st.label}</option>)}</select></Field>
+        </Form>
+        {plan && plan.id === s.id && <div className="notice"><p>{plan.jobs.length} jobs move to {statusLabel(model, plan.to?.stage ?? s.stage)}.{plan.problems.join(' ')}</p>
+          <button onClick={() => run(async () => { await api(`/sub-statuses/${s.id}/delete`, { ...plan.body, fingerprint: plan.fingerprint }); setPlan(undefined); }, 'Sub-status deleted; its jobs moved')}>Move jobs and delete</button></div>}
+      </details>}</li>)}</ul>
+    {owner && <>
+      <Form label="Add work type" submit={async (data, form) => run(async () => { await api('/work-types', { name: data.name, templateId: data.templateId || undefined, budgetMinutes: data.budgetHours ? Math.round(Number(data.budgetHours) * 60) : undefined, color: data.color }); form.reset(); }, 'Work type added')}>
+        <div className="row"><Field label="Work type" name="name" />
+          <Field label="Default template" name="templateId" required={false}><select name="templateId"><option value="">None</option>{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
+          <Field label="Default budget hours" name="budgetHours" type="number" required={false} /><Field label="Color" name="color" type="color" value="#64748b" /></div>
+      </Form>
+      <Form label="Add sub-status" submit={async (data, form) => run(async () => { await api('/sub-statuses', { stage: data.stage, name: data.name, workTypeIds: types(data) }); form.reset(); }, 'Sub-status added')}>
+        <div className="row"><Field label="Under" name="stage"><select name="stage">{model.stages.map((s: Row) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></Field><Field label="Sub-status" name="name" /></div>
+        <fieldset><legend>Only for (none ticked: every work type)</legend>{model.workTypes.map((w: Row) => <label key={w.id} className="check"><input type="checkbox" name={'type:' + w.id} /> {w.name}</label>)}</fieldset>
+      </Form>
+    </>}
+    <h3>Time in status</h3>
+    {!report.length ? <Empty>No status history yet.</Empty> : <table className="table"><thead><tr><th>Status</th><th>Jobs now</th><th>Entries</th><th>Total</th><th>Average</th></tr></thead>
+      <tbody>{report.map(r => <tr key={r.stage + (r.subStatusId ?? '')}><td data-label="Status">{statusLabel(model, r.stage, r.subStatus)}</td><td data-label="Jobs now">{r.now}</td><td data-label="Entries">{r.entries}</td><td data-label="Total">{hours(r.minutes)}</td><td data-label="Average">{hours(r.averageMinutes)}</td></tr>)}</tbody></table>}
+  </section>;
+}

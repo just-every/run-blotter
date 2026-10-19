@@ -2,6 +2,7 @@
 import { fieldDefs, groups, profileFields, tagList } from './profiles';
 import { pendingStep } from './flow';
 import { templateWork } from './tasks';
+import { stageSql, statusModel } from './statuses';
 import { atomic, audit, human, insist, id, integer, lines, need, now, optional, rows, stmt, text, email, readableJobParams, readableJobSql, type Actor, type Data } from './model';
 
 export function abn(value: unknown) {
@@ -37,6 +38,8 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
   };
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)', template.id, template.name, recurrence, JSON.stringify(template.steps), JSON.stringify(template.requests), JSON.stringify(template.questions), template.feeCents, actor.email, now()),
+    // Each template has a work type of its own name (WORK-007), the default for its jobs.
+    stmt(db, 'INSERT INTO b_work_types(id,name,template_id,created_by,created_at) VALUES(?,?,?,?,?)', 'wt-' + template.id, template.name, template.id, actor.email, now()),
     audit(db, actor, 'template.saved', template.id, template.name),
   ]);
   return template;
@@ -48,8 +51,9 @@ export async function workspace(db: D1Database, actor: Actor) {
   const jobs = await rows(db, `SELECT b_jobs.*,c.name client_name,
       (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.status<>'accepted') open_requests,
       (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND ${pendingStep('s')}) open_steps,
-      (SELECT COUNT(*) FROM b_portal_items p WHERE p.job_id=b_jobs.id AND p.kind='question' AND p.status='open') client_questions
-    FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id
+      (SELECT COUNT(*) FROM b_portal_items p WHERE p.job_id=b_jobs.id AND p.kind='question' AND p.status='open') client_questions,
+      ${stageSql('b_jobs')} stage,(SELECT name FROM b_sub_statuses WHERE id=b_jobs.sub_status_id) sub_status,w.name work_type,w.color work_type_color
+    FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id LEFT JOIN b_work_types w ON w.id=b_jobs.work_type_id
     WHERE ${readableJobSql}
     ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...readableJobParams(actor));
   return {
@@ -58,6 +62,7 @@ export async function workspace(db: D1Database, actor: Actor) {
     clients: wide ? await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL ORDER BY name')
       : await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL AND id IN (SELECT client_id FROM b_jobs WHERE preparer_email=?) ORDER BY name', actor.email),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),
+    statusModel: await statusModel(db),
     fields: await fieldDefs(db),
     groups: wide ? await groups(db) : [],
     people: wide ? await rows(db, `SELECT email,name,role FROM b_members WHERE active=1 UNION ALL SELECT email,display_name,'owner' FROM oa_operators WHERE role='owner' AND status='active' ORDER BY 2`) : [],

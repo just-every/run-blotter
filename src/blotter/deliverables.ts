@@ -6,6 +6,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { reviewRequested } from './notifications';
 import { decodeFile, fileResponse, issueLink, sendMail, portalJob } from './documents';
+import { historyWhen } from './statuses';
 import { atomic, audit, digest, guard, human, id, insist, job, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const COLUMNS = `id,deliverable_id,version,name,mime,size,sha256,note,submit_on_approval,sent_by,sent_at,delivery,status,
@@ -104,10 +105,11 @@ export async function portalDecide(env: Bindings, token: string, versionId: stri
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_portal_links WHERE id=? AND revoked_at IS NULL AND expires_at>?)
     AND EXISTS(SELECT 1 FROM b_deliverable_versions WHERE id=? AND status='sent') AND ${newest}`, link.id, at, v.id, v.deliverable_id, v.version);
   const submit = approve && v.submit_on_approval === 1 ? [
-    stmt(db, `UPDATE b_jobs SET status='review',submitted_by=?,submitted_at=?,revision=? WHERE id=? AND status='open'
+    stmt(db, `UPDATE b_jobs SET status='review',sub_status_id=NULL,submitted_by=?,submitted_at=?,revision=? WHERE id=? AND status='open'
       AND NOT EXISTS(SELECT 1 FROM b_job_steps WHERE job_id=? AND done_at IS NULL) AND NOT EXISTS(SELECT 1 FROM b_requests WHERE job_id=? AND status<>'accepted')`,
       v.sent_by, at, id(), j.id, j.id, j.id),
     stmt(db, "UPDATE b_deliverable_versions SET moved_job=1 WHERE id=? AND EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status='review' AND submitted_at=?)", v.id, j.id, at),
+    historyWhen(db, j, 'in_review', `client approval (${name})`, at, 'submitted_at'),
     stmt(db, `INSERT INTO b_audit(id,actor,action,object_id,detail,at) SELECT ?,?,'job.submitted',?,?,? WHERE EXISTS(SELECT 1 FROM b_deliverable_versions WHERE id=? AND moved_job=1)`,
       id(), `client approval (${name})`, j.id, `on approval of v${v.version} for ${v.sent_by}`, at, v.id),
   ] : [];

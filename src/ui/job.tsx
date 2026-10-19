@@ -3,6 +3,7 @@ import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, 
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { ClientLink } from './client-portal';
+import { JobStatus } from './statuses';
 import { JobExpenses } from './expenses';
 import { TaskChoice, TimeBudget, Timer } from './timer';
 import { ReminderComposer } from './messages';
@@ -88,6 +89,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       </section>
     </div></Blotter>
     <Deliverables job={job} deliverables={detail.deliverables} run={run} />
+    <JobStatus detail={detail} run={run} tick={tick} />
     <ClientLink detail={detail} run={run} />
     <Discussions detail={detail} actor={actor} run={run} tick={tick} />
     <section className="panel">
