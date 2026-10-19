@@ -1471,6 +1471,67 @@ test('CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with c
   assert.ok(!(await h.json(`/clients/${firm.id}/history`, undefined, h.owner)).unresolved.some(i => i.kind === 'coverage'));
 });
 
+test('CAPACITY-003 forecast: next tax season from recurring rules and prior actuals, as weekly ranges with confidence; a client with no actuals widens the range and is named; a hire and a lost client compared by skill; a saved scenario changes no live work', async () => {
+  const individual = await h.json('/templates', { name: 'Individual 1040', recurrence: 'annual', steps: 'Prepare return', requests: 'Organizer' }, h.owner);
+  const people = { templateId: individual.id, preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const clients = {};
+  for (const name of ['Ortiz household', 'Lowe household', 'Quint household']) clients[name] = await h.json('/clients', { name, fields: { service_tier: 'Plus' } }, h.owner);
+  // Prior actuals: recorded time on signed-off jobs of earlier periods.
+  const done = async (client, periodStart, minutes) => {
+    const created = await h.json('/jobs', { ...people, clientId: client.id, periodStart, dueDate: '2031-06-30', dueNote: 'Filed' }, h.owner);
+    for (const [n, m] of minutes.entries()) await h.json(`/jobs/${created.id}/time`, { date: `2030-0${n + 3}-0${n + 4}`, minutes: m, description: 'Return' }, preparer);
+    let detail = await h.json('/jobs/' + created.id, undefined, preparer);
+    for (const r of detail.requests) { await h.json(`/requests/${r.id}/files`, { name: 'organizer.pdf', mime: 'application/pdf', contentBase64: b64('%PDF organizer') }, preparer); await h.json(`/requests/${r.id}/decide`, { decision: 'accept' }, preparer); }
+    for (const s of detail.steps) await h.json(`/jobs/${created.id}/steps`, { ordinal: s.ordinal, done: true }, preparer);
+    detail = await h.json(`/jobs/${created.id}/submit`, { revision: (await h.json('/jobs/' + created.id, undefined, preparer)).job.revision }, preparer);
+    await h.json(`/jobs/${created.id}/review`, { revision: detail.job.revision, decision: 'signoff', note: 'Filed' }, reviewer);
+    return created;
+  };
+  const o2029 = await done(clients['Ortiz household'], '2029-01-01', [300]), o2030 = await done(clients['Ortiz household'], '2030-01-01', [500]);
+  await done(clients['Ortiz household'], '2030-07-01', [1000, 1000]); // a mid-year period: not the same season, so not used
+  const l2030 = await done(clients['Lowe household'], '2030-01-01', [400]);
+  // Approved recurring engagements for the 2031 tax year, due 105 days after the year ends; Quint has never been prepared here.
+  const rule = body => h.json('/rules', { ...people, firstPeriod: '2031-01-01', dueDays: 105, dueNote: 'Federal filing deadline', ...body }, h.owner);
+  for (const name of ['Ortiz household', 'Lowe household']) await rule({ clientId: clients[name].id });
+  await rule({ clientId: clients['Quint household'].id, budgetMinutes: 600 });
+  const season = { from: '2032-04-12', weeks: 2 };
+  await h.json('/capacity/forecast', season, preparer, 403);
+  await h.json('/capacity/forecast', { ...season, from: '2032-04-13' }, h.owner, 400);
+  const mine = l => l.workType === 'Individual 1040';
+  let view = await h.json('/capacity/forecast', season, reviewer);
+  assert.ok(view.assumptions.length >= 5);
+  // Each estimate traces to its source: same-month prior actuals, or the rule's budget for a client with none.
+  assert.deepEqual(view.baseline.lines.filter(mine).map(l => [l.client, l.due, l.basis, l.point, l.low, l.high, l.samples.map(s => [s.jobId, s.actualMinutes]), l.reason]), [
+    ['Lowe household', '2032-04-14', 'mean of 1 prior actual in the same month', 400, 360, 440, [[l2030.id, 400]], null],
+    ['Ortiz household', '2032-04-14', 'mean of 2 prior actuals in the same month', 400, 270, 550, [[o2029.id, 300], [o2030.id, 500]], null],
+    ['Quint household', '2032-04-14', 'rule time budget', 600, 300, 900, [], 'Quint household has no prior actuals for Individual 1040']]);
+  // Each week is a range with its stated confidence; the client without actuals lowers it and is named.
+  let [first, second] = view.baseline.weeks;
+  const quint = 'Quint household has no prior actuals for Individual 1040';
+  assert.deepEqual([first.weekStart, first.confidence.level, first.confidence.reasons.includes(quint)], ['2032-04-12', 'low', true]);
+  assert.deepEqual(first.skills.find(s => s.skill === 'individual 1040'), { skill: 'individual 1040', demand: { point: 1400, low: 930, high: 1890 }, capacityMinutes: 0, shortMinutes: 1890 });
+  assert.equal(second.weekStart, '2032-04-19');
+  // Scenario: a hypothetical 1040 hire and the lost client; compare by skill. Losing Quint narrows the week's range and lifts its confidence.
+  const changes = { hires: [{ name: 'Seasonal preparer', weeklyMinutes: 2400, skills: ['Individual 1040'], startsOn: '2032-04-01' }], lostClients: [clients['Quint household'].id] };
+  await h.json('/capacity/forecast', { ...season, changes: { lostClients: ['nope'] } }, h.owner, 404);
+  view = await h.json('/capacity/forecast', { ...season, changes }, h.owner);
+  [first] = view.compared.weeks;
+  assert.deepEqual(first.skills.find(s => s.skill === 'individual 1040'), { skill: 'individual 1040', demand: { point: 800, low: 630, high: 990 }, capacityMinutes: 2400, shortMinutes: 0 });
+  assert.ok(!first.confidence.reasons.includes(quint));
+  assert.equal(first.capacityMinutes, view.baseline.weeks[0].capacityMinutes + 2400);
+  assert.deepEqual(view.compared.removed.map(r => [r.client, r.reason]), [['Quint household', 'lost client']]);
+  assert.deepEqual(view.compared.skills.find(s => s.skill === 'individual 1040').capacityMinutes, 4800);
+  // Saving the scenario changes no live work; reopening it recomputes the same comparison.
+  const live = async () => [await h.json('/rules', undefined, h.owner), (await h.json('/state', undefined, h.owner)).jobs, await h.json('/capacity?week=2032-04-12', undefined, h.owner)];
+  const before = await live();
+  await h.json('/capacity/scenarios', { name: 'Seasonal hire, Quint lost', ...season, changes }, preparer, 403);
+  const saved = await h.json('/capacity/scenarios', { name: 'Seasonal hire, Quint lost', ...season, changes }, h.owner);
+  assert.deepEqual(await live(), before);
+  assert.deepEqual((await h.json('/capacity/scenarios', undefined, reviewer)).map(s => [s.id, s.name, s.from, s.weeks]), [[saved.id, 'Seasonal hire, Quint lost', '2032-04-12', 2]]);
+  const reopened = await h.json('/capacity/forecast', { scenarioId: saved.id }, reviewer);
+  assert.deepEqual([reopened.scenario.name, reopened.compared, reopened.baseline], ['Seasonal hire, Quint lost', view.compared, view.baseline]);
+});
+
 test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
   const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
   const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);

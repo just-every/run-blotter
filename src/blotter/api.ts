@@ -38,6 +38,7 @@ import { backup, eraseFile, restore } from './archive';
 import { clientQuestion, completeTodo, staffMessage, staffTodo } from './portal-items';
 import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from './coverage';
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
+import { forecast, saveScenario, scenarios } from './forecast';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
 type C = Context<{ Bindings: Bindings }>;
@@ -148,6 +149,9 @@ api.get(`${P}/capacity`, as((a, c) => capacity(db(c), a, c.req.query())));
 api.post(`${P}/capacity/people`, as(async (a, c) => setCapacity(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks`, as(async (a, c) => addBlock(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks/:id/delete`, as((a, c) => removeBlock(db(c), a, param(c))));
+api.post(`${P}/capacity/forecast`, as(async (a, c) => forecast(db(c), a, await body(c))));
+api.get(`${P}/capacity/scenarios`, as((a, c) => scenarios(db(c), a)));
+api.post(`${P}/capacity/scenarios`, as(async (a, c) => saveScenario(db(c), a, await body(c))));
 api.get(`${P}/coverage`, as((a, c) => coveragePlans(db(c), a)));
 api.post(`${P}/coverage/preview`, as(async (a, c) => previewCoverage(db(c), a, await body(c))));
 api.post(`${P}/coverage`, as(async (a, c) => approveCoverage(c.env, a, await body(c))));

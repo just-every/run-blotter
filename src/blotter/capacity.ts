@@ -80,6 +80,18 @@ export async function setEstimate(db: D1Database, actor: Actor, jobId: string, b
   return { ok: true };
 }
 
+/** A person's leave, commitments and available minutes in the Monday-to-Sunday week from `start`: weekly less leave and commitments on its weekdays, never below zero. */
+export function weekOf(weekly: number, blocks: Data[], start: string) {
+  const days = weekdays(start), daily = Math.round(weekly / 5);
+  const mine = blocks.filter(b => b.starts_on <= days[4] && b.ends_on >= days[0]).map(b => {
+    const on = days.filter(d => d >= b.starts_on && d <= b.ends_on);
+    return { id: b.id, kind: b.kind, label: b.label, startsOn: b.starts_on, endsOn: b.ends_on, jobId: b.job_id, minutes: on.length * (b.minutes_per_day ?? daily) };
+  });
+  const leave = mine.filter(b => b.kind === 'leave').reduce((n, b) => n + b.minutes, 0), commitments = mine.filter(b => b.kind !== 'leave').reduce((n, b) => n + b.minutes, 0);
+  return { mine, leave, commitments, available: Math.max(0, weekly - leave - commitments) };
+}
+export { DEFAULT_WEEKLY, shift };
+
 const OPEN_STEPS = `SELECT j.id job_id,j.title,j.period_label,j.due_date job_due,j.preparer_email,j.reviewer_email,j.manager_email,j.period_start,j.due_date,j.status,c.name client,t.name service,s.*
   FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id JOIN b_work_types t ON t.id=j.work_type_id
   WHERE j.status<>'signed_off' AND ${pendingStep('s')} AND (?1='' OR t.name=?1)`;
@@ -102,13 +114,8 @@ export async function capacity(db: D1Database, actor: Actor, query: Data) {
   const setting = new Map(settings.map(s => [s.email, s]));
   const tasks = steps.map((s): Data => { const t = resolveTask(s, s); return { ...t, due: t.due_date ?? s.job_due }; });
   const people = members.filter(m => lead || m.email === actor.email).map(m => {
-    const s = setting.get(m.email), weekly = s ? Number(s.weekly_minutes) : DEFAULT_WEEKLY, daily = Math.round(weekly / 5), skills: string[] = s ? JSON.parse(s.skills) : [];
-    const mine = blocks.filter(b => b.email === m.email).map(b => {
-      const on = days.filter(d => d >= b.starts_on && d <= b.ends_on);
-      return { id: b.id, kind: b.kind, label: b.label, startsOn: b.starts_on, endsOn: b.ends_on, jobId: b.job_id, minutes: on.length * (b.minutes_per_day ?? daily) };
-    });
-    const leave = mine.filter(b => b.kind === 'leave').reduce((n, b) => n + b.minutes, 0), commitments = mine.filter(b => b.kind !== 'leave').reduce((n, b) => n + b.minutes, 0);
-    const available = Math.max(0, weekly - leave - commitments);
+    const s = setting.get(m.email), weekly = s ? Number(s.weekly_minutes) : DEFAULT_WEEKLY, skills: string[] = s ? JSON.parse(s.skills) : [];
+    const { mine, leave, commitments, available } = weekOf(weekly, blocks.filter(b => b.email === m.email), start);
     const lines = [
       ...tasks.filter(t => t.owner === m.email && t.estimate_minutes && t.due >= start && t.due <= end)
         .map(t => ({ kind: 'preparation', jobId: t.job_id, work: `${t.client} · ${t.title} · ${t.period_label}`, label: t.label, ordinal: t.ordinal, due: t.due, estimateMinutes: Number(t.estimate_minutes) })),
