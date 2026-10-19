@@ -50,5 +50,5 @@ export const myTimer = (db: D1Database, actor: Actor) =>
 export async function budget(db: D1Database, j: Data) {
   const actual = await stmt(db, `SELECT COALESCE((SELECT SUM(minutes) FROM b_time WHERE job_id=?1),0)+COALESCE((SELECT SUM(a.minutes) FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id WHERE t.job_id=?1),0) minutes,
     COALESCE((SELECT SUM(amount_cents) FROM b_time WHERE job_id=?1),0)+COALESCE((SELECT SUM(a.amount_cents) FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id WHERE t.job_id=?1),0) cents`, j.id).first<Data>();
-  return { budgetMinutes: j.budget_minutes ?? null, actualMinutes: actual!.minutes, actualCents: actual!.cents, varianceMinutes: j.budget_minutes == null ? null : actual!.minutes - j.budget_minutes };
+  return { currency: j.currency, budgetMinutes: j.budget_minutes ?? null, actualMinutes: actual!.minutes, actualCents: actual!.cents, varianceMinutes: j.budget_minutes == null ? null : actual!.minutes - j.budget_minutes };
 }

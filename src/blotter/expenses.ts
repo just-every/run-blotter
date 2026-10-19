@@ -3,6 +3,7 @@
 // Each can carry a receipt and a markup; a reviewer or the principal approves
 // it, and only approved billable expenses become billing export lines. Staff
 // reimbursements are owed at cost, apart from the client charge.
+import { currency } from './currency';
 import { openPeriodSql } from './billing';
 import { decodeFile, fileResponse } from './documents';
 import { atomic, audit, date, digest, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
@@ -28,12 +29,13 @@ const mileageRateSql = 'SELECT cents_per_mile FROM b_mileage_rates WHERE effecti
 
 export async function setMileageRate(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
+  const code = currency(body.currency);
   const from = date(body.effectiveFrom, 'Effective from'), cents = integer(body.centsPerMile, 'Cents per mile', 1, 100_000);
   await atomic(db, actor, [
-    stmt(db, 'INSERT INTO b_mileage_rates(effective_from,cents_per_mile,set_by,set_at) VALUES(?,?,?,?) ON CONFLICT(effective_from) DO UPDATE SET cents_per_mile=excluded.cents_per_mile,set_by=excluded.set_by,set_at=excluded.set_at',
-      from, cents, actor.email, now()),
+    stmt(db, 'INSERT INTO b_mileage_rates(effective_from,cents_per_mile,set_by,set_at,currency) VALUES(?,?,?,?,?) ON CONFLICT(effective_from) DO UPDATE SET cents_per_mile=excluded.cents_per_mile,set_by=excluded.set_by,set_at=excluded.set_at,currency=excluded.currency',
+      from, cents, actor.email, now(), code),
     audit(db, actor, 'mileage_rate.set', from, `${cents} cents per mile`)]);
-  return { effectiveFrom: from, centsPerMile: cents };
+  return { effectiveFrom: from, centsPerMile: cents, currency: code };
 }
 
 export async function recordExpense(db: D1Database, actor: Actor, jobId: string, body: Data) {
@@ -46,23 +48,26 @@ export async function recordExpense(db: D1Database, actor: Actor, jobId: string,
   insist(body.paidBy === undefined || ['firm', 'staff'].includes(body.paidBy), 'Choose who paid: the firm or you');
   const markup = billable ? integer(body.markupPercent ?? 0, 'Markup percent', 0, 100) : 0;
   insist(billable || !Number(body.markupPercent), 'Only a billable expense carries a markup');
+  let code = currency(body.currency ?? j.currency);
   let tenths: number | null = null, rate: number | null = null, cost: number;
   if (kind === 'mileage') {
     tenths = miles(body.miles);
-    const found = await stmt(db, mileageRateSql, day).first<Data>();
+    const found = await stmt(db, mileageRateSql.replace('SELECT cents_per_mile', 'SELECT cents_per_mile,currency'), day).first<Data>();
     insist(found, `Ask the principal to set a mileage rate in force on ${day}`, 409);
+    code = found.currency;
     rate = Number(found.cents_per_mile); cost = mileageCost(tenths, rate);
   } else cost = integer(body.costCents, 'Cost in cents', 1, 100_000_000);
+  insist(code === j.currency, `Record this expense in the job currency (${j.currency})`, 409);
   const receipt = body.receipt ? decodeFile(body.receipt) : null;
   insist(!await stmt(db, `SELECT 1 WHERE NOT ${openPeriodSql}`, day).first(), `The billing period covering ${day} is closed`, 409);
-  const expense = { id: id(), kind, date: day, description, billable, markupPercent: markup, costCents: cost, chargeCents: billable ? markedUp(cost, markup) : 0, paidBy, mileTenths: tenths, centsPerMile: rate };
+  const expense = { id: id(), kind, currency: code, date: day, description, billable, markupPercent: markup, costCents: cost, chargeCents: billable ? markedUp(cost, markup) : 0, paidBy, mileTenths: tenths, centsPerMile: rate };
   // The mileage rate and the open period are checked again inside the batch.
-  const [check, release] = guard(db, `${openPeriodSql} AND (? IS NULL OR (${mileageRateSql})=?)`, day, rate, day, rate);
+  const [check, release] = guard(db, `${openPeriodSql} AND (? IS NULL OR ((${mileageRateSql})=? AND (${mileageRateSql.replace('SELECT cents_per_mile', 'SELECT currency')})=?))`, day, rate, day, rate, day, code);
   await atomic(db, actor, [check,
     stmt(db, `INSERT INTO b_expenses(id,job_id,client_id,kind,date,description,mile_tenths,cents_per_mile,cost_cents,billable,markup_percent,charge_cents,paid_by,person_email,
-        receipt_name,receipt_mime,receipt_size,receipt_sha256,receipt_base64,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        receipt_name,receipt_mime,receipt_size,receipt_sha256,receipt_base64,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       expense.id, j.id, j.client_id, kind, day, description, tenths, rate, cost, billable ? 1 : 0, markup, expense.chargeCents, paidBy, actor.email,
-      receipt?.name ?? null, receipt?.mime ?? null, receipt?.bytes.length ?? null, receipt ? await digest(receipt.bytes) : null, receipt?.encoded ?? null, actor.email, now()),
+      receipt?.name ?? null, receipt?.mime ?? null, receipt?.bytes.length ?? null, receipt ? await digest(receipt.bytes) : null, receipt?.encoded ?? null, actor.email, now(), code),
     release, audit(db, actor, 'expense.recorded', expense.id, `${KINDS[kind]} ${cost} cents${billable ? `, billable +${markup}%` : ', not billable'}, paid by ${paidBy}`)]);
   return { ...expense, status: 'pending' };
 }
@@ -106,7 +111,7 @@ export async function downloadReceipt(db: D1Database, actor: Actor, expenseId: s
   return fileResponse({ name: e.receipt_name, mime: e.receipt_mime, content_base64: e.receipt_base64 });
 }
 
-const listed = 'id,job_id,kind,date,description,mile_tenths,cents_per_mile,cost_cents,billable,markup_percent,charge_cents,paid_by,person_email,receipt_name,receipt_size,receipt_sha256,status,decided_by,decided_at,reason,reimbursed_by,reimbursed_at,created_at';
+const listed = 'id,job_id,currency,kind,date,description,mile_tenths,cents_per_mile,cost_cents,billable,markup_percent,charge_cents,paid_by,person_email,receipt_name,receipt_size,receipt_sha256,status,decided_by,decided_at,reason,reimbursed_by,reimbursed_at,created_at';
 
 /**
  * A job's expenses and its margin before staff cost: the fixed fee, approved
@@ -125,6 +130,7 @@ export async function jobExpenses(db: D1Database, j: Data) {
   return {
     expenses,
     profitability: {
+      currency: j.currency,
       feeCents: Number(j.fee_cents), timeCents: Number(sums!.time_cents) + Number(sums!.adjustment_cents), billableExpenseCents: billableCharges,
       expenseCostCents: expenseCost, nonBillableExpenseCents: sum(approved.filter(e => !e.billable), 'cost_cents'),
       billableValueCents: value, marginCents: value - expenseCost,
@@ -134,7 +140,7 @@ export async function jobExpenses(db: D1Database, j: Data) {
 
 /** Staff reimbursements owed and paid, kept apart from client charges. */
 export async function reimbursements(db: D1Database) {
-  return rows(db, `SELECT e.id,e.person_email,e.kind,e.date,e.description,e.cost_cents,e.reimbursed_by,e.reimbursed_at,j.title job,j.period_label period,c.name client
+  return rows(db, `SELECT e.id,e.currency,e.person_email,e.kind,e.date,e.description,e.cost_cents,e.reimbursed_by,e.reimbursed_at,j.title job,j.period_label period,c.name client
     FROM b_expenses e JOIN b_jobs j ON j.id=e.job_id JOIN b_clients c ON c.id=e.client_id
     WHERE e.paid_by='staff' AND e.status='approved' ORDER BY e.reimbursed_at IS NOT NULL,e.person_email,e.date`);
 }

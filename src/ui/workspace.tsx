@@ -8,6 +8,7 @@ import { MoveIn } from './move-in';
 import { Team } from './team';
 import { Capacity } from './capacity';
 import { MfaGate } from './security';
+import { Search } from './search';
 
 const TABS = ['Jobs', 'Capacity', 'Clients & templates', 'Time & billing', 'Preparations', 'Move in', 'Team & safety'] as const;
 type Tab = typeof TABS[number];
@@ -28,7 +29,7 @@ export function Workspace() {
   const open = (id: string) => { setJobId(id); setTab('Jobs'); setNotice(''); setError(''); };
   return <div className="workspace" aria-busy={busy}>
     <header className="topbar">
-      <a className="brand" href="/app"><img src="/brand/mark-32.svg" alt="" width="28" height="28" /><span data-rer-name>Blotter</span></a>
+      <a className="brand" href="/app"><img src="/brand/mark.svg" alt="" width="28" height="28" /><span data-rer-name>Blotter</span></a>
       <span className="muted">Practice workflow</span>
       {actor ? <span className="badge">{actor.name} · {actor.role}</span> : null}
       <button className="quiet signout" onClick={async () => { await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' }); location.href = '/signin'; }}>Sign out</button>
@@ -36,7 +37,7 @@ export function Workspace() {
     <div className="layout">
       <nav aria-label="Workspace">
         {(actor ? visible(actor.role) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => { setTab(t); setNotice(''); setError(''); if (t === 'Jobs') setJobId(''); }}>{t}</button>)}
-        <p className="boundary">AUD time and fees for your own billing. No filing, tax calculation or advice.</p>
+        <p className="boundary">Time and fees in their stored currency, USD by default. No lodgement, tax calculation or advice.</p>
       </nav>
       <main>
         <h1>{tab}</h1>
@@ -44,6 +45,7 @@ export function Workspace() {
         {notice && <p className="notice" role="status">{notice}</p>}
         {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
           : !state ? (!error && <p>Opening your workspace…</p>) : <fieldset disabled={busy} className="content">
+          <Search state={state} run={run} open={open} />
           {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
           {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
           {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}

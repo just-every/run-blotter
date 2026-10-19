@@ -49,6 +49,7 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
   const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
   await atomic(db, actor, [
     stmt(db, 'UPDATE b_files SET content_base64=NULL,erased_at=?,erased_by=?,erase_reason=? WHERE id=? AND erased_at IS NULL', now(), actor.email, reason, file.id),
+    stmt(db, 'DELETE FROM b_file_text WHERE file_id=?', file.id),
     ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
     audit(db, actor, 'file.erased', file.id, reason),
   ]);

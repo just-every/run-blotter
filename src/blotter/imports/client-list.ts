@@ -8,7 +8,7 @@ import { parseCsv } from './csv';
 export const NAMESPACE = 'client-list';
 export const MAPPING_VERSION = 'client-list-v1';
 const REQUIRED = ['client_name'];
-const OPTIONAL = ['client_id', 'abn', 'contact_name', 'contact_email', 'tags'];
+const OPTIONAL = ['client_id', 'ein', 'abn', 'contact_name', 'contact_email', 'tags'];
 /** Firm-defined fields arrive as `field:<key>` columns (CRM-002). */
 const FIELD = 'field:';
 /** The client a source row creates; a later merge keeps this id attached to its survivor (CRM-004). */
@@ -31,14 +31,17 @@ export function clientListSource(raw: unknown, filename: unknown, defs: FieldDef
   if (ignoredColumns.length) diagnostics.push({ severity: 'warning', code: 'UNMAPPED_COLUMNS', message: `Columns kept in the original file only: ${ignoredColumns.join(', ')}` });
   const seen = new Set<string>(), clients: { sourceId: string; name: string; abn: string; contactName: string; contactEmail: string; fields: string; tags: string }[] = [];
   for (const { line, value } of rows) {
-    const clientName = value.client_name.trim(), abn = (value.abn ?? '').replace(/\s/g, '');
+    const clientName = value.client_name.trim(), legacy = (value.abn ?? '').replace(/\s/g, ''), ein = (value.ein ?? '').replace(/[\s-]/g, '');
+    const abn = ein || legacy;
     const contactName = (value.contact_name ?? '').trim(), contactEmail = (value.contact_email ?? '').trim().toLowerCase();
-    // Without the old system's client_id, identity is the normalised name and ABN.
+    // Without the old system's client_id, identity is the normalised name and tax id (unchanged for legacy ABNs).
     const sourceId = value.client_id?.trim() || `client:${sha256(canonicalJson([clientName.toLowerCase(), abn]))}`;
     const location = { artifact: name, row: line };
     const fail = (code: string, message: string) => diagnostics.push({ severity: 'error', code, message: `Row ${line}: ${message}`, kind: 'client', sourceId, location });
     if (!clientName || clientName.length > 200) fail('BAD_NAME', 'client_name is required (at most 200 characters)');
-    if (abn && !/^\d{11}$/.test(abn)) fail('BAD_ABN', 'abn must be empty or 11 digits');
+    if (legacy && !/^\d{11}$/.test(legacy)) fail('BAD_ABN', 'abn must be empty or 11 digits (legacy Australian ABN)');
+    if (ein && !/^\d{9}$/.test(ein)) fail('BAD_EIN', 'ein must be empty or 9 digits');
+    if (ein && legacy) fail('MULTIPLE_TAX_IDS', 'provide ein or legacy abn, not both');
     if (contactName.length > 200) fail('BAD_CONTACT', 'contact_name must be at most 200 characters');
     if (contactEmail && (contactEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))) fail('BAD_EMAIL', 'contact_email must be empty or a valid email address');
     if (sourceId.length > 200) fail('BAD_ID', 'client_id must be at most 200 characters');
