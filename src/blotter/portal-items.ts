@@ -7,6 +7,7 @@
 // completes nothing else. Internal discussions, internal tasks and other jobs
 // never reach the link. Staff messages are shown on the link only: no email is
 // sent for them.
+import { contactGuard } from './client-recipients';
 import type { Bindings } from '../auth.server';
 import { runtimeBindings } from '../auth.server';
 import { portalJob } from './documents';
@@ -55,7 +56,7 @@ async function items(db: D1Database, jobId: string, staff: boolean) {
 export async function portalItems(db: D1Database, j: Data) { return { progress: await clientProgress(db, j), ...await items(db, j.id, false) }; }
 export async function staffPortal(db: D1Database, j: Data) { return { progress: await clientProgress(db, j), ...await items(db, j.id, true) }; }
 
-const linkGuard = (db: D1Database, linkId: string) => guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off')", linkId, now());
+const linkGuard = (db: D1Database, linkId: string) => guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off' AND EXISTS(SELECT 1 FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=l.contact_id AND c.client_id=j.client_id AND c.authorized=1 AND c.active=1 AND c.portal=1 AND c.request_consent=1 AND e.lifecycle='active'))", linkId, now());
 const clientAudit = (db: D1Database, action: string, objectId: string, detail: string) =>
   stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), CLIENT, action, objectId, detail, now());
 async function clientWrite(db: D1Database, statements: D1PreparedStatement[]) {

@@ -50,11 +50,12 @@ export function MessageTemplates({ actor, run, tick }: { actor: Row; run: Run; t
 }
 
 /** Compose a document reminder from a template: preview it for this client, fill any missing field, then send. */
-export function ReminderComposer({ jobId, run, sent, copied = [] }: { jobId: string; run: Run; sent: (result: Row) => void; copied?: Row[] }) {
+export function ReminderComposer({ jobId, run, sent, copied = [], contacts = [] }: { jobId: string; run: Run; sent: (result: Row) => void; copied?: Row[]; contacts?: Row[] }) {
   const [list, setList] = useState<Row[]>([]), [draft, setDraft] = useState<Row>({ templateId: '' }), [preview, setPreview] = useState<Row>();
   useEffect(() => { api('/messages/templates').then(s => setList(s.templates)).catch(() => setList([])); }, []);
-  const show = async (next: Row) => { setDraft(next); setPreview(next.templateId || next.subject ? await api(`/jobs/${jobId}/reminders/preview`, next) : undefined); };
+  const show = async (next: Row) => { next = {...next, contactId:next.contactId ?? draft.contactId}; setDraft(next); setPreview(next.templateId || next.subject ? await api(`/jobs/${jobId}/reminders/preview`, next) : undefined); };
   return <div className="stack">
+    <Field label="Recipient for this entity" name="contactId"><select name="contactId" value={draft.contactId ?? ''} onChange={e => run(() => show({...draft,contactId:e.target.value}), 'Recipient selected')}><option value="">Primary contact</option>{contacts.filter(c => c.active && c.authorized && c.portal && c.request_consent && c.email_consent).map(c => <option key={c.id} value={c.id}>{c.name} &lt;{c.email}&gt; · {c.roles.join(', ')}</option>)}</select></Field>
     {copied.map(m => <button key={m.id} className="quiet" onClick={() => run(() => show({ templateId: m.id }), 'Copied starter message previewed')}>Preview copied {m.name}</button>)}
     <Field label="Template" name="templateId"><select name="templateId" value={draft.templateId} onChange={e => run(() => show({ templateId: e.target.value }), 'Preview updated')}>
       <option value="">Standard reminder</option>{list.map(t => <option key={t.id} value={t.id}>{t.name} ({t.scope === 'firm' ? 'firm' : 'mine'})</option>)}</select></Field>
@@ -68,7 +69,7 @@ export function ReminderComposer({ jobId, run, sent, copied = [] }: { jobId: str
     </div>}
     {draft.templateId
       ? <button disabled={!preview || preview.missing.length > 0} onClick={() => run(async () => sent(await api(`/jobs/${jobId}/reminders`, draft)), 'Reminder recorded')}>Send this message</button>
-      : <Form label="Send reminder" submit={async data => run(async () => sent(await api(`/jobs/${jobId}/reminders`, data)), 'Reminder recorded')}>
+      : <Form label="Send reminder" submit={async data => run(async () => sent(await api(`/jobs/${jobId}/reminders`, {...data,contactId:draft.contactId})), 'Reminder recorded')}>
         <Field label="Extra message (optional)" name="message" required={false}><textarea name="message" rows={2} /></Field>
       </Form>}
   </div>;

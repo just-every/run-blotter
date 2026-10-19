@@ -3,6 +3,7 @@
 // documents, review sign-offs, billing exports and the practice assistant's
 // preparations. It runs once after the owner exists, never fetches, and writes
 // fixed ids with ON CONFLICT DO NOTHING, so a repeat changes nothing.
+import { ensureLegacyContacts } from './blotter/client-contacts';
 import { runtimeBindings, type Bindings } from './auth.server'
 import { localDay } from './blotter/demo/clock'
 import { digest } from './blotter/model'
@@ -68,4 +69,6 @@ export async function seedDemo(original: Bindings, { ownerEmail, now }: { ownerE
     bulk(db, 'b_proposals', billing.proposals),
     bulk(db, 'b_audit', [...work.audit, ...billing.audit]),
   ])
+  await ensureLegacyContacts(db);
+  await db.prepare("UPDATE b_portal_links SET contact_id=(SELECT c.id FROM b_client_contacts c JOIN b_jobs j ON j.client_id=c.client_id WHERE j.id=b_portal_links.job_id AND c.email<>'' AND c.active=1 ORDER BY c.id LIMIT 1) WHERE contact_id IS NULL").run();
 }

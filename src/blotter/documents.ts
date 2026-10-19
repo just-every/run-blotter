@@ -1,5 +1,7 @@
+import { contactDocuments,staffDownload } from './document-shares';
 // Client document requests: uploads (portal or staff), acceptance, download,
 // reminders with a client upload link, and the public portal behind that link.
+import { recipientFor, contactGuard } from './client-recipients';
 import { operatorMail } from '../mail.server.mjs';
 import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
@@ -7,10 +9,9 @@ import { advance } from './flow';
 import { clientTasks } from './tasks';
 import { portalItems } from './portal-items';
 import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
-import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
-const SAFE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'text/csv', 'text/plain'];
 const LINK_DAYS = 30;
 
 export function decodeFile(body: Data) {
@@ -73,31 +74,18 @@ export async function decideRequest(env: Bindings, actor: Actor, requestId: stri
   return { ok: true };
 }
 
-export async function downloadFile(db: D1Database, actor: Actor, fileId: string) {
-  const file = await stmt(db, 'SELECT * FROM b_files WHERE id=?', fileId).first<Data>();
-  insist(file, 'File not found', 404);
-  await readableJob(db, actor, file.job_id);
-  insist(file.content_base64, 'This file was erased', 404);
-  return fileResponse(file);
-}
-
-/** Stored bytes as a download: never rendered inline, never cached. */
-export function fileResponse(file: Data) {
-  const bytes = Uint8Array.from(atob(file.content_base64), c => c.charCodeAt(0));
-  return new Response(bytes, { headers: {
-    'content-type': SAFE_TYPES.includes(file.mime) ? file.mime : 'application/octet-stream',
-    'content-disposition': `attachment; filename="${file.name.replace(/[^A-Za-z0-9._ -]/g, '_')}"`,
-    'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-  } });
-}
+export const downloadFile = (db: D1Database, actor: Actor, fileId: string) => staffDownload(db,actor,fileId);
 
 /** A fresh client link for a job. Earlier links stop working; only the secret's digest is stored. */
-export async function issueLink(db: D1Database, actor: Actor, jobId: string, origin: string) {
+export async function issueLink(db: D1Database, actor: Actor, jobId: string, origin: string, contactId?: string) {
+  const j = await stmt(db,'SELECT client_id FROM b_jobs WHERE id=?',jobId).first<Data>();
+  insist(j, 'Job not found',404);
+  const contact = await recipientFor(db,j.client_id,'request',contactId);
   const token = secret('up_'), at = now();
   const expiresAt = new Date(Date.now() + LINK_DAYS * 86_400_000).toISOString();
   return { url: `${origin}/portal/${token}`, expiresAt, statements: [
     stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE job_id=? AND revoked_at IS NULL', at, jobId),
-    stmt(db, 'INSERT INTO b_portal_links(id,job_id,digest,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)', id(), jobId, await digest(token), actor.email, at, expiresAt),
+    stmt(db, 'INSERT INTO b_portal_links(id,job_id,digest,created_by,created_at,expires_at,contact_id) VALUES(?,?,?,?,?,?,?)', id(), jobId, await digest(token), actor.email, at, expiresAt, contact.id),
   ] };
 }
 
@@ -120,14 +108,15 @@ export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, del
  * mails it to the client contact. The link is also returned once, so staff can
  * pass it on themselves; only its digest is stored.
  */
-async function reminderContext(db: D1Database, actor: Actor, jobId: string) {
+async function reminderContext(db: D1Database, actor: Actor, jobId: string, contactId?: string) {
   const j = await job(db, actor, jobId);
   insist(j.status === 'open', 'Reminders are only for open jobs', 409);
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
-  insist(client?.contact_email, 'Add a contact email for this client first', 409);
+  const contact = await recipientFor(db,j.client_id,'request',contactId);
+  client!.contact_email = contact.email; client!.contact_name = contact.name;
   const outstanding = (await rows(db, "SELECT label FROM b_requests WHERE job_id=? AND status='requested' ORDER BY ordinal", j.id)).map(r => r.label as string);
   insist(outstanding.length > 0, 'No documents are outstanding', 409);
-  return { j, client: client!, outstanding };
+  return { j, client: client!, contact, outstanding };
 }
 
 /** A message template (MSG-001) rendered for this job: the template's current version, or the sender's edited text. */
@@ -142,16 +131,16 @@ async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<t
 
 /** Render a reminder without sending it; the secure link is created only when sending. */
 export async function previewReminder(db: D1Database, actor: Actor, jobId: string, body: Data) {
-  const ctx = await reminderContext(db, actor, jobId);
+  const ctx = await reminderContext(db, actor, jobId, body.contactId);
   return { to: ctx.client.contact_email, ...await templated(db, actor, ctx, body, LINK_PREVIEW) };
 }
 
 export async function sendReminder(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor);
   const bindings = runtimeBindings(env), db = bindings.DB;
-  const ctx = await reminderContext(db, actor, jobId), { j, client, outstanding } = ctx;
+  const ctx = await reminderContext(db, actor, jobId, body.contactId), { j, client, outstanding } = ctx;
   const reminderId = actor.approval?.resultId ?? id(), at = now();
-  const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN);
+  const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
   let subject = `Documents needed: ${j.title} ${j.period_label}`, message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
   if (body.templateId || body.subject !== undefined || body.body !== undefined) {
     const r = await templated(db, actor, ctx, body, url);
@@ -168,7 +157,8 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
     ].join('\n');
   }
   const [check, release] = openGuard(db, j.id);
-  await atomic(db, actor, [check, ...statements,
+  const [authorized, authorizedDone] = contactGuard(db,j.client_id,ctx.contact.id,'request',ctx.contact.revision);
+  await atomic(db, actor, [check, authorized, authorizedDone, ...statements,
     stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version,attachments) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
       reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
       subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 })))),
@@ -186,18 +176,22 @@ export async function portalJob(db: D1Database, token: string) {
   const link = await stmt(db, 'SELECT * FROM b_portal_links WHERE digest=?', await digest(token)).first<Data>();
   insist(link && !link.revoked_at && link.expires_at > now(), 'This upload link has expired or been replaced. Ask your accountant for a new one.', 404);
   const j = await stmt(db, 'SELECT b_jobs.*,c.name client_name,c.contact_email FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE b_jobs.id=?', link.job_id).first<Data>();
+  const contact = link.contact_id ? await stmt(db,"SELECT * FROM b_client_contacts WHERE id=? AND client_id=? AND active=1 AND authorized=1 AND portal=1 AND request_consent=1",link.contact_id,j?.client_id).first<Data>() : null;
+  const entity = j ? await stmt(db,"SELECT lifecycle FROM b_clients WHERE id=?",j.client_id).first<Data>() : null;
+  insist(contact && entity?.lifecycle === 'active', 'This contact no longer has access to this entity',404);
+  j!.contact_email = contact.email;
   insist(j && j.status !== 'signed_off', 'This job is no longer collecting documents', 410);
-  return { link, job: j };
+  return { link, job: j, contact };
 }
 
 export async function portalView(db: D1Database, token: string, practice: string) {
-  const { link, job: j } = await portalJob(db, token);
+  const { link, job: j, contact } = await portalJob(db, token);
   const requests = await rows(db, 'SELECT id,label,status,note FROM b_requests WHERE job_id=? ORDER BY ordinal', j.id);
   const files = await rows(db, 'SELECT request_id,name,uploaded_at FROM b_files WHERE job_id=? AND channel=? ORDER BY uploaded_at', j.id, 'portal');
   return {
     practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
-    tasks: await clientTasks(db, j), ...await portalItems(db, j),
+    sharedFiles: await contactDocuments(db,j.id,contact.id), tasks: await clientTasks(db, j), ...await portalItems(db, j),
   };
 }
 
@@ -210,7 +204,8 @@ export async function portalUpload(db: D1Database, token: string, requestId: str
   const { fileId, statements } = await fileStatements(db, request, decodeFile(body), 'client', 'portal');
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status='open')", link.id, now());
   try {
-    await db.batch([check, ...statements, release, stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), 'client upload link', 'file.uploaded', fileId, request.label, now())]);
+    const [authorized, authorizedDone] = contactGuard(db,j.client_id,link.contact_id);
+    await db.batch([check, authorized, authorizedDone, ...statements, release, stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), 'client upload link', 'file.uploaded', fileId, request.label, now())]);
   } catch (error) {
     if (/b_guard|constraint/i.test(String(error))) insist(false, 'This upload link is no longer accepting files. Ask your accountant for a new one.', 409);
     throw error;

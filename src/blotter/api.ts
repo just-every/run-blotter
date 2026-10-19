@@ -1,3 +1,5 @@
+import { jobDocuments,staffDownload,staffAccess,saveAccess,createShare,rotateShare,revokeShare,sharedDownload,contactDownload } from './document-shares';
+import { portalJob } from './documents';
 import { publishStarter } from './starter-releases';
 import { library, adoptStarter, editStarterDetails, editStarterTask, previewStarter, updateStarter } from './starter-library';
 // Every Blotter HTTP door. Each person handler resolves the native session and
@@ -9,7 +11,9 @@ import branding from '../branding.json';
 import { person, agent } from './session';
 import { Fault, insist, type Actor, type Data } from './model';
 import { readFirm, saveFirm, firmClock } from './firm';
-import { addClient, saveTemplate, workspace } from './clients';
+import { clientDetail, setClientLifecycle } from './client-lifecycle';
+import { clientContacts, saveContact } from './client-contacts';
+import { addClient, editClient, saveTemplate, workspace } from './clients';
 import { commitFields, defineField, previewFields, saveGroup, saveProfile, segment } from './profiles';
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
 import { grantException, recordAnswer } from './flow';
@@ -88,6 +92,20 @@ api.post(`${P}/library/adoptions/:id/update`, as(async (a, c) => updateStarter(d
 api.get(`${P}/firm/settings`, as((a, c) => readFirm(db(c), a)));
 api.post(`${P}/firm/settings`, as(async (a, c) => saveFirm(db(c), a, await body(c))));
 api.get(`${P}/firm/time`, as((a, c) => firmClock(db(c), a, c.req.query('at'))));
+api.get(`${P}/clients/:id/detail`, as((a,c) => clientDetail(db(c),a,param(c))));
+api.post(`${P}/clients/:id/edit`, as(async(a,c) => editClient(db(c),a,param(c),await body(c))));
+api.post(`${P}/clients/:id/lifecycle`, as(async(a,c) => setClientLifecycle(db(c),a,param(c),await body(c))));
+api.get(`${P}/clients/:id/contacts`, as((a,c) => clientContacts(db(c),a,param(c))));
+api.post(`${P}/clients/:id/contacts`, as(async(a,c) => saveContact(db(c),a,param(c),await body(c))));
+api.get(`${P}/jobs/:id/documents`,as((a,c)=>jobDocuments(db(c),a,param(c))));
+api.get(`${P}/documents/:ref/file`,as((a,c)=>staffDownload(db(c),a,param(c,'ref'))));
+api.get(`${P}/documents/:ref/access`, as((a,c) => staffAccess(db(c),a,param(c,'ref'))));
+api.post(`${P}/documents/:ref/access`, as(async(a,c) => saveAccess(db(c),a,param(c,'ref'),await body(c))));
+api.post(`${P}/documents/:ref/shares`, as(async(a,c) => createShare(db(c),a,param(c,'ref'),await body(c))));
+api.post(`${P}/documents/:ref/shares/:share/rotate`, as(async(a,c) => rotateShare(db(c),a,param(c,'ref'),param(c,'share'),await body(c))));
+api.post(`${P}/documents/:ref/shares/:share/revoke`, as(async(a,c) => revokeShare(db(c),a,param(c,'ref'),param(c,'share'),await body(c))));
+api.get(`${P}/shared-files/:token`, c => sharedDownload(db(c),param(c,'token')));
+api.get(`${P}/portal/:token/files/:ref`, async c => { const {link,contact,job} = await portalJob(db(c),param(c,'token')); const preview = await db(c).prepare('SELECT job_id FROM b_document_sources WHERE file_key=?').bind(param(c,'ref')).first<{job_id:string}>(); insist(preview?.job_id === job.id,'File not found',404); return contactDownload(db(c),param(c,'ref'),contact.id,link.id); });
 api.get(`${P}/state`, as((a, c) => workspace(db(c), a)));
 api.get(`${P}/inbox`, as((a, c) => inbox(db(c), a)));
 api.get(`${P}/mfa`, asOpen((a, c) => mfaState(db(c), a)));

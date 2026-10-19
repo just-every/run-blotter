@@ -44,7 +44,7 @@ function schedule(rule: Data, recurrence: Recurrence, held: Data[], today: strin
 }
 
 async function ruleBody(db: D1Database, body: Data) {
-  const client = await stmt(db, 'SELECT id FROM b_clients WHERE id=? AND merged_into IS NULL', text(body.clientId, 'Client')).first<Data>();
+  const client = await stmt(db, "SELECT id FROM b_clients WHERE id=? AND merged_into IS NULL AND lifecycle='active'", text(body.clientId, 'Client')).first<Data>();
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
   insist(template, 'Template not found', 404);
@@ -151,7 +151,7 @@ export async function claimJob(db: D1Database, actor: Actor, ruleId: string, bod
  */
 export async function runRules(env: Bindings, at: Date, trigger: 'cron' | 'manual') {
   const db = runtimeBindings(env).DB, today = day(at);
-  const list = await rows(db, "SELECT r.*,t.recurrence FROM b_recurrence_rules r JOIN b_templates t ON t.id=r.template_id WHERE r.status='active'");
+  const list = await rows(db, "SELECT r.*,t.recurrence FROM b_recurrence_rules r JOIN b_templates t ON t.id=r.template_id JOIN b_clients c ON c.id=r.client_id WHERE r.status='active' AND c.lifecycle='active' AND c.merged_into IS NULL");
   let created = 0, claimed = 0;
   const held: string[] = [], made: string[] = [];
   for (const rule of list) {

@@ -1,10 +1,12 @@
+import { contactInsert, contactValues, legacyContactValues, readableClient } from './client-contacts';
+import { clientDetail, entityValues } from './client-lifecycle';
 import { firmCurrency, firmSettings } from './firm';
 // Clients and recurring job templates.
 import { fieldDefs, groups, profileFields, tagList } from './profiles';
 import { pendingStep } from './flow';
 import { templateWork } from './tasks';
 import { stageSql, statusModel } from './statuses';
-import { atomic, audit, human, insist, id, integer, lines, need, now, optional, rows, stmt, text, email, readableJobParams, readableJobSql, type Actor, type Data } from './model';
+import { atomic, audit, guard, human, insist, id, integer, lines, need, now, optional, rows, stmt, text, email, readableJobParams, readableJobSql, type Actor, type Data } from './model';
 
 export function abn(value: unknown) {
   const digits = optional(value, 'ABN', 20).replace(/\s/g, '');
@@ -32,11 +34,33 @@ export async function addClient(db: D1Database, actor: Actor, body: Data) {
     contactEmail: body.contactEmail ? email(body.contactEmail, 'Contact email') : '',
     fields: profileFields(await fieldDefs(db), body.fields), tags: tagList(body.tags),
   };
+  const entity = await entityValues(db, body);
+  insist(body.contacts === undefined || (Array.isArray(body.contacts) && body.contacts.length <= 50), 'Record at most 50 contacts');
+  const contacts = (body.contacts ?? []).map((c: Data) => contactValues(c));
+  insist(!contacts.length || (!client.contactName && !client.contactEmail), 'Use contacts or the legacy single contact fields, not both');
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,?,?,?,?,?,?,?,?)', client.id, client.name, client.abn, client.contactName, client.contactEmail, 'native', id(), now(), JSON.stringify(client.fields), JSON.stringify(client.tags)),
+    stmt(db, 'UPDATE b_clients SET entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=? WHERE id=?', entity.entity_type,entity.partner_email,entity.team,entity.services,entity.owner_client_id,entity.ssn_last4,client.id),
+    ...(client.contactName || client.contactEmail ? [contactInsert(db,actor,client.id,legacyContactValues(client.contactName,client.contactEmail),'legacy:'+client.id)] : []),
+    ...contacts.map((c: Data) => contactInsert(db, actor, client.id, c)),
     audit(db, actor, 'client.added', client.id, client.name),
   ]);
-  return client;
+  return { ...client, ...await clientDetail(db, actor, client.id), fields:client.fields, tags:client.tags };
+}
+
+
+/** Edit the entity without changing its recorded engagements or contacts. */
+export async function editClient(db: D1Database, actor: Actor, clientId: string, body: Data) {
+  human(actor); need(actor, 'owner', 'reviewer');
+  const c = await readableClient(db, actor, clientId);
+  insist(body.revision === c.revision, 'The client changed. Refresh and try again.', 409);
+  const entity = await entityValues(db, body, c), name = body.name === undefined ? c.name : text(body.name,'Client name',200);
+  const taxId = body.ein === undefined && body.abn === undefined ? c.abn : clientTaxId(body);
+  const fields = profileFields(await fieldDefs(db), body.fields, JSON.parse(c.fields)), tags = body.tags === undefined ? JSON.parse(c.tags) : tagList(body.tags);
+  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND merged_into IS NULL)', clientId,c.revision);
+  await atomic(db,actor,[check,stmt(db,'UPDATE b_clients SET name=?,abn=?,entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=?,fields=?,tags=?,revision=? WHERE id=?', name,taxId,entity.entity_type,entity.partner_email,entity.team,entity.services,entity.owner_client_id,entity.ssn_last4,JSON.stringify(fields),JSON.stringify(tags),id(),clientId),
+    audit(db,actor,'client.edited',clientId,name),release]);
+  return clientDetail(db,actor,clientId);
 }
 
 export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
@@ -69,11 +93,12 @@ export async function workspace(db: D1Database, actor: Actor) {
     FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id LEFT JOIN b_work_types w ON w.id=b_jobs.work_type_id
     WHERE ${readableJobSql}
     ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...readableJobParams(actor));
+  const clients = wide ? await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL ORDER BY name')
+    : await rows(db, `SELECT c.* FROM b_clients c WHERE merged_into IS NULL AND EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql}) ORDER BY name`, ...readableJobParams(actor));
   return {
     actor: { email: actor.email, name: actor.name, role: actor.role },
     jobs,
-    clients: wide ? await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL ORDER BY name')
-      : await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL AND id IN (SELECT client_id FROM b_jobs WHERE preparer_email=?) ORDER BY name', actor.email),
+    clients: clients.map(c => ({ ...c, ssn_last4:c.ssn_last4 ? '•••••'+c.ssn_last4 : '' })),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),
     statusModel: await statusModel(db),
     firm: { timeZone: firm.timeZone, currency: firm.currency },

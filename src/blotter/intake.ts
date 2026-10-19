@@ -1,6 +1,7 @@
+import { staffDownload } from './document-shares';
 // Public intake and approved spam checks (CRM-005; ct 19 Oct 10:05Z).
 import type { Bindings } from '../auth.server';
-import { decodeFile, fileResponse } from './documents';
+import { decodeFile } from './documents';
 import { digest, guard, id, insist, now, rows, stmt, text, email, optional, type Actor, type Data } from './model';
 
 const HOUR = 3_600_000, DAY = 24 * HOUR;
@@ -67,11 +68,7 @@ export async function intakeFile(db: D1Database, actor: Actor, prospectId: strin
   insist(['owner', 'reviewer'].includes(actor.role), 'Your role cannot read intake uploads', 403);
   const f = await stmt(db, 'SELECT * FROM b_prospect_files WHERE id=? AND prospect_id=? AND erased_at IS NULL', fileId, prospectId).first<Data>();
   insist(f, 'File not found', 404);
-  if (f.job_file_id) {
-    const moved = await stmt(db, 'SELECT * FROM b_files WHERE id=? AND erased_at IS NULL', f.job_file_id).first<Data>();
-    insist(moved, 'File not found', 404); return fileResponse(moved);
-  }
-  return fileResponse(f);
+  return staffDownload(db,actor,'intake:'+fileId);
 }
 export async function prospectUploads(db: D1Database) {
   return rows(db, 'SELECT p.id,p.prospect_id,p.name,p.mime,p.size,p.sha256,p.uploaded_at,coalesce(f.erased_at,p.erased_at) erased_at,p.job_file_id FROM b_prospect_files p LEFT JOIN b_files f ON f.id=p.job_file_id ORDER BY p.uploaded_at');

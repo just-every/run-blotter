@@ -46,7 +46,7 @@ function wordScore(query: string, candidates: Set<string>) {
   return score;
 }
 
-type Hit = { type: string; id: string; title: string; detail: string; body: string; at: string; open: Data; clientId: string | null; taxId?: string };
+type Hit = { type: string; id: string; title: string; detail: string; body: string; at: string; open: Data; clientId: string | null; taxId?: string; ssn?: string; phone?: string };
 
 /** Extracts and keeps the text of readable documents that have none yet, so later searches match inside them. */
 async function indexDocuments(db: D1Database, actor: Actor) {
@@ -62,8 +62,9 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
   const job = readableJobParams(actor), lead = actor.role !== 'preparer';
   const clientSql = lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql})`;
   const threadSql = lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.preparer_email=? AND (b_jobs.id=t.job_id OR (t.job_id IS NULL AND b_jobs.client_id=t.client_id)))`;
-  const [clients, jobs, tasks, portal, notes, files] = await Promise.all([
+  const [clients, contacts, jobs, tasks, portal, notes, files] = await Promise.all([
     rows(db, `SELECT c.* FROM b_clients c WHERE c.merged_into IS NULL AND ${clientSql}`, ...(lead ? [] : job)),
+    rows(db, `SELECT p.*,c.name entity FROM b_client_contacts p JOIN b_clients c ON c.id=p.client_id WHERE c.merged_into IS NULL AND p.active=1 AND ${clientSql}`, ...(lead ? [] : job)),
     rows(db, `SELECT b_jobs.*,c.name client FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${readableJobSql}`, ...job),
     rows(db, `SELECT s.job_id,s.ordinal,s.label,s.instructions,s.done_at,b_jobs.title,b_jobs.period_label,b_jobs.client_id,b_jobs.created_at,c.name client FROM b_job_steps s JOIN b_jobs ON b_jobs.id=s.job_id JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${readableJobSql}`, ...job),
     rows(db, `SELECT p.*,b_jobs.title,b_jobs.client_id,c.name client FROM b_portal_items p JOIN b_jobs ON b_jobs.id=p.job_id JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${readableJobSql}`, ...job),
@@ -72,8 +73,8 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
       LEFT JOIN b_file_text x ON x.file_id=f.id WHERE f.erased_at IS NULL AND ${readableJobSql}`, ...job),
   ]);
   return [
-    ...clients.map(c => ({ type: 'client', id: c.id, title: c.name, detail: c.contact_name, body: '', at: c.created_at ?? '', open: { kind: 'client', clientId: c.id }, clientId: c.id, taxId: c.abn })),
-    ...clients.filter(c => c.contact_name || c.contact_email).map(c => ({ type: 'contact', id: c.id + ':contact', title: c.contact_name || c.contact_email, detail: `${c.contact_email} · ${c.name}`, body: '', at: c.created_at ?? '', open: { kind: 'client', clientId: c.id }, clientId: c.id })),
+    ...clients.map(c => ({ type: 'client', id: c.id, title: c.name, detail: c.contact_name, body: '', at: c.created_at ?? '', open: { kind: 'client', clientId: c.id }, clientId: c.id, taxId: c.abn, ssn: c.ssn_last4 })),
+    ...contacts.map(c => ({ type: 'contact', id:c.id, title:c.name || c.email, detail:`${c.email} · ${c.entity}`, body:c.phone ?? '', phone:c.phone, at:c.updated_at, open:{kind:'client',clientId:c.client_id},clientId:c.client_id })),
     ...jobs.map(j => ({ type: 'job', id: j.id, title: `${j.title} · ${j.period_label}`, detail: `${j.client} · due ${j.due_date}`, body: '', at: j.created_at, open: { kind: 'job', jobId: j.id }, clientId: j.client_id })),
     ...tasks.map(t => ({ type: 'task', id: `${t.job_id}:${t.ordinal}`, title: t.label, detail: `${t.client} · ${t.title} · ${t.period_label}`, body: t.instructions ?? '', at: t.done_at ?? t.created_at, open: { kind: 'job', jobId: t.job_id, ordinal: t.ordinal }, clientId: t.client_id })),
     ...portal.map(p => ({ type: 'portal message', id: p.id, title: p.body.slice(0, 120), detail: `${p.client} · ${p.title} · ${p.kind}`, body: `${p.body} ${p.response ?? ''}`, at: p.closed_at ?? p.created_at, open: { kind: 'job', jobId: p.job_id }, clientId: p.client_id })),
@@ -98,13 +99,14 @@ export async function search(db: D1Database, actor: Actor, query: Data) {
       score += best;
     }
     if (score && words(`${h.title} ${h.detail} ${h.body}`).join(' ').includes(phrase)) score += 5;
-    if (h.type === 'client' && taxQuery && actor.role !== 'preparer' && h.taxId && h.taxId.replace(/\D/g, '').includes(digits)) score = Math.max(score, 10);
+    if (taxQuery && actor.role !== 'preparer' && ((h.taxId && h.taxId.replace(/\D/g, '').includes(digits)) || (h.ssn && h.ssn === digits))) score = Math.max(score, 10);
+    if (h.phone && q.replace(/\D/g,'').length >= 7 && h.phone.replace(/\D/g,'').includes(q.replace(/\D/g,''))) score = Math.max(score,10);
     return { ...h, score };
   }).filter(h => h.score > 0);
   scored.sort((a, b) => b.score - a.score || String(b.at).localeCompare(String(a.at)));
   return {
     q, type, total: scored.length,
-    results: scored.slice(0, LIMIT).map(({ body, taxId, ...h }) => ({ ...h, ...(h.type === 'client' ? { taxId: taxId ? mask(taxId) : '', taxIdType: taxId ? (taxId.length === 11 ? 'legacy ABN' : 'EIN') : '' } : {}), snippet: snippet(body, terms) })),
+    results: scored.slice(0, LIMIT).map(({ body, taxId, ssn, phone, ...h }) => ({ ...h, ...(h.type === 'client' ? { taxId: taxId ? mask(taxId) : ssn && actor.role !== 'preparer' ? mask(ssn) : '', taxIdType: taxId ? (taxId.length === 11 ? 'legacy ABN' : 'EIN') : ssn && actor.role !== 'preparer' ? 'SSN last four' : '' } : {}), snippet: snippet(body, terms) })),
   };
 }
 

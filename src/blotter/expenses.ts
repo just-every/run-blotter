@@ -1,3 +1,4 @@
+import { staffDownload } from './document-shares';
 // Expenses and disbursements (TIME-004): filing fees, postage, mileage at the
 // firm rate and software pass-throughs, recorded against a job and its client.
 // Each can carry a receipt and a markup; a reviewer or the principal approves
@@ -5,7 +6,7 @@
 // reimbursements are owed at cost, apart from the client charge.
 import { currency } from './currency';
 import { openPeriodSql } from './billing';
-import { decodeFile, fileResponse } from './documents';
+import { decodeFile } from './documents';
 import { atomic, audit, date, digest, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 export const KINDS = { filing_fee: 'Filing fee', postage: 'Postage', mileage: 'Mileage', software: 'Software pass-through', other: 'Other' } as const;
@@ -108,7 +109,7 @@ export async function reimburseExpense(db: D1Database, actor: Actor, expenseId: 
 export async function downloadReceipt(db: D1Database, actor: Actor, expenseId: string) {
   const e = await visibleExpense(db, actor, expenseId);
   insist(e.receipt_base64, 'This expense has no receipt', 404);
-  return fileResponse({ name: e.receipt_name, mime: e.receipt_mime, content_base64: e.receipt_base64 });
+  return staffDownload(db,actor,'expense:'+e.id);
 }
 
 const listed = 'id,job_id,currency,kind,date,description,mile_tenths,cents_per_mile,cost_cents,billable,markup_percent,charge_cents,paid_by,person_email,receipt_name,receipt_size,receipt_sha256,status,decided_by,decided_at,reason,reimbursed_by,reimbursed_at,created_at';

@@ -1,5 +1,6 @@
 // Whole-practice archive and restore on Base portability, and file erasure that
 // fences older archives. Adapted from just-every/run-satchel src/satchel/archive.ts (MIT).
+import { ensureLegacyContacts } from './client-contacts';
 import { createPortability, readArchive } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
 import { atomic, audit, human, insist, job, need, now, stmt, text, type Actor, type Data } from './model';
@@ -32,7 +33,7 @@ export async function restore(db: D1Database, actor: Actor, body: Data) {
     for (const item of records) {
       if (item.kind === 'manifest') importId = await service.imports.create(item, actor.id);
       else if (item.kind === 'part') { insist(importId, 'Missing archive manifest'); await service.imports.uploadPart(importId, item.index, item); }
-      else { insist(importId, 'Missing archive manifest'); return await service.imports.finalize(importId, { archiveHash: item.archiveHash, contentHash: item.contentHash, laterJournal }); }
+      else { insist(importId, 'Missing archive manifest'); const result = await service.imports.finalize(importId, { archiveHash: item.archiveHash, contentHash: item.contentHash, laterJournal }); await ensureLegacyContacts(db); return result; }
     }
     throw new Error('Incomplete archive');
   } catch (error) { if (importId) await service.imports.abort(importId); throw error; }
