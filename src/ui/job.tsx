@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run } from './common';
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
+import { JobExpenses } from './expenses';
 import { EntryHistory } from './timesheet';
 
 export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: string; actor: Row; back: () => void; open: (id: string) => void; run: Run; tick: number }) {
@@ -93,5 +94,6 @@ export function JobDetail({ jobId, actor, back, open, run, tick }: { jobId: stri
         <Field label="Description" name="description" />
       </Form>
     </section>
+    <JobExpenses detail={detail} actor={actor} run={run} />
   </div>;
 }

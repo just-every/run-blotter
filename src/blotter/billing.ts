@@ -2,6 +2,7 @@
 // Rates snapshot as in just-every/run-gauge src/gauge/time.ts; export review and
 // source reservations as in just-every/run-satchel src/satchel/billing.ts (MIT).
 import { atomic, audit, date, digest, guard, human, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { mileageRates, reimbursements } from './expenses';
 import { resolveRate, stillResolves } from './rates';
 
 /** Whole cents, rounded half up: minutes × hourly cents ÷ 60. */
@@ -54,7 +55,7 @@ export async function deleteTime(db: D1Database, actor: Actor, entryId: string) 
   return { ok: true };
 }
 
-/** Billable sources not yet in a live export: approved time and its adjustments, and fixed fees of signed-off jobs. */
+/** Billable sources not yet in a live export: approved time and its adjustments, fixed fees of signed-off jobs and approved billable expenses (TIME-004). */
 export async function unbilled(db: D1Database) {
   const time = await rows(db, `SELECT 'time:'||t.id source_key,'time' kind,t.id source_id,t.job_id,t.date,t.person_email person,t.description,t.minutes,t.rate_cents,t.rate_source,t.amount_cents,
       j.title job,j.period_label period,c.name client,c.abn
@@ -68,13 +69,27 @@ export async function unbilled(db: D1Database) {
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_jobs j JOIN b_clients c ON c.id=j.client_id
     WHERE j.status='signed_off' AND j.fee_cents>0 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='fee:'||j.id) ORDER BY c.name,j.signed_off_at`);
-  return [...fees, ...time, ...adjustments];
+  const expenses = await rows(db, `SELECT 'exp:'||e.id source_key,'expense' kind,e.id source_id,e.job_id,e.date,e.person_email person,
+      CASE e.kind WHEN 'filing_fee' THEN 'Filing fee' WHEN 'postage' THEN 'Postage' WHEN 'mileage' THEN 'Mileage' WHEN 'software' THEN 'Software pass-through' ELSE 'Expense' END||': '||e.description
+        ||CASE WHEN e.markup_percent>0 THEN ' (cost '||e.cost_cents||' cents + '||e.markup_percent||'% markup)' ELSE '' END description,
+      NULL minutes,NULL rate_cents,NULL rate_source,e.charge_cents amount_cents,e.cost_cents,e.markup_percent,e.receipt_sha256,j.title job,j.period_label period,c.name client,c.abn
+    FROM b_expenses e JOIN b_jobs j ON j.id=e.job_id JOIN b_clients c ON c.id=e.client_id
+    WHERE e.status='approved' AND e.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='exp:'||e.id) ORDER BY c.name,e.date,e.created_at`);
+  return [...fees, ...time, ...adjustments, ...expenses];
+}
+
+/** Work in progress: the value of everything ready to bill, by kind. */
+export function wip(lines: Data[]) {
+  const byKind: Record<string, number> = { fee: 0, time: 0, adjustment: 0, expense: 0 };
+  for (const line of lines) byKind[line.kind] += Number(line.amount_cents);
+  return { totalCents: Object.values(byKind).reduce((a, b) => a + b, 0), byKind };
 }
 
 export async function billingState(db: D1Database, actor: Actor) {
   need(actor, 'owner', 'reviewer');
+  const lines = await unbilled(db);
   return {
-    unbilled: await unbilled(db),
+    unbilled: lines, wip: wip(lines), reimbursements: await reimbursements(db), mileageRates: await mileageRates(db),
     exports: await rows(db, 'SELECT id,title,status,total_cents,csv_sha256,revision,prepared_by,prepared_channel,prepared_at,approved_by,approved_at,review_note,voided_by,void_reason,snapshot FROM b_exports ORDER BY prepared_at DESC'),
   };
 }
@@ -85,6 +100,9 @@ export async function prepareExport(db: D1Database, actor: Actor, body: Data) {
   insist(Array.isArray(body.sourceKeys) && body.sourceKeys.length > 0 && body.sourceKeys.length <= 500, 'Choose between 1 and 500 billable items');
   const wanted = new Set(body.sourceKeys as string[]);
   insist(wanted.size === body.sourceKeys.length, 'Each item can appear once');
+  const expenseIds = [...wanted].filter(key => String(key).startsWith('exp:')).map(key => String(key).slice(4));
+  if (expenseIds.length) insist(!await stmt(db, "SELECT 1 FROM b_expenses WHERE id IN (SELECT value FROM json_each(?)) AND (status<>'approved' OR billable=0)", JSON.stringify(expenseIds)).first(),
+    'Only approved billable expenses can be billed', 409);
   const available = (await unbilled(db)).filter(line => wanted.has(line.source_key));
   insist(available.length === wanted.size, 'Some items were already exported or no longer exist. Refresh and try again.', 409);
   const lines: Data[] = available.map((line, n) => ({ line: n + 1, ...line }));

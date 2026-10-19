@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Blotter, api, aud, Empty, Field, Form, Status, when, type Row, type Run } from './common';
+import { ExpenseSettings } from './expenses';
 import { TimeApprovals } from './timesheet';
 
 export function Billing({ actor, run, tick }: { actor: Row; run: Run; tick: number }) {
@@ -12,19 +13,20 @@ export function Billing({ actor, run, tick }: { actor: Row; run: Run; tick: numb
     <TimeApprovals actor={actor} run={run} tick={tick} />
     <Blotter><section className="panel">
       <h2>Ready to bill</h2>
-      <p className="muted">Approved time and adjustments, and fixed fees of signed-off jobs. Each item can go into one export. Amounts are AUD ex GST; Blotter does not calculate GST or send invoices.</p>
+      <p className="muted">Approved time and adjustments, fixed fees of signed-off jobs and approved billable expenses. Work in progress: {aud(state.wip.totalCents)} (expenses {aud(state.wip.byKind.expense)}). Each item can go into one export. Amounts are AUD ex GST; Blotter does not calculate GST or send invoices.</p>
       {!state.unbilled.length ? <Empty>Nothing waiting to be billed.</Empty> : <>
         <table className="table"><thead><tr><th><span className="sr-only">Include</span></th><th>Client</th><th>Job</th><th>Item</th><th>Amount</th></tr></thead>
           <tbody>{state.unbilled.map((l: Row) => <tr key={l.source_key}>
             <td><input type="checkbox" aria-label={`Include ${l.description}`} checked={chosen.has(l.source_key)} onChange={() => toggle(l.source_key)} /></td>
             <td data-label="Client">{l.client}</td><td data-label="Job">{l.job} · {l.period}</td>
-            <td data-label="Item">{l.kind === 'fee' ? 'Fixed fee' : `${l.date} ${l.person}: ${l.description} (${l.minutes} min at ${aud(l.rate_cents)}/h)`}</td>
+            <td data-label="Item">{l.kind === 'fee' ? 'Fixed fee' : l.kind === 'expense' ? `${l.date} ${l.person}: ${l.description}` : `${l.date} ${l.person}: ${l.description} (${l.minutes} min at ${aud(l.rate_cents)}/h)`}</td>
             <td data-label="Amount">{aud(l.amount_cents)}</td></tr>)}</tbody></table>
         <Form disabled={chosen.size === 0} label={chosen.size ? `Prepare export (${chosen.size} items, ${aud(total)})` : 'Choose items to export'} submit={async data => run(() => api('/exports', { title: data.title, sourceKeys: [...chosen] }), 'Export prepared. The principal reviews and approves it.')}>
           <Field label="Export title" name="title" value={`Billing ${new Date().toISOString().slice(0, 7)}`} />
         </Form>
       </>}
     </section></Blotter>
+    <ExpenseSettings state={state} actor={actor} run={run} />
     <section className="panel">
       <h2>Exports</h2>
       {!state.exports.length && <Empty>No exports yet.</Empty>}

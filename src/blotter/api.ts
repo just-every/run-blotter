@@ -13,6 +13,7 @@ import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, s
 import { myNotifications } from './notifications';
 import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
 import { decideRequest, downloadFile, portalUpload, portalView, sendReminder, staffUpload } from './documents';
+import { decideExpense, downloadReceipt, recordExpense, reimburseExpense, setMileageRate } from './expenses';
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
@@ -80,6 +81,11 @@ api.get(`${P}/time/:id/history`, as((a, c) => entryHistory(db(c), a, param(c))))
 api.post(`${P}/time/:id/review`, as(async (a, c) => reviewEntry(db(c), a, param(c), await body(c))));
 api.post(`${P}/time/:id/correct`, as(async (a, c) => correctEntry(db(c), a, param(c), await body(c))));
 api.post(`${P}/time/:id/adjust`, as(async (a, c) => adjustEntry(db(c), a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/expenses`, as(async (a, c) => recordExpense(db(c), a, param(c), await body(c))));
+api.post(`${P}/expenses/:id/decide`, as(async (a, c) => decideExpense(db(c), a, param(c), await body(c))));
+api.post(`${P}/expenses/:id/reimbursed`, as((a, c) => reimburseExpense(db(c), a, param(c))));
+api.get(`${P}/expenses/:id/receipt`, as((a, c) => downloadReceipt(db(c), a, param(c))));
+api.post(`${P}/mileage-rates`, as(async (a, c) => setMileageRate(db(c), a, await body(c))));
 api.get(`${P}/timesheets`, as((a, c) => timesheets(db(c), a)));
 api.post(`${P}/timesheets/submit`, as(async (a, c) => submitWeek(db(c), a, await body(c))));
 api.post(`${P}/periods/close`, as(async (a, c) => closePeriod(db(c), a, await body(c))));

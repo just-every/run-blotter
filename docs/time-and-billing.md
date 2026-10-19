@@ -32,11 +32,21 @@ As the principal, open **Close a billing period** under **Timesheets to approve*
 
 To correct approved or closed time, the principal opens the entry's **History** on the job and posts an adjustment: minutes to add or remove, with a reason. The original entry stays exactly as recorded; the adjustment is billed as its own line at the entry's rate. **History** shows the entry's submission, approval, adjustments and audit trail.
 
+## Record expenses
+
+Open the job's **Expenses** section and press **Record an expense**. Choose the kind (filing fee, postage, mileage, software pass-through or other), the date and a description, and enter the cost in dollars. For mileage, enter the miles instead (one decimal place, such as `12.4`): Blotter uses the firm's mileage rate in force on that date. Tick **Billable to the client** and enter a markup percent (a whole number from 0 to 100) to charge the client cost plus markup, rounded to the cent. Attach the receipt if you have one (up to 1 MiB). If you paid it yourself, choose **Paid by: Me** so the firm reimburses you.
+
+A reviewer or the principal then presses **Approve**, or **Reject** with a reason. Nobody but the principal approves their own expense. An expense dated in a closed billing period cannot be recorded, and recorded expenses never change.
+
+Only approved billable expenses appear in **Ready to bill**, at cost plus markup. A non-billable expense never reaches an export, but its cost still counts against the job: the job's **Expenses** section shows its margin before staff cost (fixed fee, approved time and billable expense charges, less every approved expense's cost).
+
+As the principal, set the firm's mileage rate (cents per mile and the date it takes effect) under **Time & billing → Staff reimbursements**. That section lists approved expenses staff paid themselves, owed back at cost and kept apart from what the client is charged; press **Mark reimbursed** once you have paid the person.
+
 ## Prepare an export
 
-As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved time, adjustments and the fixed fees of signed-off jobs. Choose the items, give the export a title and press **Prepare export**.
+As the principal or a reviewer, open **Time & billing**. **Ready to bill** shows approved time, adjustments, the fixed fees of signed-off jobs and approved billable expenses, with their total as work in progress. Choose the items, give the export a title and press **Prepare export**.
 
-Each time entry, adjustment or fixed fee can belong to one export. Amounts are AUD ex GST. Blotter does not calculate GST or send invoices.
+Each time entry, adjustment, fixed fee or expense can belong to one export. Amounts are AUD ex GST. Blotter does not calculate GST or send invoices.
 
 ## Approve and download
 

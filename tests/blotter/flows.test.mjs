@@ -239,6 +239,58 @@ test('TIME-002 timesheets: submit a week, return and correct, approve, close the
   await h.json('/exports', { title: 'Adjustment again', sourceKeys: [line.source_key] }, reviewer, 409);
 });
 
+test('TIME-004 expenses: a receipted filing fee with markup is approved and billed, a non-billable cost counts in profitability, unapproved expenses cannot be billed', async () => {
+  const add = (body, who = preparer, expected = 200) => h.json(`/jobs/${nextJob.id}/expenses`, body, who, expected);
+  const receipt = { name: 'state-receipt.pdf', mime: 'application/pdf', contentBase64: b64('%PDF state filing fee receipt') };
+  const fee = await add({ kind: 'filing_fee', date: '2026-11-03', description: 'State annual report fee', costCents: 4500, billable: true, markupPercent: 10, receipt });
+  assert.deepEqual([fee.costCents, fee.chargeCents, fee.status], [4500, 4950, 'pending']);
+  const courier = await add({ kind: 'postage', date: '2026-11-03', description: 'Courier to client', costCents: 1200, billable: false });
+  await add({ kind: 'postage', date: '2026-11-03', description: 'Marked-up but not billable', costCents: 100, billable: false, markupPercent: 5 }, preparer, 400);
+  await add({ kind: 'postage', date: '2026-12-10', description: 'In the closed December period', costCents: 100 }, preparer, 409);
+  // Mileage costs tenths of a mile at the firm rate in force on its date.
+  const drive = { kind: 'mileage', date: '2026-11-04', description: 'Drive to client office', miles: '12.4', billable: true, paidBy: 'staff' };
+  await add(drive, preparer, 409);
+  await h.json('/mileage-rates', { effectiveFrom: '2026-11-01', centsPerMile: 70 }, reviewer, 403);
+  await h.json('/mileage-rates', { effectiveFrom: '2026-11-01', centsPerMile: 70 }, h.owner);
+  const mileage = await add(drive);
+  assert.deepEqual([mileage.mileTenths, mileage.costCents, mileage.chargeCents], [124, 868, 868]); // 12.4 mi × 70 cents
+  // An unapproved expense cannot be billed.
+  assert.ok(!(await h.json('/billing', undefined, reviewer)).unbilled.some(l => l.source_id === fee.id));
+  assert.match((await h.json('/exports', { title: 'Too soon', sourceKeys: ['exp:' + fee.id] }, reviewer, 409)).error, /approved billable expenses/);
+  await h.json(`/expenses/${fee.id}/decide`, { decision: 'approve' }, preparer, 403);
+  for (const e of [fee, courier, mileage]) await h.json(`/expenses/${e.id}/decide`, { decision: 'approve' }, reviewer);
+  await h.json(`/expenses/${fee.id}/decide`, { decision: 'reject', reason: 'Late' }, reviewer, 409);
+  const billing = await h.json('/billing', undefined, reviewer);
+  const line = billing.unbilled.find(l => l.source_key === 'exp:' + fee.id);
+  assert.deepEqual([line.kind, line.amount_cents, line.cost_cents, line.markup_percent], ['expense', 4950, 4500, 10]);
+  assert.ok(!billing.unbilled.some(l => l.source_id === courier.id), 'A non-billable expense stays off the bill');
+  await h.json('/exports', { title: 'Courier', sourceKeys: ['exp:' + courier.id] }, reviewer, 409);
+  assert.equal(billing.wip.byKind.expense, 4950 + 868);
+  assert.equal(billing.wip.totalCents, billing.unbilled.reduce((sum, l) => sum + l.amount_cents, 0));
+  // The staff member is owed the mileage at cost, apart from the client charge.
+  assert.deepEqual(billing.reimbursements.map(r => [r.id, r.person_email, r.cost_cents, r.reimbursed_at]), [[mileage.id, 'preparer@example.test', 868, null]]);
+  await h.json(`/expenses/${fee.id}/reimbursed`, {}, h.owner, 409);
+  await h.json(`/expenses/${mileage.id}/reimbursed`, {}, reviewer, 403);
+  await h.json(`/expenses/${mileage.id}/reimbursed`, {}, h.owner);
+  assert.equal((await h.json('/billing', undefined, h.owner)).reimbursements[0].reimbursed_by, 'owner@example.test');
+  // Invoice the filing fee: one line at cost plus markup, once.
+  const draft = await h.json('/exports', { title: 'November expenses', sourceKeys: ['exp:' + fee.id] }, reviewer);
+  assert.deepEqual([draft.totalCents, draft.lines[0].description], [4950, 'Filing fee: State annual report fee (cost 4500 cents + 10% markup)']);
+  await h.json('/exports', { title: 'Again', sourceKeys: ['exp:' + fee.id] }, reviewer, 409);
+  const listed = (await h.json('/billing', undefined, h.owner)).exports.find(e => e.id === draft.id);
+  await h.json(`/exports/${draft.id}/approve`, { revision: listed.revision, reviewNote: 'Receipt checked' }, h.owner);
+  const lines = (await (await h.request(`/api/blotter/exports/${draft.id}/csv`, undefined, h.owner)).text()).split('\r\n');
+  assert.match(lines[1], /,expense,2026-11-03,preparer@example\.test,Filing fee: State annual report fee \(cost 4500 cents \+ 10% markup\),,,4950,AUD$/);
+  const download = await h.request(`/api/blotter/expenses/${fee.id}/receipt`, undefined, preparer);
+  assert.equal(await download.text(), '%PDF state filing fee receipt');
+  // The job shows each expense and counts every approved cost in its margin.
+  const detail = await h.json('/jobs/' + nextJob.id, undefined, preparer);
+  assert.equal(detail.expenses.find(e => e.id === fee.id).export_id, draft.id);
+  const p = detail.profitability;
+  assert.deepEqual([p.billableExpenseCents, p.expenseCostCents, p.nonBillableExpenseCents], [4950 + 868, 4500 + 1200 + 868, 1200]);
+  assert.equal(p.marginCents, p.billableValueCents - p.expenseCostCents);
+});
+
 test('WORK-004 bulk scheduling previews a client segment, keeps existing work and refuses inactive or self-review assignments', async () => {
   const add = name => h.json('/clients', { name }, h.owner);
   const [north, south, east, west, odd] = [await add('Northwind Books LLC'), await add('Southside Bakery'), await add('Eastgate Dental PC'), await add('Westfield Farms'), await add('Oddity Labs')];
