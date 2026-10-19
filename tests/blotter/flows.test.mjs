@@ -1206,6 +1206,7 @@ test('ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review
   const jobs = [await h.json('/jobs', { ...people, periodStart: '2027-03-01', dueDate: '2027-04-15', dueNote: 'Firm close' }, h.owner), await h.json('/jobs', { ...people, periodStart: '2027-04-01', dueDate: '2027-05-15', dueNote: 'Firm close' }, h.owner)];
   const rule = await h.json('/rules', { ...people, firstPeriod: '2028-01-01', leadMonths: 0, dueDays: 15, dueNote: 'Firm close' }, h.owner);
   const opened = await h.json(`/jobs/${jobs[0].id}/threads`, { title: 'Payroll tax deposit', body: 'Deposit schedule changed to semiweekly.', mentions: [] }, lee);
+  await h.json(`/jobs/${jobs[0].id}/portal/todos`, { body: 'Send the new hire W-4' }, lee);
   await h.json('/team/rates', { scope: 'client', clientId: firm.id, rateCents: 9000, effectiveFrom: '2026-01-01' }, h.owner);
   const unsent = await h.json(`/jobs/${jobs[0].id}/time`, { date: '2027-03-03', minutes: 30, description: 'Payroll setup' }, lee);
   await h.json(`/jobs/${jobs[1].id}/timer`, { description: 'April payroll' }, lee);
@@ -1217,10 +1218,11 @@ test('ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review
   assert.deepEqual([preview.jobs.map(j => j.to.preparer), preview.tasks.map(t => t.label), preview.rules.map(r => r.to.preparer), preview.threads.map(t => t.title), preview.templates.map(t => t.name), preview.timer.description, preview.time.map(t => t.id), preview.sessions > 0, preview.problems],
     [['preparer@example.test', 'preparer@example.test'], ['File 941 notes', 'File 941 notes'], ['preparer@example.test'], ['Payroll tax deposit'], ['Monthly payroll'], 'April payroll', [unsent.id], true, []]);
   await h.json('/team/offboard', { ...body, fingerprint: 'stale' }, h.owner, 409);
-  assert.deepEqual((await h.json('/team/offboard', { ...body, fingerprint: preview.fingerprint }, h.owner)).moved, { jobs: 2, tasks: 2, rules: 1, notices: 0, threads: 1, proposals: 0, templates: 1 });
+  assert.deepEqual((await h.json('/team/offboard', { ...body, fingerprint: preview.fingerprint }, h.owner)).moved, { jobs: 2, tasks: 2, rules: 1, notices: 0, threads: 1, portal: 1, proposals: 0, templates: 1 });
   // Nothing is orphaned: work, tasks, the rule, the discussion and future jobs from the template belong to the successors.
   const detail = await h.json('/jobs/' + jobs[0].id, undefined, preparer);
   assert.deepEqual([detail.job.preparer_email, detail.steps.find(s => s.label === 'File 941 notes').assignee_email], ['preparer@example.test', 'preparer@example.test']);
+  assert.deepEqual([detail.portal.todos[0].author, detail.portal.todos[0].owner_email], ['leaving@example.test', 'preparer@example.test']);
   assert.deepEqual((await h.json('/rules', undefined, h.owner)).rules.find(r => r.id === rule.id).preparer_email, 'preparer@example.test');
   const next = await h.json('/jobs', { ...people, preparerEmail: 'preparer@example.test', periodStart: '2027-05-01', dueDate: '2027-06-15', dueNote: 'Firm close' }, h.owner);
   assert.equal((await h.json('/jobs/' + next.id, undefined, preparer)).steps.find(s => s.label === 'File 941 notes').assignee_email, 'preparer@example.test');
@@ -1306,6 +1308,75 @@ test('CRM-003 client history and unresolved items: a newest-first timeline with 
   const billed = (await h.json('/jobs/' + job.id, undefined, reviewer)).job.client_id;
   assert.ok((await h.json(`/clients/${billed}/history?kind=billing`, undefined, reviewer)).history.some(e => e.action === 'export.approved'));
   assert.deepEqual(handed, [['reviewer@example.test', 'discussion Resolve “Inventory count”: reviewer@example.test to owner@example.test'], ['reviewer@example.test', 'task Complete “Draft BAS”: preparer@example.test to reviewer@example.test']]);
+});
+
+test('PORTAL-003 client progress, secure questions and to-dos: the client asks and completes one to-do; the preparer is alerted, answers, and sees the same progress after review; internal notes and another client\'s to-dos stay hidden; the question is in CRM-003 history with its owner', async () => {
+  const home = await h.json('/clients', { name: 'Okafor household', contactName: 'Ada Okafor', contactEmail: 'ada@okafor.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const elsewhere = await h.json('/clients', { name: 'Brightwater Dental', contactName: 'Sam Bright', contactEmail: 'sam@brightwater.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const start = { templateId: template.id, periodStart: '2027-07-01', dueDate: '2027-10-28', dueNote: 'Lodgement', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const work = await h.json('/jobs', { ...start, clientId: home.id }, h.owner), other = await h.json('/jobs', { ...start, clientId: elsewhere.id }, h.owner);
+  // Staff choose what the client sees: a to-do on the link, an internal discussion that never leaves the firm.
+  await h.json(`/jobs/${work.id}/portal/todos`, { body: 'Confirm your new bank account number', dueDate: '2027-08-15' }, preparer);
+  await h.json(`/jobs/${other.id}/portal/todos`, { body: 'Send the dental equipment invoices' }, preparer);
+  await h.json(`/jobs/${work.id}/threads`, { title: 'Internal: client may owe late fees', body: 'Do not mention the penalty yet.', mentions: [] }, preparer);
+  await h.json(`/jobs/${work.id}/portal/todos`, { body: 'x' }, '', 401);
+  await h.json(`/jobs/${work.id}/reminders`, {}, preparer);
+  const token = portalToken(h.mails.at(-1)), link = '/api/blotter/portal/' + token;
+  let view = await h.json('/portal/' + token, undefined);
+  assert.deepEqual([view.progress.stage, view.progress.nextAction], ['collecting', 'Please upload 2 documents and complete 1 to-do.']);
+  assert.deepEqual(view.progress.milestones.map(m => [m.key, m.done, m.detail]), [['documents', false, '0 of 2 received, 0 accepted'], ['preparation', false, '0 of 2 steps complete'], ['review', false, 'not started'], ['completed', false, 'not yet']]);
+  const seen = JSON.stringify(view);
+  for (const hidden of ['late fees', 'penalty', 'dental', 'preparer@example.test', other.id]) assert.ok(!seen.includes(hidden), hidden);
+  assert.deepEqual(view.todos.map(t => [t.body, t.dueDate, t.status, t.from]), [['Confirm your new bank account number', '2027-08-15', 'open', 'your accountant']]);
+  // The client asks a secure question on the engagement: same-origin only, owned by the job's preparer, who is alerted.
+  assert.equal((await h.request(link + '/messages', { body: 'Do you need my home office receipts?' }, '', { origin: 'https://outside.example.test' })).status, 403);
+  const asked = await (await h.request(link + '/messages', { body: 'Do you need my home office receipts?' })).json();
+  assert.equal(asked.status, 'open');
+  const alerts = await h.json('/notifications', undefined, preparer);
+  assert.ok(alerts.some(a => a.kind === 'client_question' && a.job_id === work.id && a.summary.includes('home office receipts')));
+  // The preparer's queue counts it; the client history shows it with its author and job, and as an unresolved item with its owner.
+  assert.equal((await h.json('/state', undefined, preparer)).jobs.find(j => j.id === work.id).client_questions, 1);
+  const history = await h.json(`/clients/${home.id}/history?kind=messages`, undefined, preparer);
+  assert.ok(history.history.some(e => e.action === 'portal.question' && e.actor === 'client (portal link)' && e.job_id === work.id && e.object_id === asked.id));
+  const question = history.unresolved.find(i => i.kind === 'client_question');
+  assert.deepEqual([question.id, question.owner, question.nextAction, question.due], [asked.id, 'preparer@example.test', 'Answer the client: “Do you need my home office receipts?”', 'job due 2027-10-28']);
+  assert.ok(history.unresolved.some(i => i.kind === 'client_todo' && i.owner === 'preparer@example.test' && i.due === 'client due 2027-08-15'));
+  // Completing one to-do records the reply, alerts its owner and completes nothing else.
+  const todo = view.todos[0];
+  assert.equal((await h.request(`${link}/todos/${todo.id}`, { response: 'New BSB 062-000' })).status, 200);
+  assert.equal((await h.request(`${link}/todos/${todo.id}`, {})).status, 409);
+  const otherTodo = (await h.json('/jobs/' + other.id, undefined, preparer)).portal.todos[0];
+  assert.equal((await h.request(`${link}/todos/${otherTodo.id}`, {})).status, 404);
+  assert.ok((await h.json('/notifications', undefined, preparer)).some(a => a.kind === 'client_todo_done' && a.summary.includes('Confirm your new bank account number')));
+  let detail = await h.json('/jobs/' + work.id, undefined, preparer);
+  assert.deepEqual(detail.requests.map(r => r.status), ['requested', 'requested']);
+  assert.ok(detail.steps.every(s => !s.done_at));
+  assert.deepEqual([detail.portal.todos[0].status, detail.portal.todos[0].response], ['done', 'New BSB 062-000']);
+  assert.equal((await h.json('/jobs/' + other.id, undefined, preparer)).portal.todos[0].status, 'open');
+  // The preparer answers on the link; only that question closes.
+  await h.json(`/jobs/${work.id}/portal/messages`, { body: 'Yes please, upload them with the bank statements.', replyTo: asked.id }, preparer);
+  await h.json(`/jobs/${work.id}/portal/messages`, { body: 'Again', replyTo: asked.id }, preparer, 409);
+  view = await h.json('/portal/' + token, undefined);
+  assert.deepEqual(view.messages.map(m => [m.kind, m.from, m.status, m.replyTo]), [['question', 'you', 'answered', null], ['message', 'your accountant', 'sent', asked.id]]);
+  assert.equal((await h.json('/state', undefined, preparer)).jobs.find(j => j.id === work.id).client_questions, 0);
+  assert.ok(!(await h.json(`/clients/${home.id}/history`, undefined, preparer)).unresolved.some(i => i.kind.startsWith('client_')));
+  // A second question changes hands like any unresolved item.
+  const second = await (await h.request(link + '/messages', { body: 'When will you lodge?' })).json();
+  await h.json(`/clients/${home.id}/unresolved/owner`, { kind: 'client_question', id: second.id, owner: 'reviewer@example.test' }, reviewer);
+  assert.equal((await h.json(`/clients/${home.id}/history?owner=reviewer@example.test`, undefined, reviewer)).unresolved.find(i => i.id === second.id).owner, 'reviewer@example.test');
+  // After the work goes to review, the client and the preparer see the same progress.
+  for (const r of detail.requests) {
+    await h.json(`/requests/${r.id}/files`, { name: r.label + '.pdf', mime: 'application/pdf', contentBase64: b64('%PDF') }, preparer);
+    await h.json(`/requests/${r.id}/decide`, { decision: 'accept' }, preparer);
+  }
+  for (const s of detail.steps) await h.json(`/jobs/${work.id}/steps`, { ordinal: s.ordinal, done: true }, preparer);
+  await h.json(`/jobs/${work.id}/submit`, {}, preparer);
+  view = await h.json('/portal/' + token, undefined);
+  detail = await h.json('/jobs/' + work.id, undefined, preparer);
+  assert.deepEqual(view.progress, detail.portal.progress);
+  assert.deepEqual([view.progress.stage, view.progress.nextAction], ['in_review', 'Nothing needed from you: your accountant is reviewing the work.']);
+  assert.deepEqual(view.progress.milestones.map(m => [m.key, m.done, m.detail]), [['documents', true, '2 of 2 received, 2 accepted'], ['preparation', true, '2 of 2 steps complete'], ['review', false, 'in review'], ['completed', false, 'not yet']]);
+  assert.ok(!JSON.stringify(view).includes('late fees'));
 });
 
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {

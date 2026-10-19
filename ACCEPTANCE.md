@@ -106,9 +106,8 @@ A US principal or operations manager of a 1–15 staff bookkeeping or accounting
 33. **PORTAL-002 — Authenticated branded client portal.** Status: **missing**. Invite two contacts with different entity access, sign in with a second factor on the firm domain and recover a lost factor. Revoke one contact mid-session and attempt direct document/API access; inspect refusal without exposing another entity.
    Remaining: Only capability upload links exist; portal accounts, branding/domain configuration, recovery and MFA are missing.
 
-34. **PORTAL-003 — Client progress secure chat and to dos.** Status: **partial**. Open an engagement as a client, ask a secure question, complete one to-do and inspect the preparer's queue and progress view after review. Confirm internal notes and another entity's tasks remain hidden. A client's secure question appears in the CRM-003 client history and as an unresolved item with its owner.
-   Current evidence: `src/blotter/documents.ts`; `src/ui/portal.tsx`.
-   Remaining: Document requested/received/accepted state and return notes are visible; secure chat, general to-dos and engagement-level progress are missing.
+34. **PORTAL-003 — Client progress secure chat and to dos.** Status: **done**. Open an engagement as a client, ask a secure question, complete one to-do and inspect the preparer's queue and progress view after review. Confirm internal notes and another entity's tasks remain hidden. A client's secure question appears in the CRM-003 client history and as an unresolved item with its owner.
+   Current evidence: `src/blotter/portal-items.ts`; `src/ui/client-portal.tsx`; `tests/blotter/flows.test.mjs` ("PORTAL-003 client progress, secure questions and to-dos").
 
 35. **PORTAL-004 — Conditional organizers.** Status: **missing**. Send an organizer, answer an ownership question that reveals a dependent section, save/resume on a phone and attach evidence. Submit, correct one answer and inspect both versions and the resulting request list; unconfirmed carried answers stay unresolved.
    Remaining: No organizer/questionnaire, conditional answers or submission versioning exists.

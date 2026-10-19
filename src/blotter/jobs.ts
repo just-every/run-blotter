@@ -7,6 +7,7 @@ import { advance, dependents, flowSteps, jobAnswers, pendingStep, readyGuard } f
 import { completion, stepInsert } from './tasks';
 import { notify, reviewRequested } from './notifications';
 import { budget, myTimer } from './timers';
+import { staffPortal } from './portal-items';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -120,7 +121,9 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
     jobAnswers(db, j.id),
   ]);
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
-  return { job: j, client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
+  const portal = j.access === 'full' ? await staffPortal(db, j) : null;
+  return { job: j, portal, client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {

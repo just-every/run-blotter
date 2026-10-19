@@ -34,6 +34,7 @@ import { adjustEntry, closePeriod, correctEntry, entryHistory, reviewEntry, subm
 import { agentContext, decideProposal, propose } from './proposals';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
+import { clientQuestion, completeTodo, staffMessage, staffTodo } from './portal-items';
 
 type C = Context<{ Bindings: Bindings }>;
 export const api = new Hono<{ Bindings: Bindings }>();
@@ -120,6 +121,8 @@ api.get(`${P}/jobs/:id/threads`, as((a, c) => threadsFor(db(c), a, param(c))));
 api.post(`${P}/jobs/:id/threads`, as(async (a, c) => openThread(c.env, a, param(c), await body(c))));
 api.get(`${P}/threads/:id`, as((a, c) => readThread(db(c), a, param(c))));
 api.post(`${P}/threads/:id/messages`, as(async (a, c) => reply(c.env, a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/portal/messages`, as(async (a, c) => staffMessage(c.env, a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/portal/todos`, as(async (a, c) => staffTodo(c.env, a, param(c), await body(c))));
 api.post(`${P}/threads/:id/resolve`, as(async (a, c) => resolveThread(c.env, a, param(c), await body(c))));
 api.get(`${P}/notifications`, as((a, c) => myNotifications(db(c), a)));
 api.post(`${P}/jobs/:id/reminders/preview`, as(async (a, c) => previewReminder(db(c), a, param(c), await body(c))));
@@ -193,6 +196,14 @@ const sameOrigin = (c: C) => insist(c.req.header('origin') === runtimeBindings(c
 api.post(`${P}/portal/:token/requests/:request`, async c => {
   sameOrigin(c);
   return c.json(await portalUpload(db(c), param(c, 'token'), param(c, 'request'), await body(c)));
+});
+api.post(`${P}/portal/:token/messages`, async c => {
+  sameOrigin(c);
+  return c.json(await clientQuestion(c.env, param(c, 'token'), await body(c)));
+});
+api.post(`${P}/portal/:token/todos/:todo`, async c => {
+  sameOrigin(c);
+  return c.json(await completeTodo(c.env, param(c, 'token'), param(c, 'todo'), await body(c)));
 });
 api.get(`${P}/portal/:token/deliverables`, async c => c.json(await portalDeliverables(db(c), param(c, 'token'))));
 api.get(`${P}/portal/:token/deliverables/:version/file`, async c => portalVersionFile(db(c), param(c, 'token'), param(c, 'version')));

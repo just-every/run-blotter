@@ -16,7 +16,7 @@ const KINDS: Record<string, string> = {
   assignments: "a.action IN ('job.started','job.rolled_forward','job.reassigned','job.task_access','client.merged','client.merge_undone') OR a.action LIKE 'step.%'",
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
   deadlines: "a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
-  messages: "a.action LIKE 'thread.%' OR a.action='reminder.sent'",
+  messages: "a.action LIKE 'thread.%' OR a.action LIKE 'portal.%' OR a.action='reminder.sent'",
   billing: "a.action LIKE 'time.%' OR a.action LIKE 'expense.%' OR a.action LIKE 'timer.%' OR a.action LIKE 'export.%'",
 };
 
@@ -34,6 +34,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
   const objects = `(a.object_id IN (${jobIds})
     OR a.object_id IN (SELECT id FROM b_requests WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_files WHERE job_id IN (${jobIds}))
     OR a.object_id IN (SELECT id FROM b_threads WHERE job_id IN (${jobIds}) OR (?3 AND client_id=?2 AND job_id IS NULL))
+    OR a.object_id IN (SELECT id FROM b_portal_items WHERE job_id IN (${jobIds}))
     OR a.object_id IN (SELECT id FROM b_notices WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_expenses WHERE job_id IN (${jobIds}))
     OR a.object_id IN (SELECT id FROM b_time WHERE job_id IN (${jobIds})) OR (?3 AND a.object_id IN (SELECT id FROM b_recurrence_rules WHERE client_id=?2)) OR (?3 AND a.object_id=?2)
     OR (?3 AND a.object_id IN (SELECT s.export_id FROM b_export_sources s WHERE s.source_key IN (SELECT 'fee:'||value FROM json_each(?1))
@@ -41,7 +42,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
       OR s.source_key IN (SELECT 'adj:'||d.id FROM b_time_adjustments d JOIN b_time t ON t.id=d.entry_id WHERE t.job_id IN (${jobIds})))))`;
   const history = await rows(db, `SELECT a.id,a.actor,a.action,a.object_id,a.detail,a.at,
       COALESCE((SELECT id FROM b_jobs WHERE id=a.object_id),(SELECT job_id FROM b_requests WHERE id=a.object_id),(SELECT job_id FROM b_files WHERE id=a.object_id),
-        (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id)) job_id
+        (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id)) job_id
     FROM b_audit a WHERE ${objects} AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
     ORDER BY a.at DESC,a.id LIMIT 500`, ids, clientId, lead ? 1 : 0, kind, q);
   const owner = optional(query.owner, 'Owner', 254).toLowerCase();
@@ -52,7 +53,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
 /** Open items of these jobs (and, for leads, client-wide discussions), each with its owner, next action and due condition. */
 async function openItems(db: D1Database, ids: string, clientId: string | null) {
   const open = `SELECT value FROM json_each(?1)`;
-  const [requests, tasks, reviews, threads, notices] = await Promise.all([
+  const [requests, tasks, reviews, threads, notices, portal] = await Promise.all([
     rows(db, `SELECT r.id,r.label,r.status,j.id job_id,j.title,j.period_label,j.preparer_email,j.due_date FROM b_requests r JOIN b_jobs j ON j.id=r.job_id
       WHERE j.id IN (${open}) AND j.status='open' AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
     rows(db, `SELECT s.ordinal,s.label,s.assignee_email,s.assignee_role,j.id job_id,j.title,j.period_label,j.preparer_email,j.reviewer_email,j.manager_email,j.due_date FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
@@ -60,6 +61,8 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
     rows(db, `SELECT j.id job_id,j.title,j.period_label,j.reviewer_email,j.due_date FROM b_jobs j WHERE j.id IN (${open}) AND j.status='review' ORDER BY j.due_date`, ids),
     rows(db, `SELECT t.id,t.title,t.owner_email,t.follow_up_due,t.job_id FROM b_threads t WHERE t.status='open' AND (t.job_id IN (${open}) OR (?2 IS NOT NULL AND t.client_id=?2 AND t.job_id IS NULL)) ORDER BY t.created_at`, ids, clientId),
     rows(db, `SELECT n.id,n.agency,n.notice_type,n.assignee_email,n.response_due,n.job_id FROM b_notices n WHERE n.status='open' AND n.job_id IN (${open}) ORDER BY n.response_due`, ids),
+    rows(db, `SELECT p.id,p.kind,p.body,p.owner_email,p.due_date item_due,j.id job_id,j.title,j.period_label,j.due_date FROM b_portal_items p JOIN b_jobs j ON j.id=p.job_id
+      WHERE j.id IN (${open}) AND j.status<>'signed_off' AND p.status='open' ORDER BY p.created_at`, ids),
   ]);
   const work = (j: Data) => `${j.title} · ${j.period_label}`;
   return [
@@ -70,6 +73,12 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
     }),
     ...reviews.map(r => ({ kind: 'review', id: r.job_id, jobId: r.job_id, work: work(r), owner: r.reviewer_email, nextAction: 'Review and sign off, or return', due: `job due ${r.due_date}` })),
     ...threads.map(t => ({ kind: 'discussion', id: t.id, jobId: t.job_id, work: t.title, owner: t.owner_email, nextAction: `Resolve “${t.title}”`, due: t.follow_up_due ? `follow up by ${t.follow_up_due}` : 'no follow-up date' })),
+    ...portal.map(p => {
+      const about = p.body.length > 60 ? p.body.slice(0, 59) + '…' : p.body;
+      return p.kind === 'question'
+        ? { kind: 'client_question', id: p.id, jobId: p.job_id, work: work(p), owner: p.owner_email, nextAction: `Answer the client: “${about}”`, due: `job due ${p.due_date}` }
+        : { kind: 'client_todo', id: p.id, jobId: p.job_id, work: work(p), owner: p.owner_email, nextAction: `Client to complete “${about}”`, due: p.item_due ? `client due ${p.item_due}` : `job due ${p.due_date}` };
+    }),
     ...notices.map(n => ({ kind: 'notice', id: n.id, jobId: n.job_id, work: `${n.agency} ${n.notice_type}`, owner: n.assignee_email, nextAction: 'Respond to the notice', due: `respond by ${n.response_due}` })),
   ];
 }
@@ -104,10 +113,13 @@ export async function changeOwner(db: D1Database, actor: Actor, clientId: string
   } else if (item.kind === 'discussion') {
     insist(await can(['reviewer']) || (j && j.preparer_email === to), `${to} cannot read this discussion`);
     change = [stmt(db, "UPDATE b_threads SET owner_email=? WHERE id=? AND status='open'", to, itemId)];
+  } else if (item.kind === 'client_question' || item.kind === 'client_todo') {
+    insist(await can(['reviewer']) || j!.preparer_email === to, `${to} cannot read this job`);
+    change = [stmt(db, "UPDATE b_portal_items SET owner_email=? WHERE id=? AND status='open'", to, itemId)];
   } else {
     insist(await can(['preparer', 'reviewer']), 'The assigned practitioner must be an active practice member');
     change = [stmt(db, "UPDATE b_notices SET assignee_email=? WHERE id=? AND status='open'", to, itemId)];
   }
-  await atomic(db, actor, [...change, audit(db, actor, 'item.owner_changed', item.kind === 'discussion' || item.kind === 'notice' ? itemId : j!.id, `${item.kind} ${item.nextAction}: ${item.owner} to ${to}`)]);
+  await atomic(db, actor, [...change, audit(db, actor, 'item.owner_changed', ['discussion', 'notice', 'client_question', 'client_todo'].includes(item.kind) ? itemId : j!.id, `${item.kind} ${item.nextAction}: ${item.owner} to ${to}`)]);
   return { ...item, owner: to };
 }

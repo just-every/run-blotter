@@ -19,7 +19,7 @@ export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: str
         <td data-label="Client">{j.client_name}</td>
         <td data-label="Job">{j.title} · {j.period_label}</td>
         <td data-label="Status"><Status value={j.status} /></td>
-        <td data-label="Outstanding">{j.open_steps} {j.open_steps === 1 ? 'step' : 'steps'} · {j.open_requests} {j.open_requests === 1 ? 'document' : 'documents'}</td>
+        <td data-label="Outstanding">{j.open_steps} {j.open_steps === 1 ? 'step' : 'steps'} · {j.open_requests} {j.open_requests === 1 ? 'document' : 'documents'}{j.client_questions > 0 && <strong> · {j.client_questions} client {j.client_questions === 1 ? 'question' : 'questions'}</strong>}</td>
         <td><button className="quiet text-action" onClick={() => open(j.id)}>Open <span aria-hidden="true">→</span></button></td>
       </tr>)}</tbody>
     </table>

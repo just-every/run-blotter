@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run } from './common';
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
+import { ClientLink } from './client-portal';
 import { JobExpenses } from './expenses';
 import { TaskChoice, TimeBudget, Timer } from './timer';
 import { ReminderComposer } from './messages';
@@ -87,6 +88,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       </section>
     </div></Blotter>
     <Deliverables job={job} deliverables={detail.deliverables} run={run} />
+    <ClientLink detail={detail} run={run} />
     <Discussions detail={detail} actor={actor} run={run} tick={tick} />
     <section className="panel">
       <h2>Time</h2>

@@ -47,7 +47,8 @@ export async function workspace(db: D1Database, actor: Actor) {
   const wide = actor.role !== 'preparer';
   const jobs = await rows(db, `SELECT b_jobs.*,c.name client_name,
       (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.status<>'accepted') open_requests,
-      (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND ${pendingStep('s')}) open_steps
+      (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND ${pendingStep('s')}) open_steps,
+      (SELECT COUNT(*) FROM b_portal_items p WHERE p.job_id=b_jobs.id AND p.kind='question' AND p.status='open') client_questions
     FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id
     WHERE ${readableJobSql}
     ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...readableJobParams(actor));

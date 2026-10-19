@@ -5,6 +5,7 @@ import { demoEffect } from '../modules/demo/index.mjs';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { clientTasks } from './tasks';
+import { portalItems } from './portal-items';
 import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
 import { atomic, audit, digest, guard, human, id, insist, job, now, readableJob, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
@@ -196,7 +197,7 @@ export async function portalView(db: D1Database, token: string, practice: string
   return {
     practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
-    tasks: await clientTasks(db, j),
+    tasks: await clientTasks(db, j), ...await portalItems(db, j),
   };
 }
 

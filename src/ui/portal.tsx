@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Blotter, readFile, Status, when, type Row } from './common';
 import { ClientTasks } from './tasks';
 import { PortalDeliverables } from './deliverables';
+import { PortalConversation, PortalProgress } from './client-portal';
 
 /** The client's upload page. The link's secret is the only credential. */
 export function Portal({ token }: { token: string }) {
@@ -26,6 +27,7 @@ export function Portal({ token }: { token: string }) {
       {!view ? (!error && <p>Opening your request…</p>) : <>
         <h1>Documents for {view.job}</h1>
         <p className="muted">{view.client} · {view.period} · please upload by {view.dueDate}. This link expires {when(view.expiresAt).slice(0, 10)}. Files up to 1 MiB each.</p>
+        <PortalProgress progress={view.progress} />
         <Blotter className="requests">{view.requests.map((r: Row) => <section key={r.id} className="panel">
           <div className="split"><h2>{r.label}</h2><Status value={r.status} /></div>
           {r.note && <p className="notice">Your accountant asks: {r.note}</p>}
@@ -33,6 +35,7 @@ export function Portal({ token }: { token: string }) {
           {view.collecting && r.status !== 'accepted' && <label className="upload">Choose a file to upload<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
         </section>)}</Blotter>
         <ClientTasks tasks={view.tasks} />
+        <PortalConversation view={view} path={path} busy={busy} act={act} reload={load} />
         <PortalDeliverables path={path} busy={busy} act={act} />
       </>}
     </main>
