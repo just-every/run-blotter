@@ -13,9 +13,20 @@ export async function api(path: string, body?: unknown) {
 export const SOURCE: Record<string, string> = { client_service: 'client and service', client: 'client', service: 'service', staff: 'staff member', role: 'role' };
 export const aud = (cents: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(Number(cents) / 100);
 const pad = (n: number) => String(n).padStart(2, '0');
-/** Dates and times in the viewer's own timezone (stored values stay UTC). */
+/** Dates and times in the viewer's own timezone, US style (stored values stay UTC; date-only values are calendar days). */
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-export const when = (iso?: string) => { if (!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const instant = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(value + 'T12:00:00') : new Date(value);
+/** "Tue Oct 13", with the year when it is not this year. */
+export const day = (value?: string) => {
+  if (!value) return '';
+  const d = instant(value), year = d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' as const };
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', ...year }).replaceAll(',', '');
+};
+/** "8:10 am". */
+export const clock = (value?: string) => value ? instant(value).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s?([AP])M/, (_, m: string) => ` ${m.toLowerCase()}m`) : '';
+/** "Tue Oct 13 · 8:10 am". */
+export const when = (iso?: string) => iso ? `${day(iso)} · ${clock(iso)}` : '';
+export const initials = (name = '') => name.replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('');
 
 export async function readFile(file: File) {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -44,7 +55,23 @@ export function Status({ value }: { value: string }) {
   return <span className={`status status-${value}`}>{label.charAt(0).toUpperCase() + label.slice(1)}</span>;
 }
 
-/** The one working sheet on a screen; cards and controls remain real children. */
+/** A tinted band holding a screen's main cards, as the wall's bands hold theirs. */
 export function Blotter({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <div className={`blotter ${className}`}>{children}</div>;
+}
+
+/** The screen's head: tracked eyebrow, the heavy display heading (one word may carry the marigold marker), and a slot at the right. */
+export function PageHead({ eyebrow, title, mark, children }: { eyebrow: ReactNode; title: string; mark?: string; children?: ReactNode }) {
+  const at = mark ? title.indexOf(mark) : -1;
+  return <header className="page-head">
+    <div className="page-title">
+      <p className="eyebrow">{eyebrow}</p>
+      <h1>{at < 0 ? title : <>{title.slice(0, at)}<span className="marked">{mark}</span>{title.slice(at + mark!.length)}</>}{mark && <Sparks />}</h1>
+    </div>
+    {children}
+  </header>;
+}
+/** Two marigold marker ticks after a heading, as the mark's own sparks. */
+export function Sparks() {
+  return <svg className="sparks" viewBox="0 0 40 44" aria-hidden="true"><path d="M8 18 L20 4 M10 26 L32 22 M10 34 L24 42" /></svg>;
 }

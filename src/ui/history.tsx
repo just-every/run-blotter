@@ -1,7 +1,7 @@
 // A client's engagement history and its unresolved items (CRM-003): search and
 // filter the timeline by kind, and filter open items by their owner.
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, when, type Row, type Run, day } from './common';
 
 /** Loads the history only once opened. */
 export function ClientHistoryDetails(props: { clientId: string; people: Row[]; run: Run; open: (id: string) => void }) {
@@ -18,7 +18,7 @@ export function ClientHistory({ clientId, people, run, open }: { clientId: strin
     <h3>Unresolved</h3>
     <Field label="Owner" name="owner"><select name="owner" value={filter.owner} onChange={e => setFilter({ ...filter, owner: e.target.value })}><option value="">Everyone</option>{owners.map(o => <option key={o} value={o}>{o}</option>)}</select></Field>
     {!data.unresolved.length ? <Empty>Nothing is waiting on anyone.</Empty> : <ul className="list">{data.unresolved.map((i: Row) => <li key={i.kind + i.id}>
-      <strong>{i.nextAction}</strong> · {i.owner} · {i.due}{i.jobId && <> · <button className="quiet text-action" onClick={() => open(i.jobId)}>{i.work}</button></>}
+      <strong>{i.nextAction}</strong> · {i.owner} · {day(i.due)}{i.jobId && <> · <button className="quiet text-action" onClick={() => open(i.jobId)}>{i.work}</button></>}
       <select aria-label={`Hand “${i.nextAction}” to`} value="" onChange={e => { const owner = e.target.value; if (owner) run(async () => { await api(`/clients/${clientId}/unresolved/owner`, { kind: i.kind, id: i.id, owner }); setTick(tick + 1); }, `Handed to ${owner}`); }}>
         <option value="">Hand to…</option>{people.filter(p => p.email !== i.owner).map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select></li>)}</ul>}
     <h3>History</h3>

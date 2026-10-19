@@ -1,4 +1,4 @@
-import { api, Field, Form, Status, when, type Row, type Run } from './common';
+import { api, Field, Form, Status, when, type Row, type Run, day } from './common';
 
 /** Milestones and the client's next action (PORTAL-003); staff see the same view on the job. */
 export function PortalProgress({ progress, title = 'Where things stand' }: { progress: Row; title?: string }) {
@@ -23,7 +23,7 @@ export function PortalConversation({ view, path, busy, act, reload }: { view: Ro
     {view.todos.length > 0 && <section className="panel">
       <h2>Your to-dos</h2>
       <ul className="list">{view.todos.map((t: Row) => <li key={t.id}>
-        {t.status === 'done' ? '✓' : '○'} {t.body}{t.dueDate && <small className="muted"> · due {t.dueDate}</small>}
+        {t.status === 'done' ? '✓' : '○'} {t.body}{t.dueDate && <small className="muted"> · due {day(t.dueDate)}</small>}
         {t.status === 'done' ? <small className="muted"> · completed {when(t.closedAt)}{t.response && `: ${t.response}`}</small>
           : <form onSubmit={e => { e.preventDefault(); const data = new FormData(e.currentTarget); post(`${path}/todos/${t.id}`, { response: data.get('response') }, 'To-do completed. Your accountant has been told.'); }}>
             <label>Reply (optional)<input name="response" maxLength={2000} disabled={busy} /></label>
@@ -63,7 +63,7 @@ export function ClientLink({ detail, run }: { detail: Row; run: Run }) {
         <Field label="Answer" name="body"><textarea name="body" required rows={2} /></Field>
       </Form>}
     </article>)}
-    {portal.todos.length > 0 && <ul className="list">{portal.todos.map((t: Row) => <li key={t.id}>{t.status === 'done' ? '✓' : '○'} {t.body} <small className="muted">· set by {t.author}, owner {t.owner_email}{t.due_date && `, due ${t.due_date}`}{t.status === 'done' && ` · completed ${when(t.closed_at)}${t.response ? `: ${t.response}` : ''}`}</small></li>)}</ul>}
+    {portal.todos.length > 0 && <ul className="list">{portal.todos.map((t: Row) => <li key={t.id}>{t.status === 'done' ? '✓' : '○'} {t.body} <small className="muted">· set by {t.author}, owner {t.owner_email}{t.due_date && `, due ${day(t.due_date)}`}{t.status === 'done' && ` · completed ${when(t.closed_at)}${t.response ? `: ${t.response}` : ''}`}</small></li>)}</ul>}
     {writable && <div className="row">
       <Form label="Send to the client" submit={async (data, form) => run(async () => { await api(`/jobs/${job.id}/portal/messages`, { body: data.body }); form.reset(); }, 'Message shown on the client link')}>
         <Field label="Message to the client" name="body"><textarea name="body" required rows={2} /></Field>

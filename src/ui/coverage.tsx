@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, when, type Row, type Run, day } from './common';
 
 const ACTION: Record<string, string> = { change: 'Moves', unresolved: 'Unresolved', conflict: 'Refused', excluded: 'Excluded' };
 
@@ -24,10 +24,10 @@ export function Coverage({ state, open, run, tick }: { state: Row; open: (id: st
       <Field label="Where moved due dates come from" name="dueNote" required={false} hint="Needed when you move a due date below" />
     </Form>
     {plan && <div className="stack">
-      <p className="muted">Open jobs {plan.person} prepares or reviews, due {plan.startsOn} to 14 days after {plan.endsOn}, in dependency order.</p>
+      <p className="muted">Open jobs {plan.person} prepares or reviews, due {day(plan.startsOn)} to 14 days after {day(plan.endsOn)}, in dependency order.</p>
       {!plan.lines.length ? <Empty>No open work falls in these dates.</Empty> : <ul className="list">{plan.lines.map((l: Row) => <li key={l.jobId}>
         <button className="quiet text-action" onClick={() => open(l.jobId)}>{l.work}</button> <strong>{ACTION[l.action]}</strong>
-        {l.to && <small className="muted"> · preparer {l.from.preparer} → {l.to.preparer} · reviewer {l.from.reviewer} → {l.to.reviewer} · due {l.from.dueDate} → {l.to.dueDate}{l.skillMatch && ' · has the skill'}</small>}
+        {l.to && <small className="muted"> · preparer {l.from.preparer} → {l.to.preparer} · reviewer {l.from.reviewer} → {l.to.reviewer} · due {day(l.from.dueDate)} → {day(l.to.dueDate)}{l.skillMatch && ' · has the skill'}</small>}
         {[...l.reasons, ...(l.unresolved ?? [])].map((r: string) => <p key={r} className="error">{r}</p>)}
         <details><summary>Change this line</summary>
           <Form label="Preview with this" submit={async data => choose(l.jobId, { preparerEmail: data.preparerEmail || undefined, dueDate: data.dueDate || undefined, exclude: data.exclude === 'on' })}>

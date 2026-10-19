@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Field, Form, readFile, Status, when, type Row, type Run } from './common';
+import { api, Field, Form, readFile, Status, when, type Row, type Run, day } from './common';
 
 const short = (sha: string) => sha.slice(0, 12);
 
@@ -31,7 +31,7 @@ export function Deliverables({ job, deliverables, run }: { job: Row; deliverable
         <VersionFields />
       </Form>
     </details>}
-    {link && <div className="notice"><p>Version {link.version} sent (SHA-256 {short(link.sha256)}). Delivery: {link.delivery}. This client link is shown once and replaces earlier links. It expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client approval link" /></div>}
+    {link && <div className="notice"><p>Version {link.version} sent (SHA-256 {short(link.sha256)}). Delivery: {link.delivery}. This client link is shown once and replaces earlier links. It expires {day(link.expiresAt)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client approval link" /></div>}
   </section>;
 }
 

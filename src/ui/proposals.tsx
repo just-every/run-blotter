@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Blotter, api, Empty, Field, Form, Status, when, type Row, type Run } from './common';
+import { Blotter, api, Empty, Field, Form, Status, when, type Row, type Run, day } from './common';
 
 export function Proposals({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
   const proposals: Row[] = state.proposals;
   const [link, setLink] = useState<Row>();
   return <Blotter><section className="panel">
     <p className="muted">An agent with your key prepares roll-forwards, client reminders and billing exports. Nothing happens until you approve; every decision is recorded. Create a key under Team & safety and see API.md.</p>
-    {link && <div className="notice"><p>Reminder delivery: {link.delivery}. The upload link is shown once and expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} aria-label="Client upload link" onFocus={e => e.currentTarget.select()} /></div>}
+    {link && <div className="notice"><p>Reminder delivery: {link.delivery}. The upload link is shown once and expires {day(link.expiresAt)}.</p><input readOnly value={link.portalUrl} aria-label="Client upload link" onFocus={e => e.currentTarget.select()} /></div>}
     {!proposals.length && <Empty>No preparations yet.</Empty>}
     {proposals.map(p => { const payload = JSON.parse(p.payload); return <article key={p.id} className="record">
       <div className="split"><strong>{payload.summary}</strong><Status value={p.status} /></div>

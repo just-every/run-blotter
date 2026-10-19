@@ -1,7 +1,7 @@
 // Timesheets (TIME-002): submit a week, correct returned entries, approve or
 // return others' time, close billing periods, and read an entry's history.
 import { useEffect, useState } from 'react';
-import { api, aud, Empty, Field, Form, Status, today, when, type Row, type Run } from './common';
+import { api, aud, Empty, Field, Form, Status, today, when, type Row, type Run, day } from './common';
 
 const useTimesheets = (run: Run, tick: number) => {
   const [data, setData] = useState<Row>();
@@ -48,7 +48,7 @@ export function TimeApprovals({ actor, run, tick }: { actor: Row; run: Run; tick
       </div>
     </li>)}</ul>}
     <h3>Billing periods</h3>
-    {!data.periods.length ? <Empty>No closed periods.</Empty> : <ul className="list">{data.periods.map((p: Row) => <li key={p.id}>{p.start_date} to {p.end_date} · closed by {p.closed_by} {when(p.closed_at)} · {p.note}</li>)}</ul>}
+    {!data.periods.length ? <Empty>No closed periods.</Empty> : <ul className="list">{data.periods.map((p: Row) => <li key={p.id}>{day(p.start_date)} to {p.end_date} · closed by {p.closed_by} {when(p.closed_at)} · {p.note}</li>)}</ul>}
     {actor.role === 'owner' && <details><summary>Close a billing period</summary>
       <p className="muted">Every entry in the period must be approved. Its time is then locked; correct it with an adjustment on the job.</p>
       <Form label="Close period" submit={async data => run(() => api('/periods/close', data), 'Period closed; its time is locked')}>

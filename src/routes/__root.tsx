@@ -10,8 +10,10 @@ export const Route = createRootRoute({
   notFoundComponent: () => <h1>Not found</h1>,
   component: () => <html lang="en"><head>
     {fontLinks.map(link => <link key={link.href} {...link} />)}
-    <link rel="stylesheet" href="/rer-theme.css" />
-    <link rel="stylesheet" href="/blotter.css" />
+    <link rel="stylesheet" href="/site/tokens.css" />
+    <link rel="stylesheet" href="/app/base.css" />
+    <link rel="stylesheet" href="/app/shell.css" />
+    <link rel="stylesheet" href="/app/wall.css" />
     <HeadContent />
     <script dangerouslySetInnerHTML={{ __html: introGuardScript }} />
     <style>{introCss}</style>

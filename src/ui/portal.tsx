@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Blotter, readFile, Status, when, type Row } from './common';
+import { Blotter, readFile, Status, when, type Row, day } from './common';
 import { ClientTasks } from './tasks';
 import { PortalDeliverables } from './deliverables';
 import { PortalConversation, PortalProgress } from './client-portal';
@@ -26,7 +26,7 @@ export function Portal({ token }: { token: string }) {
       {notice && <p className="notice" role="status">{notice}</p>}
       {!view ? (!error && <p>Opening your request…</p>) : <>
         <h1>Documents for {view.job}</h1>
-        <p className="muted">{view.client} · {view.period} · please upload by {view.dueDate}. This link expires {when(view.expiresAt).slice(0, 10)}. Files up to 1 MiB each.</p>
+        <p className="muted">{view.client} · {view.period} · please upload by {day(view.dueDate)}. This link expires {day(view.expiresAt)}. Files up to 1 MiB each.</p>
         <PortalProgress progress={view.progress} />
         <Blotter className="requests">{view.requests.map((r: Row) => <section key={r.id} className="panel">
           <div className="split"><h2>{r.label}</h2><Status value={r.status} /></div>

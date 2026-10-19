@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api, type Row, type Run } from './common';
+import { api, day, PageHead, type Row, type Run } from './common';
+import { Inbox } from './inbox';
 import { Jobs } from './jobs';
 import { Clients } from './clients';
 import { Billing } from './billing';
@@ -9,13 +10,31 @@ import { Team } from './team';
 import { Capacity } from './capacity';
 import { MfaGate } from './security';
 import { Search } from './search';
+import { Account } from './account';
 
-const TABS = ['Jobs', 'Capacity', 'Clients & templates', 'Time & billing', 'Preparations', 'Move in', 'Team & safety'] as const;
-type Tab = typeof TABS[number];
-const visible = (role: string): Tab[] => role === 'owner' ? [...TABS] : role === 'reviewer' ? TABS.filter(t => t !== 'Move in') : ['Jobs', 'Capacity', 'Preparations', 'Team & safety'];
+const TABS = ['Inbox', 'Jobs', 'Capacity', 'Clients & templates', 'Time & billing', 'Preparations', 'Move in', 'Team & safety'] as const;
+export type Tab = typeof TABS[number];
+const visible = (role: string): Tab[] => role === 'owner' ? [...TABS] : role === 'reviewer' ? TABS.filter(t => t !== 'Move in') : ['Inbox', 'Jobs', 'Capacity', 'Preparations', 'Team & safety'];
+
+/** Each screen's tracked eyebrow, from what the workspace already holds. */
+function eyebrow(tab: Tab, state: Row) {
+  const jobs: Row[] = state.jobs, open = jobs.filter(j => j.status === 'open').length, review = jobs.filter(j => j.status === 'review').length;
+  const pending = (state.proposals as Row[]).filter(p => p.status === 'pending').length;
+  const parts: Record<Tab, string[]> = {
+    'Inbox': [],
+    'Jobs': [`${open} open`, `${review} in review`],
+    'Capacity': ['hours, leave and demand'],
+    'Clients & templates': [`${state.clients.length} ${state.clients.length === 1 ? 'client' : 'clients'}`, `${state.templates.length} ${state.templates.length === 1 ? 'template' : 'templates'}`],
+    'Time & billing': ['time, expenses and exports'],
+    'Preparations': [`${pending} waiting for you`],
+    'Move in': ['bring your client list'],
+    'Team & safety': [state.actor.role === 'owner' ? 'people, rates, keys and archive' : 'your rate and sign-in'],
+  };
+  return [tab, ...parts[tab], day(new Date().toISOString())].join(' · ');
+}
 
 export function Workspace() {
-  const [state, setState] = useState<Row>(), [tab, setTab] = useState<Tab>('Jobs'), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [state, setState] = useState<Row>(), [tab, setTab] = useState<Tab>('Inbox'), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false), [tick, setTick] = useState(0), [jobId, setJobId] = useState(''), [gate, setGate] = useState<'enroll' | 'verify'>();
   // A session that still owes a second factor (ACCESS-004) sees only the factor screen.
   const owed = (e: unknown) => { const need = (e as { mfa?: 'enroll' | 'verify' }).mfa; if (need) setGate(need); return !!need; };
@@ -26,35 +45,33 @@ export function Workspace() {
     try { await job(); await reload(); setNotice(message); } catch (e) { if (!owed(e)) setError((e as Error).message); } finally { setBusy(false); }
   };
   const actor = state?.actor;
+  const go = (t: Tab) => { setTab(t); setNotice(''); setError(''); if (t === 'Jobs') setJobId(''); };
   const open = (id: string) => { setJobId(id); setTab('Jobs'); setNotice(''); setError(''); };
   return <div className="workspace" aria-busy={busy}>
     <header className="topbar">
-      <a className="brand" href="/app"><img src="/brand/mark-32.svg" alt="" width="28" height="28" /><span data-rer-name>Blotter</span></a>
-      <span className="muted">Practice workflow</span>
-      {actor ? <span className="badge">{actor.name} · {actor.role}</span> : null}
-      <button className="quiet signout" onClick={async () => { await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' }); location.href = '/signin'; }}>Sign out</button>
-    </header>
-    <div className="layout">
-      <nav aria-label="Workspace">
-        {(actor ? visible(actor.role) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => { setTab(t); setNotice(''); setError(''); if (t === 'Jobs') setJobId(''); }}>{t}</button>)}
-        <p className="boundary">AUD time and fees for your own billing. No filing, tax calculation or advice.</p>
+      <a className="brand" href="/app"><img src="/brand/mark-32.svg" alt="" width="30" height="30" /><span data-rer-name>Blotter</span></a>
+      <nav aria-label="Workspace" className="tabs">
+        {(actor && !gate ? visible(actor.role) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => go(t)}>{t}</button>)}
       </nav>
-      <main>
-        <h1>{tab}</h1>
-        {error && <p className="error" role="alert">{error}{/Sign in/.test(error) && <> <a href="/signin">Open sign in</a></>}</p>}
-        {notice && <p className="notice" role="status">{notice}</p>}
-        {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
-          : !state ? (!error && <p>Opening your workspace…</p>) : <fieldset disabled={busy} className="content">
-          <Search state={state} run={run} open={open} />
-          {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
-          {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
-          {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
-          {tab === 'Time & billing' && <Billing actor={state.actor} run={run} tick={tick} />}
-          {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
-          {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
-          {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}
-        </fieldset>}
-      </main>
-    </div>
+      {state && !gate && <Search state={state} run={run} open={open} />}
+      {actor && <Account actor={actor} />}
+    </header>
+    <main className={`screen screen-${tab === 'Inbox' ? 'inbox' : 'page'}`}>
+      <div id="search-slot" />
+      {error && <p className="error" role="alert">{error}{/Sign in/.test(error) && <> <a href="/signin">Open sign in</a></>}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
+      {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
+        : !state ? (!error && <p className="opening">Opening your workspace…</p>) : <fieldset disabled={busy} className="content">
+        {tab === 'Inbox' ? <Inbox state={state} run={run} open={open} go={go} tick={tick} /> : <PageHead eyebrow={eyebrow(tab, state)} title={tab} />}
+        {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
+        {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
+        {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
+        {tab === 'Time & billing' && <Billing actor={state.actor} run={run} tick={tick} />}
+        {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
+        {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
+        {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}
+      </fieldset>}
+      <p className="boundary">AUD time and fees for your own billing. No filing, tax calculation or advice.</p>
+    </main>
   </div>;
 }

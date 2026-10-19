@@ -40,6 +40,7 @@ import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
 import { forecast, saveScenario, scenarios } from './forecast';
 import { search } from './search';
+import { inbox } from './inbox';
 import { addProspect, addStage, moveProspect, pipeline, winProspect } from './prospects';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
@@ -74,6 +75,7 @@ const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.
 const P = '/api/blotter';
 
 api.get(`${P}/state`, as((a, c) => workspace(db(c), a)));
+api.get(`${P}/inbox`, as((a, c) => inbox(db(c), a)));
 api.get(`${P}/mfa`, asOpen((a, c) => mfaState(db(c), a)));
 api.post(`${P}/mfa/totp/start`, asOpen(async (a, c) => startTotp(db(c), a, sealer(c), await body(c))));
 api.post(`${P}/mfa/totp/confirm`, asOpen(async (a, c) => confirmTotp(db(c), a, sealer(c), await body(c))));

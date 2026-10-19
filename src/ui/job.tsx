@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run } from './common';
+import { Blotter, api, aud, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run, day } from './common';
 import { Deliverables } from './deliverables';
 import { Discussions } from './discussions';
 import { ClientLink } from './client-portal';
@@ -25,7 +25,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
     <button className="quiet back" onClick={back}>← All jobs</button>
     <Blotter className="job-working"><section className="panel">
       <div className="split">
-        <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {job.due_date} ({job.due_note})</p></div>
+        <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {day(job.due_date)} ({job.due_note})</p></div>
         <Status value={job.status} />
       </div>
       <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.partner_email && <> · partner {job.partner_email}</>}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
@@ -85,7 +85,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         {isOpen && <details><summary>Send a reminder with an upload link</summary>
           <ReminderComposer jobId={job.id} run={run} sent={setLink} />
         </details>}
-        {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {link.expiresAt.slice(0, 10)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
+        {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {day(link.expiresAt)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
         {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}{JSON.parse(m.attachments ?? '[]').length > 0 && <small className="muted"> · attached {JSON.parse(m.attachments).map((f: Row) => f.name).join(', ')}</small>}</li>)}</ul></details>}
       </section>
     </div></Blotter>

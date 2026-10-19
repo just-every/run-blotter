@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, when, type Row, type Run, day } from './common';
 import { FilterBar, JobFlags, NO_FILTERS, PRIORITY } from './filters';
 
 const OPEN = ['planned', 'ready', 'in_progress', 'waiting'];
@@ -62,7 +62,7 @@ export function Board({ state, open, run, tick }: { state: Row; open: (id: strin
     <div className="board">{board.columns.map((c: Row) => <div key={c.key} className="board-column"><h3>{c.label} <small className="muted">{c.jobs.length}</small></h3>
       {c.jobs.map((j: Row) => <article key={j.id} className="record" style={{ borderLeftColor: j.color }}>
         <button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} · {j.period_label}</button>
-        <small className="muted"> {j.work_type}{j.sub_status && ` · ${j.sub_status}`} · due {j.due_date}</small> <JobFlags job={j} />
+        <small className="muted"> {j.work_type}{j.sub_status && ` · ${j.sub_status}`} · due {day(j.due_date)}</small> <JobFlags job={j} />
         {j.status !== 'signed_off' && <MoveTo model={model} job={j} run={run} />}
       </article>)}</div>)}</div>
   </section>;

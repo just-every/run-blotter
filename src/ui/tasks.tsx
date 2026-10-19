@@ -1,4 +1,4 @@
-import { readFile, type Row } from './common';
+import { readFile, type Row, day } from './common';
 
 const ROLE: Record<string, string> = { preparer: 'Preparer', reviewer: 'Reviewer', manager: 'Manager' };
 const blank = { label: '', assignee: '', dueFrom: '', dueDays: '', startFrom: '', startDays: '', estimateMinutes: '', instructions: '', sopUrl: '', requiresAttachment: false, clientFacing: false,
@@ -52,7 +52,7 @@ export const taskBody = (tasks: Row[]) => tasks.map(({ afterTemplate, afterGate,
 /** One task on the job checklist: owner, dates, estimate, instructions, SOP link and attachment. */
 export function TaskInfo({ jobId, step }: { jobId: string; step: Row }) {
   const bits = [step.owner && `${step.done_at ? 'Owner was' : 'Owner'} ${step.owner}${step.assignee_role && !step.done_at ? ` (${ROLE[step.assignee_role]})` : ''}`,
-    step.start_date && `starts ${step.start_date}`, step.due_date && `due ${step.due_date}`, step.estimate_minutes && `estimate ${step.estimate_minutes} min`,
+    step.start_date && `starts ${day(step.start_date)}`, step.due_date && `due ${day(step.due_date)}`, step.estimate_minutes && `estimate ${step.estimate_minutes} min`,
     step.client_facing ? 'client-facing' : '', step.requires_attachment ? 'needs an attachment' : ''].filter(Boolean);
   return <>
     {bits.length > 0 && <small className="muted"> · {bits.join(' · ')}</small>}
@@ -66,5 +66,5 @@ export async function attachmentBody(file: File | undefined) { return file ? { a
 /** Client-facing tasks on the client's link: label, due date and whether it is done. */
 export function ClientTasks({ tasks }: { tasks: Row[] }) {
   if (!tasks?.length) return null;
-  return <section className="panel"><h2>Progress</h2><ul className="list">{tasks.map((t: Row, n: number) => <li key={n}>{t.done ? '✓' : '○'} {t.label}{t.dueDate && <small className="muted"> · due {t.dueDate}</small>}</li>)}</ul></section>;
+  return <section className="panel"><h2>Progress</h2><ul className="list">{tasks.map((t: Row, n: number) => <li key={n}>{t.done ? '✓' : '○'} {t.label}{t.dueDate && <small className="muted"> · due {day(t.dueDate)}</small>}</li>)}</ul></section>;
 }

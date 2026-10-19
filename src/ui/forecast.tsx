@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, today, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, today, when, type Row, type Run, day } from './common';
 
 const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
 const hours = (m: number) => `${Math.round(m / 6) / 10} h`;
@@ -35,8 +35,8 @@ export function Forecast({ state, run, tick }: { state: Row; run: Run; tick: num
       <p className="muted">{view.scenario ? `Saved scenario “${view.scenario.name}”: ` : ''}{view.from} to {view.to}. Demand is a range with its confidence; capacity is weekly hours less leave and commitments.</p>
       <table className="table">
         <thead><tr><th>Week</th><th>Demand</th><th>Capacity</th><th>Confidence</th>{compared && <><th>Scenario demand</th><th>Scenario capacity</th></>}</tr></thead>
-        <tbody>{view.baseline.weeks.map((w: Row, n: number) => <tr key={w.weekStart}>
-          <td data-label="Week">{w.weekStart}</td><td data-label="Demand">{range(w.demand)}{w.shortMinutes > 0 && <strong> · short up to {hours(w.shortMinutes)}</strong>}</td>
+        <tbody>{view.baseline.weeks.map((w: Row, n: number) => <tr key={day(w.weekStart)}>
+          <td data-label="Week">{day(w.weekStart)}</td><td data-label="Demand">{range(w.demand)}{w.shortMinutes > 0 && <strong> · short up to {hours(w.shortMinutes)}</strong>}</td>
           <td data-label="Capacity">{hours(w.capacityMinutes)}</td>
           <td data-label="Confidence">{w.confidence.level}{w.confidence.reasons.length > 0 && <ul>{w.confidence.reasons.map((r: string) => <li key={r}><small>{r}</small></li>)}</ul>}</td>
           {compared && <><td data-label="Scenario demand">{range(compared.weeks[n].demand)}</td><td data-label="Scenario capacity">{hours(compared.weeks[n].capacityMinutes)}</td></>}
@@ -53,7 +53,7 @@ export function Forecast({ state, run, tick }: { state: Row; run: Run; tick: num
       </table>}
       {compared?.removed.length > 0 && <p className="muted">Left out for the scenario: {compared.removed.map((r: Row) => `${r.client} · ${r.workType} ${r.periodLabel} (${r.reason})`).join('; ')}.</p>}
       <details><summary>Where each estimate comes from</summary><ul className="list">{view.baseline.lines.map((l: Row) => <li key={l.ruleId + l.periodStart}>
-        {l.client} · {l.workType} · {l.periodLabel} <small className="muted">due {l.due} · {range(l)} · {l.basis}{l.samples.length > 0 && `: ${l.samples.map((s: Row) => `${s.periodLabel} ${hours(s.actualMinutes)}`).join(', ')}`}</small></li>)}</ul></details>
+        {l.client} · {l.workType} · {l.periodLabel} <small className="muted">due {day(l.due)} · {range(l)} · {l.basis}{l.samples.length > 0 && `: ${l.samples.map((s: Row) => `${s.periodLabel} ${hours(s.actualMinutes)}`).join(', ')}`}</small></li>)}</ul></details>
       <details><summary>Assumptions</summary><ul className="list">{view.assumptions.map((a: string) => <li key={a}><small>{a}</small></li>)}</ul></details>
       {request && !request.scenarioId && compared && <Form label="Save scenario" submit={async data => run(() => api('/capacity/scenarios', { name: data.name, from: request.from, weeks: request.weeks, changes: request.changes }), 'Scenario saved')}>
         <Field label="Scenario name" name="name" />

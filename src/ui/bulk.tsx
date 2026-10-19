@@ -1,7 +1,7 @@
 // Bulk scheduling and reassignment (WORK-004): preview every impacted job and
 // conflict, then commit exactly that preview.
 import { useState } from 'react';
-import { api, Empty, Field, Form, type Row, type Run } from './common';
+import { api, Empty, Field, Form, type Row, type Run, day } from './common';
 
 const ACTION: Record<string, string> = { create: 'Will be created', exists: 'Already exists, kept', excluded: 'Excluded', conflict: 'Conflict', change: 'Will change', unchanged: 'No change' };
 
@@ -11,7 +11,7 @@ function Outcome({ plan, commit, run }: { plan: Row; commit: () => Promise<void>
     <table className="table"><thead><tr><th>Job</th><th>People and date</th><th>Outcome</th></tr></thead>
       <tbody>{plan.lines.map((l: Row) => <tr key={l.jobId ?? l.clientId}>
         <td data-label="Job">{l.client}{l.job && ` · ${l.job}`}</td>
-        <td data-label="People">{l.to ? `${l.to.preparer} / ${l.to.reviewer} · due ${l.to.dueDate}` : l.preparer ? `${l.preparer} (${l.preparerFrom}) / ${l.reviewer} (${l.reviewerFrom})` : ''}</td>
+        <td data-label="People">{l.to ? `${l.to.preparer} / ${l.to.reviewer} · due ${day(l.to.dueDate)}` : l.preparer ? `${l.preparer} (${l.preparerFrom}) / ${l.reviewer} (${l.reviewerFrom})` : ''}</td>
         <td data-label="Outcome">{ACTION[l.action]}{l.reasons.length > 0 && `: ${l.reasons.join('; ')}`}</td>
       </tr>)}</tbody></table>
     {blocked ? <p className="muted">Resolve each conflict with an override, or leave that item out, then preview again.</p>
@@ -64,7 +64,7 @@ export function ReassignBulk({ state, run }: { state: Row; run: Run }) {
       const body = { jobIds: open.filter((j: Row) => data['job:' + j.id]).map((j: Row) => j.id), preparerEmail: data.preparerEmail, reviewerEmail: data.reviewerEmail, dueDate: data.dueDate, dueNote: data.dueNote };
       setRequest(body); setPlan(await api('/bulk/reassign/preview', body));
     })}>
-      <fieldset><legend>Jobs</legend>{open.map((j: Row) => <label key={j.id} className="check"><input type="checkbox" name={'job:' + j.id} /> {j.client_name} · {j.title} · {j.period_label} (due {j.due_date})</label>)}</fieldset>
+      <fieldset><legend>Jobs</legend>{open.map((j: Row) => <label key={j.id} className="check"><input type="checkbox" name={'job:' + j.id} /> {j.client_name} · {j.title} · {j.period_label} (due {day(j.due_date)})</label>)}</fieldset>
       <div className="row">
         <Field label="New preparer" name="preparerEmail">{pick('preparerEmail', ['owner', 'reviewer', 'preparer'])}</Field>
         <Field label="New reviewer" name="reviewerEmail">{pick('reviewerEmail', ['owner', 'reviewer'])}</Field>

@@ -1,7 +1,7 @@
 // Automatic recurring work (WORK-002): approve a rule, preview its schedule,
 // pause, skip or claim periods, and see the scheduler's runs.
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, when, type Row, type Run, day } from './common';
 
 const STATE: Record<string, string> = { generated: 'created', claimed: 'existing job claimed', skipped: 'skipped', due: 'created at the next run', scheduled: 'scheduled' };
 
@@ -14,7 +14,7 @@ export function RecurrencePanel({ state, run, tick }: { state: Row; run: Run; ti
     <p className="muted">Each approved rule creates its periods' jobs ahead of time (an hourly run, in UTC dates), once each, with fresh document requests. Due dates are the period's last day plus the rule's days; change one job's due date under Reassign or reschedule.</p>
     {!data ? <p>Opening rules…</p> : !data.rules.length ? <Empty>No rules yet.</Empty> : data.rules.map((r: Row) => <article key={r.id} className="record">
       <div className="split"><strong>{r.client} · {r.template}</strong><small className="muted">{r.status} · {r.lead_months} months ahead · due {r.due_days} days after period end{r.budget_minutes && ` · budget ${r.budget_minutes} min`}{r.end_period && ` · last period ${r.end_period}`}</small></div>
-      <ul className="list">{r.schedule.map((p: Row) => <li key={p.periodStart}>{p.label} <small className="muted">· {STATE[p.state]}{p.state === 'scheduled' && ` on ${p.createOn}`} · due {p.dueDate}{p.note && ` · ${p.note}`}</small></li>)}</ul>
+      <ul className="list">{r.schedule.map((p: Row) => <li key={p.periodStart}>{p.label} <small className="muted">· {STATE[p.state]}{p.state === 'scheduled' && ` on ${day(p.createOn)}`} · due {day(p.dueDate)}{p.note && ` · ${p.note}`}</small></li>)}</ul>
       <div className="actions">
         <button className="quiet" onClick={() => run(() => api(`/rules/${r.id}/status`, { status: r.status === 'active' ? 'paused' : 'active' }), r.status === 'active' ? 'Rule paused' : 'Rule resumed; missed periods are created at the next run')}>{r.status === 'active' ? 'Pause' : 'Resume'}</button>
         <details><summary>Skip a period</summary><Form label="Skip period" submit={async data => run(() => api(`/rules/${r.id}/skip`, data), 'Period skipped')}>

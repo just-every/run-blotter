@@ -1,33 +1,5 @@
-/* run-blotter.com tokens, defined once: the homepage, /docs, /run, /contract and the not-found page read them.
-   The desk-approved look (19 Oct 2026): crisp white, ink line, marigold, lilac, mint for done, one tangerine ring.
-   The --rer-* names feed Base's shared /run, /contract and not-found pages. */
-:root {
-  --bl-white:#ffffff; --bl-ink:#111111; --bl-text:#24222c; --bl-muted:#5c5868; --bl-faint:#8b879a;
-  --bl-wash:#f7f4fe; --bl-line:#e3dafa; --bl-line-strong:#cbbaf5;
-  --bl-lilac:#d2bafe; --bl-lilac-mid:#b88aee; --bl-lilac-deep:#7343cf; --bl-lilac-tint:#efe8fd; --bl-lilac-pale:#f4effe;
-  --bl-marigold:#fed24a; --bl-marigold-ui:#fcc231; --bl-marigold-line:#fdbe1f; --bl-marigold-tint:#fff3c8; --bl-marigold-pale:#fff9e4;
-  --bl-mint:#b6eed6; --bl-mint-tint:#e3f8ee; --bl-mint-line:#9fdcc0; --bl-green:#3eab7c; --bl-green-deep:#17784f;
-  --bl-tangerine:#f66a2e; --bl-amber:#f5b52e; --bl-amber-tint:#fff1cf; --bl-raspberry:#d62b6f; --bl-pistachio:#4e9a2f;
-  --bl-coral-line:#f3b6c3; --bl-coral:#e0435e; --bl-sky-line:#bcd5f3; --bl-sky-tint:#eef5fd;
-  --bl-night:#0f0e13; --bl-night-card:#17161d; --bl-night-line:#2c2a36; --bl-night-text:#e9e6f2; --bl-night-muted:#a7a2b8;
-  --bl-shadow:0 1px 2px rgba(30,20,60,.05),0 10px 28px -12px rgba(60,40,120,.18);
-  --bl-shadow-lift:0 2px 4px rgba(30,20,60,.06),0 22px 44px -18px rgba(60,40,120,.28);
-  --bl-radius:14px;
-  --bl-font-display:'Roboto Serif Display','Roboto Serif',Georgia,serif;
-  --bl-font-body:'Red Hat Text',Arial,sans-serif;
-  --bl-font-ui:'Red Hat Display','Red Hat Text',Arial,sans-serif;
-  --bl-font-hand:'Kalam','Comic Sans MS',cursive;
-  --bl-font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --bl-display-stretch:62%;
-  --bl-page:1440px;
-  --bl-gutter:clamp(16px,4.4vw,64px);
-  --rer-page:var(--bl-white); --rer-surface:var(--bl-white); --rer-text:var(--bl-ink); --rer-muted:var(--bl-muted);
-  --rer-border:var(--bl-lilac-mid); --rer-focus:var(--bl-lilac-deep); --rer-link:var(--bl-ink);
-  --rer-accent:var(--bl-ink); --rer-accent-text:var(--bl-white);
-  --rer-code-background:var(--bl-ink); --rer-code-text:#f5f2fd;
-  --rer-font-body:var(--bl-font-body); --rer-font-heading:var(--bl-font-display); --rer-font-mono:var(--bl-font-mono);
-  --rer-wordmark-tracking:0; --rer-radius:14px; --rer-button-radius:12px; --rer-logo:url('/brand/mark.svg');
-}
+/* run-blotter.com's frame for Base's shared /run, /contract and not-found pages. Tokens: /site/tokens.css. */
+@import url('/site/tokens.css');
 /* Base's shared pages set their heading face from --rer-font-heading; the display face is condensed and heavy. */
 body > .bar .brand, body h1, body main h1, body .step h2, body .big, body .of, body .card h2 { font-variation-settings:'wdth' 50; font-weight:900; }
 body > .bar .brand { font-size:30px; }

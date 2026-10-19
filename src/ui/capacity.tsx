@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, today, type Row, type Run } from './common';
+import { api, Empty, Field, Form, today, type Row, type Run, day } from './common';
 import { Coverage } from './coverage';
 import { Forecast } from './forecast';
 
@@ -21,7 +21,7 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
           <Field label="Service" name="service" required={false}><select name="service" defaultValue={filter.service}><option value="">Every work type</option>{state.statusModel.workTypes.map((w: Row) => <option key={w.id} value={w.name}>{w.name}</option>)}</select></Field></div>
       </Form>
       {!view ? <p>Opening capacity…</p> : <>
-        <p className="muted">{view.weekStart} to {view.weekEnd}. Available hours are weekly hours less leave and commitments on weekdays. Demand is the estimates of open work due this week; actual time is shown beside it and never subtracted.</p>
+        <p className="muted">{day(view.weekStart)} to {day(view.weekEnd)}. Available hours are weekly hours less leave and commitments on weekdays. Demand is the estimates of open work due this week; actual time is shown beside it and never subtracted.</p>
         <p><strong>Available {hours(view.totals.availableMinutes)}</strong> · estimated demand {hours(view.totals.demandMinutes)} · actual this week {hours(view.totals.actualMinutes)}</p>
         <table className="table">
           <thead><tr><th>Person</th><th>Weekly</th><th>Leave</th><th>Commitments</th><th>Available</th><th>Estimated demand</th><th>Actual</th><th>Load</th></tr></thead>
@@ -32,17 +32,17 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
             <td data-label="Available">{hours(p.availableMinutes)}</td><td data-label="Estimated demand">{hours(p.demandMinutes)}</td><td data-label="Actual">{hours(p.actualMinutes)}</td>
             <td data-label="Load">{p.overloaded ? <strong>Over by {hours(p.overMinutes)}</strong> : 'Within capacity'}
               {(p.jobs.length > 0 || p.blocks.length > 0) && <details><summary>Jobs and time off</summary>
-                <ul className="list">{p.blocks.map((b: Row) => <li key={b.id}>{b.kind}: {b.label} <small className="muted">{b.startsOn} to {b.endsOn} · {hours(b.minutes)} this week</small>
+                <ul className="list">{p.blocks.map((b: Row) => <li key={b.id}>{b.kind}: {b.label} <small className="muted">{day(b.startsOn)} to {day(b.endsOn)} · {hours(b.minutes)} this week</small>
                   {owner && <button className="quiet" onClick={() => run(() => api(`/capacity/blocks/${b.id}/delete`, {}), 'Removed')}>Remove</button>}</li>)}
-                  {p.jobs.map((l: Row) => <li key={l.jobId + l.label}><button className="quiet text-action" onClick={() => open(l.jobId)}>{l.work}</button> <small className="muted">{l.kind}: {l.label} · due {l.due} · estimate {hours(l.estimateMinutes)} · actual so far {hours(l.actualMinutes)}</small>{estimate(l)}</li>)}</ul>
+                  {p.jobs.map((l: Row) => <li key={l.jobId + l.label}><button className="quiet text-action" onClick={() => open(l.jobId)}>{l.work}</button> <small className="muted">{l.kind}: {l.label} · due {day(l.due)} · estimate {hours(l.estimateMinutes)} · actual so far {hours(l.actualMinutes)}</small>{estimate(l)}</li>)}</ul>
               </details>}</td>
           </tr>)}</tbody>
         </table>
         <h3>Deadline conflicts</h3>
-        {!view.conflicts.length ? <Empty>No conflicts this week.</Empty> : <ul className="list">{view.conflicts.map((c: Row) => <li key={c.jobId}><button className="quiet text-action" onClick={() => open(c.jobId)}>{c.work}</button> <small className="muted">due {c.due}</small><ul>{c.reasons.map((r: string) => <li key={r}>{r}</li>)}</ul></li>)}</ul>}
+        {!view.conflicts.length ? <Empty>No conflicts this week.</Empty> : <ul className="list">{view.conflicts.map((c: Row) => <li key={c.jobId}><button className="quiet text-action" onClick={() => open(c.jobId)}>{c.work}</button> <small className="muted">due {day(c.due)}</small><ul>{c.reasons.map((r: string) => <li key={r}>{r}</li>)}</ul></li>)}</ul>}
         <h3>Unscheduled work</h3>
-        {!view.unscheduled.length ? <Empty>Every open item due this week has an estimate.</Empty> : <ul className="list">{view.unscheduled.map((u: Row) => <li key={u.jobId + u.label}><button className="quiet text-action" onClick={() => open(u.jobId)}>{u.work}</button> <small className="muted">{u.label} · {u.owner} · due {u.due} · {u.reason}</small>{estimate(u)}</li>)}</ul>}
-        {view.pastDue.length > 0 && <><h3>Past due, not counted</h3><ul className="list">{view.pastDue.map((u: Row) => <li key={u.jobId + u.label}><button className="quiet text-action" onClick={() => open(u.jobId)}>{u.work}</button> <small className="muted">{u.label} · {u.owner} · due {u.due}</small></li>)}</ul></>}
+        {!view.unscheduled.length ? <Empty>Every open item due this week has an estimate.</Empty> : <ul className="list">{view.unscheduled.map((u: Row) => <li key={u.jobId + u.label}><button className="quiet text-action" onClick={() => open(u.jobId)}>{u.work}</button> <small className="muted">{u.label} · {u.owner} · due {day(u.due)} · {u.reason}</small>{estimate(u)}</li>)}</ul>}
+        {view.pastDue.length > 0 && <><h3>Past due, not counted</h3><ul className="list">{view.pastDue.map((u: Row) => <li key={u.jobId + u.label}><button className="quiet text-action" onClick={() => open(u.jobId)}>{u.work}</button> <small className="muted">{u.label} · {u.owner} · due {day(u.due)}</small></li>)}</ul></>}
       </>}
     </section>
     {state.actor.role !== 'preparer' && <Coverage state={state} open={open} run={run} tick={tick} />}

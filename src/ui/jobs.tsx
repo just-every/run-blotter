@@ -1,4 +1,4 @@
-import { Blotter, Empty, Status, type Row, type Run } from './common';
+import { Blotter, Empty, Status, type Row, type Run, day } from './common';
 import { JobDetail } from './job';
 import { ReassignBulk } from './bulk';
 import { MyTimesheet } from './timesheet';
@@ -27,7 +27,7 @@ function JobList({ state, jobs, open, run, tick }: { state: Row; jobs: Row[]; op
     {view === 'board' ? <Board state={state} open={open} run={run} tick={tick} /> : view === 'calendar' ? <Calendar state={state} open={open} run={run} tick={tick} /> : <table className="table">
       <thead><tr><th>Due</th><th>Client</th><th>Job</th><th>Status</th><th>Outstanding</th><th><span className="sr-only">Open</span></th></tr></thead>
       <tbody>{jobs.map(j => <tr key={j.id}>
-        <td data-label="Due">{j.due_date}</td>
+        <td data-label="Due">{day(j.due_date)}</td>
         <td data-label="Client">{j.client_name}</td>
         <td data-label="Job">{j.title} · {j.period_label}</td>
         <td data-label="Status"><Status value={j.status} /> <small className="muted">{j.work_type} · {statusLabel(state.statusModel, j.stage, j.sub_status)}</small></td>
