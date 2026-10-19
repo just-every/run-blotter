@@ -1254,6 +1254,60 @@ test('ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review
   await h.json('/state', undefined, again, 401);
 });
 
+test('CRM-003 client history and unresolved items: a newest-first timeline with authors and job links, searchable by kind and text; open items name an owner, next action and due condition and change hands; a preparer sees only jobs they may read', async () => {
+  const shop = await h.json('/clients', { name: 'Larkspur Books', contactName: 'Iris Lark', contactEmail: 'iris@larkspur.example', fields: { service_tier: 'Plus' } }, h.owner);
+  const start = { clientId: shop.id, templateId: template.id, dueNote: 'Firm close' };
+  const mine = await h.json('/jobs', { ...start, periodStart: '2027-01-01', dueDate: '2027-02-28', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+  const theirs = await h.json('/jobs', { ...start, periodStart: '2027-04-01', dueDate: '2027-05-31', preparerEmail: 'reviewer@example.test', reviewerEmail: 'owner@example.test' }, h.owner);
+  const bank = (await h.json('/jobs/' + mine.id, undefined, preparer)).requests.find(r => r.label === 'Bank statements');
+  await h.json(`/jobs/${mine.id}/reminders`, {}, preparer);
+  await h.json(`/requests/${bank.id}/files`, { name: 'bank.csv', mime: 'text/csv', contentBase64: b64('date,amount') }, preparer);
+  await h.json(`/jobs/${mine.id}/steps`, { ordinal: 1, done: true }, preparer);
+  await h.json(`/jobs/${theirs.id}/threads`, { title: 'Inventory count', body: 'Count on the 30th.', mentions: [] }, reviewer);
+  const lead = await h.json(`/clients/${shop.id}/history`, undefined, reviewer);
+  const events = lead.history.map(e => JSON.stringify([e.action, e.actor, e.job_id]));
+  for (const e of [['client.added', 'owner@example.test', null], ['job.started', 'owner@example.test', mine.id], ['file.uploaded', 'preparer@example.test', mine.id], ['step.done', 'preparer@example.test', mine.id], ['thread.opened', 'reviewer@example.test', theirs.id]])
+    assert.ok(events.includes(JSON.stringify(e)), JSON.stringify(e));
+  assert.deepEqual(lead.history.map(e => e.at), lead.history.map(e => e.at).sort().reverse());
+  assert.deepEqual((await h.json(`/clients/${shop.id}/history?kind=documents`, undefined, reviewer)).history.map(e => e.action), ['file.uploaded']);
+  assert.deepEqual((await h.json(`/clients/${shop.id}/history?q=inventory`, undefined, reviewer)).history.map(e => e.action), ['thread.opened']);
+  await h.json(`/clients/${shop.id}/history?kind=gossip`, undefined, reviewer, 400);
+  // Every open item has a responsible person, a next action and a due condition.
+  const items = lead.unresolved.map(i => JSON.stringify([i.kind, i.owner, i.nextAction, i.due]));
+  for (const i of [['request', 'preparer@example.test', 'Accept or return “Bank statements”', 'job due 2027-02-28'], ['request', 'preparer@example.test', 'Collect “Sales invoices” from the client', 'job due 2027-02-28'],
+    ['task', 'preparer@example.test', 'Complete “Draft BAS”', 'job due 2027-02-28'], ['discussion', 'reviewer@example.test', 'Resolve “Inventory count”', 'no follow-up date']])
+    assert.ok(items.includes(JSON.stringify(i)), JSON.stringify(i));
+  const reviewers = (await h.json(`/clients/${shop.id}/history?owner=reviewer@example.test`, undefined, reviewer)).unresolved;
+  assert.ok(reviewers.length > 0 && reviewers.every(i => i.owner === 'reviewer@example.test'));
+  // A preparer sees only the jobs they may read, and no client they have no work for.
+  const own = await h.json(`/clients/${shop.id}/history`, undefined, preparer);
+  assert.deepEqual(own.jobs.map(j => j.id), [mine.id]);
+  assert.ok(own.history.length > 0 && own.history.every(e => e.job_id === mine.id));
+  assert.ok(own.unresolved.every(i => i.jobId === mine.id));
+  const quiet = await h.json('/clients', { name: 'Quietwater LLC', fields: { service_tier: 'Plus' } }, h.owner);
+  await h.json(`/clients/${quiet.id}/history`, undefined, preparer, 404);
+  // A reviewer or the principal hands items on; nobody is made to review their own work or own a discussion they cannot read.
+  const find = (kind, action) => lead.unresolved.find(i => i.kind === kind && i.nextAction === action);
+  const task = find('task', 'Complete “Draft BAS”'), collect = find('request', 'Collect “Sales invoices” from the client'), talk = find('discussion', 'Resolve “Inventory count”');
+  const hand = (item, owner, who = reviewer, expected = 200) => h.json(`/clients/${shop.id}/unresolved/owner`, { kind: item.kind, id: item.id, owner }, who, expected);
+  await hand(task, 'reviewer@example.test', preparer, 403);
+  assert.match((await hand(collect, 'reviewer@example.test', reviewer, 409)).error, /cannot review their own work/);
+  await hand(talk, 'preparer@example.test', reviewer, 400);
+  await hand(task, 'reviewer@example.test');
+  await hand(talk, 'owner@example.test');
+  const after = await h.json(`/clients/${shop.id}/history?owner=reviewer@example.test`, undefined, reviewer);
+  assert.ok(after.unresolved.some(i => i.kind === 'task' && i.nextAction === 'Complete “Draft BAS”'));
+  assert.equal((await h.json('/threads/' + talk.id, undefined, h.owner)).thread.owner_email, 'owner@example.test');
+  const handed = after.history.filter(e => e.action === 'item.owner_changed').map(e => [e.actor, e.detail]);
+  // Trace the request from the reminder email through upload to acceptance, in order; billing exports of the client's work are in its history.
+  await h.json(`/requests/${bank.id}/decide`, { decision: 'accept' }, preparer);
+  const trace = (await h.json(`/clients/${shop.id}/history`, undefined, reviewer)).history.filter(e => ['reminder.sent', 'file.uploaded', 'request.accepted'].includes(e.action)).reverse();
+  assert.deepEqual(trace.map(e => [e.action, e.actor, e.job_id]), [['reminder.sent', 'preparer@example.test', mine.id], ['file.uploaded', 'preparer@example.test', mine.id], ['request.accepted', 'preparer@example.test', mine.id]]);
+  const billed = (await h.json('/jobs/' + job.id, undefined, reviewer)).job.client_id;
+  assert.ok((await h.json(`/clients/${billed}/history?kind=billing`, undefined, reviewer)).history.some(e => e.action === 'export.approved'));
+  assert.deepEqual(handed, [['reviewer@example.test', 'discussion Resolve “Inventory count”: reviewer@example.test to owner@example.test'], ['reviewer@example.test', 'task Complete “Draft BAS”: preparer@example.test to reviewer@example.test']]);
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

@@ -26,6 +26,7 @@ import { addTime, approveExport, billingState, deleteTime, downloadExport, prepa
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
 import { commitOffboarding, previewOffboarding } from './offboarding';
+import { changeOwner, clientHistory } from './history';
 import { discardTimer, startTimer, stopTimer } from './timers';
 import { decideSuggestion, setConsent, suggestions } from './suggestions';
 import { commitReassign, commitSchedule, previewReassign, previewSchedule } from './bulk';
@@ -89,6 +90,8 @@ api.post(`${P}/clients/duplicates/dismiss`, as(async (a, c) => dismissPair(db(c)
 api.get(`${P}/clients/merges`, as((a, c) => merges(db(c), a)));
 api.post(`${P}/clients/merge`, as(async (a, c) => mergeClients(db(c), a, await body(c))));
 api.post(`${P}/clients/merges/:id/undo`, as((a, c) => undoMerge(db(c), a, param(c))));
+api.get(`${P}/clients/:id/history`, as((a, c) => clientHistory(db(c), a, param(c), c.req.query())));
+api.post(`${P}/clients/:id/unresolved/owner`, as(async (a, c) => changeOwner(db(c), a, param(c), await body(c))));
 api.post(`${P}/clients/:id/profile`, as(async (a, c) => saveProfile(db(c), a, param(c), await body(c))));
 api.post(`${P}/groups`, as(async (a, c) => saveGroup(db(c), a, await body(c))));
 api.post(`${P}/templates`, as(async (a, c) => saveTemplate(db(c), a, await body(c))));

@@ -74,3 +74,7 @@ Blotter creates the next period with the same client, template and people. It re
 ## Keep the work visible to the right people
 
 The principal and reviewers can see all jobs. A preparer sees only the jobs assigned to them. To change a person's role or remove access, use **Team & safety** as the principal.
+
+## Client history and unresolved items
+
+As the principal or a reviewer, open **Clients & templates**, find the client and open **History and unresolved items**. **Unresolved** lists everything still open for the client — documents to collect or review, open tasks, jobs waiting for review, open discussions and tax notices — each with the person responsible, the next action and when it is due. Filter it by owner, or use **Hand to…** to give an item to someone else: handing on a document request or a review reassigns the job's preparer or reviewer (nobody is made to review their own work), and a task is assigned to the person by name. **History** shows every recorded action on the client's work, newest first, with who did it and when, and a link to the job; search it or filter it by kind. Preparers see only the jobs they work on.

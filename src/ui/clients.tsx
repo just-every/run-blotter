@@ -6,6 +6,7 @@ import { RecurrencePanel } from './recurrence';
 import { DuplicatesPanel } from './duplicates';
 import { TaskEditor, taskBody } from './tasks';
 import { MessageTemplates } from './messages';
+import { ClientHistoryDetails } from './history';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
 
 const BAS_STEPS = ['Reconcile bank accounts', 'Code transactions and review GST', 'Prepare activity statement worksheet', 'Draft BAS for review'].join('\n');
@@ -19,7 +20,8 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
     <Blotter className="wide"><section className="panel">
       <h2>Clients</h2>
       {!state.clients.length && <Empty>No clients yet. Add one here or bring your list in under Move in.</Empty>}
-      <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `ABN ${c.abn} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small>{describe(c, state.fields) && <small className="muted"> · {describe(c, state.fields)}</small>}</li>)}</ul>
+      <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `ABN ${c.abn} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small>{describe(c, state.fields) && <small className="muted"> · {describe(c, state.fields)}</small>}
+        {lead && <ClientHistoryDetails clientId={c.id} people={state.people} run={run} open={open} />}</li>)}</ul>
       {lead && <details><summary>Add a client</summary>
         <Form label="Add client" submit={async (data, form) => run(async () => { await api('/clients', { name: data.name, abn: data.abn, contactName: data.contactName, contactEmail: data.contactEmail, ...profileBody(data) }); form.reset(); }, 'Client added')}>
           <Field label="Client name" name="name" />
