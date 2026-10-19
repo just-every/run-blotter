@@ -22,6 +22,12 @@ test('Demo: the sample practice opens with work in every state; approvals comple
       if (detail.history.some(a => a.action === 'job.returned' && a.detail.includes('state account'))) returned.push(detail);
     }
     assert.ok(returned.length, 'review-returned work includes its reviewer note');
+    // The Inbox lifts that return, and Done this week holds exactly the sign-offs of the last seven days.
+    const wall = await h.json('/inbox', undefined, h.owner), week = Date.now() - 7 * 86_400_000;
+    assert.ok(wall.jobs.some(j => j.band === 'look' && j.returned?.note.includes('state account')), 'the demo wall lifts the review return');
+    assert.ok(wall.jobs.some(j => j.band === 'done'));
+    assert.deepEqual(wall.jobs.filter(j => j.band === 'done' && j.status === 'signed_off').map(j => j.id).sort(),
+      state.jobs.filter(j => j.signed_off_at && Date.parse(j.signed_off_at) >= week).map(j => j.id).sort());
     const waiting = state.jobs.find(j => j.client_name === 'Oak City Landscaping' && j.status === 'open' && j.open_requests > 0);
     assert.ok(waiting);
     assert.ok((await h.json(`/jobs/${waiting.id}`, undefined, h.owner)).reminders.length >= 2, 'waiting-client work retains reminder history');

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { api, Empty, type Row, type Run } from './common';
+import { api, Empty, prose, type Row, type Run } from './common';
 import { ClientHistory } from './history';
 
 const TYPES = ['client', 'contact', 'job', 'task', 'portal message', 'note', 'document'];
@@ -39,7 +39,7 @@ export function Search({ state, run, open }: { state: Row; run: Run; open: (id: 
         <button type="button" className="quiet" onClick={close}>Close</button>
       </div>
       {found && (!results.length ? <Empty>Nothing you can see matches “{found.q}”.</Empty> : <ul className="list" id="search-results" role="listbox" aria-label="Search results">{results.map((r, n) => <li key={r.type + r.id} role="option" aria-selected={n === at}>
-        <button className={`quiet text-action${n === at ? ' selected' : ''}`} onClick={() => choose(r)}>{r.title}</button> <small className="muted">{r.type}{r.detail && ` · ${r.detail}`}{r.taxId && ` · ${r.taxIdType || 'tax id'} ${r.taxId}`}{r.snippet && ` · ${r.snippet}`}</small>
+        <button className={`quiet text-action${n === at ? ' selected' : ''}`} onClick={() => choose(r)}>{prose(r.title)}</button> <small className="muted">{r.type}{r.detail && ` · ${prose(r.detail)}`}{r.taxId && ` · ${r.taxIdType || 'tax id'} ${r.taxId}`}{r.snippet && ` · ${prose(r.snippet)}`}</small>
         {r.open.kind === 'file' && <> <a href={`/api/blotter/files/${r.open.fileId}`}>Download</a></>}</li>)}</ul>)}
       {client && <ClientHistory clientId={client} people={state.people} run={run} open={open} />}
     </section>, document.getElementById('search-slot')!)}

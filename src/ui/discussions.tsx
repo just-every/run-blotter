@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Field, Form, Status, today, when, type Row, type Run } from './common';
+import { api, Field, Form, prose, Status, today, when, type Row, type Run } from './common';
 
 const mentionList = (value: unknown) => String(value ?? '').split(/[\s,]+/).filter(Boolean);
 
@@ -69,7 +69,7 @@ export function MyAlerts({ tick, open }: { tick: number; open: (id: string) => v
   return <section className="panel">
     <h2>Alerts</h2>
     <ul>{alerts.slice(0, 10).map(a => <li key={a.id}>
-      {a.job_id ? <button className="quiet" onClick={() => open(a.job_id)}>{a.summary}</button> : a.summary}
+      {a.job_id ? <button className="quiet" onClick={() => open(a.job_id)}>{prose(a.summary)}</button> : prose(a.summary)}
       <small className="muted"> {when(a.created_at)} · email {a.delivery}</small>
     </li>)}</ul>
   </section>;

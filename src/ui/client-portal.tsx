@@ -1,4 +1,4 @@
-import { api, Field, Form, Status, when, type Row, type Run, day } from './common';
+import { api, Field, Form, prose, Status, when, type Row, type Run, day } from './common';
 
 /** Milestones and the client's next action (PORTAL-003); staff see the same view on the job. */
 export function PortalProgress({ progress, title = 'Where things stand' }: { progress: Row; title?: string }) {
@@ -6,7 +6,7 @@ export function PortalProgress({ progress, title = 'Where things stand' }: { pro
     <h2>{title}</h2>
     <p><strong>Status:</strong> {progress.status}</p>
     <p><strong>Next step:</strong> {progress.nextAction}</p>
-    <ol className="list">{progress.milestones.map((m: Row) => <li key={m.key}>{m.done ? '✓' : '○'} {m.label} <small className="muted">· {m.detail}</small></li>)}</ol>
+    <ol className="list">{progress.milestones.map((m: Row) => <li key={m.key}>{m.done ? '✓' : '○'} {m.label} <small className="muted">· {prose(m.detail)}</small></li>)}</ol>
   </section>;
 }
 

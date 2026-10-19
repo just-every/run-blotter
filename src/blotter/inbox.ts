@@ -48,8 +48,8 @@ export async function inbox(db: D1Database, actor: Actor) {
   return {
     now: at.toISOString(), monthStart, asked: Number(asked[0]?.n ?? 0),
     jobs: jobs.flatMap(j => {
-      const move = last(history, j.id), back = last(returns, j.id), asks = requests.filter(r => r.job_id === j.id);
-      // Returned for rework: the job's latest move is from review back to work and it is open again.
+      const move = last(history.filter(h => h.from_stage), j.id), back = last(returns, j.id), asks = requests.filter(r => r.job_id === j.id);
+      // Returned for rework: the job's latest move (its creation row is not a move) is from review back to work and it is open again.
       const returned = j.status === 'open' && move?.from_stage === 'in_review' && move.to_stage !== 'in_review' && back
         ? { by: name(move.by), at: move.at, note: back.detail } : null;
       const { band, doneAt } = bandOf(j, asks, !!returned, weekAgo);
