@@ -1,9 +1,9 @@
 import {useEffect,useState} from 'react';
-import {api,Field,Form,when,type Row,type Run} from './common';
+import {api,Field,Form,prose,when,type Row,type Run} from './common';
 
 const ACTIONS:Record<string,string>={'file.uploaded':'File uploaded','file.downloaded':'File downloaded','file.access_changed':'Access changed','file.access_inherited':'Version permissions inherited','file.share_created':'Download link created','file.share_rotated':'Download link rotated','file.share_revoked':'Download link revoked'};
 function historyDetail(entry:Row,contacts:Row[]) {
- if(!['file.downloaded','file.access_changed','file.access_inherited','file.share_created','file.share_rotated','file.share_revoked'].includes(entry.action))return entry.detail;
+ if(!['file.downloaded','file.access_changed','file.access_inherited','file.share_created','file.share_rotated','file.share_revoked'].includes(entry.action))return prose(entry.detail);
  const data=JSON.parse(entry.detail);
  const name=(id:string)=>contacts.find(c=>c.id===id)?.name??'previously authorized contact';
  if(entry.action==='file.downloaded')return data.channel==='staff'?'Staff access':'Client link; personal identity not verified';
