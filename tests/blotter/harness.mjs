@@ -40,6 +40,8 @@ export async function harness({bindings={}}={}){
   assert.equal((await request('/health')).status,200);
   const boot=await request('/auth/bootstrap',{token:vars.SETUP_TOKEN,displayName:'Principal'});assert.equal(boot.status,303,await boot.text());
   const owner=vars.RER_DEMO?boot.headers.getSetCookie().map(s=>s.split(';')[0]).join('; '):await login(vars.OWNER_EMAIL);
-  return {origin,owner,request,json,login,mails,close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
+  // The Worker's Cron Trigger door, fired as of a chosen time.
+  const scheduled=async at=>(await mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'17 * * * *'});
+  return {origin,owner,request,json,login,mails,scheduled,close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
  }catch(e){await mf.dispose();await rm(directory,{recursive:true,force:true});throw e;}
 }

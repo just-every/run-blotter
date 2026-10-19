@@ -892,6 +892,72 @@ test('WORK-003 dependencies: a close feeds a tax engagement, an organizer answer
   assert.equal((await h.json(`/jobs/${work.id}/submit`, {}, preparer)).job.status, 'review');
 });
 
+test('WORK-002 recurring work: monthly and fiscal-year rules create each period inside a three-month lead time once, claim existing jobs, skip, pause, catch up and never alter a created job', async () => {
+  const monthly = await h.json('/templates', { name: 'Monthly bookkeeping', recurrence: 'monthly', steps: 'Reconcile\nClose', requests: 'Bank statements\nReceipts' }, h.owner);
+  const fiscal = await h.json('/templates', { name: '1120-S return', recurrence: 'annual', steps: 'Prepare\nReview', requests: 'Trial balance' }, h.owner);
+  const firm = await h.json('/clients', { name: 'Lindqvist Studio Inc', fields: { service_tier: 'Premier' } }, h.owner);
+  const people = { clientId: firm.id, preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+  const monthlyRule = { ...people, templateId: monthly.id, firstPeriod: '2027-01-01', endPeriod: '2027-10-01', leadMonths: 3, dueDays: 20, dueNote: 'Firm close: 20 days after month end', budgetMinutes: 240 };
+  await h.json('/rules', monthlyRule, preparer, 403);
+  await h.json('/rules', { ...people, templateId: fiscal.id, firstPeriod: '2026-07-01', months: [1], dueDays: 75, dueNote: 'x' }, h.owner, 400);
+  const preview = (await h.json('/rules/preview', monthlyRule, h.owner)).schedule;
+  assert.deepEqual(preview.slice(0, 2).map(p => [p.periodStart, p.label, p.createOn, p.dueDate]), [['2027-01-01', 'Jan 2027', '2026-10-01', '2027-02-20'], ['2027-02-01', 'Feb 2027', '2026-11-01', '2027-03-20']]);
+  const rule = await h.json('/rules', monthlyRule, h.owner);
+  await h.json('/rules', monthlyRule, reviewer, 409);
+  const fy = await h.json('/rules', { ...people, templateId: fiscal.id, firstPeriod: '2026-07-01', leadMonths: 3, dueDays: 75, dueNote: 'Fiscal year end + 75 days (Form 1120-S, 15th day of the 3rd month)' }, reviewer);
+  const jobs = async () => (await h.json('/state', undefined, h.owner)).jobs.filter(j => j.client_id === firm.id).map(j => [j.title, j.period_start, j.due_date]).sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]));
+  // The hourly Cron Trigger: exactly the periods inside the lead time, each once, with fresh requests, budget and calculated due dates.
+  await h.scheduled('2027-01-15T12:17:00Z');
+  assert.deepEqual(await jobs(), [['1120-S return', '2026-07-01', '2027-09-13'],
+    ['Monthly bookkeeping', '2027-01-01', '2027-02-20'], ['Monthly bookkeeping', '2027-02-01', '2027-03-20'], ['Monthly bookkeeping', '2027-03-01', '2027-04-20'], ['Monthly bookkeeping', '2027-04-01', '2027-05-20']]);
+  const state = await h.json('/state', undefined, h.owner);
+  const april = state.jobs.find(j => j.client_id === firm.id && j.period_start === '2027-04-01');
+  const detail = await h.json('/jobs/' + april.id, undefined, h.owner);
+  assert.deepEqual([detail.job.budget_minutes, detail.job.preparer_email, detail.requests.map(r => r.status)], [240, 'preparer@example.test', ['requested', 'requested']]);
+  assert.equal(state.jobs.find(j => j.client_id === firm.id && j.template_id === fiscal.id).period_label, 'Jul 2026–Jun 2027');
+  // A restarted scheduler repeats nothing.
+  await h.scheduled('2027-01-15T13:17:00Z');
+  assert.equal((await jobs()).length, 5);
+  // Two existing future jobs are attached; advancing the horizon creates only the following period.
+  const made = [];
+  for (const periodStart of ['2027-05-01', '2027-06-01']) made.push(await h.json('/jobs', { ...people, templateId: monthly.id, periodStart, dueDate: periodStart.replace('-01', '-25'), dueNote: 'Set by hand' }, h.owner));
+  for (const j of made) await h.json(`/rules/${rule.id}/claim`, { jobId: j.id }, h.owner);
+  await h.json(`/rules/${rule.id}/claim`, { jobId: made[0].id }, h.owner, 409);
+  // A person overrides a created job's due date; the scheduler never changes it back.
+  const feb = state.jobs.find(j => j.client_id === firm.id && j.period_start === '2027-02-01');
+  const override = { jobIds: [feb.id], dueDate: '2027-03-31', dueNote: 'Client on extended close' };
+  await h.json('/bulk/reassign', { ...override, fingerprint: (await h.json('/bulk/reassign/preview', override, h.owner)).fingerprint }, h.owner);
+  await h.scheduled('2027-04-10T09:17:00Z');
+  let list = await jobs();
+  assert.deepEqual(list.filter(j => j[0] === 'Monthly bookkeeping').map(j => j[1]), ['2027-01-01', '2027-02-01', '2027-03-01', '2027-04-01', '2027-05-01', '2027-06-01', '2027-07-01']);
+  assert.deepEqual(list.find(j => j[1] === '2027-02-01'), ['Monthly bookkeeping', '2027-02-01', '2027-03-31']);
+  assert.deepEqual(list.find(j => j[1] === '2027-05-01'), ['Monthly bookkeeping', '2027-05-01', '2027-05-25']);
+  // Pause the client's monthly rule and skip September; downtime then catch-up creates each missing period once.
+  await h.json(`/rules/${rule.id}/status`, { status: 'paused', reason: 'Client restructuring' }, h.owner);
+  await h.json(`/rules/${rule.id}/skip`, { periodStart: '2027-09-01', reason: 'Combined with October close' }, h.owner);
+  await h.json(`/rules/${rule.id}/skip`, { periodStart: '2027-09-15', reason: 'x' }, h.owner, 400);
+  await h.json(`/rules/${rule.id}/skip`, { periodStart: '2027-07-01', reason: 'x' }, h.owner, 409);
+  await h.scheduled('2027-05-10T09:17:00Z');
+  list = await jobs();
+  assert.equal(list.filter(j => j[0] === 'Monthly bookkeeping').length, 7);
+  assert.ok(list.some(j => j[0] === '1120-S return' && j[1] === '2027-07-01'));
+  await h.json(`/rules/${rule.id}/status`, { status: 'active' }, h.owner);
+  await h.scheduled('2027-09-01T09:17:00Z');
+  await h.scheduled('2027-09-01T10:17:00Z');
+  list = await jobs();
+  // Through the last period (October) only: August and October, September skipped, nothing after the end.
+  assert.deepEqual(list.filter(j => j[0] === 'Monthly bookkeeping').map(j => j[1]).slice(7), ['2027-08-01', '2027-10-01']);
+  assert.equal(list.filter(j => j[0] === '1120-S return').length, 2);
+  const view = await h.json('/rules', undefined, reviewer);
+  const shown = view.rules.find(r => r.id === rule.id);
+  assert.deepEqual([shown.status, shown.months.length], ['active', 12]);
+  assert.deepEqual(view.held.filter(p => p.rule_id === rule.id).map(p => [p.period_start, p.kind]), [['2027-01-01', 'generated'], ['2027-02-01', 'generated'], ['2027-03-01', 'generated'], ['2027-04-01', 'generated'],
+    ['2027-05-01', 'claimed'], ['2027-06-01', 'claimed'], ['2027-07-01', 'generated'], ['2027-08-01', 'generated'], ['2027-09-01', 'skipped'], ['2027-10-01', 'generated']]);
+  assert.ok(view.runs.some(r => r.trigger === 'cron' && r.as_of === '2027-09-01' && r.created === 2));
+  await h.json('/rules', undefined, preparer, 403);
+  assert.equal((await h.json('/rules/run', {}, h.owner)).created, 0);
+});
+
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {
   const key = await h.json('/keys', { label: 'Reviewer assistant' }, reviewer), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/team/mfa-policy', { required: true }, reviewer, 403);

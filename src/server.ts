@@ -9,6 +9,7 @@ import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { seedDemo } from './demo'
+import { runRules } from './blotter/recurrence'
 
 
 // Start documents keep their own cache policy and add no-transform, so no proxy
@@ -33,5 +34,9 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     const lobby = await lobbyResponse(request, runtimeBindings(env), identity)
     if (lobby) return lobby
     return rejectedResponse(request, await dispatch(request, () => api.fetch(request, env, execution), async () => noTransform(await start.fetch(request))))
+  },
+  // The hourly Cron Trigger creates recurring work (WORK-002).
+  async scheduled(controller, env) {
+    await runRules(env, new Date(controller.scheduledTime), 'cron')
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })

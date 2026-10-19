@@ -2,6 +2,7 @@ import { Blotter, api, aud, Empty, Field, Form, type Row, type Run } from './com
 import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
 import { questionBody } from './flow';
+import { RecurrencePanel } from './recurrence';
 import { TaskEditor, taskBody } from './tasks';
 import { MessageTemplates } from './messages';
 import { describe, FieldsPanel, GroupsPanel, ProfileInputs, profileBody, SegmentPanel } from './profiles';
@@ -47,6 +48,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
         </Form>
       </details>}
     </section>
+    {lead && <RecurrencePanel state={state} run={run} tick={tick} />}
     {lead && <section className="panel wide">
       <h2>Start a job</h2>
       {!state.clients.length || !state.templates.length ? <Empty>Add a client and a template first.</Empty> :

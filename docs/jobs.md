@@ -26,6 +26,10 @@ Instead of plain checklist steps, press **Add a task** for each task. A task can
 
 When tasks are listed, they replace the checklist steps text.
 
+### Recurring work
+
+Under **Clients & templates → Recurring work**, a principal or reviewer approves a rule for a client and template: the first period (a fiscal year starts in its first month), an optional last period, optional months for a custom schedule, how many months ahead to create each job, the due date as days after the period ends, a time budget and the people. The rule shows its schedule. Blotter creates each period's job once, hourly, with fresh document requests; **Run now** runs it at once. You can pause and resume a rule (missed periods are created on the next run), skip a period with a reason, or claim an existing job for a period. Changing one job's due date is done on the job and is never undone by the rule.
+
 ### Dependencies, branches and exceptions
 
 A task can also wait before it can be ticked off:

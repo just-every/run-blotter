@@ -24,13 +24,13 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         <div><h2>{client.name} · {job.title}</h2><p className="muted">{job.period_label} · due {job.due_date} ({job.due_note})</p></div>
         <Status value={job.status} />
       </div>
-      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}</p>
+      <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.fee_cents > 0 && <> · fixed fee {aud(job.fee_cents)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
       {job.status === 'signed_off' && <p className="notice">Signed off by {job.signed_off_by} on {when(job.signed_off_at)}: {job.sign_off_note}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>
         : <details><summary>Roll forward to the next period</summary>
           <Form label="Create next period's job" submit={async data => run(async () => { const next = await api(`/jobs/${job.id}/roll-forward`, data); open(next.id); }, 'Next period created from the template')}>
-            <Field label="Due date (record it; Blotter does not compute due dates)" name="dueDate" type="date" />
+            <Field label="Due date (record it; roll forward does not compute it)" name="dueDate" type="date" />
             <Field label="Where the due date comes from" name="dueNote" value={job.due_note} />
           </Form>
         </details>)}
