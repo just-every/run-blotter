@@ -1,5 +1,5 @@
 import { Section } from '../../parts/Section'
-import { Arrow, Check, Marked } from '../../parts/type'
+import { Arrow, Check, keepTail, Marked } from '../../parts/type'
 
 const tick = <span className="tick"><Check tone="raspberry" /><i>PS</i></span>
 const timeline: [string, string, boolean?][] = [
@@ -11,7 +11,7 @@ const timeline: [string, string, boolean?][] = [
 /** 05 · Tied out, ticked and signed off: one September workpaper, ticked, questioned and signed. */
 export function Close() {
   return <Section id="close" tone="wash" layout="split" eyebrow="Close · Bright Smile Dental · September · Fri Oct 9"
-    title={<>Tied out, ticked and <Marked>signed off.</Marked></>}
+    title={<>Tied out, ticked <span className="nowrap">and <Marked>signed off.</Marked></span></>}
     body="Priya tied the bank rec, the one big change came back with a receipt, and Dana signed off with a note.">
     <div className="workpapers">
       <span className="paper-corner left" aria-hidden="true"><b>Harbor Taco Co.</b></span>
@@ -26,7 +26,7 @@ export function Close() {
               <tr><th scope="row">Checking ••4417 statement</th><td>$84,210.55</td><td>{tick}</td></tr>
               <tr><th scope="row">− outstanding checks</th><td>$2,940.00</td><td>{tick}</td></tr>
               <tr><th scope="row">+ deposits in transit</th><td>$1,215.30</td><td>{tick}</td></tr>
-              <tr className="total"><th scope="row">= <b>$82,485.85</b> · ties to QuickBooks <Check tone="ink" /> <span className="foot">^</span></th><td /><td>{tick}</td></tr>
+              <tr className="total"><th scope="row">= <b>$82,485.85</b> · <span className="nowrap">ties to QuickBooks <Check tone="ink" /> <span className="foot">^</span></span></th><td /><td>{tick}</td></tr>
             </tbody>
           </table>
         </section>
@@ -34,13 +34,13 @@ export function Close() {
           <h4>Variance</h4>
           <p>Supplies $6,120.00 vs August $2,480.00 · +147%</p>
           <p><Arrow /> asked Dr. Hannah Lee <Arrow /> new X-ray sensor $3,640.00, receipt <Check tone="raspberry" /></p>
-          <p className="after">Supplies $2,480.00 · Equipment +$3,640.00 <Check tone="raspberry" /></p>
-          <p className="dana-note">equipment, not supplies <Arrow /> reclass <b>DK</b></p>
+          <p className="after">Supplies $2,480.00 · <span className="nowrap">Equipment +$3,640.00 <Check tone="raspberry" /></span></p>
+          <p className="dana-note"><span className="nowrap">equipment, not</span> <span className="nowrap">supplies <Arrow /> reclass</span> <b>DK</b></p>
         </section>
         <p className="legend"><span><Check tone="raspberry" /> agreed to statement</span><span><i>^</i> footed</span></p>
       </article>
     </div>
-    <ol className="close-timeline">{timeline.map(([time, text, done]) => <li key={time} className={done ? 'is-done' : undefined}><b>{time}</b><span>{text}{done && <> <Check tone="ink" /></>}</span></li>)}</ol>
+    <ol className="close-timeline">{timeline.map(([time, text, done]) => <li key={time} className={done ? 'is-done' : undefined}><b>{time}</b><span>{keepTail(text)}{done && <> <Check tone="ink" /></>}</span></li>)}</ol>
     <p className="pill-done">September closes · 41 of 41 signed off by Mon Oct 12, 4:10 pm <Check /></p>
   </Section>
 }

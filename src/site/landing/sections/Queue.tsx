@@ -19,7 +19,7 @@ export function Queue() {
         <section className="lane">
           <h3><Icon name="hourglass" className="lane-icon icon" /><span className="display">Waiting · 17</span></h3>
           <ul className="lane-counts"><li>on client documents 6</li><li>on 8879 signature 11</li></ul>
-          <p className="job tone-lilac">Garcia 1040 · Lauren Hughes · 1 document: Form 1098</p>
+          <p className="job tone-lilac">Garcia 1040 · Lauren Hughes · <span className="count">1</span> document: <span className="nowrap">Form 1098</span></p>
           <p className="job tone-lilac">Nguyen 1040 · Jordan Ellis · 8879 sent Fri Oct 9</p>
         </section>
         <section className="lane">

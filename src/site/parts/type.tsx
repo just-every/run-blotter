@@ -25,6 +25,9 @@ export function NoWrap({ children }: { children: ReactNode }) {
   return <span className="nowrap">{children}</span>
 }
 
+/** Joins a phrase's last two words, so a wrapped line never leaves one word alone at the end. */
+export const keepTail = (text: string) => text.replace(/ (\S+)$/, '\u00a0$1')
+
 /** Text with "→" drawn as the arrow, since none of the page's fonts carries U+2192. */
 export function arrows(text: string): ReactNode {
   const parts = text.split('→')

@@ -26,8 +26,8 @@ export function Plate({ crop, name, sizes, widths, className, children, label }:
     </picture>
     <div className="plate-words">
       {header && <p className="planner-head" style={at(crop, 392, 330, 808, 46)}>
-        <span className="planner-month" style={{ fontSize: size(37, crop) }}>October 2026</span>
-        <span className="planner-line" style={{ fontSize: size(21, crop) }}>Extensions done. <span>September closed.</span> <span>Fees collected.</span> <svg className="smile" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="8.6" cy="10" r="1.3" fill="currentColor" /><circle cx="15.4" cy="10" r="1.3" fill="currentColor" /><path d="M7.8 14.2q4.2 3.8 8.4 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>
+        <span className="planner-month" style={{ fontSize: size(35, crop) }}>October 2026</span>
+        <span className="planner-line" style={{ fontSize: size(19, crop) }}>Extensions done. <span>September closed.</span> <span>Fees collected.</span> <svg className="smile" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="8.6" cy="10" r="1.3" fill="currentColor" /><circle cx="15.4" cy="10" r="1.3" fill="currentColor" /><path d="M7.8 14.2q4.2 3.8 8.4 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>
       </p>}
       {inside(crop, 380, 384, 0, 26) && <p className="planner-days" style={at(crop, crop.x > 375 ? crop.x : 375, 384, Math.min(crop.x + crop.w, 1210) - Math.max(crop.x, 375), 28)}>
         {weekdays.filter(([, x]) => x > crop.x + 20 && x < crop.x + crop.w - 20).map(([day, x]) => <span key={day} style={{ left: pct(x - Math.max(crop.x, 375), Math.min(crop.x + crop.w, 1210) - Math.max(crop.x, 375)), fontSize: size(15, crop) }}>{day}</span>)}
