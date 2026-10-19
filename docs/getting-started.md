@@ -20,6 +20,12 @@ The principal manages people, approves billing exports, imports clients and hand
 
 On a deployed installation, **Send an invitation** emails a saved person a sign-in link. Local mail is suppressed; use the local personas to try the other roles.
 
+## When someone leaves
+
+As the principal, open **Team & safety → Offboard a person**. Choose the departing person, a successor for their work (jobs they prepare, their named tasks, tax notices, open discussions and tasks named in templates) and, if different, a successor for their reviews (jobs they review or manage, and agent preparations waiting for them). **Preview transfer** lists everything that will move, their running timer (discarded, nothing recorded) and their time not yet approved (submitted on their behalf for approval). Press **Transfer and deactivate** to move it all and deactivate them in one step. Messages, reminders, decisions and recorded time keep their original author.
+
+Deactivating a person, here or with **Add or change a person**, ends every session and revokes their agent keys at once. Reactivating them needs a new sign-in and new keys. If you had to deactivate someone urgently, offboard them afterwards to move their work.
+
 ## Require a second factor
 
 Under **Team & safety → Sign-in security**, anyone can press **Add an authenticator app or passkey**. For an authenticator app, add the key shown to the app (or open the setup link on the same device), then enter its 6-digit code. For a passkey or security key, press **Use a passkey or security key** and follow your browser. After your first factor, Blotter shows ten one-time recovery codes; store them safely, because they are shown only once. From then on, every new sign-in asks for a code from the app or your passkey, or a recovery code if you lose both. **New recovery codes** replaces the old set.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Security } from './security';
 import { MessageTemplates } from './messages';
+import { Offboarding } from './offboarding';
 import { Blotter, api, aud, Empty, Field, Form, SOURCE, today, when, type Row, type Run } from './common';
 
 export function Team({ state, run, tick }: { state: Row; run: Run; tick: number }) {
@@ -25,6 +26,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
           <Field label="Access" name="active"><select name="active"><option value="true">Active</option><option value="false">Deactivated (removes access now)</option></select></Field>
         </Form>
       </details>
+      <Offboarding state={state} members={team.members} run={run} />
       <details><summary>Send an invitation</summary>
         <Form label="Send invitation" submit={async data => run(() => api('/team/invite', data), 'Invitation sent')}>
           <Field label="Email of a saved person" name="email" type="email" />

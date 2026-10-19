@@ -3,6 +3,7 @@
 import { type Bindings, operatorAuth, runtimeBindings } from '../auth.server';
 import { atomic, audit, digest, email, human, id, insist, need, now, rows, secret, stmt, text, type Actor, type Data } from './model';
 import { rateCards, resolveRate } from './rates';
+import { deactivation } from './offboarding';
 
 export async function saveMember(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
@@ -11,6 +12,7 @@ export async function saveMember(db: D1Database, actor: Actor, body: Data) {
   const active = body.active === false || body.active === 'false' ? 0 : 1;
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_members(email,name,role,active) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET name=excluded.name,role=excluded.role,active=excluded.active', address, name, body.role, active),
+    ...(active ? [] : deactivation(db, address)),
     audit(db, actor, active ? 'member.saved' : 'member.deactivated', address, body.role),
   ]);
   return { email: address, name, role: body.role, active: !!active };

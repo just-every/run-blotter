@@ -22,7 +22,7 @@ before(async () => {
 });
 after(async () => { await h?.close(); });
 
-test('sessions, roles, origin checks and member deactivation guard every handler', async () => {
+test('sessions, roles and origin checks guard every handler', async () => {
   await h.json('/state', undefined, '', 401);
   await h.json('/clients', { name: 'X' }, '', 401);
   await h.json('/clients', { name: 'Denied' }, preparer, 403);
@@ -32,10 +32,6 @@ test('sessions, roles, origin checks and member deactivation guard every handler
   await h.json('/clients', { name: 'Cross-site' }, h.owner, 403, { origin: 'https://outside.example.test' });
   await h.json('/backup', undefined, reviewer, 403);
   await h.json('/import/preview', { csv: 'client_name\nA' }, reviewer, 403);
-  await h.json('/team', { email: 'preparer@example.test', name: 'Pat Preparer', role: 'preparer', active: false }, h.owner);
-  await h.json('/state', undefined, preparer, 403);
-  await h.json('/team', { email: 'preparer@example.test', name: 'Pat Preparer', role: 'preparer' }, h.owner);
-  assert.equal((await h.json('/state', undefined, preparer)).actor.role, 'preparer');
 });
 
 test('a job starts from a template and is visible only to its people', async () => {
@@ -1176,6 +1172,64 @@ test('TIME-001 activity suggestions: only consented actions suggest time with th
   assert.deepEqual([(await mine()).consentedAt, (await mine()).pending], [null, []]);
   await h.json('/time/suggestions/consent', { consent: true }, preparer);
   assert.deepEqual((await mine()).pending, []);
+});
+
+test('ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review transfer, move everything to two successors in one batch, keep past authors and revoke sessions and agent keys', async () => {
+  await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'preparer' }, h.owner);
+  await h.json('/team/invite', { email: 'leaving@example.test' }, h.owner);
+  const lee = await h.login('leaving@example.test');
+  const plan = await h.json('/templates', { name: 'Monthly payroll', recurrence: 'monthly', steps: 'unused', requests: 'Payroll register', tasks: [{ label: 'Run payroll', assignee: 'preparer' }, { label: 'File 941 notes', assignee: 'leaving@example.test' }] }, h.owner);
+  const firm = await h.json('/clients', { name: 'Osprey Marine LLC', fields: { service_tier: 'Plus' } }, h.owner);
+  const people = { clientId: firm.id, templateId: plan.id, preparerEmail: 'leaving@example.test', reviewerEmail: 'reviewer@example.test' };
+  const jobs = [await h.json('/jobs', { ...people, periodStart: '2027-03-01', dueDate: '2027-04-15', dueNote: 'Firm close' }, h.owner), await h.json('/jobs', { ...people, periodStart: '2027-04-01', dueDate: '2027-05-15', dueNote: 'Firm close' }, h.owner)];
+  const rule = await h.json('/rules', { ...people, firstPeriod: '2028-01-01', leadMonths: 0, dueDays: 15, dueNote: 'Firm close' }, h.owner);
+  const opened = await h.json(`/jobs/${jobs[0].id}/threads`, { title: 'Payroll tax deposit', body: 'Deposit schedule changed to semiweekly.', mentions: [] }, lee);
+  await h.json('/team/rates', { scope: 'client', clientId: firm.id, rateCents: 9000, effectiveFrom: '2026-01-01' }, h.owner);
+  const unsent = await h.json(`/jobs/${jobs[0].id}/time`, { date: '2027-03-03', minutes: 30, description: 'Payroll setup' }, lee);
+  await h.json(`/jobs/${jobs[1].id}/timer`, { description: 'April payroll' }, lee);
+  const body = { email: 'leaving@example.test', workSuccessor: 'preparer@example.test', reviewSuccessor: 'reviewer@example.test' };
+  await h.json('/team/offboard/preview', body, reviewer, 403);
+  // Moving their preparation to the jobs' own reviewer would make that reviewer review their own work.
+  assert.match((await h.json('/team/offboard/preview', { ...body, workSuccessor: 'reviewer@example.test' }, h.owner)).problems.join(), /reviewer@example.test cannot review their own work/);
+  const preview = await h.json('/team/offboard/preview', body, h.owner);
+  assert.deepEqual([preview.jobs.map(j => j.to.preparer), preview.tasks.map(t => t.label), preview.rules.map(r => r.to.preparer), preview.threads.map(t => t.title), preview.templates.map(t => t.name), preview.timer.description, preview.time.map(t => t.id), preview.sessions > 0, preview.problems],
+    [['preparer@example.test', 'preparer@example.test'], ['File 941 notes', 'File 941 notes'], ['preparer@example.test'], ['Payroll tax deposit'], ['Monthly payroll'], 'April payroll', [unsent.id], true, []]);
+  await h.json('/team/offboard', { ...body, fingerprint: 'stale' }, h.owner, 409);
+  assert.deepEqual((await h.json('/team/offboard', { ...body, fingerprint: preview.fingerprint }, h.owner)).moved, { jobs: 2, tasks: 2, rules: 1, notices: 0, threads: 1, proposals: 0, templates: 1 });
+  // Nothing is orphaned: work, tasks, the rule, the discussion and future jobs from the template belong to the successors.
+  const detail = await h.json('/jobs/' + jobs[0].id, undefined, preparer);
+  assert.deepEqual([detail.job.preparer_email, detail.steps.find(s => s.label === 'File 941 notes').assignee_email], ['preparer@example.test', 'preparer@example.test']);
+  assert.deepEqual((await h.json('/rules', undefined, h.owner)).rules.find(r => r.id === rule.id).preparer_email, 'preparer@example.test');
+  const next = await h.json('/jobs', { ...people, preparerEmail: 'preparer@example.test', periodStart: '2027-05-01', dueDate: '2027-06-15', dueNote: 'Firm close' }, h.owner);
+  assert.equal((await h.json('/jobs/' + next.id, undefined, preparer)).steps.find(s => s.label === 'File 941 notes').assignee_email, 'preparer@example.test');
+  // The past message keeps its author; the open discussion has a new owner. Their time stays theirs and waits for approval; the timer recorded nothing.
+  const thread = await h.json('/threads/' + opened.thread.id, undefined, preparer);
+  assert.deepEqual([thread.thread.owner_email, thread.messages[0].author_email], ['preparer@example.test', 'leaving@example.test']);
+  const entries = (await h.json('/timesheets', undefined, reviewer)).entries.filter(e => e.person_email === 'leaving@example.test');
+  assert.deepEqual(entries.map(e => [e.id, e.status]), [[unsent.id, 'submitted']]);
+  assert.match((await h.json('/team', undefined, h.owner)).audit.find(a => a.action === 'member.offboarded').detail, /timer on .* discarded, 1 time entries submitted/);
+  // Deactivated with their sessions revoked, so reactivation alone does not let the old session back in.
+  await h.json('/state', undefined, lee, 401);
+  await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'preparer' }, h.owner);
+  await h.json('/state', undefined, lee, 401);
+  // An urgent deactivation cuts access at once (sessions and agent keys); the work is offboarded afterwards the same way.
+  const again = await h.login('leaving@example.test');
+  await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'reviewer' }, h.owner);
+  const key = await h.json('/keys', { label: 'Lee assistant' }, again), bearer = { authorization: 'Bearer ' + key.key };
+  await h.json('/agent/context', undefined, '', 200, bearer);
+  const urgent = await h.json('/jobs', { ...people, preparerEmail: 'leaving@example.test', periodStart: '2027-06-01', dueDate: '2027-07-15', dueNote: 'Firm close' }, h.owner);
+  await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'reviewer', active: false }, h.owner);
+  await h.json('/state', undefined, again, 401);
+  await h.json('/clients', { name: 'Denied' }, again, 401);
+  await h.json('/agent/context', undefined, '', 401, bearer);
+  const later = await h.json('/team/offboard/preview', body, h.owner);
+  assert.deepEqual([later.active, later.jobs.map(j => j.id)], [false, [urgent.id]]);
+  await h.json('/team/offboard', { ...body, fingerprint: later.fingerprint }, h.owner);
+  assert.equal((await h.json('/jobs/' + urgent.id, undefined, preparer)).job.preparer_email, 'preparer@example.test');
+  // Reactivation restores neither the old session nor the revoked agent key.
+  await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'reviewer' }, h.owner);
+  await h.json('/agent/context', undefined, '', 401, bearer);
+  await h.json('/state', undefined, again, 401);
 });
 
 test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code step-up, owner reset revokes sessions, agent keys follow, enrollment report', async () => {

@@ -6,7 +6,7 @@ Give an agent a key to read the practice context and prepare work that waits for
 
 As the principal or a reviewer, open **Team & safety → Agent keys**. Enter an **Agent name** and press **Create agent key**. Copy it immediately: it is shown once. Store it in the agent's secret store.
 
-The agent acts for the person who created its key, with that person's visibility. It can read context and create preparations. It cannot approve work, directly change practice records or send reminders. The key's creator decides each preparation in **Preparations**. Revoking a key, or deactivating its person, removes access.
+The agent acts for the person who created its key, with that person's visibility. It can read context and create preparations. It cannot approve work, directly change practice records or send reminders. The key's creator decides each preparation in **Preparations**. Revoking a key, or deactivating its person, removes access; deactivation revokes the key for good, so a reactivated person creates a new one.
 
 ## Authentication
 
