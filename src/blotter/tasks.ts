@@ -6,9 +6,9 @@
 // they follow the job's people and due date; completing one keeps who, when,
 // the owner and the dates it had then.
 import { decodeFile, fileResponse } from './documents';
-import { checkFlow, flowSteps, noFlow, pendingStep, taskFlow, templateQuestions, type Flow, type Question } from './flow';
+import { checkFlow, flowSteps, noFlow, taskFlow, templateQuestions, type Flow, type Question } from './flow';
 import { eligible } from './jobs';
-import { date, digest, email, insist, integer, lines, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
+import { digest, email, insist, integer, lines, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const ROLES = ['preparer', 'reviewer', 'manager'] as const;
 const ANCHORS = ['start', 'due'] as const;
@@ -92,7 +92,7 @@ export function resolveTask(j: Data, s: Data): Data {
   };
 }
 
-const columns = 'job_id,ordinal,label,done_by,done_at,assignee_role,assignee_email,start_anchor,start_offset,due_anchor,due_offset,estimate_minutes,instructions,sop_url,requires_attachment,client_facing,done_start_date,done_due_date,done_owner,attachment_name,attachment_size,attachment_sha256,'
+export const columns = 'job_id,ordinal,label,done_by,done_at,assignee_role,assignee_email,start_anchor,start_offset,due_anchor,due_offset,estimate_minutes,instructions,sop_url,requires_attachment,client_facing,done_start_date,done_due_date,done_owner,attachment_name,attachment_size,attachment_sha256,'
   + 'after_steps,after_requests,after_template,after_gate,when_question,when_values,ready_at,exception_by,exception_at,exception_reason,exception_waived';
 export async function jobTasks(db: D1Database, j: Data) {
   return (await rows(db, `SELECT ${columns} FROM b_job_steps WHERE job_id=? ORDER BY ordinal`, j.id)).map(s => resolveTask(j, s));
@@ -116,24 +116,8 @@ export async function downloadAttachment(db: D1Database, actor: Actor, jobId: st
   return fileResponse(s);
 }
 
-const ownerSql = `COALESCE(s.assignee_email,CASE s.assignee_role WHEN 'preparer' THEN j.preparer_email WHEN 'reviewer' THEN j.reviewer_email WHEN 'manager' THEN COALESCE(j.manager_email,j.reviewer_email) END)`;
-/**
- * The person's weekly plan (Monday to Sunday): their open tasks due in or
- * before the week, or with no due date, and their open jobs (as preparer,
- * reviewer or manager) due in or before it.
- */
-export async function weeklyPlan(db: D1Database, actor: Actor, query: Data) {
-  const start = date(query.week, 'Week starting');
-  insist(new Date(start + 'T00:00:00Z').getUTCDay() === 1, 'A plan week starts on a Monday');
-  const end = shift(start, 6);
-  const open = await rows(db, `SELECT j.*,c.name client_name,s.${columns.split(',').join(',s.')} FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id
-    WHERE ${pendingStep('s')} AND j.status<>'signed_off' AND ${ownerSql}=?`, actor.email);
-  const tasks = open.map((r): Data => ({ ...resolveTask(r, r), job_id: r.job_id, job: r.title, period: r.period_label, client: r.client_name }))
-    .filter(t => !t.due_date || t.due_date <= end).sort((a, b) => String(a.due_date ?? '9').localeCompare(String(b.due_date ?? '9')) || a.ordinal - b.ordinal);
-  const jobs = await rows(db, `SELECT j.id,j.title,j.period_label,j.due_date,j.status,c.name client_name FROM b_jobs j JOIN b_clients c ON c.id=j.client_id
-    WHERE j.status<>'signed_off' AND j.due_date<=? AND ? IN (j.preparer_email,j.reviewer_email,COALESCE(j.manager_email,j.reviewer_email)) ORDER BY j.due_date`, end, actor.email);
-  return { weekStart: start, weekEnd: end, tasks, jobs };
-}
+/** A task's owner now, in SQL over step `s` and job `j` (WORK-009). */
+export const ownerSql = `COALESCE(s.assignee_email,CASE s.assignee_role WHEN 'preparer' THEN j.preparer_email WHEN 'reviewer' THEN j.reviewer_email WHEN 'manager' THEN COALESCE(j.manager_email,j.reviewer_email) END)`;
 
 /** The client sees only the labels, dates and progress of client-facing tasks (PORTAL-003). */
 export async function clientTasks(db: D1Database, j: Data) {

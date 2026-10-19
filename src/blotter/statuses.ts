@@ -7,6 +7,7 @@
 // and new stage and sub-status; renaming a sub-status keeps that history, and
 // a sub-status jobs still use is deleted only by a previewed move of those jobs.
 import { atomic, audit, digest, guard, human, id, insist, integer, need, now, optional, readableJob, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
+import { listJobs, parseFilters } from './filters';
 
 export const STAGES = ['planned', 'ready', 'in_progress', 'waiting', 'in_review', 'completed'] as const;
 export const STAGE_LABELS: Record<string, string> = { planned: 'Planned', ready: 'Ready to start', in_progress: 'In progress', waiting: 'Waiting', in_review: 'In review', completed: 'Completed' };
@@ -173,18 +174,11 @@ export async function statusHistory(db: D1Database, actor: Actor, jobId: string)
     LEFT JOIN b_sub_statuses t ON t.id=h.to_sub_status_id WHERE h.job_id=? ORDER BY h.at,h.id`, j.id);
 }
 
-/** The queue, filtered by work type, stage and sub-status, over the jobs this person may read. */
+/** The queue over the jobs this person may read, filtered (WORK-006/007) or by one of their saved views. */
 export async function queue(db: D1Database, actor: Actor, query: Data) {
   const view = query.view ? await stmt(db, 'SELECT filters FROM b_saved_views WHERE id=? AND owner_email=?', String(query.view), actor.email).first<Data>() : null;
   if (query.view) insist(view, 'Saved view not found', 404);
-  const f = view ? JSON.parse(view.filters) : query;
-  const type = optional(f.workType, 'Work type', 100), stage = optional(f.stage, 'Stage', 20), sub = optional(f.subStatus, 'Sub-status', 100);
-  insist(!stage || STAGES.includes(stage as never), 'Choose a stage');
-  return rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.due_date,b_jobs.status,b_jobs.preparer_email,b_jobs.reviewer_email,${stageSql('b_jobs')} stage,
-      b_jobs.sub_status_id,CASE WHEN b_jobs.status='review' AND b_jobs.reviewed_at IS NOT NULL THEN 'partner sign-off' ELSE s.name END sub_status,b_jobs.partner_email,b_jobs.work_type_id,w.name work_type,w.color,c.name client_name
-    FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id LEFT JOIN b_work_types w ON w.id=b_jobs.work_type_id LEFT JOIN b_sub_statuses s ON s.id=b_jobs.sub_status_id
-    WHERE ${readableJobSql} AND (?5='' OR b_jobs.work_type_id=?5) AND (?6='' OR ${stageSql('b_jobs')}=?6) AND (?7='' OR b_jobs.sub_status_id=?7)
-    ORDER BY b_jobs.due_date,c.name`, ...readableJobParams(actor), type, stage, sub);
+  return listJobs(db, actor, parseFilters(view ? JSON.parse(view.filters) : query));
 }
 
 /**
@@ -208,14 +202,13 @@ export async function statusReport(db: D1Database, actor: Actor, query: Data) {
     .sort((a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage) || String(a.subStatus ?? '').localeCompare(String(b.subStatus ?? '')));
 }
 
-/** The person's own saved queue views. */
+/** The person's own saved queue views (any of the WORK-006 filters). */
 export const savedViews = (db: D1Database, actor: Actor) => rows(db, 'SELECT id,name,filters,created_at FROM b_saved_views WHERE owner_email=? ORDER BY name', actor.email);
 
 /** Save the queue's current filters under a name, for this person only. */
 export async function saveView(db: D1Database, actor: Actor, body: Data) {
   human(actor);
-  const name = text(body.name, 'View name', 80), filters = { workType: optional(body.workType, 'Work type', 100), stage: optional(body.stage, 'Stage', 20), subStatus: optional(body.subStatus, 'Sub-status', 100) };
-  insist(!filters.stage || STAGES.includes(filters.stage as never), 'Choose a stage');
+  const name = text(body.name, 'View name', 80), filters = parseFilters(body);
   if (filters.workType) insist(await stmt(db, 'SELECT 1 FROM b_work_types WHERE id=?', filters.workType).first(), 'Work type not found', 404);
   if (filters.subStatus) insist(await stmt(db, 'SELECT 1 FROM b_sub_statuses WHERE id=? AND deleted_at IS NULL', filters.subStatus).first(), 'Sub-status not found', 404);
   insist(!await stmt(db, 'SELECT 1 FROM b_saved_views WHERE owner_email=? AND name=?', actor.email, name).first(), `You already have a view named ${name}`, 409);

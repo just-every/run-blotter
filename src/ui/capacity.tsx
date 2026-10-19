@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, today, type Row, type Run } from './common';
+import { Coverage } from './coverage';
 
 const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
 const hours = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
@@ -43,6 +44,7 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
         {view.pastDue.length > 0 && <><h3>Past due, not counted</h3><ul className="list">{view.pastDue.map((u: Row) => <li key={u.jobId + u.label}><button className="quiet text-action" onClick={() => open(u.jobId)}>{u.work}</button> <small className="muted">{u.label} · {u.owner} · due {u.due}</small></li>)}</ul></>}
       </>}
     </section>
+    {state.actor.role !== 'preparer' && <Coverage state={state} open={open} run={run} tick={tick} />}
     {owner && <section className="panel">
       <h2>Plan hours</h2>
       <Form label="Save hours" submit={async data => run(() => api('/capacity/people', { email: data.email, weeklyMinutes: Math.round(Number(data.weeklyHours) * 60), skills: String(data.skills ?? '').split(',').map(s => s.trim()).filter(Boolean) }), 'Hours saved')}>

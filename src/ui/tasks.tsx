@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, readFile, today, type Row, type Run } from './common';
+import { readFile, type Row } from './common';
 
 const ROLE: Record<string, string> = { preparer: 'Preparer', reviewer: 'Reviewer', manager: 'Manager' };
 const blank = { label: '', assignee: '', dueFrom: '', dueDays: '', startFrom: '', startDays: '', estimateMinutes: '', instructions: '', sopUrl: '', requiresAttachment: false, clientFacing: false,
@@ -63,25 +62,6 @@ export function TaskInfo({ jobId, step }: { jobId: string; step: Row }) {
   </>;
 }
 export async function attachmentBody(file: File | undefined) { return file ? { attachment: await readFile(file) } : {}; }
-
-const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
-
-/** The person's weekly plan: their tasks and jobs due in or before the week. */
-export function MyWeek({ open, run, tick }: { open: (id: string) => void; run: Run; tick: number }) {
-  const [week, setWeek] = useState(monday(today())), [plan, setPlan] = useState<Row>();
-  useEffect(() => { api('/plan?week=' + week).then(setPlan).catch(e => run(async () => { throw e; })); }, [week, tick]);
-  return <section className="panel">
-    <div className="split"><h2>My week</h2>
-      <Form label="Show week" submit={async data => setWeek(monday(String(data.week)))}><Field label="Week of" name="week" type="date" value={week} /></Form></div>
-    {!plan ? <p>Opening your plan…</p> : <>
-      <p className="muted">{plan.weekStart} to {plan.weekEnd}: open tasks and jobs due by then, including overdue ones.</p>
-      {!plan.tasks.length ? <Empty>No tasks for you this week.</Empty> : <ul className="list">{plan.tasks.map((t: Row) => <li key={t.job_id + t.ordinal}>
-        <button className="quiet text-action" onClick={() => open(t.job_id)}>{t.label}</button> <small className="muted">{t.client} · {t.job} {t.period}{t.due_date && ` · due ${t.due_date}`}{t.estimate_minutes && ` · ${t.estimate_minutes} min`}</small>
-        {t.sop_url && <> <a href={t.sop_url} target="_blank" rel="noreferrer noopener">SOP</a></>}</li>)}</ul>}
-      {plan.jobs.length > 0 && <><h3>Jobs due</h3><ul className="list">{plan.jobs.map((j: Row) => <li key={j.id}><button className="quiet text-action" onClick={() => open(j.id)}>{j.client_name} · {j.title} {j.period_label}</button> <small className="muted">due {j.due_date} · {j.status}</small></li>)}</ul></>}
-    </>}
-  </section>;
-}
 
 /** Client-facing tasks on the client's link: label, due date and whether it is done. */
 export function ClientTasks({ tasks }: { tasks: Row[] }) {

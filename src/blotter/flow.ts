@@ -100,7 +100,7 @@ export const pendingStep = (s: string) => `${s}.done_at IS NULL AND NOT EXISTS(S
 
 const dayBefore = (day: string) => new Date(Date.parse(day + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10);
 /** The same client's job from the template whose period contains this job's last period day, if one exists. */
-async function prerequisite(db: D1Database, j: Data, templateId: string) {
+export async function prerequisite(db: D1Database, j: Data, templateId: string) {
   const [own, template] = await Promise.all([stmt(db, 'SELECT recurrence FROM b_templates WHERE id=?', j.template_id).first<Data>(),
     stmt(db, 'SELECT id,name,recurrence FROM b_templates WHERE id=?', templateId).first<Data>()]);
   const last = dayBefore(nextPeriod(j.period_start, own!.recurrence));
