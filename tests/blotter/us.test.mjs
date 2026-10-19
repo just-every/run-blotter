@@ -100,3 +100,70 @@ test('US-001 client IDs: EIN validation and CSV replay preserve legacy ABNs; aut
     assert.equal(state.clients.find(c => c.id === legacy.id).abn, '51824753556');
   } finally { await h.close(); }
 });
+
+test('US-001 firm setup: US practice details, filing calendar, local DST clock and durable notification hours survive restore', async () => {
+  const h = await harness(); let restored;
+  try {
+    const reviewer = await member(h, 'reviewer@example.test', 'reviewer');
+    const settings = { name: 'Maple Practice LLC', currency: 'USD', ein: '12-3456789', entity: 'LLC', address: '125 Main Street', city: 'Albany', state: 'NY', zip: '12207', fiscalYearEnd: '06-30', services: ['Bookkeeping', 'Payroll', 'Federal and state tax', 'Sales tax'], timeZone: 'America/New_York', notificationStart: '09:00', notificationEnd: '17:00', calendars: [{ name: '941 payroll', jurisdiction: 'Federal', dueDate: '2026-10-31', source: 'Principal recorded engagement calendar; verify before filing' }, { name: 'Sales tax', jurisdiction: 'New York', dueDate: '2026-11-20', source: 'Client filing schedule reviewed by principal' }] };
+    const saved = await h.json('/firm/settings', settings, h.owner);
+    assert.deepEqual(saved, { ...settings, ein: '123456789' });
+    assert.deepEqual((await h.json('/firm/settings', undefined, h.owner)).calendars, settings.calendars);
+    await h.json('/firm/settings', settings, reviewer, 403);
+    await h.json('/firm/settings', undefined, reviewer, 403);
+    for (const bad of [{ ein: '123' }, { zip: '000' }, { state: 'XX' }, { timeZone: 'US/NoSuchZone' }, { fiscalYearEnd: '02-30' }, { notificationStart: '25:00' }, { calendars: [{ ...settings.calendars[0], dueDate: '2026-02-30' }] }]) await h.json('/firm/settings', { ...settings, ...bad }, h.owner, 400);
+    assert.equal((await h.json('/firm/settings', undefined, h.owner)).ein, saved.ein, 'invalid saves are atomic');
+    for (const [at, localDate, localTime, zone, allowed] of [
+      ['2026-03-08T06:30:00Z', '2026-03-08', '01:30', 'EST', false], ['2026-03-08T07:30:00Z', '2026-03-08', '03:30', 'EDT', false],
+      ['2026-11-01T05:30:00Z', '2026-11-01', '01:30', 'EDT', false], ['2026-11-01T06:30:00Z', '2026-11-01', '01:30', 'EST', false],
+      ['2026-11-02T14:00:00Z', '2026-11-02', '09:00', 'EST', true], ['2026-11-02T22:00:00Z', '2026-11-02', '17:00', 'EST', false],
+    ]) {
+      const p = await h.json('/firm/time?at=' + encodeURIComponent(at), undefined, h.owner);
+      assert.deepEqual([p.localDate, p.localTime, p.zone, p.notificationsAllowed], [localDate, localTime, zone, allowed]);
+    }
+    const llc = await h.json('/clients', { name: 'Maple Lane LLC', ein: '98-7654321' }, h.owner);
+    const individual = await h.json('/clients', { name: 'Alex Rivera', contactName: 'Alex Rivera', contactEmail: 'alex@example.test' }, h.owner);
+    const jobs = [];
+    for (const [name, recurrence, client] of [['Quarterly payroll — 941, state withholding and unemployment', 'quarterly', llc], ['New York sales-tax filing', 'quarterly', llc], ['1040 federal and state annual return', 'annual', individual], ['1099-NEC and W-2 year-end', 'annual', llc]]) {
+      const t = await h.json('/templates', { name, recurrence, steps: 'Prepare workpapers\nIndependent review', requests: 'Source records', feeCents: 12500 }, h.owner);
+      const j = await h.json('/jobs', { clientId: client.id, templateId: t.id, periodStart: '2026-01-01', dueDate: settings.calendars[0].dueDate, dueNote: settings.calendars[0].source, preparerEmail: 'owner@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+      assert.equal(j.currency, 'USD'); assert.equal(j.due_date, '2026-10-31'); jobs.push(j);
+    }
+    // Queue a real mention outside today's configured one-minute window, then fire the Cron Trigger in it.
+    const local = await h.json('/firm/time', undefined, h.owner);
+    const minute = (Number(local.localTime.slice(0, 2)) * 60 + Number(local.localTime.slice(3)) + 120) % 1440;
+    const hhmm = n => `${String(Math.floor((n % 1440) / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+    const narrow = { ...settings, notificationStart: hhmm(minute), notificationEnd: hhmm(minute + 1) };
+    await h.json('/firm/settings', narrow, h.owner);
+    await h.json('/team', { email: 'pending-reviewer@example.test', name: 'Pending reviewer', role: 'reviewer' }, h.owner);
+    const mailsBefore = h.mails.length;
+    await h.json(`/jobs/${jobs[0].id}/threads`, { title: 'Check payroll calendar', body: 'Please review the state filing dates.', mentions: ['reviewer@example.test', 'pending-reviewer@example.test'] }, h.owner);
+    await h.json('/team', { email: 'pending-reviewer@example.test', name: 'Pending reviewer', role: 'reviewer', active: false }, h.owner);
+    assert.equal(h.mails.length, mailsBefore);
+    let alerts = await h.json('/notifications', undefined, reviewer);
+    assert.ok(alerts.some(n => n.delivery.startsWith('deferred:')));
+    // Find an actual future instant in the chosen local minute, including DST via the public clock door.
+    const current = new Date(local.at), release = new Date(current.getTime() + 120 * 60000);
+    await h.scheduled(release.toISOString());
+    alerts = await h.json('/notifications', undefined, reviewer);
+    assert.ok(alerts.some(n => n.delivery.startsWith('accepted by')));
+    assert.equal(h.mails.length, mailsBefore + 1);
+    assert.ok(!h.mails.slice(mailsBefore).some(m => m.to.includes('pending-reviewer@example.test')), 'deactivated recipients never receive a deferred alert');
+    await h.scheduled(release.toISOString()); assert.equal(h.mails.length, mailsBefore + 1, 'cron never resends a completed notification');
+    await h.json('/firm/settings', { ...settings, notificationStart: '22:00', notificationEnd: '06:00' }, h.owner);
+    assert.equal((await h.json('/firm/time?at=2026-11-02T04:00:00Z', undefined, h.owner)).notificationsAllowed, true);
+    assert.equal((await h.json('/firm/time?at=2026-11-02T17:00:00Z', undefined, h.owner)).notificationsAllowed, false);
+    await h.json('/firm/settings', { ...settings, currency: 'AUD' }, h.owner);
+    const historicalDefault = await h.json('/templates', { name: 'Australian historical service', recurrence: 'monthly', steps: 'Review work', requests: 'Source evidence', feeCents: 300 }, h.owner);
+    assert.equal(historicalDefault.currency, 'AUD');
+    const unchanged = await h.json('/jobs/' + jobs[0].id, undefined, h.owner);
+    assert.equal(unchanged.job.currency, 'USD');
+    await h.json('/firm/settings', settings, h.owner);
+    const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    restored = await harness(); await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    assert.deepEqual(await restored.json('/firm/settings', undefined, restored.owner), saved);
+    const state = await restored.json('/state', undefined, restored.owner);
+    assert.equal(state.firm.timeZone, settings.timeZone); assert.equal(state.jobs.length, jobs.length);
+    assert.ok(state.clients.some(c => c.id === individual.id));
+  } finally { await restored?.close(); await h.close(); }
+});

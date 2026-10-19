@@ -1849,14 +1849,15 @@ test('ACCESS-004 enforced MFA: enroll before any client, TOTP and recovery-code 
   const start = await h.json('/mfa/totp/start', {}, preparer);
   assert.match(start.uri, /^otpauth:\/\/totp\/Blotter%3Apreparer%40example\.test\?secret=[A-Z2-7]{32}&/);
   await h.json('/mfa/totp/confirm', { id: start.id, code: wrongCode(start.secret) }, preparer, 400);
-  const enrolled = await h.json('/mfa/totp/confirm', { id: start.id, code: totp(start.secret) }, preparer);
+  const enrollmentCode = totp(start.secret);
+  const enrolled = await h.json('/mfa/totp/confirm', { id: start.id, code: enrollmentCode }, preparer);
   assert.equal(enrolled.recoveryCodes.length, 10);
   assert.deepEqual((await h.json('/state', undefined, preparer)).jobs.map(j => j.id).includes(job.id), true);
   // A sign-in with the right first factor and no second factor is refused until it passes TOTP; a used code never works twice.
   const second = await h.login('preparer@example.test');
   assert.equal((await h.json('/state', undefined, second, 403)).mfa, 'verify');
   await h.json('/mfa/totp/start', {}, second, 403);
-  await h.json('/mfa/verify', { code: totp(start.secret) }, second, 400);
+  await h.json('/mfa/verify', { code: enrollmentCode }, second, 400);
   assert.equal((await h.json('/mfa/verify', { code: totp(start.secret, 1) }, second)).method, 'totp');
   await h.json('/state', undefined, second);
   // A recovery code verifies one session, once.

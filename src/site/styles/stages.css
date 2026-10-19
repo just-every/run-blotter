@@ -45,36 +45,43 @@
 .portal-card p{font-size:clamp(15px,1.25vw,18px)}
 .upload-button{display:block;margin:14px 0;padding:13px;border-radius:12px;background:var(--bl-marigold-ui);text-align:center;font:700 18px/1 var(--bl-font-ui);color:var(--bl-ink)}
 
-/* 04 Agent: the ledger wired line by line to the answers, the agent's card above the wires */
-.agent-board{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,.72fr) minmax(0,1.12fr);grid-template-rows:auto auto repeat(5,auto);gap:14px 0;padding:0}
+/* 04 Agent: three cards with gutters. The agent's card stands between the two at the top, lifted a little
+   above them, and is no taller than their headers, so the ledger starts under its header and all four wires
+   run below the card. */
+.agent-board{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.84fr) minmax(0,1fr);grid-template-rows:auto repeat(5,auto);gap:12px 0;padding:0}
 .agent-board>*{position:relative;z-index:1}
-.agent-board>.agent-panel{position:absolute;z-index:0;top:0;bottom:0;border:1px solid var(--bl-line);border-radius:18px;background:var(--bl-white);box-shadow:var(--bl-shadow)}
-.panel-ledger{left:0;width:calc((100% - 0px) * 1 / 2.84)}
-.panel-answers{right:0;width:calc(100% * 1.12 / 2.84)}
-.ledger-head,.answers-head{position:relative;grid-row:1/3;padding:24px 24px 0;align-self:start}
-.ledger-head{grid-column:1;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:center}
-.ledger-head h3{font-size:clamp(22px,2.1vw,30px);line-height:1.1}
-.ledger-head p{color:var(--bl-muted);font-size:clamp(14px,1.15vw,17px)}
-.ledger-total{grid-column:1/-1;margin-top:18px;font:700 clamp(17px,1.5vw,21px)/1.2 var(--bl-font-body)!important;color:var(--bl-ink)!important}
-.answers-head{grid-column:3;display:flex;align-items:center;gap:16px;padding-top:40px}
-.answers-head::before{content:'';position:absolute;top:14px;left:50%;width:46px;height:5px;border-radius:3px;background:#b7b3c3;transform:translateX(-50%)}
-.answers-head h3{font-size:clamp(24px,2.2vw,32px)}
-.agent-card{position:relative;z-index:1;grid-column:2;grid-row:1;align-self:start;margin:0 -24px;padding:14px 14px 12px}
-.agent-card h3{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.agent-card h3 .display{font-size:clamp(21px,1.9vw,27px)}
-.agent-card ol{display:grid;gap:6px}
-.agent-card li{padding:6px 10px;border:1px solid #ebe7f4;border-radius:8px;background:#fbfafe;font-size:clamp(14px,1.1vw,16px);line-height:1.35}
-.ledger-line{position:relative;grid-column:1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 22px;padding:14px 18px;border:1px solid #e3def0;border-radius:10px;background:var(--bl-white);font-size:clamp(15px,1.35vw,19px);color:var(--bl-ink)}
+.agent-board>.agent-panel{z-index:0;grid-row:1/-1;border:1px solid var(--bl-line);border-radius:18px;background:var(--bl-white);box-shadow:var(--bl-shadow)}
+.panel-ledger{grid-column:1}
+.panel-answers{grid-column:3}
+.ledger-head,.answers-head{grid-row:1;align-self:end;padding:26px 22px 2px}
+.ledger-head{grid-column:1;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:center}
+.ledger-head h3{font-size:clamp(18px,1.6vw,25px);line-height:1.1;white-space:nowrap}
+.ledger-head p{color:var(--bl-muted);font-size:clamp(13.5px,1.05vw,16px)}
+.ledger-total{grid-column:1/-1;margin-top:16px;font:700 clamp(17px,1.4vw,20px)/1.2 var(--bl-font-body)!important;color:var(--bl-ink)!important}
+.answers-head{grid-column:3;display:flex;align-items:center;gap:16px;padding-top:44px}
+.answers-head::before{content:'';position:absolute;top:16px;left:50%;width:46px;height:5px;border-radius:3px;background:#b7b3c3;transform:translateX(-50%)}
+.answers-head h3{font-size:clamp(22px,2vw,30px);white-space:nowrap}
+.agent-card{grid-column:2;grid-row:1;align-self:start;margin:-32px 16px 0;padding:10px 10px 9px}
+.agent-card h3{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.agent-card h3 .icon-tile{width:36px;height:36px;border-radius:9px}
+.agent-card h3 .icon-tile .icon{width:21px;height:21px}
+.agent-card h3 .display{font-size:clamp(18px,1.55vw,24px);white-space:nowrap}
+.agent-card ol{display:grid;gap:3px}
+.agent-card li{padding:3px 8px;border:1px solid #ebe7f4;border-radius:7px;background:#fbfafe;font-size:clamp(12.5px,.94vw,14px);line-height:1.28}
+.ledger-line{position:relative;grid-column:1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 22px;padding:14px 18px;border:1px solid #e3def0;border-radius:10px;background:var(--bl-white);font-size:clamp(15px,1.3vw,19px);color:var(--bl-ink)}
 .ledger-line b{font-weight:500}
 .ledger-line:not(.ledger-more)::after{content:'';position:absolute;right:-29px;top:50%;width:13px;height:13px;margin-top:-6px;border-radius:50%;background:#b38cf0}
 .ledger-more{margin-bottom:22px}
 .ledger-wire{grid-column:2;align-self:center;height:0;margin:0 0 0 14px;border-top:2px dashed #b38cf0;position:relative}
 .ledger-wire::after{content:'';position:absolute;right:-6px;top:-7.5px;width:13px;height:13px;border-radius:50%;background:#b38cf0}
-.answer{grid-column:3;display:flex;align-items:center;gap:14px;margin:0 22px 0 18px;padding:10px 16px;border:1px solid var(--bl-mint-line);border-radius:10px;background:var(--bl-mint-tint);font-size:clamp(15px,1.35vw,19px);line-height:1.35;color:var(--bl-ink)}
-.answer>span:not(.icon-tile){flex:1}
+.answer{grid-column:3;display:flex;align-items:center;gap:14px;margin:0 22px 0 18px;padding:10px 16px;border:1px solid var(--bl-mint-line);border-radius:10px;background:var(--bl-mint-tint);font-size:clamp(15px,1.3vw,19px);line-height:1.35;color:var(--bl-ink)}
+.answer>span:not(.icon-tile){flex:1;text-wrap:pretty}
+.agent-card li,.agent-footer li,.ledger-head p{text-wrap:pretty}
 .answer .check{width:30px;height:30px;color:var(--bl-green-deep)}
-.answer.is-judgment{background:#fff6d6;border-color:#f5d474;flex-wrap:wrap}
-.judgment{padding:5px 12px;border-radius:999px;background:var(--bl-amber);font:600 14px/1.2 var(--bl-font-body);font-style:normal;color:var(--bl-ink)}
+/* The judgment answer runs the full width of its card; the reviewer's pill floats to the end of its last line
+   (on phones it takes a line of its own under the answer). */
+.answer.is-judgment{background:#fff6d6;border-color:#f5d474}
+.judgment{float:right;margin:.2em 0 0 .6em;padding:5px 12px;border-radius:999px;background:var(--bl-amber);font:600 14px/1.2 var(--bl-font-body);font-style:normal;color:var(--bl-ink)}
 .answers-more{grid-column:3;align-self:center;margin:0 22px 22px 18px;padding:0 4px;color:var(--bl-muted);font-size:clamp(14px,1.15vw,16px)}
 .agent-footer{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-top:26px}
 .agent-footer li{display:flex;align-items:center;gap:12px;padding:14px 12px;font-size:clamp(13px,1.05vw,15px);line-height:1.35;color:var(--bl-ink)}
@@ -108,7 +115,7 @@
 .wp-block p{position:relative;padding:3px 16px;font-size:clamp(15px,1.25vw,18px);color:var(--bl-ink)}
 .wp-block p:first-of-type{padding-top:12px}
 .wp-block .after{margin:6px 16px 0;padding:10px 0 14px;border-top:1.5px solid var(--bl-ink)}
-.dana-note{position:absolute!important;right:3%;top:28%;max-width:34%;padding:0!important;font:700 clamp(18px,1.8vw,26px)/1.15 var(--bl-font-hand)!important;color:var(--bl-pistachio)!important;transform:rotate(-3deg);text-align:right}
+.dana-note{position:absolute!important;right:3%;top:28%;max-width:34%;padding:0!important;font:700 clamp(18px,1.8vw,26px)/1.25 var(--bl-font-hand)!important;color:var(--bl-pistachio)!important;transform:rotate(-3deg);text-align:right}
 .dana-note b{display:block;margin-top:6px}
 .legend{display:flex;gap:28px;justify-content:flex-end;margin-top:12px;font:400 clamp(15px,1.3vw,19px)/1.2 var(--bl-font-hand);color:var(--bl-raspberry)}
 .legend i{font-style:normal;margin-right:4px;color:var(--bl-pistachio)}
@@ -118,6 +125,7 @@
 .close-timeline li::before{content:'';position:absolute;top:0;left:0;width:18px;height:18px;border-radius:50%;background:#b38cf0}
 .close-timeline li.is-done::before{background:var(--bl-mint);box-shadow:0 0 0 3px #d9f6e8}
 .close-timeline b{display:block;color:var(--bl-ink);font-weight:700}
+.close-timeline li,.wp-block p,.rec th,.workpaper h3{text-wrap:pretty}
 
 /* 06 Queue: one four-column board */
 .board{padding:clamp(18px,2vw,28px)}
@@ -133,6 +141,8 @@
 .lane-icon{display:none}
 .lane-counts{display:grid;gap:4px;color:var(--bl-muted);font-size:clamp(15px,1.35vw,19px);line-height:1.35;min-height:76px}
 .job{padding:10px 12px;border:3px solid;border-radius:10px;font:400 clamp(15px,1.32vw,19px)/1.3 var(--bl-font-hand);letter-spacing:-.01em;color:var(--bl-ink)}
+/* A count is set in type with tabular figures: the marker hand's 1 reads as a capital I. */
+.job .count{font:600 .9em/1 var(--bl-font-body);font-variant-numeric:tabular-nums lining-nums;letter-spacing:0}
 .job.tone-marigold{border-color:var(--bl-marigold-ui);background:#fff2c4}
 .job.tone-lilac{border-color:#b996f3;background:#f0e6fe}
 .job.tone-pale{border-color:#ded2fb;background:#f9f6ff}
@@ -319,8 +329,24 @@
   .stack-with-note{display:grid;gap:14px}
   .roll-note{flex-basis:auto}
   .agent-footer{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* 04 below 1200 px: the agent's card, the ledger's header, then each ledger line paired with its answer */
+  .agent-board,.agent-footer{max-width:760px;margin-left:auto;margin-right:auto}
+  .agent-board{display:flex;flex-direction:column;gap:12px}
+  .agent-panel,.ledger-wire,.answers-head,.answers-more{display:none}
+  .ledger-head{order:1;padding:0;align-self:stretch}
+  .agent-card{order:0;align-self:stretch;margin:0;padding:14px}
+  .agent-card h3 .display{white-space:normal}
+  .agent-card li{padding:6px 10px;font-size:14px;line-height:1.35}
+  .ledger-head h3{white-space:normal}
+  .ledger-line,.answer{margin:0}
+  .ledger-line:not(.ledger-more)::after{display:none}
+  .ledger-line{order:2;border-radius:10px 10px 0 0;background:#f6f5f9;margin-bottom:-13px;padding:12px 14px}
+  .answer{order:2;border-radius:0 0 10px 10px;padding:12px 14px;gap:12px}
+  .answer .icon-tile{width:40px;height:40px;border-radius:10px}
+  .answer .judgment{float:none;display:table;margin:8px 0 2px}
+  .ledger-more{order:3;margin:0;border-radius:10px;background:var(--bl-white)}
   .blotter-rule .month-chips{grid-template-columns:1fr 1fr}
-  .dana-note{position:static!important;max-width:none;margin:8px 16px 0;text-align:left}
+  .dana-note{position:static!important;width:fit-content;max-width:calc(100% - 32px);margin:8px 16px 14px;text-align:left}
   .close-timeline{grid-template-columns:repeat(4,minmax(0,1fr));gap:22px 12px}
   .close-timeline::before{display:none}
 }
@@ -349,21 +375,19 @@
   .rail li{padding:0 0 0 36px}
   .rail li::after{display:none}
   .mini-card{padding:16px;gap:12px}
-  .agent-board{display:flex;flex-direction:column;gap:12px}
-  .agent-panel,.ledger-wire,.answers-head,.answers-more{display:none}
-  .ledger-head{order:1;padding:0}
-  .agent-card{order:0;margin:0}
-  .ledger-line,.answer{margin:0}
-  .ledger-line:not(.ledger-more)::after{display:none}
-  .ledger-line{order:2;border-radius:10px 10px 0 0;background:#f6f5f9;margin-bottom:-13px;padding:12px 14px}
-  .answer{order:2;border-radius:0 0 10px 10px;padding:12px 14px;gap:12px}
-  .ledger-more{order:3;margin:0;border-radius:10px;background:var(--bl-white)}
   .agent-footer{grid-template-columns:1fr;gap:10px}
   .close-timeline{grid-template-columns:1fr 1fr}
-  .rec{margin:8px 10px 12px}
-  .rec th{padding-right:12px}
+  /* the bank rec on phones: each label on a line of its own, its amount and tick under it at the right */
+  .rec{display:block;margin:8px 10px 12px}
+  .rec tbody{display:block}
+  .rec tr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;padding:4px 0}
+  .rec th{grid-column:1/-1;padding:0}
+  .rec td{grid-column:2;padding:2px 0 0}
+  .rec td+td{grid-column:3}
+  .rec tr.total{margin-top:8px;border-top:1.5px solid var(--bl-ink);padding-top:8px}
+  .rec tr.total th,.rec tr.total td{padding-top:0;border-top:0}
   .tick{margin-left:6px}
-  .dana-note{position:static!important;max-width:none;margin:8px 16px 0;text-align:left}
+  .dana-note{position:static!important;width:fit-content;max-width:calc(100% - 32px);margin:8px 16px 14px;text-align:left;line-height:1.5!important}
   .board-columns{grid-template-columns:1fr}
   .lane,.lane:nth-child(3){border-left:0;padding:16px 0 4px;border-top:1.5px solid #e6e1f2}
   .lane:first-child{border-top:0;padding-top:0}

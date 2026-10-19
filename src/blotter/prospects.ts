@@ -1,3 +1,4 @@
+import { firmCurrency } from './firm';
 // Prospects and the onboarding pipeline (CRM-005, first slice). The principal
 // and reviewers track prospects through the firm's ordered stages with lead
 // source, requested services, estimated annual fees and owner. Moving to a
@@ -6,7 +7,6 @@
 // same batch; repeating the win returns that client and creates nothing. The
 // pipeline report counts conversion, stage age and fees by source and owner.
 import { prospectUploads } from './intake';
-import { currency } from './currency';
 import { createStatements, eligible } from './jobs';
 import { fieldDefs, profileFields } from './profiles';
 import { atomic, audit, date, email, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
@@ -56,7 +56,7 @@ export async function addProspect(db: D1Database, actor: Actor, body: Data) {
   };
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_prospects(id,name,contact_name,contact_email,source,services,fee_cents,owner_email,stage_id,stage_since,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at, currency(body.currency)),
+      prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at, await firmCurrency(db, body.currency)),
     event(db, prospect.id, null, stage.id, 'Added', actor.email, at), audit(db, actor, 'prospect.added', prospect.id, `${prospect.name} from ${prospect.source}`)]);
   return prospectRow(db, prospect.id);
 }

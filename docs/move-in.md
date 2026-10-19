@@ -11,8 +11,9 @@ Use UTF-8 CSV with one header row, 1–2,000 client rows and a maximum file size
 | Column | Required | Rules |
 | --- | --- | --- |
 | `client_name` | Yes | 1–200 characters. |
-| `client_id` | No | Previous system's identifier, up to 200 characters. Without it, identity is the client's name and ABN. |
-| `abn` | No | The client's Australian Business Number: empty or 11 digits; spaces allowed. The checksum is not checked. |
+| `client_id` | No | Previous system's identifier, up to 200 characters. Without it, identity is the client's name and tax ID. |
+| `ein` | No | The client's EIN: empty or 9 digits; spaces and hyphens allowed. Give an EIN or a legacy ABN, not both. |
+| `abn` | No | A legacy Australian Business Number from the first release: empty or 11 digits; spaces allowed. It is never relabeled as an EIN. The checksum is not checked. |
 | `contact_name` | No | Up to 200 characters. |
 | `contact_email` | No | Empty or one email address. Reminders go here. |
 | `tags` | No | Up to 20 tags separated by semicolons. |

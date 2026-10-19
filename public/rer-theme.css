@@ -43,6 +43,10 @@ html:not(.rer-themed) body > main:not(.door) {max-width:520px;margin:64px auto;p
 html:not(.rer-themed) body > main > .brand {gap:10px;font:900 30px/1 var(--bl-font-display);font-variation-settings:'wdth' 50;letter-spacing:.005em;color:var(--bl-ink);}
 html:not(.rer-themed) body > main > .brand img {width:30px;height:30px;}
 html:not(.rer-themed) body > main > h1 {font:900 36px/1.1 var(--bl-font-display);font-variation-settings:'wdth' 52;word-spacing:.14em;color:var(--bl-ink);margin:0 0 12px;}
+/* A dev or demo instance's label ("Dev", "Demo") after the wordmark: a small lilac tag, not part of the name. */
+html.rer-themed main [data-rer-name]::after, .door .word::after, body > main > .brand [data-rer-name]::after {
+  font:700 max(11px,.34em)/1 var(--bl-font-ui);font-variation-settings:normal;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--bl-lilac-deep);vertical-align:.9em;margin-left:.15em;}
 @media(max-width:760px) {
   html:not(.rer-themed) body > main:not(.door) {margin:24px 16px;padding:32px 22px;}
   html.rer-themed body {padding:24px 16px;place-items:start center;}

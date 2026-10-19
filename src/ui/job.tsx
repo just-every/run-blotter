@@ -1,3 +1,4 @@
+import { StarterJobSummary } from './starter-library';
 import { useEffect, useState } from 'react';
 import { Blotter, api, money, Field, Form, readFile, SOURCE, Status, today, when, type Row, type Run, day } from './common';
 import { Deliverables } from './deliverables';
@@ -29,6 +30,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
         <Status value={job.status} />
       </div>
       <p className="muted">Preparer {job.preparer_email} · reviewer {job.reviewer_email} · manager {job.manager_email || job.reviewer_email}{job.partner_email && <> · partner {job.partner_email}</>}{job.fee_cents > 0 && <> · fixed fee {money(job.fee_cents, job.currency)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
+      <StarterJobSummary content={detail.starter} />
       {job.status === 'signed_off' && <p className="notice">Signed off by {job.signed_off_by} on {when(job.signed_off_at)}: {job.sign_off_note}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>
@@ -83,7 +85,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
           </div>}
         </article>)}
         {isOpen && <details><summary>Send a reminder with an upload link</summary>
-          <ReminderComposer jobId={job.id} run={run} sent={setLink} />
+          <ReminderComposer copied={detail.starter?.messages} jobId={job.id} run={run} sent={setLink} />
         </details>}
         {link && <div className="notice"><p>Delivery: {link.delivery}. This upload link is shown once and replaces earlier links. It expires {day(link.expiresAt)}.</p><input readOnly value={link.portalUrl} onFocus={e => e.currentTarget.select()} aria-label="Client upload link" /></div>}
         {detail.reminders.length > 0 && <details><summary>Reminder history ({detail.reminders.length})</summary><ul>{detail.reminders.map((m: Row) => <li key={m.id}>{when(m.sent_at)} to {m.to_email} by {m.sent_by}{m.proposal_id ? ' (approved preparation)' : ''}: {m.delivery}{JSON.parse(m.attachments ?? '[]').length > 0 && <small className="muted"> · attached {JSON.parse(m.attachments).map((f: Row) => f.name).join(', ')}</small>}</li>)}</ul></details>}

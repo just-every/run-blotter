@@ -1,3 +1,4 @@
+import { StarterLibrary } from './starter-library';
 import { StatusSettings } from './statuses';
 import { Blotter, api, money, taxId, Empty, Field, Form, type Row, type Run } from './common';
 import { useState } from 'react';
@@ -51,11 +52,12 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
           <TaskEditor people={people} templates={state.templates} tasks={tasks} setTasks={setTasks} />
           {tasks.length > 0 && <Field label="Job questions for branches, one per line: key | question | answer, answer" name="questions" required={false}><textarea name="questions" rows={2} placeholder="itemized | Itemizing deductions this year? | yes, no" /></Field>}
           <Field label="Documents to request from the client (one per line)" name="requests"><textarea name="requests" rows={3} required defaultValue={SALES_TAX_REQUESTS} /></Field>
-          <Field label="Currency" name="currency"><select name="currency"><option value="USD">USD</option><option value="AUD">AUD</option></select></Field>
+          <Field label="Currency" name="currency"><select name="currency" defaultValue={state.firm?.currency ?? 'USD'}><option value="USD">USD</option>{(state.firm?.currency === 'AUD' || state.templates.some((t: Row) => t.currency === 'AUD')) && <option value="AUD">AUD</option>}</select></Field>
           <Field label="Fixed fee in cents (0 for none)" name="feeCents" type="number" value={0} />
         </Form>
       </details>}
     </section>
+    {lead && <StarterLibrary state={state} run={run} tick={tick} />}
     {lead && <RecurrencePanel state={state} run={run} tick={tick} />}
     {lead && <section className="panel wide">
       <h2>Start a job</h2>

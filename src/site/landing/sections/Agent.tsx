@@ -28,11 +28,11 @@ export function Agent() {
       <span className="agent-panel panel-answers" aria-hidden="true" />
       <header className="ledger-head">
         <IconTile name="document" />
-        <div><h3 className="display">Harbor Taco Co. · QuickBooks Online</h3><p>September · read only · synced Mon Oct 5, 7:02 am</p></div>
+        <div><h3 className="display"><span className="nowrap">Harbor Taco Co. ·</span> <span className="nowrap">QuickBooks Online</span></h3><p>September · read only · synced <span className="nowrap">Mon Oct 5, 7:02 am</span></p></div>
         <p className="ledger-total">12 uncategorized lines · $3,418.40</p>
       </header>
       <article className="card agent-card">
-        <h3><IconTile name="sparkle" /><span className="display">Agent · Mon Oct 5, 7:40 am</span></h3>
+        <h3><IconTile name="sparkle" /><span className="display">Agent · <span className="nowrap">Mon Oct 5, 7:40 am</span></span></h3>
         <ol>
           <li>Read 12 lines and August for comparison</li>
           <li>Drafted 12 questions, one per line, each linked to its transaction</li>
@@ -42,15 +42,16 @@ export function Agent() {
       </article>
       <header className="answers-head"><IconTile name="chat" /><h3 className="display">Miguel Torres · answers</h3></header>
       {lines.map((line, i) => [
-        <p key={`l${i}`} className="ledger-line" style={{ gridRow: i + 3 }}><span>{line.date} · {line.who}</span><b>{line.amount}</b></p>,
-        <span key={`w${i}`} className="ledger-wire" style={{ gridRow: i + 3 }} aria-hidden="true" />,
-        <p key={`a${i}`} className={`answer${line.judgment ? ' is-judgment' : ''}`} style={{ gridRow: i + 3 }}>
-          <IconTile name={line.icon} tone={line.judgment ? 'marigold' : 'mint'} /><span>{line.answer}</span>
-          {line.judgment ? <em className="judgment">judgment: for the reviewer</em> : <Check />}
+        <p key={`l${i}`} className="ledger-line" style={{ gridRow: i + 2 }}><span>{line.date} · {line.who}</span><b>{line.amount}</b></p>,
+        <span key={`w${i}`} className="ledger-wire" style={{ gridRow: i + 2 }} aria-hidden="true" />,
+        <p key={`a${i}`} className={`answer${line.judgment ? ' is-judgment' : ''}`} style={{ gridRow: i + 2 }}>
+          <IconTile name={line.icon} tone={line.judgment ? 'marigold' : 'mint'} />
+          <span>{line.answer}{line.judgment && <em className="judgment">judgment: for the reviewer</em>}</span>
+          {!line.judgment && <Check />}
         </p>,
       ])}
-      <p className="ledger-line ledger-more" style={{ gridRow: 7 }}><span>+ 8 more</span><b>$347.62</b></p>
-      <p className="answers-more" style={{ gridRow: 7 }}>+ 8 more · all answered <Check /></p>
+      <p className="ledger-line ledger-more" style={{ gridRow: 6 }}><span>+ 8 more</span><b>$347.62</b></p>
+      <p className="answers-more" style={{ gridRow: 6 }}>+ 8 more · all answered <Check /></p>
     </div>
     <ol className="agent-footer">{footer.map(step => <li key={step.text} className={`card${step.done ? ' is-done' : ''}`}>
       <span className={`icon-tile tone-${step.done ? 'mint' : 'lilac'}`}><Icon name={step.icon} /></span><span>{step.text}{step.done && <> <Check /></>}</span>

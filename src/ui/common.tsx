@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useId, type FormEvent, type ReactElement, type ReactNode } from 'react';
+import { Fragment, cloneElement, isValidElement, useId, type FormEvent, type ReactElement, type ReactNode } from 'react';
 
 export type Row = Record<string, any>;
 export type Run = (job: () => Promise<any>, message?: string) => Promise<void>;
@@ -7,6 +7,7 @@ export async function api(path: string, body?: unknown) {
   const response = await fetch('/api/blotter' + path, { credentials: 'same-origin', ...(body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }) });
   const result: any = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(result.error ?? 'The request could not be completed'), { mfa: result.mfa as string | undefined });
+  if (path === '/state' && result.firm) displayZone = result.firm.timeZone;
   return result;
 }
 /** Where a time entry's rate came from (TIME-003 rate cards). */
@@ -14,20 +15,23 @@ export const SOURCE: Record<string, string> = { client_service: 'client and serv
 export const money = (cents: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
 export const taxId = (value: string) => value ? `${value.length === 11 ? 'Legacy ABN' : 'EIN'} •••••${value.slice(-4)}` : '';
 export const moneyTotals = (rows: Row[], key: string) => Object.entries(rows.reduce((totals: Record<string, number>, r: Row) => { totals[r.currency] = (totals[r.currency] ?? 0) + Number(r[key]); return totals; }, {})).map(([currency, cents]) => money(cents as number, currency)).join(' · ');
-const pad = (n: number) => String(n).padStart(2, '0');
-/** Dates and times in the viewer's own timezone, US style (stored values stay UTC; date-only values are calendar days). */
-export const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const instant = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(value + 'T12:00:00') : new Date(value);
-/** "Tue Oct 13", with the year when it is not this year. */
+let displayZone = 'America/New_York';
+/** Firm-local dates and instants, US style; date-only deadlines keep their recorded calendar day. Stored values stay UTC. */
+const dateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+const zoned = (value: string) => dateOnly(value) ? { at: new Date(value + 'T12:00:00Z'), timeZone: 'UTC' } : { at: new Date(value), timeZone: displayZone };
+const parts = (d: Date) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: displayZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }).formatToParts(d).map(p => [p.type, p.value]));
+/** The firm's calendar day as a native date input value ("2026-10-19"). */
+export const today = () => { const p = parts(new Date()); return `${p.year}-${p.month}-${p.day}`; };
+/** "Tue Oct 13", with the year when it is not this year ("Wed Dec 23, 2025"). */
 export const day = (value?: string) => {
   if (!value) return '';
-  const d = instant(value), year = d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' as const };
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', ...year }).replaceAll(',', '');
+  const { at, timeZone } = zoned(value), year = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric' }).format(at) === today().slice(0, 4) ? {} : { year: 'numeric' as const };
+  return at.toLocaleDateString('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric', ...year }).replace(/^(\w{3}),/, '$1');
 };
 /** "8:10 am". */
-export const clock = (value?: string) => value ? instant(value).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s?([AP])M/, (_, m: string) => ` ${m.toLowerCase()}m`) : '';
-/** "Tue Oct 13 · 8:10 am". */
-export const when = (iso?: string) => iso ? `${day(iso)} · ${clock(iso)}` : '';
+export const clock = (value?: string) => value ? new Date(value).toLocaleTimeString('en-US', { timeZone: displayZone, hour: 'numeric', minute: '2-digit' }).replace(/\s?([AP])M/, (_, m: string) => ` ${m.toLowerCase()}m`) : '';
+/** "Tue Oct 13 · 8:10 am EDT" in the firm's zone; a date-only value prints its day. */
+export const when = (iso?: string) => !iso ? '' : dateOnly(iso) ? day(iso) : `${day(iso)} · ${clock(iso)} ${parts(new Date(iso)).timeZoneName}`;
 export const initials = (name = '') => name.replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('');
 
 export async function readFile(file: File) {
@@ -76,4 +80,8 @@ export function PageHead({ eyebrow, title, mark, children }: { eyebrow: ReactNod
 /** Two marigold marker ticks after a heading, as the mark's own sparks. */
 export function Sparks() {
   return <svg className="sparks" viewBox="0 0 40 44" aria-hidden="true"><path d="M8 18 L20 4 M10 26 L32 22 M10 34 L24 42" /></svg>;
+}
+/** Message paragraphs wrap normally while preserving the sender's line breaks. */
+export function MessageText({ children }: { children: string }) {
+  return <div className="message">{children.split('\n\n').map((paragraph, n) => <p key={n}>{paragraph.split('\n').map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}</p>)}</div>;
 }

@@ -9,7 +9,7 @@ import { amount } from '../billing';
 import { weekStart } from '../timesheets';
 import { chance, fixedId } from './ids';
 import { base64, csv, pdf } from './files';
-import { engagements, principal, team, type Engagement } from './practice';
+import { clients, engagements, principal, team, type Engagement } from './practice';
 
 const DAY = 86_400_000, HOUR = 3_600_000;
 const STEP = { monthly: 1, quarterly: 3, annual: 12 } as const;
@@ -60,7 +60,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
   const audit = (actor: string, action: string, objectId: string, detail: string, ms: number) =>
     work.audit.push({ id: fixedId(`audit:${action}:${objectId}:${ms}`), actor, action, object_id: objectId, detail, at: iso(ms) });
   // Two jobs that tell a story: one stuck waiting on the client, one signed off but not yet rolled forward.
-  const stuck = 'Ironbark Landscaping', unrolled = 'Fig Tree Dental LLC:close';
+  const stuck = clients.ironbark.name, unrolled = 'Fig Tree Dental LLC:close';
 
   for (const e of engagements) {
     const t = e.template, recurrence = t.recurrence, key = `${e.client.name}:${t.key}`;
@@ -169,6 +169,29 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
         audit(reviewer, 'job.signed_off', id, job.sign_off_note as string, signed);
       }
       previous = job;
+    }
+  }
+  // One review came back this week; its real return event and note lift the Inbox exception.
+  const returned = work.jobs.find(j => j.client_id === clients.harbour.id && j.template_id === engagements[0].template.id && j.status !== 'signed_off');
+  if (returned) {
+    const submitted = clock - 2 * DAY, back = clock - DAY;
+    returned.status = 'open'; returned.submitted_at = iso(submitted); returned.submitted_by = returned.preparer_email;
+    returned.signed_off_at = null; returned.signed_off_by = null; returned.sign_off_note = null;
+    audit(String(returned.preparer_email), 'job.submitted', String(returned.id), '', submitted);
+    audit(String(returned.reviewer_email), 'job.returned', String(returned.id), 'Please reconcile the sales-tax payable balance to the state account before resubmitting.', back);
+  }
+  // A waiting-client engagement has a genuine demo-suppressed reminder trail even early in a period.
+  const waiting = work.jobs.find(j => j.client_id === clients.ironbark.id && j.status === 'open');
+  if (waiting && !work.reminders.some(r => r.job_id === waiting.id)) {
+    const outstanding = work.requests.filter(r => r.job_id === waiting.id && r.status === 'requested').map(r => r.label);
+    if (outstanding.length) for (let n = 0; n < 2; n++) {
+      const sent = clock - (5 - n * 3) * DAY;
+      work.links.push({ id: fixedId(`waiting-link:${waiting.id}:${n}`), job_id: waiting.id, digest: '', created_by: waiting.preparer_email,
+        created_at: iso(sent), expires_at: iso(sent + 30 * DAY), revoked_at: n === 0 ? iso(clock - 2 * DAY) : null });
+      work.reminders.push({ id: fixedId(`waiting-reminder:${waiting.id}:${n}`), job_id: waiting.id, to_email: clients.ironbark.contactEmail,
+        outstanding: JSON.stringify(outstanding), message: `Hello ${clients.ironbark.contactName},\n\nPlease send ${outstanding.join(', ')} for ${waiting.title}.\n\nUpload securely: {origin}/portal/…`,
+        delivery: 'accepted by demo mail', sent_by: waiting.preparer_email, proposal_id: null, sent_at: iso(sent) });
+      audit(String(waiting.preparer_email), 'reminder.sent', String(waiting.id), clients.ironbark.contactEmail, sent);
     }
   }
   // The activity log keeps its most recent entries: the screen shows the latest 100.
