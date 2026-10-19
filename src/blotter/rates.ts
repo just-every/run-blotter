@@ -1,9 +1,10 @@
+import { firmCurrency } from './firm';
 // Rate cards (TIME-003): hourly rates by staff member, practice role, service
 // (the engagement template) and client, each in force from its effective date.
 // Precedence: client and service, then client, then service, then staff
 // member, then role. A new card applies from its date; recorded time keeps the
 // rate and source it snapshotted.
-import { currency, type Currency } from './currency';
+import { type Currency } from './currency';
 import { atomic, audit, date, email, human, id, insist, integer, need, now, rows, stmt, type Actor, type Data, type Role } from './model';
 
 export const SCOPES = ['client_service', 'client', 'service', 'staff', 'role'] as const;
@@ -41,7 +42,7 @@ export async function setRate(db: D1Database, actor: Actor, body: Data) {
   const scope = (body.scope ?? 'staff') as Scope;
   insist(SCOPES.includes(scope), 'Choose a staff member, role, service, client, or client and service rate');
   const card = {
-    id: id(), scope, currency: currency(body.currency), rateCents: integer(body.rateCents, 'Hourly rate in cents', 0, 1_000_000), effectiveFrom: date(body.effectiveFrom, 'Effective from'),
+    id: id(), scope, currency: await firmCurrency(db, body.currency), rateCents: integer(body.rateCents, 'Hourly rate in cents', 0, 1_000_000), effectiveFrom: date(body.effectiveFrom, 'Effective from'),
     personEmail: null as string | null, role: null as string | null, templateId: null as string | null, clientId: null as string | null,
   };
   if (scope === 'staff') {

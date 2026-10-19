@@ -10,6 +10,7 @@
 import { DEFAULT_WEEKLY, shift, weekOf } from './capacity';
 import { dueFor, periods } from './recurrence';
 import { periodLabel } from './jobs';
+import { pipeline } from './prospects';
 import { atomic, audit, date, email, human, id, insist, integer, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 type Range = { point: number; low: number; high: number };
@@ -26,7 +27,7 @@ export const ASSUMPTIONS = [
   'Without prior actuals a period uses the rule’s time budget, else the work type’s budget, else the template’s task estimates, with a range from 50% to 150% of that figure, and its client is named as the reason.',
   'Capacity is each person’s weekly hours less scheduled leave and commitments on that week’s weekdays (CAPACITY-001); a person counts in full under each of their skills. Demand counts under the skill named like its work type.',
   'Confidence: high when every period due that week rests on at least three prior actuals, medium when each rests on at least one, low when any rests on none (each such client is named).',
-  'Pipeline: no prospects are counted; prospects and their requested services join the forecast when CRM-005 adds them.',
+  'Open prospects appear as unestimated pipeline demand in the baseline and every scenario, with their current stage, requested services, lead source and estimated annual fee for the whole prospect. Won and lost prospects are excluded. Fees are not converted to time; pipeline has no scheduled week or time budget and is excluded from weekly hours and confidence until work is budgeted and scheduled.',
 ];
 
 /** A scenario's changes, checked against the firm's clients, people and work types. */
@@ -84,7 +85,7 @@ async function lines(db: D1Database, from: string, to: string): Promise<Line[]> 
 }
 
 /** Weekly demand ranges, capacity and confidence, overall and by skill, under one set of changes. */
-function project(all: Line[], people: Data[], blocks: Data[], weekStarts: string[], changes: Changes | null) {
+function project(all: Line[], people: Data[], blocks: Data[], weekStarts: string[], changes: Changes | null, pipelineLines: Data[]) {
   const lost = new Set(changes?.lostClients ?? []), scale = new Map((changes?.services ?? []).map(s => [s.workType.toLowerCase(), s.percent]));
   const removed = all.filter(l => lost.has(l.clientId)).map(l => ({ client: l.client, workType: l.workType, periodLabel: l.periodLabel, due: l.due, reason: 'lost client' }));
   const kept = all.filter(l => !lost.has(l.clientId)).map(l => {
@@ -115,7 +116,7 @@ function project(all: Line[], people: Data[], blocks: Data[], weekStarts: string
     add(row.demand, s.demand); row.capacityMinutes += s.capacityMinutes; bySkill.set(s.skill, row);
   }
   const total = zero(); weeks.forEach(w => add(total, w.demand));
-  return { weeks, skills: [...bySkill.values()].map(s => ({ ...s, shortMinutes: Math.max(0, s.demand.high - s.capacityMinutes) })), demand: total, capacityMinutes: weeks.reduce((n, w) => n + w.capacityMinutes, 0), lines: kept, removed };
+  return { weeks, skills: [...bySkill.values()].map(s => ({ ...s, shortMinutes: Math.max(0, s.demand.high - s.capacityMinutes) })), demand: total, capacityMinutes: weeks.reduce((n, w) => n + w.capacityMinutes, 0), lines: kept, removed, pipeline: pipelineLines };
 }
 
 async function scenarioRow(db: D1Database, scenarioId: string) {
@@ -132,16 +133,24 @@ export async function forecast(db: D1Database, actor: Actor, body: Data) {
   insist(new Date(from + 'T00:00:00Z').getUTCDay() === 1, 'A forecast starts on a Monday');
   const count = saved ? saved.weeks : integer(body.weeks, 'Weeks', 1, 53), to = shift(from, count * 7 - 1);
   const changes = saved ? saved.changes : body.changes ? await changesFrom(db, body.changes) : null;
-  const [all, members, settings, blocks] = await Promise.all([
+  const [all, members, settings, blocks, prospects] = await Promise.all([
     lines(db, from, to),
     rows(db, `SELECT email,name,role FROM b_members WHERE active=1 UNION ALL SELECT email,display_name,'owner' FROM oa_operators WHERE role='owner' AND status='active' ORDER BY 2`),
     rows(db, 'SELECT * FROM b_capacity'),
     rows(db, 'SELECT * FROM b_capacity_blocks WHERE starts_on<=? AND ends_on>=?', to, from),
+    pipeline(db, actor),
   ]);
+  // CRM has no prospect work budget or scheduled start. Keep this demand visible
+  // without implying a conversion probability, week or number of hours from fees.
+  const pipelineLines = prospects.prospects.filter(p => p.stage_kind === 'open').flatMap(p => (p.services as string[]).map(service => ({
+    prospectId: p.id, prospect: p.name, service, stageId: p.stage_id, stage: p.stage, source: p.source, ownerEmail: p.owner_email,
+    estimatedAnnualFeeCents: p.created_by === 'website' && !p.fee_cents ? null : Number(p.fee_cents), currency: p.currency, feeBasis: 'estimated annual fee for the whole prospect; not allocated to this service',
+    status: 'unestimated', minutes: null, weekStart: null, basis: 'requested service; no prospect work budget or scheduled start; fees are not time estimates',
+  })));
   const people = members.map(m => { const s = settings.find(x => x.email === m.email); return { email: m.email, name: m.name, weekly: s ? Number(s.weekly_minutes) : DEFAULT_WEEKLY, skills: s ? JSON.parse(s.skills) as string[] : [] }; });
   const weekStarts = Array.from({ length: count }, (_, n) => shift(from, n * 7));
   return { from, to, weeks: count, assumptions: ASSUMPTIONS, scenario: saved ? { id: saved.id, name: saved.name, createdBy: saved.createdBy, createdAt: saved.createdAt } : null, changes,
-    baseline: project(all, people, blocks, weekStarts, null), compared: changes ? project(all, people, blocks, weekStarts, changes) : null };
+    baseline: project(all, people, blocks, weekStarts, null, pipelineLines), compared: changes ? project(all, people, blocks, weekStarts, changes, pipelineLines) : null };
 }
 
 /** A manager saves a scenario (its window and changes) to reopen and compare later; live jobs, rules and capacity are untouched. */

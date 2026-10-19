@@ -6,6 +6,7 @@ import { type Bindings, runtimeBindings } from '../auth.server';
 import branding from '../branding.json';
 import { person, agent } from './session';
 import { Fault, insist, type Actor, type Data } from './model';
+import { readFirm, saveFirm, firmClock } from './firm';
 import { addClient, saveTemplate, workspace } from './clients';
 import { commitFields, defineField, previewFields, saveGroup, saveProfile, segment } from './profiles';
 import { jobDetail, reviewJob, rollForward, setStep, startJob, submitJob } from './jobs';
@@ -40,6 +41,7 @@ import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
 import { forecast, saveScenario, scenarios } from './forecast';
 import { search } from './search';
+import { intakeFile } from './intake';
 import { addProspect, addStage, moveProspect, pipeline, winProspect } from './prospects';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
@@ -73,6 +75,9 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
 
+api.get(`${P}/firm/settings`, as((a, c) => readFirm(db(c), a)));
+api.post(`${P}/firm/settings`, as(async (a, c) => saveFirm(db(c), a, await body(c))));
+api.get(`${P}/firm/time`, as((a, c) => firmClock(db(c), a, c.req.query('at'))));
 api.get(`${P}/state`, as((a, c) => workspace(db(c), a)));
 api.get(`${P}/mfa`, asOpen((a, c) => mfaState(db(c), a)));
 api.post(`${P}/mfa/totp/start`, asOpen(async (a, c) => startTotp(db(c), a, sealer(c), await body(c))));
@@ -153,6 +158,7 @@ api.post(`${P}/capacity/blocks`, as(async (a, c) => addBlock(db(c), a, await bod
 api.post(`${P}/capacity/blocks/:id/delete`, as((a, c) => removeBlock(db(c), a, param(c))));
 api.get(`${P}/pipeline`, as((a, c) => pipeline(db(c), a)));
 api.post(`${P}/pipeline/stages`, as(async (a, c) => addStage(db(c), a, await body(c))));
+api.get(`${P}/prospects/:id/files/:file`, as((a, c) => intakeFile(db(c), a, param(c), param(c, 'file'))));
 api.post(`${P}/prospects`, as(async (a, c) => addProspect(db(c), a, await body(c))));
 api.post(`${P}/prospects/:id/stage`, as(async (a, c) => moveProspect(db(c), a, param(c), await body(c))));
 api.post(`${P}/prospects/:id/win`, as(async (a, c) => winProspect(db(c), a, param(c), await body(c))));

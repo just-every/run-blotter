@@ -1,3 +1,4 @@
+import { firmCurrency } from './firm';
 // Prospects and the onboarding pipeline (CRM-005, first slice). The principal
 // and reviewers track prospects through the firm's ordered stages with lead
 // source, requested services, estimated annual fees and owner. Moving to a
@@ -5,7 +6,7 @@
 // client with its contact and starts its onboarding job from a template in the
 // same batch; repeating the win returns that client and creates nothing. The
 // pipeline report counts conversion, stage age and fees by source and owner.
-import { currency } from './currency';
+import { prospectUploads } from './intake';
 import { createStatements, eligible } from './jobs';
 import { fieldDefs, profileFields } from './profiles';
 import { atomic, audit, date, email, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
@@ -55,7 +56,7 @@ export async function addProspect(db: D1Database, actor: Actor, body: Data) {
   };
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_prospects(id,name,contact_name,contact_email,source,services,fee_cents,owner_email,stage_id,stage_since,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at, currency(body.currency)),
+      prospect.id, prospect.name, prospect.contactName, prospect.contactEmail, prospect.source, JSON.stringify(services), prospect.fee, owner, stage.id, at, actor.email, at, await firmCurrency(db, body.currency)),
     event(db, prospect.id, null, stage.id, 'Added', actor.email, at), audit(db, actor, 'prospect.added', prospect.id, `${prospect.name} from ${prospect.source}`)]);
   return prospectRow(db, prospect.id);
 }
@@ -94,6 +95,13 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
   insist(await eligible(db, preparer, ['preparer', 'reviewer']), `${preparer} cannot prepare work`);
   insist(await eligible(db, reviewer, ['reviewer']) && reviewer !== preparer, 'The reviewer must be an active reviewer other than the preparer');
   const clientId = id(), jobId = id(), at = now(), won = (await stages(db)).find(s => s.kind === 'won');
+  const intakeFiles = await rows(db, 'SELECT * FROM b_prospect_files WHERE prospect_id=? AND erased_at IS NULL AND content_base64 IS NOT NULL', p.id);
+  const intakeRequest = id();
+  const intakeMoves = intakeFiles.flatMap(f => { const movedId = id(); return [
+    stmt(db, `INSERT INTO b_files(id,request_id,job_id,name,mime,size,sha256,content_base64,uploaded_by,channel,uploaded_at) SELECT ?,?,?,name,mime,size,sha256,content_base64,'website','portal',uploaded_at FROM b_prospect_files WHERE id=?`, movedId, intakeRequest, jobId, f.id),
+    stmt(db, 'UPDATE b_prospect_files SET content_base64=NULL,job_file_id=? WHERE id=?', movedId, f.id),
+    audit(db, actor, 'file.filed_from_intake', movedId, `${f.name}: received through website intake; filed on onboarding`),
+  ]; });
   const fields = profileFields(await fieldDefs(db), body.fields);
   const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_prospects WHERE id=? AND client_id IS NULL AND stage_id=?)', p.id, p.stage_id);
   await atomic(db, actor, [check,
@@ -102,6 +110,7 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
     ...createStatements(db, actor, template, { id: jobId, clientId, periodStart: date(body.periodStart, 'Onboarding period start'), dueDate: date(body.dueDate, 'Onboarding due date'),
       dueNote: text(body.dueNote, 'Where the onboarding due date comes from', 300), preparer, reviewer }),
 
+    ...(intakeFiles.length ? [stmt(db, `INSERT INTO b_requests(id,job_id,ordinal,label,status,note,updated_by,updated_at) SELECT ?,?,coalesce(MAX(ordinal),0)+1,'Website intake attachments','received','',?,? FROM b_requests WHERE job_id=?`, intakeRequest, jobId, actor.email, at, jobId), ...intakeMoves] : []),
     stmt(db, 'UPDATE b_prospects SET stage_id=?,stage_since=?,lost_reason=NULL,client_id=?,onboarding_job_id=? WHERE id=?', won!.id, at, clientId, jobId, p.id),
     event(db, p.id, p.stage_id, won!.id, 'Won', actor.email, at), audit(db, actor, 'prospect.won', p.id, `${p.name} became a client`), release]);
   return { repeated: false, clientId, jobId, prospect: await prospectRow(db, p.id) };
@@ -110,9 +119,9 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
 /** Prospects with their stage age, the stages, and the pipeline report as of today (UTC days, rounded down). */
 export async function pipeline(db: D1Database, actor: Actor) {
   lead(actor);
-  const [all, prospects] = await Promise.all([stages(db), rows(db, 'SELECT * FROM b_prospects ORDER BY stage_since')]);
+  const [all, prospects, uploads] = await Promise.all([stages(db), rows(db, 'SELECT * FROM b_prospects ORDER BY stage_since'), prospectUploads(db)]);
   const order = new Map(all.map((s, n) => [s.id, n])), today = now();
-  const list: Data[] = prospects.map(p => { const s = all.find(x => x.id === p.stage_id)!; return { ...p, stage: s.name, stage_kind: s.kind, services: JSON.parse(p.services), answers: JSON.parse(p.answers), stageAgeDays: days(p.stage_since, today) } as Data; })
+  const list: Data[] = prospects.map(p => { const s = all.find(x => x.id === p.stage_id)!; return { ...p, stage: s.name, stage_kind: s.kind, services: JSON.parse(p.services), answers: JSON.parse(p.answers), files: uploads.filter(f => f.prospect_id === p.id), stageAgeDays: days(p.stage_since, today) } as Data; })
     .sort((a, b) => order.get(a.stage_id)! - order.get(b.stage_id)!);
   const group = (key: 'source' | 'owner_email') => [...new Set(list.map(p => JSON.stringify([p[key], p.currency])))].sort().map(pair => {
     const [value, currency] = JSON.parse(pair);

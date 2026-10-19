@@ -1,5 +1,5 @@
+import { firmCurrency, firmSettings } from './firm';
 // Clients and recurring job templates.
-import { currency } from './currency';
 import { fieldDefs, groups, profileFields, tagList } from './profiles';
 import { pendingStep } from './flow';
 import { templateWork } from './tasks';
@@ -46,7 +46,7 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
   const template = {
     id: id(), name: text(body.name, 'Template name', 120), recurrence,
     ...await templateWork(db, body),
-    currency: currency(body.currency),
+    currency: await firmCurrency(db, body.currency),
     feeCents: integer(body.feeCents ?? 0, 'Fixed fee in cents', 0, 100_000_000),
   };
   await atomic(db, actor, [
@@ -60,7 +60,7 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
 
 /** Everything the workspace lists, filtered to what this person may see. */
 export async function workspace(db: D1Database, actor: Actor) {
-  const wide = actor.role !== 'preparer';
+  const wide = actor.role !== 'preparer', firm = await firmSettings(db);
   const jobs = await rows(db, `SELECT b_jobs.*,c.name client_name,
       (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.status<>'accepted') open_requests,
       (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND ${pendingStep('s')}) open_steps,
@@ -76,6 +76,7 @@ export async function workspace(db: D1Database, actor: Actor) {
       : await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL AND id IN (SELECT client_id FROM b_jobs WHERE preparer_email=?) ORDER BY name', actor.email),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),
     statusModel: await statusModel(db),
+    firm: { timeZone: firm.timeZone, currency: firm.currency },
     fields: await fieldDefs(db),
     groups: wide ? await groups(db) : [],
     people: wide ? await rows(db, `SELECT email,name,role FROM b_members WHERE active=1 UNION ALL SELECT email,display_name,'owner' FROM oa_operators WHERE role='owner' AND status='active' ORDER BY 2`) : [],

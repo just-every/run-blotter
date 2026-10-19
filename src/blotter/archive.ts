@@ -41,14 +41,17 @@ export async function restore(db: D1Database, actor: Actor, body: Data) {
 /** Erase an uploaded file's bytes. Its name, hash and history remain; older archives are fenced. */
 export async function eraseFile(db: D1Database, actor: Actor, fileId: string, body: Data) {
   human(actor); need(actor, 'owner');
-  const file = await stmt(db, 'SELECT * FROM b_files WHERE id=?', fileId).first<Data>();
+  const intake = await stmt(db, 'SELECT * FROM b_prospect_files WHERE id=?', fileId).first<Data>();
+  const regular = await stmt(db, 'SELECT * FROM b_files WHERE id=?', intake?.job_file_id ?? fileId).first<Data>();
+  const file = regular ?? intake;
   insist(file, 'File not found', 404);
-  await job(db, actor, file.job_id);
+  if (regular) await job(db, actor, file.job_id);
   insist(!file.erased_at, 'This file was already erased', 409);
   insist(body.confirm === file.name, 'Type the file name to confirm erasing its bytes');
   const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
   await atomic(db, actor, [
-    stmt(db, 'UPDATE b_files SET content_base64=NULL,erased_at=?,erased_by=?,erase_reason=? WHERE id=? AND erased_at IS NULL', now(), actor.email, reason, file.id),
+    regular ? stmt(db, 'UPDATE b_files SET content_base64=NULL,erased_at=?,erased_by=?,erase_reason=? WHERE id=? AND erased_at IS NULL', now(), actor.email, reason, file.id)
+      : stmt(db, 'UPDATE b_prospect_files SET content_base64=NULL,erased_at=? WHERE id=? AND erased_at IS NULL', now(), file.id),
     stmt(db, 'DELETE FROM b_file_text WHERE file_id=?', file.id),
     ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
     audit(db, actor, 'file.erased', file.id, reason),

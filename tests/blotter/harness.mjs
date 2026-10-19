@@ -21,9 +21,13 @@ export async function harness({bindings={}}={}){
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
   assets:{directory:resolve('dist/client'),routerConfig:{has_user_worker:true}},d1Databases:{DB:'blotter-test'},bindings:vars,
   // The only fake is the paid mail-provider boundary; the built app is unchanged.
-  outboundService:async request=>{assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return Response.json({id:'test-mail-'+mails.length});},
+  outboundService:async request=>{if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return Response.json({id:'test-mail-'+mails.length});},
  }),resourcePersistencePath:join(directory,'state')});
- const request=(path,body,cookie='',extra={})=>mf.dispatchFetch(origin+path,{redirect:'manual',method:body===undefined?'GET':'POST',headers:{origin,host:new URL(origin).host,'CF-Connecting-IP':'192.0.2.1',...(body===undefined?{}:{'content-type':'application/json'}),...(cookie?{cookie}:{}),...extra},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ const request=async(path,body,cookie='',extra={})=>{
+  const multipart=body instanceof FormData ? new Request(origin+path,{method:'POST',body}) : null;
+  return mf.dispatchFetch(origin+path,{redirect:'manual',method:body===undefined?'GET':'POST',headers:{origin,host:new URL(origin).host,'CF-Connecting-IP':'192.0.2.1',...(multipart?{'content-type':multipart.headers.get('content-type')}:body===undefined?{}:{'content-type':'application/json'}),...(cookie?{cookie}:{}),...extra},...(body===undefined?{}:{body:multipart?await multipart.arrayBuffer():JSON.stringify(body)})});
+ };
+
  const json=async(path,body,cookie,expected=200,extra={})=>{const r=await request('/api/blotter'+path,body,cookie,extra);const b=await r.json();assert.equal(r.status,expected,JSON.stringify(b));return b;};
  async function login(email){
   assert.equal((await request('/auth/magic-link',{email})).status,202);
