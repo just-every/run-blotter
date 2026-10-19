@@ -74,11 +74,12 @@ export function SegmentPanel({ state, run, segment, setSegment }: { state: Row; 
       <p>{segment.length} {segment.length === 1 ? 'client' : 'clients'} in this segment: {segment.map(c => c.name).join(', ')}. They are preselected under <strong>Schedule work in bulk</strong>. <button className="quiet" onClick={() => setSegment(undefined)}>Clear</button></p>
       {segment.length > 0 && state.fields.length > 0 && <details><summary>Change a field for this segment</summary>
         <Form label="Preview change" submit={async data => run(async () => {
-          const body = { key: data.key, lines: segment.map(c => ({ clientId: c.id, value: data['value:' + c.id] })) };
+          // A blank input leaves that client out of the change.
+          const body = { key: data.key, lines: segment.filter(c => String(data['value:' + c.id] ?? '').trim()).map(c => ({ clientId: c.id, value: data['value:' + c.id] })) };
           setRequest(body); setPlan(await api('/clients/bulk-fields/preview', body));
         })}>
           <Field label="Field" name="key"><select name="key">{state.fields.map((f: Row) => <option key={f.key} value={f.key}>{f.label}</option>)}</select></Field>
-          {segment.map(c => <Field key={c.id} label={`New value for ${c.name}`} name={'value:' + c.id} required={false} />)}
+          {segment.map(c => <Field key={c.id} label={`New value for ${c.name}`} name={'value:' + c.id} required={false} hint="Leave blank to keep this client's value" />)}
         </Form>
         {plan && <>
           <table className="table"><thead><tr><th>Client</th><th>Now</th><th>New</th><th>Outcome</th></tr></thead>
