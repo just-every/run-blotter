@@ -38,7 +38,7 @@ export function Hero() {
     <div className="hero-narrow">
       <WeekStrip />
       <Plate crop={crops.planner} name="hero-planner" widths={[690, 920]} sizes="(min-width: 760px) 920px, 0px" className="plate-planner" label={label} />
-      <Plate crop={crops.phone} name="hero-phone" widths={[405]} sizes="100vw" className="plate-phone" label={label} />
+      <Plate crop={crops.phone} name="hero-phone" widths={[382, 764]} sizes="(max-width: 759px) 100vw, 0px" className="plate-phone" label={label} />
       <div className="hero-list"><HeroCards /></div>
       <Modules />
     </div>

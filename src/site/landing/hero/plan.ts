@@ -6,7 +6,7 @@ export type Crop = { x: number; y: number; w: number; h: number }
 export const crops = {
   desk: { x: 0, y: 228, w: 1536, h: 796 },
   planner: { x: 330, y: 300, w: 920, h: 500 },
-  phone: { x: 835, y: 485, w: 405, h: 315 },
+  phone: { x: 340, y: 400, w: 382, h: 400 },
 } satisfies Record<string, Crop>
 
 export type Tile = { label: string; x: number; y: number; w: number; h: number; state: 'done' | 'scheduled'; rot?: number; size?: number; plain?: boolean }
@@ -26,7 +26,7 @@ export const tiles: Tile[] = [
   { label: 'O’Neil 1065', x: 734, y: 627, w: 102, h: 34, state: 'scheduled' },
   { label: 'Singh 1040', x: 856, y: 627, w: 100, h: 34, state: 'scheduled' },
   { label: 'Davis 1040', x: 977, y: 627, w: 109, h: 35, state: 'scheduled' },
-  { label: 'Martinez 1040', x: 498, y: 736, w: 103, h: 34, state: 'scheduled' },
+  { label: 'Martinez 1040', x: 498, y: 736, w: 103, h: 34, state: 'scheduled', size: 13.5 },
   { label: 'Brown 1120-S', x: 614, y: 719, w: 104, h: 38, state: 'scheduled' },
   { label: 'Kim 1065', x: 737, y: 721, w: 97, h: 35, state: 'scheduled' },
   { label: 'Adams 1040', x: 855, y: 725, w: 101, h: 34, state: 'scheduled' },

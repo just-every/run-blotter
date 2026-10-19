@@ -8,7 +8,9 @@ ol,ul{list-style:none}
 a{color:inherit}
 img{display:block;max-width:100%;height:auto}
 .nw,.nowrap{white-space:nowrap}
-.display{font-family:var(--bl-font-display);font-variation-settings:'wdth' 56;font-weight:800;letter-spacing:0;word-spacing:.06em;color:var(--bl-ink)}
+.display{font-family:var(--bl-font-display);font-variation-settings:'wdth' 56;font-weight:800;letter-spacing:0;color:var(--bl-ink)}
+/* The condensed display face has a narrow space: every title in it keeps a clear gap between words (at least .25 em). */
+h1,h2,.display,.site-brand span,.docs-prose h3,.docs-pager a,.docs-cards b,.hero-card h3,.paper-corner b,.wp-block h4,.tally-big b,.invoice tfoot th,.invoice tfoot td,.pay-button{word-spacing:.14em}
 :focus-visible{outline:3px solid var(--bl-lilac-deep);outline-offset:3px;border-radius:6px}
 .skip-link{position:absolute;left:16px;top:-60px;z-index:20;padding:10px 16px;border-radius:10px;background:var(--bl-ink);color:var(--bl-white);font-weight:600;text-decoration:none}
 .skip-link:focus{top:12px}
@@ -41,7 +43,7 @@ img{display:block;max-width:100%;height:auto}
 .head-left .band-body{max-width:1000px}
 .eyebrow{font:700 15px/1.4 var(--bl-font-ui);letter-spacing:.17em;text-transform:uppercase;color:var(--bl-lilac-deep);margin-bottom:12px}
 .band-night .eyebrow{color:#c7b0ff}
-h1,h2{font-family:var(--bl-font-display);font-variation-settings:"wdth" 50;font-weight:900;color:var(--bl-ink);letter-spacing:-.008em;word-spacing:.1em;text-wrap:balance}
+h1,h2{font-family:var(--bl-font-display);font-variation-settings:"wdth" 50;font-weight:900;color:var(--bl-ink);letter-spacing:-.008em;text-wrap:balance}
 h2{font-size:clamp(40px,4.6vw,66px);line-height:1.05}
 .band-night h2{color:var(--bl-white)}
 .band-body{font-size:clamp(17px,1.42vw,21px);line-height:1.5;color:var(--bl-text);text-wrap:pretty}

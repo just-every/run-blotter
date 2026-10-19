@@ -8,7 +8,7 @@
 .rule.is-muted .rule-title{color:#8a8696}
 .wire{position:relative;align-self:center;height:4px;background:var(--bl-marigold-line);border-radius:2px;margin-right:12px}
 .wire::after{content:'';position:absolute;right:-12px;top:-8px;border:10px solid transparent;border-left:12px solid var(--bl-marigold-line);border-right:0}
-.wire-chip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:6px 12px;border-radius:999px;background:var(--bl-lilac-tint);font:500 15px/1.1 var(--bl-font-body);white-space:nowrap;color:var(--bl-ink)}
+.wire-chip{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 4px);padding:5px 10px;border-radius:10px;background:var(--bl-lilac-tint);font:500 14px/1.25 var(--bl-font-body);text-align:center;color:var(--bl-ink)}
 .stack-with-note{display:flex;align-items:center;gap:20px;min-width:0}
 .stack-with-note .tape-stack{flex:1}
 .roll-note{flex:0 1 250px;padding:12px 16px;border:2px solid var(--bl-ink);border-radius:12px;background:var(--bl-mint-tint);font-size:15px;line-height:1.4;color:var(--bl-ink)}
@@ -313,7 +313,7 @@
   .rule{min-height:0;padding:16px;gap:14px}
   .wire{justify-self:start;width:4px;height:26px;margin:0 0 6px 34px}
   .wire::after{right:auto;left:-8px;top:auto;bottom:-12px;border:10px solid transparent;border-top:12px solid var(--bl-marigold-line);border-bottom:0}
-  .wire-chip{left:24px;transform:translateY(-50%)}
+  .wire-chip{left:24px;bottom:auto;top:50%;transform:translateY(-50%);max-width:none;white-space:nowrap}
   .tape-stack{margin-bottom:14px}
   .tape.top{padding:12px 16px;font-size:18px}
   .stack-with-note{display:grid;gap:14px}

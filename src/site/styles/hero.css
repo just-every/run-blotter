@@ -35,7 +35,7 @@
 .hero-card{position:absolute;display:flex;align-items:flex-start;gap:.85em;padding:1em 1.05em .95em;border:1.5px solid var(--bl-line-strong);border-radius:12px;background:var(--bl-white);box-shadow:0 1px 2px rgba(30,20,60,.05),0 14px 26px -18px rgba(60,40,120,.35);color:var(--bl-text);line-height:1.34}
 .hero-card .icon-tile{width:3em;height:3em;border-radius:.7em}
 .hero-card .icon-tile .icon{width:1.75em;height:1.75em}
-.hero-card h3{font:800 1.3em/1.1 var(--bl-font-display);font-variation-settings:'wdth' 58;color:var(--bl-ink);margin:.08em 0 .25em;word-spacing:.06em}
+.hero-card h3{font:800 1.3em/1.1 var(--bl-font-display);font-variation-settings:'wdth' 58;color:var(--bl-ink);margin:.08em 0 .25em}
 .hero-card p{font-size:max(11px,.97em)}
 .hero-card .ticks{margin-top:.45em;display:grid;gap:.15em;font-weight:700;font-size:max(11px,.97em);color:var(--bl-ink)}
 .hero-card .steps{margin-top:.3em;display:grid;gap:.1em;font-size:max(11px,.97em)}
