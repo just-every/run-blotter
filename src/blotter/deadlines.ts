@@ -7,6 +7,7 @@
 // acknowledgment with its file marks a return filed.
 import { addDays, businessDayOnOrBefore, nextBusinessDay, statutoryDate, type DueSpec } from './deadline-calendar';
 import { CATALOG, type Entity, type Frequency, type Rule } from './deadline-catalog';
+import { readableClient } from './client-contacts';
 import { atomic, audit, date, digest, Fault, human, id, insist, integer, need, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const FREQUENCIES: Frequency[] = ['monthly', 'quarterly', 'annual'];
@@ -102,7 +103,7 @@ export async function defineFirmRule(db: D1Database, actor: Actor, body: Data) {
 
 export async function obligations(db: D1Database, actor: Actor, clientId: string) {
   human(actor);
-  insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=?', clientId).first(), 'Client not found', 404);
+  await readableClient(db, actor, clientId);
   const approved = await approvedRules(db);
   return { obligations: (await rows(db, 'SELECT * FROM b_client_obligations WHERE client_id=? ORDER BY created_at', clientId)).map(o => ({ ...o, rule: approved.get(o.rule_key)?.rule })) };
 }
@@ -134,6 +135,7 @@ async function obligationRule(db: D1Database, obligationId: string) {
 export async function previewDates(db: D1Database, actor: Actor, body: Data) {
   human(actor);
   const { obligation, rule } = await obligationRule(db, text(body.obligationId, 'Obligation'));
+  await readableClient(db, actor, obligation.client_id);
   return calculate(rule, obligation, date(body.periodStart, 'Period start'), await reliefs(db), false);
 }
 

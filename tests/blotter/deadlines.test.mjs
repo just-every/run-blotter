@@ -64,6 +64,8 @@ test('DUE-001 sourced obligations: five approved rule types for clients in two s
 
     // Unassigned staff cannot see or act on a job's deadline; overrides need a reviewer or the principal and a reason.
     await h.json('/jobs/' + j1065.id, undefined, outside, 404);
+    await h.json(`/clients/${bay.id}/obligations`, undefined, outside, 404);
+    await h.json('/deadlines/calculate', { obligationId: o1065, periodStart: '2026-01-01' }, outside, 404);
     await h.json(`/jobs/${j1065.id}/deadline/extension`, {}, outside, 404);
     await h.json(`/jobs/${j1065.id}/deadline/override`, { date: '2026-03-06', reason: 'Early' }, prep, 403);
     await h.json(`/jobs/${j1065.id}/deadline/override`, { date: '2026-03-06' }, reviewer, 400);
@@ -167,7 +169,7 @@ test('DUE-003 wider catalog and firm rules: 1040-ES installments with a weekend 
     const lee = await h.json('/clients', { name: 'Lee Park', entityType: 'individual' }, h.owner);
     const acme = await h.json('/clients', { name: 'Acme Corp', entityType: 'business' }, h.owner);
     const add = (clientId, ruleKey, state, fiscalYearEnd = 12) => h.json(`/clients/${clientId}/obligations`, { ruleKey, state, fiscalYearEnd }, h.owner).then(r => r.id);
-    const calc = (obligationId, periodStart) => h.json('/deadlines/calculate', { obligationId, periodStart }, prep);
+    const calc = (obligationId, periodStart) => h.json('/deadlines/calculate', { obligationId, periodStart }, h.owner);
     const es = await add(lee.id, 'us-1040es', 'NY'), fbar = await add(lee.id, 'us-fbar', 'NY');
     const w2 = await add(acme.id, 'us-w2', 'DE', 6), nec = await add(acme.id, 'us-1099nec', 'DE'), close = await add(acme.id, firm.key, 'DE');
     const boardO = await add(acme.id, board.key, 'DE'), booksO = await add(acme.id, books.key, 'DE');
