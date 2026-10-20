@@ -3,7 +3,7 @@
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'automation'; sessionId?: string; sessionStartedAt?: number;
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number;
   automation?: { ruleId: string; attemptId: string; jobId: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -45,7 +45,7 @@ export function lines(value: unknown, label: string, max = 30) {
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export function need(actor: Actor, ...roles: Role[]) { insist(roles.includes(actor.role), 'Your role cannot perform this action', 403); }
-export function human(actor: Actor) { insist(actor.channel === 'person' || (actor.channel === 'automation' && !!actor.automation), 'A person must approve this action', 403); }
+export function human(actor: Actor) { insist(actor.channel === 'person' || !!actor.automation, 'A person must approve this action', 403); }
 
 export const stmt = (db: D1Database, sql: string, ...values: unknown[]) => db.prepare(sql).bind(...values);
 export async function rows(db: D1Database, sql: string, ...values: unknown[]) { return (await stmt(db, sql, ...values).all<Data>()).results; }
@@ -105,7 +105,8 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
     const x = actor.automation;
     const [allowed, finish] = guard(db, `EXISTS(SELECT 1 FROM b_automation_attempts a JOIN b_automation_rules r ON r.id=a.rule_id JOIN b_jobs j ON j.id=a.job_id JOIN b_clients c ON c.id=j.client_id
       WHERE a.id=? AND a.rule_id=? AND a.job_id=? AND a.status='running' AND r.status='active' AND r.used<=r.budget AND r.principal_id=?
-      AND c.lifecycle='active' AND c.merged_into IS NULL AND j.client_id IN (SELECT value FROM json_each(r.definition,'$.clientIds')))` , x.attemptId, x.ruleId, x.jobId, actor.id);
+      AND c.lifecycle='active' AND c.merged_into IS NULL AND j.client_id IN (SELECT value FROM json_each(r.definition,'$.clientIds'))
+      AND (json_extract(r.definition,'$.action.kind')<>'reminder' OR EXISTS(SELECT 1 FROM b_msg_templates m WHERE m.id=json_extract(r.definition,'$.action.templateId') AND m.version=json_extract(r.definition,'$.action.templateVersion') AND m.deleted_at IS NULL)))` , x.attemptId, x.ruleId, x.jobId, actor.id);
     execution.push(allowed, finish);
     completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
   }

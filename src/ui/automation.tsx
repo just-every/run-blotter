@@ -102,6 +102,7 @@ export function Automation({ state, run, open }: { state: Row; run: Run; open: (
           <Definition definition={review.definition} model={model} templates={templates} state={state} />
           <p>Lifetime budget: {review.body.budget} effects. These {review.jobs.length} jobs match now; later matching jobs for the selected clients may also be acted on while the rule is active.</p>
           {!review.jobs.length ? <p>No jobs match now.</p> : <ul className="list">{review.jobs.map((j: Row) => <li key={j.id}><button className="quiet text-action" onClick={() => open(j.id)}>{j.client} · {j.title}</button></li>)}</ul>}
+          {review.previews?.map((p: Row) => <article className="record" key={p.jobId}><h4>Message for {state.jobs.find((j: Row) => j.id === p.jobId)?.title ?? p.jobId}</h4>{p.error ? <p className="error">{prose(p.error)}</p> : <><p>To: {p.to}</p><p>Subject: {prose(p.subject)}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{prose(p.body)}</p>{p.missing?.length > 0 && <p className="error">Unresolved: {p.missing.map((v: Row) => v.label).join(', ')}</p>}</>}</article>)}
           <button onClick={() => run(async () => { await api('/automation', { ...review.body, fingerprint: review.fingerprint }); setReview(undefined); setData(await api('/automation')); }, 'Draft saved; approve and activate it separately')}>Save draft</button>
         </section>}
       </details>
