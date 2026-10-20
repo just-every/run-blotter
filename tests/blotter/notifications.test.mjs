@@ -21,6 +21,7 @@ test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, 
   let alerts=await h.json('/notifications',undefined,s.prep);
   for(const kind of ['work_assigned','task_assigned'])assert.equal(alerts.filter(n=>n.job_id===job.id&&n.kind===kind).length,1);
   assert.equal((await h.json('/notifications',undefined,s.other)).length,0);
+  assert.equal((await h.json('/notifications',undefined,s.reviewer)).filter(n=>n.kind==='work_assigned'&&n.job_id===job.id).length,1);
   const assigned=alerts.find(n=>n.kind==='work_assigned');assert.equal(assigned.read_at,null);
   await h.json(`/notifications/${assigned.id}/read`,{read:true},s.other,404);
   await h.json(`/notifications/${assigned.id}/read`,{read:true},s.prep);
@@ -66,7 +67,7 @@ test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, 
   assert.ok(!(await h.json('/notifications',undefined,s.other)).some(n=>n.job_id===job.id),'Revoked named-task access hides retained notification history');
   // Deactivation revokes every center read, including already-issued cookies.
   await h.json('/team',{email:'prep@example.test',name:'Jordan Ellis',role:'preparer',active:false},h.owner);
-  await h.json('/notifications',undefined,s.prep,403);
+  await h.json('/notifications',undefined,s.prep,401);
  }finally{await stale?.close();await h.close();}
 });
 
@@ -84,15 +85,19 @@ test('NOTIFY-001 / BASE-001: due thresholds, user-local quiet hours and once-dai
   assert.equal(digest[0].text.split('/app?job='+soon.id).length-1,1);assert.equal(digest[0].text.split('/app?job='+late.id).length-1,1);assert.ok(!digest[0].text.includes(outside.id));
   for(const [job,kind] of [[soon,'due_soon'],[late,'overdue']])assert.equal((await h.json('/notifications',undefined,s.prep)).filter(n=>n.job_id===job.id&&n.kind===kind).length,1);
   assert.ok(mails.some(m=>m.text.includes('/app?job='+soon.id)&&m.subject!=='Blotter: daily work digest'));
+  await h.json('/notifications/settings',{...base,timeZone:'UTC',quietStart:'00:00',quietEnd:'23:59',emailKinds:['mention']},s.prep);
+  await h.json(`/jobs/${soon.id}/threads`,{title:'Deferred source check',body:'Inspect source',mentions:['prep@example.test']},h.owner);
+  assert.ok((await h.json('/notifications',undefined,s.prep)).some(n=>n.kind==='mention'&&n.delivery.startsWith('deferred:')));
   await h.json('/notifications/settings',{...base,digestEnabled:true},h.owner);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
   assert.equal((await restored.json('/notifications/settings',undefined,restored.owner)).personal.digestEnabled,false);
+  const copied=await(await restored.request('/api/blotter/backup',undefined,restored.owner)).text();assert.ok(copied.includes('held after restore: deferred: outside firm notification hours'));
   const sent=restored.mails.length;await restored.scheduled('2026-11-01T12:00:00Z');assert.equal(restored.mails.length,sent,'Restored delivery history cannot replay without staff authority');
  }finally{await restored?.close();await h.close();}
 });
 
 test('NOTIFY-001 / BASE-001: a real send failure creates an owned in-app exception without recursive retries',async()=>{
- const h=await harness({mailResponse:(mail,mails)=>mail.subject.startsWith('Documents needed:')?Response.json({message:'Provider unavailable'},{status:503}):Response.json({id:'test-'+mails.length})});
+ const h=await harness({mailResponse:(mail,mails)=>mail.subject.startsWith('Documents needed:')?Response.json({message:'Provider unavailable'},{status:400}):Response.json({id:'test-'+mails.length})});
  try{
   const s=await fixture(h),job=await s.start('2026-04-01','2026-05-01');
   const result=await h.json(`/jobs/${job.id}/reminders`,{},s.prep);

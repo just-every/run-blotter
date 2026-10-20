@@ -4,7 +4,6 @@ import { firmSettings, localClock } from './firm';
 import { id, rows, stmt } from './model';
 import { ownerSql } from './tasks';
 
-const assignmentActions = "'job.started','job.rolled_forward','job.reassigned'";
 const statusActions = "'job.status','job.signed_off'";
 const activeRecipient = (email: string) => `(EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=${email} AND o.role='owner' AND o.status='active')
   OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=${email} AND m.active=1))`;
@@ -56,6 +55,18 @@ async function projectFailures(db: D1Database) {
   }
 }
 
+// A person already holding another job role is not alerted twice. Revoked
+// assignments leave the portable snapshot; assigning the person again is new.
+async function projectWork(db:D1Database) {
+  const source=`SELECT DISTINCT j.id,j.revision,p.value email FROM b_jobs j JOIN json_each(json_array(j.preparer_email,j.reviewer_email,j.manager_email,j.partner_email)) p WHERE p.value IS NOT NULL`;
+  await db.batch([
+    stmt(db,`${insertColumns} SELECT 'native-work:'||json_array(j.id,j.email,j.revision),j.email,'work_assigned',j.id,NULL,'Work assigned to you','in-app only',?
+      FROM (${source}) j WHERE ${activeRecipient('j.email')} AND NOT EXISTS(SELECT 1 FROM b_notification_job_owners p WHERE p.job_id=j.id AND p.email=j.email)`,new Date().toISOString()),
+    stmt(db,`DELETE FROM b_notification_job_owners WHERE NOT EXISTS(SELECT 1 FROM (${source}) j WHERE j.id=b_notification_job_owners.job_id AND j.email=b_notification_job_owners.email)`),
+    stmt(db,`INSERT OR IGNORE INTO b_notification_job_owners SELECT id,email FROM (${source})`),
+  ]);
+}
+
 // Compare the actual resolved task owner after every mutation, so named-task
 // handovers, role changes and offboarding share the same transactional producer.
 async function projectTasks(db:D1Database) {
@@ -80,7 +91,6 @@ export async function syncNotificationEvents(db: D1Database) {
     if (!events.length) break;
     const ids = JSON.stringify(events.map(e => e.id));
     await db.batch([
-      auditProjection(db, ids, 'work_assigned', 'Work assigned to you', 'JOIN b_jobs j ON j.id=a.object_id', 'j.preparer_email', `a.action IN (${assignmentActions})`),
       auditProjection(db, ids, 'status_changed', 'Work status changed', 'JOIN b_jobs j ON j.id=a.object_id', 'j.preparer_email', `a.action IN (${statusActions})`),
       auditProjection(db, ids, 'upload', 'Client file uploaded', 'JOIN b_files f ON f.id=a.object_id JOIN b_jobs j ON j.id=f.job_id', 'j.preparer_email',
         "a.action='file.uploaded' AND f.channel='portal' AND f.erased_at IS NULL"),
@@ -90,6 +100,7 @@ export async function syncNotificationEvents(db: D1Database) {
     ]);
     if (events.length < 100) break;
   }
+  await projectWork(db);
   await projectTasks(db);
   await projectFailures(db);
 }
