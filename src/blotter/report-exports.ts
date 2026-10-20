@@ -17,21 +17,28 @@ function lines(r:Data) {
 // PDF uses printable ASCII transliteration and declares that rendering in its header.
 function pdf(rows:unknown[][]) {
   const text=rows.flatMap(row=>{const value=row.map(v=>String(v??'')).join(' | ').normalize('NFKD').replace(/[^\x20-\x7e]/g,'?');return value.match(/.{1,100}/g)??[''];});
+  const links=rows.flat().filter(v=>typeof v==='string'&&/^https?:\/\//.test(v)) as string[];
+  text.push(...links.map(url=>'Source: '+url));
   const chunks=[];for(let i=0;i<text.length;i+=48)chunks.push(text.slice(i,i+48));
   const objects=['','<< /Type /Catalog /Pages 2 0 R >>','', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
   const pages:number[]=[];
   for(const chunk of chunks) {
     const page=objects.length,stream=page+1;pages.push(page);
+    objects.push('','');
+    const annotations=chunk.flatMap((l,n)=>{const uri=l.startsWith('Source: ')?l.slice(8):'';if(!uri)return [];const a=objects.length;objects.push(`<< /Type /Annot /Subtype /Link /Rect [36 ${742-n*14} 576 ${756-n*14}] /Border [0 0 0] /A << /S /URI /URI (${uri.replace(/[\\()]/g,'\\$&')}) >> >>`);return [a];});
+    const annotationRefs=annotations.map(a=>a+' 0 R').join(' ');
     const content='BT /F1 9 Tf 36 756 Td 14 TL '+chunk.map((l,n)=>`${n?'T* ':''}(${l.replace(/[\\()]/g,'\\$&')}) Tj`).join('\n')+' ET';
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${stream} 0 R >>`,`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    objects[page]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${stream} 0 R /Annots [${annotationRefs}] >>`;objects[stream]=`<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
   }
   objects[2]=`<< /Type /Pages /Count ${pages.length} /Kids [${pages.map(n=>n+' 0 R').join(' ')}] >>`;
   let out='%PDF-1.4\n',offsets=[0];for(let i=1;i<objects.length;i++){offsets.push(out.length);out+=`${i} 0 obj\n${objects[i]}\nendobj\n`;}
   const xref=out.length;out+=`xref\n0 ${objects.length}\n0000000000 65535 f \n`+offsets.slice(1).map(n=>`${String(n).padStart(10,'0')} 00000 n \n`).join('');
   return out+`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
 }
-export async function downloadReport(db:D1Database,actor:Actor,query:Data,format:string) {
-  const r=await performanceReport(db,actor,query),data=lines(r);
+export async function downloadReport(db:D1Database,actor:Actor,query:Data,format:string,origin:string) {
+  const r=await performanceReport(db,actor,query);
+  for(const j of r.jobs)j.source=origin+j.source;
+  const data=lines(r);
   await audit(db,actor,'report.exported','report',`${format}; ${JSON.stringify(r.filters)}`).run();
   return new Response(format==='pdf'?pdf([['Blotter performance report (ASCII rendering; CSV retains original text)'],...data]):data.map(row=>row.map(cell).join(',')).join('\r\n')+'\r\n',{
     headers:{'content-type':format==='pdf'?'application/pdf':'text/csv; charset=utf-8','content-disposition':`attachment; filename="blotter-performance.${format==='pdf'?'pdf':'csv'}"`,'cache-control':'no-store'} });

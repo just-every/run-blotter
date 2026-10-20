@@ -18,8 +18,12 @@ export async function reportAppJourney(h,s){
   const evidence=process.env.BLOTTER_REPORT_EVIDENCE;if(evidence)await mkdir(evidence,{recursive:true});
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(evidence)await page.screenshot({path:`${evidence}/reports-${width}.png`,fullPage:true});}
   await panel.getByRole('button',{name:'Pause report',exact:true}).click();
+  const source=panel.locator('details.record').filter({has:panel.getByText('Cedar Lane LLC · 1040 preparation · Jan–Dec 2026 · completed',{exact:true})});
+  await source.locator('summary').first().click();await source.getByText('Calculation inputs and source history',{exact:true}).click();
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await source.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(evidence)await source.screenshot({path:`${evidence}/report-sources-${width}.png`});}
+
   const downloads=await Promise.all([page.waitForEvent('download'),panel.getByRole('link',{name:'Download report CSV',exact:true}).click()]);assert.match(downloads[0].suggestedFilename(),/\.csv$/);
-  await panel.locator('summary').filter({hasText:'Cedar Lane LLC'}).first().click();await panel.getByRole('button',{name:'Open source job',exact:true}).first().click();
+  await source.getByRole('button',{name:'Open source job',exact:true}).click();
   await page.getByRole('heading',{name:'Cedar Lane LLC · 1040 preparation',exact:true}).waitFor();await context.close();
  }finally{await browser.close();}
 }

@@ -1,3 +1,4 @@
+import { ReportSources, ReportCapacitySources } from './report-sources';
 import { useEffect, useState } from 'react';
 import { api, Field, Form, money, type Row, type Run, today, when } from './common';
 
@@ -19,10 +20,10 @@ export function Reports({state,run,tick,open}:{state:Row;run:Run;tick:number;ope
       <h3>Work and source records</h3><div className="stack">{report.jobs.map((j:Row)=><details className="record" key={j.id}><summary>{j.client_name} · {j.title} · {j.period_label} · {j.overdue?'overdue':j.stage}{j.blocked?' · blocked':''}</summary>
         <p><button onClick={()=>open(j.id)}>Open source job</button> Due {j.due_date}: {j.dueSource}. Turnaround {j.turnaroundMinutes??'pending'} min.</p>
         <p>Margin before staff cost {money(j.financial.marginBeforeStaffCostCents,j.financial.currency)} · unbilled {money(j.financial.unbilledCents,j.financial.currency)} · approved exports {money(j.financial.approvedExportCents,j.financial.currency)}</p>
-        <details><summary>Calculation inputs and source history</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify({financial:j.financial.sources,requests:j.requestDelays,reviewReturns:j.reviewReturns,statusHistory:j.statusHistory},null,2)}</pre></details></details>)}</div>
+        <ReportSources job={j}/></details>)}</div>
       <h3>Money by stored currency</h3>{report.money.map((m:Row)=><p key={m.currency}>{m.currency}: approved time {money(m.approvedTimeCents,m.currency)} · earned fixed fees {money(m.fixedFeeCents,m.currency)} · approved expense charges {money(m.expenseChargeCents,m.currency)} · expense costs {money(m.expenseCostCents,m.currency)} · margin before staff cost {money(m.marginBeforeStaffCostCents,m.currency)}</p>)}
       <h3>Status history by work type</h3>{report.statuses.map((s:Row,n:number)=><p key={n}>{s.workType} · {s.label}{s.subStatus?' / '+s.subStatus:''}: {s.current} current · {s.entries} entries · {s.minutes} min</p>)}
-      <h3>Capacity and utilization</h3>{report.people.map((p:Row)=><details key={p.email}><summary>{p.name}: {p.billableMinutes} billable min / {p.availableMinutes} available min · {p.utilizationPercent??'—'}% · {p.demandMinutes} planned min</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify({weeks:p.weeks,time:p.timeSources},null,2)}</pre></details>)}
+      <h3>Capacity and utilization</h3>{report.people.map((p:Row)=><details key={p.email}><summary>{p.name}: {p.billableMinutes} billable min / {p.availableMinutes} available min · {p.utilizationPercent??'—'}% · {p.demandMinutes} planned min</summary><ReportCapacitySources person={p}/></details>)}
       <Form label="Save report view" submit={f=>run(()=>api('/reports/views',{...filters,name:f.name}),'Report view saved')}><Field label="Report view name" name="name"/></Form>
     </>}
     <h3>Saved reports</h3>{saved.views.map((v:Row)=><p key={v.id}><button onClick={()=>run(()=>load(JSON.parse(v.filters)),'Saved report opened')}>{v.name}</button> · {v.created_by}</p>)}

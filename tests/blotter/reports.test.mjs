@@ -31,7 +31,7 @@ test('REPORT-001 / WORK-007 / BASE-001: period/team/client/service analytics, so
   for(const format of ['csv','pdf']){
    const url='/api/blotter/reports/performance/'+format+'?'+new URLSearchParams(f);
    const response=await h.request(url,undefined,s.reviewer);assert.equal(response.status,200);assert.match(response.headers.get('content-type'),new RegExp(format==='pdf'?'application/pdf':'text/csv'));
-   const data=await response.text();assert.ok(data.includes('12100')&&data.includes('11100')&&data.includes(s.complete.id));if(format==='pdf'){assert.ok(data.startsWith('%PDF-'));assert.ok(data.includes('%%EOF'));}
+   const data=await response.text();assert.ok(data.includes('12100')&&data.includes('11100')&&data.includes(s.complete.id));if(format==='pdf'){assert.ok(data.startsWith('%PDF-'));assert.ok(data.includes('%%EOF'));assert.ok(data.includes('/Subtype /Link')&&data.includes('/URI ('+h.origin+'/app?job='));}
    assert.equal((await h.request(url,undefined,s.prep)).status,403);assert.equal((await h.request(url)).status,401);
   }
   const portal=await h.json('/portal/'+s.liveToken);assert.ok(portal.progress);assert.ok(!JSON.stringify(portal).includes('financial'));assert.ok(!JSON.stringify(portal).includes('6000'));

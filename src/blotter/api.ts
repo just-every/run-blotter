@@ -96,8 +96,8 @@ const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAUL
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
 api.get(`${P}/reports/performance`,as((a,c)=>performanceReport(db(c),a,c.req.query())));
-api.get(`${P}/reports/performance/csv`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'csv')));
-api.get(`${P}/reports/performance/pdf`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'pdf')));
+api.get(`${P}/reports/performance/csv`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'csv',new URL(c.req.url).origin)));
+api.get(`${P}/reports/performance/pdf`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'pdf',new URL(c.req.url).origin)));
 api.get(`${P}/reports/views`,as((a,c)=>reportViews(db(c),a)));
 api.post(`${P}/reports/views`,as(async(a,c)=>saveReportView(db(c),a,await body(c))));
 api.post(`${P}/reports/schedules`,as(async(a,c)=>scheduleReport(db(c),a,await body(c))));
