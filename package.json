@@ -26,7 +26,7 @@
     "check": "rer check",
     "deps": "rer install",
     "rer": "rer",
-    "test:blotter": "rer queue test:blotter -- node --test --test-concurrency=1 tests/blotter/*.test.mjs",
+    "test:blotter": "rer queue test:blotter -- node --test --test-concurrency=2 tests/blotter/*.test.mjs",
     "test:email-link": "rer queue test:email-link -- sh -c \"node tests/email-link.mjs\"",
     "test:site": "node --test tests/site/*.test.mjs"
   },
