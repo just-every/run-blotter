@@ -13,7 +13,7 @@ export async function automationAppJourney(h,s,interrupt) {
   const page=await context.newPage();
   await page.goto(h.origin+'/app');
   if(new URL(page.url()).pathname==='/setup') {await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();}
-  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Preparations',exact:true}).click();
   await page.getByRole('heading',{name:'Automation',exact:true}).waitFor();
   const panel=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Automation',exact:true})});
   await panel.getByText('New automation rule',{exact:true}).click();
@@ -35,10 +35,10 @@ export async function automationAppJourney(h,s,interrupt) {
   const req=(await s.detail(job.id)).requests[0];
   await h.json(`/requests/${req.id}/files`,{name:'W2.txt',mime:'text/plain',contentBase64:Buffer.from('W2 for Alex Rivera').toString('base64')},s.prep);
   await h.json(`/requests/${req.id}/decide`,{decision:'accept'},s.prep);
-  await page.getByRole('button',{name:'Jobs',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();
   await page.getByRole('button',{name:/^Open/}).first().click();
   await page.getByRole('checkbox',{name:/Prepare return/}).check();
-  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Preparations',exact:true}).click();
   await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();
   await panel.getByText('Native effect committed',{exact:false}).waitFor();
   assert.equal((await s.detail(job.id)).job.status,'review');
@@ -67,19 +67,19 @@ export async function automationAppJourney(h,s,interrupt) {
   await rule.getByRole('button',{name:'Approve and activate rule',exact:true}).click();
   await rule.getByRole('button',{name:'Pause rule',exact:true}).waitFor();
   // A board card uses the same native status transition, rather than a synthetic event.
-  await page.getByRole('button',{name:'Jobs',exact:true}).click();await page.getByRole('button',{name:'Show board',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();await page.getByRole('button',{name:'Show board',exact:true}).click();
   const move=page.getByRole('combobox',{name:'Move Cedar Lane LLC 1040 preparation',exact:true});
   const signed=await s.rule({kind:'status',stage:'waiting',subStatusId:s.sub.id},{kind:'request',label:'Signed 8879 from board'});
   await move.selectOption('waiting|'+s.sub.id);
-  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Preparations',exact:true}).click();
   await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();
   await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();
   assert.equal((await s.detail(job.id)).requests.filter(r=>r.label==='Signed 8879 from board').length,1,'1040 board entry fires its 8879 rule exactly once');
   assert.equal((await s.state()).attempts.filter(a=>a.rule_id===signed.id).length,1);
-  await page.getByRole('button',{name:'Jobs',exact:true}).click();await page.getByRole('button',{name:'Show board',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();await page.getByRole('button',{name:'Show board',exact:true}).click();
   await move.selectOption('waiting|'+s.docs.id);
   interrupt();
-  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Preparations',exact:true}).click();
   await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();
   await panel.getByText('Reconcile uncertain delivery',{exact:true}).waitFor();
   const sent=h.mails.length;await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();assert.equal(h.mails.length,sent);
@@ -93,7 +93,7 @@ export async function automationAppJourney(h,s,interrupt) {
   await shot('outcomes-reconciled');
   assert.equal(h.mails.length,sent);
   const dependency=await s.rule({kind:'due',at:'2030-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});
-  await page.getByRole('button',{name:'Team & safety',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Team & safety',exact:true}).click();
   await page.getByText('Offboard a person',{exact:true}).click();
   await page.getByLabel('Departing person',{exact:true}).selectOption('reviewer@example.test');
   await page.getByLabel('Successor for their work (jobs they prepare, tasks, notices, discussions, template tasks)',{exact:true}).selectOption('other@example.test');
@@ -104,7 +104,7 @@ export async function automationAppJourney(h,s,interrupt) {
   await page.getByRole('button',{name:'Transfer and deactivate',exact:true}).click();
   await h.scheduled('2030-01-01T00:00:00Z');
   assert.ok((await s.state()).attempts.some(a=>a.rule_id===dependency.id&&a.status==='failed'&&/authority changed/.test(a.outcome)));
-  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Preparations',exact:true}).click();
   await panel.getByText('Assignee authority changed',{exact:false}).waitFor();
   await shot('offboarding-refused');
   await context.close();

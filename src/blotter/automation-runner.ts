@@ -12,7 +12,7 @@ async function effect(env:Bindings,actor:Actor,j:Data,action:Data) {
   if(action.kind==='reminder') {
     insist(await stmt(db,'SELECT 1 FROM b_msg_templates WHERE id=? AND version=? AND deleted_at IS NULL',action.templateId,action.templateVersion).first(),'Message template changed since approval',409);
     const result=await sendReminder(env,actor,j.id,action);
-    const accepted=/^accepted by /.test(result.delivery), uncertain=/^failed:/.test(result.delivery);
+    const accepted=/^accepted by /.test(result.delivery), uncertain=/^(failed:|uncertain by )/.test(result.delivery);
     await stmt(db,"UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status IN ('dispatching','held')",accepted?'succeeded':uncertain?'held':'failed',result.delivery,uncertain?'Confirm the provider outcome and record human reconciliation; do not resend':'',actor.automation!.attemptId).run();return;
   }
   if(action.kind==='status') {
