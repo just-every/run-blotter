@@ -52,7 +52,7 @@ export const linked = async (db: D1Database, id: string) => stmt(db, `SELECT
   (SELECT COUNT(*) FROM b_threads WHERE client_id=?1) threads, (SELECT COUNT(*) FROM b_notices WHERE client_id=?1) notices,
   (SELECT COUNT(*) FROM b_expenses WHERE client_id=?1) expenses, (SELECT COUNT(*) FROM b_recurrence_rules WHERE client_id=?1) rules,
   (SELECT COUNT(*) FROM b_client_contacts WHERE client_id=?1) contacts,(SELECT COUNT(*) FROM b_clients WHERE owner_client_id=?1 AND merged_into IS NULL) relationships,
-  (SELECT COUNT(*) FROM b_client_group_members WHERE client_id=?1) groups, (SELECT COUNT(*) FROM b_rate_cards WHERE client_id=?1) rates`, id).first<Data>() as Promise<Data>;
+  (SELECT COUNT(*) FROM b_client_group_members WHERE client_id=?1) groups, (SELECT COUNT(*) FROM b_rate_cards WHERE client_id=?1) rates, (SELECT COUNT(*) FROM b_client_obligations WHERE client_id=?1) obligations`, id).first<Data>() as Promise<Data>;
 /** Every field a merge chooses between, with both values; `source` is shown but each record keeps its own source IDs. */
 export function fieldRows(a: Data, b: Data) {
   const fa = JSON.parse(a.fields), fb = JSON.parse(b.fields);
