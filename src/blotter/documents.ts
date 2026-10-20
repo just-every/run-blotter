@@ -140,7 +140,7 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   human(actor);
   const bindings = runtimeBindings(env), db = bindings.DB;
   const ctx = await reminderContext(db, actor, jobId, body.contactId), { j, client, outstanding } = ctx;
-  const reminderId = actor.approval?.resultId ?? id(), at = now();
+  const reminderId = actor.automation?.attemptId ?? actor.approval?.resultId ?? id(), at = now();
   const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
   let subject = `Documents needed: ${j.title} ${j.period_label}`, message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
   if (body.templateId || body.subject !== undefined || body.body !== undefined) {

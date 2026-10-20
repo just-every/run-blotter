@@ -100,9 +100,17 @@ test('AUTOMATE-001 / BASE-001: templated status mail acceptance, provider-respon
   await h.json(`/automation/attempts/${held.id}/reconcile`,{outcome:'accepted',reason:'Provider dashboard confirms acceptance'},h.owner);
   await h.json(`/automation/attempts/${held.id}/reconcile`,{outcome:'not_accepted',reason:'Duplicate decision'},h.owner,409);
   await s.run();assert.equal(h.mails.length,accepted);assert.equal((await s.state()).attempts.find(x=>x.id===held.id).status,'succeeded');
+  await s.move(a.id,'in_progress');await s.move(a.id,'waiting',s.docs.id);interrupt=true;await s.run();
+  const secondHeld=(await s.state()).attempts.find(x=>x.rule_id===reminder.id&&x.status==='held');assert.ok(secondHeld);
+  const noReplay=h.mails.length;await h.json(`/automation/attempts/${secondHeld.id}/reconcile`,{outcome:'not_accepted',reason:'Provider support confirms this delivery was rejected'},h.owner);await s.run();assert.equal(h.mails.length,noReplay);assert.equal((await s.state()).attempts.find(x=>x.id===secondHeld.id).status,'failed');
+  const deliveredBeforeTemplateChange=h.mails.length;
   // Mutable dependencies cannot silently change what the principal approved.
   await h.json(`/messages/templates/${s.message.id}`,{subject:'Changed subject',body:'Changed message {{portal_link}}'},h.owner);
-  await s.move(a.id,'in_progress');await s.move(a.id,'waiting',s.docs.id);await s.run();assert.equal(h.mails.length,accepted);assert.ok((await s.state()).attempts.some(x=>x.rule_id===reminder.id&&/template changed/.test(x.outcome)));
+  await s.move(a.id,'in_progress');await s.move(a.id,'waiting',s.docs.id);await s.run();assert.equal(h.mails.length,deliveredBeforeTemplateChange);assert.ok((await s.state()).attempts.some(x=>x.rule_id===reminder.id&&/template changed/.test(x.outcome)));
+  const consentRule=await s.rule({kind:'status',stage:'ready'},{kind:'reminder',templateId:s.message.id});
+  const contact=(await h.json(`/clients/${s.client.id}/contacts`,undefined,h.owner))[0];
+  await h.json(`/clients/${s.client.id}/contacts`,{id:contact.id,revision:contact.revision,requestConsent:false},h.owner);
+  await s.move(a.id,'ready');const beforeConsent=h.mails.length;await s.run();assert.equal(h.mails.length,beforeConsent);assert.ok((await s.state()).attempts.some(x=>x.rule_id===consentRule.id&&x.status==='failed'));
   const assignment=await s.rule({kind:'due',at:'2027-02-01T12:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});
   await h.json('/team',{email:'reviewer@example.test',name:'Former reviewer',role:'preparer',active:true},h.owner);
   await h.scheduled('2027-02-01T12:00:00Z');assert.equal((await s.detail(a.id)).job.manager_email,null);assert.ok((await s.state()).attempts.some(x=>x.rule_id===assignment.id&&/authority changed/.test(x.outcome)));
