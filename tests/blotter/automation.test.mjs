@@ -117,6 +117,11 @@ test('AUTOMATE-001 / BASE-001: request/organizer/proposal completion, roll-forwa
   await h.json(`/portal/${token}/organizers/${organizer.id}`,{revision:clientOrganizer.revision,answers:{owner:{value:'Alex Rivera',confirmed:true}},submit:false});await s.run();assert.ok(!(await s.detail(job.id)).requests.some(x=>x.label==='Inspect submitted ownership'));
   clientOrganizer=(await h.json(`/portal/${token}/organizers`)).organizers[0];
   await h.json(`/portal/${token}/organizers/${organizer.id}`,{revision:clientOrganizer.revision,answers:{},submit:true});await s.run();await s.run();assert.equal((await s.detail(job.id)).requests.filter(x=>x.label==='Inspect submitted ownership').length,1);assert.equal((await s.state()).attempts.filter(x=>x.rule_id===organizerRule.id).length,1);
+  clientOrganizer=(await h.json(`/portal/${token}/organizers`)).organizers[0];
+  await h.json(`/portal/${token}/organizers/${organizer.id}`,{revision:clientOrganizer.revision,answers:{owner:{value:'Alex Rivera, corrected ownership',confirmed:true}},submit:true});
+  const beforeErasure=(await h.json(`/jobs/${job.id}/organizers`,undefined,h.owner)).organizers[0];
+  await h.json(`/organizers/${organizer.id}/erase`,{revision:beforeErasure.revision,confirm:'Ownership questions',reason:'Client erasure request'},h.owner);
+  await s.run();assert.equal((await s.detail(job.id)).requests.filter(x=>x.label==='Inspect submitted ownership').length,1);assert.ok((await s.state()).attempts.some(x=>x.rule_id===organizerRule.id&&/erased/.test(x.outcome)));
   const replacement=await s.rule({kind:'status',stage:'ready'},{kind:'request',label:'Replacement version'},10,{ruleId:requests.id});
   const state=await s.state();assert.equal(state.rules.find(x=>x.id===requests.id).status,'revoked');assert.equal(state.rules.find(x=>x.id===replacement.id).version,2);
   // Use Base's real fresh-proof and account-role doors to remove the approving principal's authority.
