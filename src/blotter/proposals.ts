@@ -69,6 +69,6 @@ export async function agentContext(db: D1Database, actor: Actor) {
       FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE ${visible} ORDER BY j.due_date`).bind(...params).all<Data>()).results
       .map(j => ({ ...j, outstanding: JSON.parse(j.outstanding) })),
     unbilled: actor.role === 'preparer' ? [] : await unbilled(db),
-    commands: ['POST /api/blotter/agent/prepare-rollforward', 'POST /api/blotter/agent/prepare-reminder', 'POST /api/blotter/agent/prepare-export'],
+    commands: [...(actor.role === 'owner' ? ['POST /api/blotter/agent/learning/evidence', 'POST /api/blotter/agent/prepare-learning'] : []), 'POST /api/blotter/agent/prepare-rollforward', 'POST /api/blotter/agent/prepare-reminder', 'POST /api/blotter/agent/prepare-export'],
   };
 }

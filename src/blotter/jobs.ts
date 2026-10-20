@@ -1,3 +1,4 @@
+import { learningJobStatements, learningTemplate } from './learning';
 import { organizerJobStatements } from './organizers-store';
 // Recurring client jobs: start from a template, roll forward, work the
 // checklist, submit for review and sign off.
@@ -45,7 +46,8 @@ async function assignee(db: D1Database, address: unknown, label: string, roles: 
   return value;
 }
 
-export function createStatements(db: D1Database, actor: Actor, template: Data, values: Data) {
+export async function createStatements(db: D1Database, actor: Actor, sourceTemplate: Data, values: Data) {
+  const template = await learningTemplate(db, values.clientId, sourceTemplate);
   const jobId = values.id;
   const [active, activeDone] = guard(db, "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL)", values.clientId);
   const statements = [active, activeDone,
@@ -68,6 +70,7 @@ export function createStatements(db: D1Database, actor: Actor, template: Data, v
     // The template's questions (WORK-003), unanswered; branches wait for them.
     ...JSON.parse(template.questions ?? '[]').map((q: Data, n: number) => stmt(db, 'INSERT INTO b_job_answers(job_id,key,ordinal,label,options) VALUES(?,?,?,?,?)', jobId, q.key, n + 1, q.label, JSON.stringify(q.options))),
     ...organizerJobStatements(db,actor,template,values),
+    ...learningJobStatements(db, values.clientId, template.id, jobId, template.learningVersionId),
     audit(db, actor, values.rolledFrom ? 'job.rolled_forward' : 'job.started', jobId, `${template.name} ${values.periodStart}`),
   ];
   return statements;
@@ -103,7 +106,7 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   Object.assign(values, { workTypeId: type.id, partner: roles.includes('partner') ? partner : null });
   // An optional time budget, approved by the reviewer or principal who starts the job (TIME-001).
   const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? type.budget_minutes : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
-  await atomic(db, actor, [...createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : []), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
+  await atomic(db, actor, [...await createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : []), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
   await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }
@@ -132,7 +135,7 @@ export async function rollForward(env: Bindings, actor: Actor, jobId: string, bo
   insist(values.dueDate >= periodStart, 'The due date is before the period starts');
   const exists = await stmt(db, 'SELECT id FROM b_jobs WHERE client_id=? AND template_id=? AND period_start=?', previous.client_id, template.id, periodStart).first();
   insist(!exists, `The ${periodLabel(periodStart, template.recurrence)} job already exists`, 409);
-  await atomic(db, actor, [...createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : [])]);
+  await atomic(db, actor, [...await createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : [])]);
   await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }

@@ -1,3 +1,5 @@
+import { learningEvidence } from './learning-evidence';
+import { prepareLearning, decideLearning, learningDetail } from './learning';
 import { listOrganizers, saveOrganizerVersion, organizerVersions, organizerReview, clientOrganizers, clientOrganizer, saveOrganizer, previewOrganizerSend, sendOrganizer, eraseOrganizer } from './organizers';
 import { transfers, createTransfer, transferStatus, advanceTransfer, uploadTransferPart, finalizeTransfer, abortTransfer, transferInventory, downloadTransfer } from './archive-transfers';
 import { startPacketUpload, jobPacketUploads, packetUploadStatus, appendPacketChunk, completePacketUpload, cancelPacketUpload } from './document-packets';
@@ -324,6 +326,15 @@ api.get(`${P}/import`, as((a, c) => importState(db(c), a)));
 api.post(`${P}/import/:op`, as(async (a, c) => importAction(db(c), a, param(c, 'op'), await body(c))));
 api.get(`${P}/backup`, as((a, c) => backup(db(c), a)));
 api.post(`${P}/restore`, as(async (a, c) => restore(db(c), a, await body(c, 64_000_000))));
+
+// LEARN-001 uses the existing agent-key preparation and native human decision boundaries.
+api.post(`${P}/learning/evidence`, as(async (a,c) => learningEvidence(db(c),a,await body(c))));
+api.post(`${P}/learning`, as(async (a,c) => prepareLearning(db(c),a,await body(c))));
+api.get(`${P}/learning/:id`, as((a,c) => learningDetail(db(c),a,param(c))));
+api.post(`${P}/learning/:id/decide`, as(async (a,c) => decideLearning(db(c),a,param(c),await body(c))));
+api.post(`${P}/agent/learning/evidence`, asAgent(async (a,c) => learningEvidence(db(c),a,await body(c))));
+api.post(`${P}/agent/prepare-learning`, asAgent(async (a,c) => prepareLearning(db(c),a,await body(c))));
+api.get(`${P}/agent/learning/:id`, asAgent((a,c) => learningDetail(db(c),a,param(c))));
 
 // Agent doors: read context, prepare proposals. Nothing here changes practice records.
 api.get(`${P}/agent/context`, asAgent((a, c) => agentContext(db(c), a)));

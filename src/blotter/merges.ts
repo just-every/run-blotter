@@ -15,7 +15,7 @@ import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, t
 
 const UNDO_MS = 30 * 24 * 60 * 60 * 1000;
 /** What a client has linked, by the table that links it. Groups are memberships, merged separately. */
-const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', obligations: 'b_client_obligations', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
+const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', obligations: 'b_client_obligations', learning: 'b_learning_clients', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
 const COUNTED = Object.keys(TABLES);
 const ROW = ['name', 'abn', 'contact_name', 'contact_email', 'source', 'fields', 'tags', 'revision', 'entity_type', 'partner_email', 'team', 'services', 'owner_client_id', 'ssn_last4', 'lifecycle', 'archived_at', 'archived_by'];
 const pick = (c: Data) => Object.fromEntries(ROW.map(k => [k, c[k]]));
@@ -52,6 +52,7 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
   const clash = await rows(db, `SELECT t.name,a.period_start FROM b_jobs a JOIN b_jobs b ON b.template_id=a.template_id AND b.period_start=a.period_start JOIN b_templates t ON t.id=a.template_id
     WHERE a.client_id=? AND b.client_id=? UNION SELECT t.name,'recurring rule' FROM b_recurrence_rules a JOIN b_recurrence_rules b ON b.template_id=a.template_id JOIN b_templates t ON t.id=a.template_id
     WHERE a.client_id=? AND b.client_id=?`, s.id, m.id, s.id, m.id);
+  insist(!await stmt(db, `SELECT 1 FROM b_learning_clients a JOIN b_learning_clients b ON a.source_template_id=b.source_template_id WHERE a.client_id=? AND b.client_id=?`, s.id, m.id).first(), 'Both clients have approved learning for the same template; resolve the overlap before merging', 409);
   insist(!clash.length, `Both clients have ${clash.map(c => `${c.name} ${c.period_start}`).join(', ')}; resolve the overlap before merging`, 409);
   const moved: Data = {};
   for (const [key, table] of MOVED) moved[key] = (await rows(db, `SELECT id FROM ${table} WHERE client_id=? ORDER BY id`, m.id)).map(r => r.id);

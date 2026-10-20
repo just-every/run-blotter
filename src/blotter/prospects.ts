@@ -115,7 +115,7 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
     contactInsert(db,actor,clientId,legacyContactValues(p.contact_name,p.contact_email),'legacy:'+clientId),
     ...JSON.parse(p.contacts).map((c: Data) => contactInsert(db,actor,clientId,c)),
     audit(db, actor, 'client.added', clientId, `${p.name} (won prospect)`),
-    ...createStatements(db, actor, template, { id: jobId, clientId, periodStart: date(body.periodStart, 'Onboarding period start'), dueDate: date(body.dueDate, 'Onboarding due date'),
+    ...await createStatements(db, actor, template, { id: jobId, clientId, periodStart: date(body.periodStart, 'Onboarding period start'), dueDate: date(body.dueDate, 'Onboarding due date'),
       dueNote: text(body.dueNote, 'Where the onboarding due date comes from', 300), preparer, reviewer }),
 
     ...(intakeFiles.length ? [stmt(db, `INSERT INTO b_requests(id,job_id,ordinal,label,status,note,updated_by,updated_at) SELECT ?,?,coalesce(MAX(ordinal),0)+1,'Website intake attachments','received','',?,? FROM b_requests WHERE job_id=?`, intakeRequest, jobId, actor.email, at, jobId), ...intakeMoves] : []),

@@ -71,7 +71,7 @@ export async function commitSchedule(env: Bindings, actor: Actor, body: Data) {
   insist(!blocked.length, `Resolve or exclude: ${blocked.map(l => `${l.client} (${l.reasons.join('; ')})`).join(', ')}`, 409);
   const created = plan.lines.filter(l => l.action === 'create').map((l): Data => ({ ...l, jobId: id() }));
   if (created.length) await atomic(db, actor, [
-    ...created.flatMap(l => createStatements(db, actor, template, { id: l.jobId, clientId: l.clientId, periodStart: plan.periodStart, dueDate: plan.dueDate, dueNote: plan.dueNote, preparer: l.preparer, reviewer: l.reviewer })),
+    ...(await Promise.all(created.map(l => createStatements(db, actor, template, { id: l.jobId, clientId: l.clientId, periodStart: plan.periodStart, dueDate: plan.dueDate, dueNote: plan.dueNote, preparer: l.preparer, reviewer: l.reviewer })))).flat(),
     audit(db, actor, 'jobs.bulk_scheduled', template.id, `${plan.periodLabel}: ${created.length} created, ${plan.lines.length - created.length} kept or excluded`),
   ]);
   await advance(env, created.map(l => l.jobId), actor.email);

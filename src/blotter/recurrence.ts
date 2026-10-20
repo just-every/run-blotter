@@ -201,7 +201,7 @@ export async function runRules(env: Bindings, at: Date, trigger: 'cron' | 'manua
         const deadline = rule.obligation_id ? await jobDeadline(db, rule.client_id, rule.obligation_id, start, rule.recurrence) : null;
         const values = { id: jobId, clientId: rule.client_id, periodStart: start, dueDate: deadline?.dueDate ?? dueFor(start, rule.recurrence, rule.due_days), dueNote: deadline?.dueNote ?? rule.due_note,
           preparer: rule.preparer_email, reviewer: rule.reviewer_email, manager: rule.manager_email };
-        await db.batch([check, ...createStatements(db, actor, template!, values), ...(deadline ? [deadline.statement(jobId)] : []),
+        await db.batch([check, ...await createStatements(db, actor, template!, values), ...(deadline ? [deadline.statement(jobId)] : []),
           stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', rule.budget_minutes, jobId),
           stmt(db, "INSERT INTO b_rule_periods(rule_id,period_start,kind,job_id,by_email,at) VALUES(?,?,'generated',?,?,?)", rule.id, start, jobId, who, now()), release,
           log('rule.generated', `${start}: ${jobId}`)]);
