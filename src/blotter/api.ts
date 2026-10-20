@@ -1,3 +1,4 @@
+import { readiness, prepareReadiness, decideReadiness } from './readiness';
 import { workPage, timePage } from './read-pages';
 import { performanceReport } from './reports';
 import { downloadReport } from './report-exports';
@@ -210,6 +211,11 @@ api.post(`${P}/groups`, as(async (a, c) => saveGroup(db(c), a, await body(c))));
 api.post(`${P}/templates`, as(async (a, c) => saveTemplate(db(c), a, await body(c))));
 api.post(`${P}/jobs`, as(async (a, c) => startJob(c.env, a, await body(c))));
 api.get(`${P}/jobs/:id`, as((a, c) => jobDetail(db(c), a, param(c))));
+api.get(`${P}/jobs/:id/readiness`, as((a,c)=>readiness(db(c),a,param(c))));
+api.post(`${P}/jobs/:id/readiness/questions`, as(async(a,c)=>prepareReadiness(db(c),a,param(c),await body(c))));
+api.post(`${P}/jobs/:id/readiness/questions/:question/decide`, as(async(a,c)=>decideReadiness(db(c),a,param(c),param(c,'question'),await body(c))));
+api.get(`${P}/agent/jobs/:id/readiness`, asAgent((a,c)=>readiness(db(c),a,param(c))));
+api.post(`${P}/agent/jobs/:id/readiness/questions`, asAgent(async(a,c)=>prepareReadiness(db(c),a,param(c),await body(c))));
 api.post(`${P}/bulk/schedule/preview`, as(async (a, c) => previewSchedule(db(c), a, await body(c))));
 api.post(`${P}/bulk/schedule`, as(async (a, c) => commitSchedule(c.env, a, await body(c))));
 api.post(`${P}/bulk/reassign/preview`, as(async (a, c) => previewReassign(db(c), a, await body(c))));

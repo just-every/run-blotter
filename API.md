@@ -165,3 +165,28 @@ Principal/reviewer: `GET /api/blotter/reports/performance?from=2026-01-01&to=202
 `GET /reports/views` lists saved filter views, schedules and queued run records. `POST /reports/views` takes those filters plus `name`. The principal uses `POST /reports/schedules` with `viewId`, active principal/reviewer `recipient`, firm-local `nextDate` and `everyDays` (1–366); `POST /reports/schedules/:id/pause` pauses. The hourly trigger queues one live link, respects notification hours, rechecks authority and never replays restored schedules. `/app?report=<view-id>` opens the saved report after native sign-in and live role checks.
 
 BILL-003 current financial groups: the same performance response includes `financialBreakdowns.clients` and `.services`. Each group has `id`, `name`, `currency`, `jobIds` and the seven existing job financial totals. Follow `jobIds` into `jobs[].financial.sources` for the source rows. Groups use the same inclusive period-start cohort and filters, and never combine currencies. Draft exports reserve WIP without increasing approved-export totals; voids release WIP. Margin excludes staff cost. Retainers, receivables, credits, write-offs and invoice/payment realization remain unimplemented.
+
+## Native engagement readiness (READY-001, partial)
+
+These authenticated HTTP doors use existing job visibility; they do not change a
+client grant. No new screen or native model execution is claimed.
+
+| Method | Door | Behavior |
+| --- | --- | --- |
+| GET | `/api/blotter/jobs/:id/readiness` | Live document custody, checklist/answer map, latest accessible prior period, source links, drafted questions and tracked decisions/responses. |
+| POST | `/api/blotter/jobs/:id/readiness/questions` | Prepare `{ "sourceKind": "request", "sourceId": "<request id>" }` or `sourceKind: "answer"` with the workflow answer key. Returns the same preparation for the same source fingerprint; sends nothing. |
+| POST | `/api/blotter/jobs/:id/readiness/questions/:question/decide` | A person supplies `decision` (`approve`, `decline`, `resolve`) and a nonempty `reason`. Approval adds one exact link-only portal to-do, without email. Source changes refuse stale approval. Only the assigned reviewer or principal resolves an approved question. |
+| GET | `/api/blotter/agent/jobs/:id/readiness` | Existing agent-key equivalent of the read door. |
+| POST | `/api/blotter/agent/jobs/:id/readiness/questions` | Existing agent-key preparation; no decision door. |
+
+`documents[].state` is `missing` without unerased files, `collected` with files,
+and `validated` only when staff accepted that request. Recorded answer differences
+are shown with the current/prior source jobs; no semantic contradiction is inferred.
+A client response moves a question to `evidence_received_judgment_required`, never
+to resolved. Approved unresolved questions prevent job sign-off. Declining a draft
+does not remove a missing-document or answer judgment. Restores retain these gates
+and do not replay questions or sends. Evidence maps re-read erased-file state.
+Question records store source references and fingerprints, not document bytes or
+copied workflow answer values. Whole-client retention/erasure remains ERASURE-002.
+Signed-scope joining (ENGAGE-001), connected books (LEDGER-001), semantic conflict
+detection and ledger variance analysis remain unimplemented; READY-001 stays partial.

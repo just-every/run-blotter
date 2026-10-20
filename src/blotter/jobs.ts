@@ -225,6 +225,8 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
     return jobDetail(db, actor, j.id);
   }
   insist(body.decision === 'signoff', 'Choose sign off or return');
+  insist(!await stmt(db, "SELECT 1 FROM b_readiness_questions WHERE job_id=? AND status='approved'", j.id).first(),
+    'Resolve approved readiness questions with reviewer judgment before signing off', 409);
   // Extension work stays open until the agency's acknowledgment is recorded (DUE-001); a checklist never implies filing.
   insist(!await stmt(db, 'SELECT 1 FROM b_job_deadlines WHERE job_id=? AND extension_recorded_at IS NOT NULL AND filing_recorded_at IS NULL', j.id).first(),
     'Extension work stays open until the filing acknowledgment is recorded', 409);
