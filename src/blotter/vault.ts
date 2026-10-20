@@ -39,7 +39,7 @@ async function unseal(site: VaultSite, salt: string, credentialId: string, value
   const bytes = Uint8Array.from(atob(value), c => c.charCodeAt(0)), key = await vaultKey(site, salt);
   try {
     return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12), additionalData: new TextEncoder().encode(credentialId) }, key, bytes.slice(12))));
-  } catch { throw new Fault('This credential was sealed under another installation's vault key and cannot be opened here. Ask the client to enter it again.', 409); }
+  } catch { throw new Fault("This credential was sealed under another installation's vault key and cannot be opened here. Ask the client to enter it again.", 409); }
 }
 
 /** The client a credential belongs to today: a merged client's credentials follow its survivor. */
