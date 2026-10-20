@@ -12,6 +12,14 @@ export async function reportAppJourney(h,s){
   await panel.getByLabel('Period from',{exact:true}).fill('2026-01-01');await panel.getByLabel('Period to',{exact:true}).fill('2026-03-31');
   await panel.getByLabel('Report service / work type',{exact:true}).selectOption(s.type.id);await panel.getByLabel('Report team member',{exact:true}).selectOption('prep@example.test');await panel.getByRole('button',{name:'Run report',exact:true}).click();
   await panel.getByText('2 jobs · 1 completed · 1 overdue · 1 blocked · 1 review returns',{exact:true}).waitFor();
+  const financial=panel.getByRole('region',{name:'Client and service financial totals',exact:true});
+  const clientTotals=financial.getByRole('region',{name:'Client totals',exact:true});
+  const serviceTotals=financial.getByRole('region',{name:'Service totals',exact:true});
+  assert.equal(await clientTotals.locator('summary').count(),1);assert.equal(await serviceTotals.locator('summary').count(),1);
+  await clientTotals.locator('summary').click();await serviceTotals.locator('summary').click();
+  assert.equal(await clientTotals.getByRole('button').count(),2);assert.equal(await serviceTotals.getByRole('button').count(),2);
+  const financialEvidence=process.env.BLOTTER_REPORT_EVIDENCE;if(financialEvidence)await mkdir(financialEvidence,{recursive:true});
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await financial.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(financialEvidence)await financial.screenshot({path:`${financialEvidence}/financial-groups-${width}.png`});}
   await panel.getByLabel('Report view name',{exact:true}).fill('Partner tax-season report');await panel.getByRole('button',{name:'Save report view',exact:true}).click();
   await panel.getByText('Schedule an internal report',{exact:true}).click();await panel.getByLabel('Report partner',{exact:true}).selectOption('reviewer@example.test');
   await panel.getByRole('button',{name:'Schedule report',exact:true}).click();await panel.getByRole('button',{name:'Pause report',exact:true}).waitFor();
