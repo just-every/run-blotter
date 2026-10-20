@@ -23,7 +23,11 @@ export async function reviewRequested(env: Bindings, jobId: string, by: string) 
   await notify(env, [j!.reviewer_email], { kind: 'review_requested', jobId, summary: `${by} submitted ${j!.client} ${j!.title} ${j!.period_label} for your review` });
 }
 export async function myNotifications(db: D1Database, actor: Actor) {
-  return rows(db, `SELECT n.* FROM b_notifications n WHERE n.to_email=? AND ${notificationAuthority} ORDER BY n.created_at DESC,n.id DESC LIMIT 200`, actor.email);
+  const alerts=await rows(db, `SELECT n.*,
+    (SELECT c.name||' · '||j.title||' · '||j.period_label FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE j.id=n.job_id) item_label,
+    (SELECT j.id FROM b_threads t JOIN b_jobs j ON j.client_id=t.client_id WHERE t.id=n.thread_id AND (?<>'preparer' OR j.preparer_email=?) ORDER BY j.created_at DESC LIMIT 1) linked_job_id
+    FROM b_notifications n WHERE n.to_email=? AND ${notificationAuthority} ORDER BY n.created_at DESC,n.id DESC LIMIT 200`,actor.role,actor.email,actor.email);
+  return alerts.map(n=>({...n,job_id:n.job_id??n.linked_job_id}));
 }
 export function outsideQuiet(settings:Data,at:Date) {
   const c=localClock({...settings,notificationStart:settings.quietStart,notificationEnd:settings.quietEnd},at);

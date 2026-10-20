@@ -1,5 +1,6 @@
 // NOTIFY-001: native channels and explicit user/firm choices.
 import { firmSettings } from './firm';
+import { notificationAuthority } from './notification-authority';
 import { atomic, audit, human, insist, integer, need, now, stmt, text, type Actor, type Data } from './model';
 
 export const kinds = [
@@ -42,7 +43,7 @@ export async function saveNotificationDefaults(db:D1Database,actor:Actor,body:Da
 }
 export async function markNotification(db:D1Database,actor:Actor,notificationId:string,body:Data) {
   human(actor);insist(typeof body.read==='boolean','Choose read or unread');
-  const n=await stmt(db,'SELECT id FROM b_notifications WHERE id=? AND to_email=?',notificationId,actor.email).first();
+  const n=await stmt(db,`SELECT n.id FROM b_notifications n WHERE n.id=? AND n.to_email=? AND ${notificationAuthority}`,notificationId,actor.email).first();
   insist(n,'Notification not found',404);
   await atomic(db,actor,[stmt(db,'UPDATE b_notifications SET read_at=? WHERE id=? AND to_email=?',body.read?now():null,notificationId,actor.email),audit(db,actor,body.read?'notification.read':'notification.unread',notificationId)]);
   return {ok:true};

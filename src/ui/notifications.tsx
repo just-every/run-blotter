@@ -55,6 +55,7 @@ export function MyAlerts({ tick, open }: { tick: number; open: (id: string) => v
     <ul className="list">{visible?.map(a => <li key={a.id}>
       <p>{!a.read_at && <strong>Unread · </strong>}
         {a.job_id ? <button className="text-action" onClick={() => open(a.job_id)}>{prose(a.summary)}</button> : prose(a.summary)}
+        {a.item_label && <><br /><small>{a.item_label}</small></>}
         <br /><small className="muted">{when(a.created_at)} · Email: {a.delivery}</small>
       </p>
       <button className="quiet" disabled={!!busy} onClick={() => void save(`/notifications/${encodeURIComponent(a.id)}/read`, { read: !a.read_at }, a.read_at ? 'Marked unread' : 'Marked read')}>
