@@ -4,9 +4,7 @@ An agent works with a key that the principal or a reviewer creates in
 **Team & safety → Agent keys**. The key is shown once; keep it in your agent's
 secret store. The agent acts for the person who created the key and sees what
 that person sees. It can read context and **prepare** work. It cannot approve,
-change records or send anything: each preparation waits in **Preparations**
-until that person approves or declines it, and the decision is recorded with
-its result.
+change records or send anything: the standard preparations wait in **Preparations** until that person approves or declines them. Review-learning preparations use the authenticated HTTP review doors below. Each decision is recorded with its result.
 
 Send the key as a bearer token. Bodies are JSON.
 
