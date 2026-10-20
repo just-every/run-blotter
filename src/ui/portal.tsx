@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Blotter, readFile, Status, when, type Row, day } from './common';
 import { ClientTasks } from './tasks';
 import { PortalDeliverables } from './deliverables';
+import { PortalCredentials } from './vault';
 import { PortalConversation, PortalProgress } from './client-portal';
 
 /** The client's upload page. The link's secret is the only credential. */
@@ -40,6 +41,7 @@ export function Portal({ token }: { token: string }) {
         <ClientTasks tasks={view.tasks} />
         <PortalConversation view={view} path={path} busy={busy} act={act} reload={load} />
         <PortalDeliverables path={path} busy={busy} act={act} />
+        <PortalCredentials path={path} busy={busy} act={act} />
       </>}
     </main>
   </div>;

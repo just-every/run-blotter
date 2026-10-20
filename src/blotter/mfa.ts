@@ -164,6 +164,19 @@ export async function newRecoveryCodes(db: D1Database, actor: Actor) {
 
 /** Verify this session with an authenticator code, a passkey or a one-time recovery code. */
 export async function verifySession(db: D1Database, actor: Actor, site: Site, body: Data) {
+  const { method, statements } = await checkFactor(db, actor, site, body);
+  await atomic(db, actor, [...statements,
+    stmt(db, 'INSERT INTO b_mfa_sessions(session_id,email,method,verified_at) VALUES(?,?,?,?) ON CONFLICT(session_id) DO NOTHING', actor.sessionId, actor.email, method, now()),
+    audit(db, actor, 'mfa.verified', actor.sessionId!, method)]);
+  return { verified: true, method };
+}
+
+/**
+ * One fresh second-factor answer from this person: a TOTP code, a passkey
+ * assertion or a recovery code. The returned statements spend it, so the same
+ * answer never passes twice; the caller writes them in its own batch.
+ */
+export async function checkFactor(db: D1Database, actor: Actor, site: Site, body: Data) {
   human(actor); await failures(db, actor.email);
   insist(await factorCount(db, actor.email) > 0, 'Set up a second factor first', 409);
   let method: string, statements: D1PreparedStatement[];
@@ -191,10 +204,7 @@ export async function verifySession(db: D1Database, actor: Actor, site: Site, bo
     // The step only moves forward, so a code is never accepted twice.
     statements = [stmt(db, 'UPDATE b_mfa_factors SET last_step=?,last_used_at=? WHERE id=? AND last_step<?', hit.step, now(), hit.factor.id, hit.step)];
   }
-  await atomic(db, actor, [...statements,
-    stmt(db, 'INSERT INTO b_mfa_sessions(session_id,email,method,verified_at) VALUES(?,?,?,?) ON CONFLICT(session_id) DO NOTHING', actor.sessionId, actor.email, method, now()),
-    audit(db, actor, 'mfa.verified', actor.sessionId!, method)]);
-  return { verified: true, method };
+  return { method, statements };
 }
 
 const CHALLENGE_MINUTES = 5;

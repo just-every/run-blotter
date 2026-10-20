@@ -49,6 +49,17 @@
       "group": "owner"
     },
     {
+      "name": "VAULT_KEY",
+      "label": "Credential vault key",
+      "help": "Encrypts client logins stored in the credential vault. Keep it with your backups: an archive's credentials open only where this key is set.",
+      "kind": "secret",
+      "required": false,
+      "ownerVisible": false,
+      "input": "managed",
+      "generate": "hex",
+      "group": "owner"
+    },
+    {
       "name": "SETUP_TOKEN",
       "label": "Setup token",
       "kind": "secret",

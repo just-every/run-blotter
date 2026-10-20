@@ -149,8 +149,10 @@ credentials in Git, commands, screenshots or chat.
    `false`.
 2. In your shell's private environment, supply `CLOUDFLARE_ACCOUNT_ID` and
    `CLOUDFLARE_API_TOKEN`, and `OWNER_EMAIL`, `SESSION_SECRET`, `SETUP_TOKEN`
-   and `MAIL_API_KEY`. Generate the session and setup values as independent
-   random strings of at least 32 characters, with your secret manager.
+   and `MAIL_API_KEY`, plus `VAULT_KEY` to use the client credential vault.
+   Generate the session, setup and vault values as independent random strings
+   of at least 32 characters, with your secret manager; keep `VAULT_KEY` with
+   your backups, since archived credentials open only under the same key.
 3. Run `rer deploy --dry-run` to build and check the plan without provider
    calls (it already needs the variables from step 2), then `rer deploy`. It creates or reuses the D1 database, applies the
    migrations, deploys the Worker and its assets, checks health and prints the URL.

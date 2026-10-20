@@ -54,6 +54,7 @@ import { search } from './search';
 import { inbox } from './inbox';
 import { intakeFile } from './intake';
 import { addProspect, addStage, moveProspect, pipeline, winProspect } from './prospects';
+import { eraseCredential, portalCredentials, portalStore, reveal, setArchiveMode, staffCredentials, staffStore } from './vault';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
 type C = Context<{ Bindings: Bindings }>;
@@ -83,6 +84,7 @@ const as = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const
 const asOpen = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await person(c.req.raw, c.env, true), c));
 const sealer = (c: C) => runtimeBindings(c.env).SESSION_SECRET;
 const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH_ORIGIN });
+const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
 
@@ -171,6 +173,12 @@ api.post(`${P}/clients/duplicates/dismiss`, as(async (a, c) => dismissPair(db(c)
 api.get(`${P}/clients/merges`, as((a, c) => merges(db(c), a)));
 api.post(`${P}/clients/merge`, as(async (a, c) => mergeClients(db(c), a, await body(c))));
 api.post(`${P}/clients/merges/:id/undo`, as((a, c) => undoMerge(db(c), a, param(c))));
+// Client credential vault (VAULT-001): listing never returns a secret; each reveal carries a fresh second factor.
+api.get(`${P}/clients/:id/credentials`, as((a, c) => staffCredentials(db(c), a, param(c))));
+api.post(`${P}/clients/:id/credentials`, as(async (a, c) => staffStore(db(c), a, vaultSite(c), param(c), await body(c))));
+api.post(`${P}/credentials/:id/reveal`, as(async (a, c) => reveal(db(c), a, vaultSite(c), param(c), await body(c))));
+api.post(`${P}/credentials/:id/erase`, as(async (a, c) => eraseCredential(db(c), a, param(c), await body(c))));
+api.post(`${P}/credentials/archive-mode`, as(async (a, c) => setArchiveMode(db(c), a, await body(c))));
 api.get(`${P}/clients/:id/history`, as((a, c) => clientHistory(db(c), a, param(c), c.req.query())));
 api.post(`${P}/clients/:id/unresolved/owner`, as(async (a, c) => changeOwner(db(c), a, param(c), await body(c))));
 api.post(`${P}/clients/:id/profile`, as(async (a, c) => saveProfile(db(c), a, param(c), await body(c))));
@@ -323,6 +331,8 @@ api.post(`${P}/portal/:token/todos/:todo`, async c => {
   sameOrigin(c);
   return c.json(await completeTodo(c.env, param(c, 'token'), param(c, 'todo'), await body(c)));
 });
+api.get(`${P}/portal/:token/credentials`, async c => c.json(await portalCredentials(db(c), param(c, 'token'))));
+api.post(`${P}/portal/:token/credentials`, async c => { sameOrigin(c); return c.json(await portalStore(db(c), vaultSite(c), param(c, 'token'), await body(c))); });
 api.get(`${P}/portal/:token/deliverables`, async c => c.json(await portalDeliverables(db(c), param(c, 'token'))));
 api.get(`${P}/portal/:token/deliverables/:version/file`, async c => portalVersionFile(db(c), param(c, 'token'), param(c, 'version')));
 api.post(`${P}/portal/:token/deliverables/:version/decide`, async c => {

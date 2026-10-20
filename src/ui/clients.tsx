@@ -1,5 +1,6 @@
 import { OrganizerTemplateEditor } from './organizers';
 import { ClientDetails } from './client-details';
+import { VaultDetails } from './vault';
 import { StarterLibrary } from './starter-library';
 import { StatusSettings } from './statuses';
 import { Blotter, api, money, taxId, Empty, Field, Form, type Row, type Run } from './common';
@@ -26,7 +27,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
       <h2>Clients</h2>
       {!state.clients.length && <Empty>No clients yet. Add one here or bring your list in under Move in.</Empty>}
       <ul className="list">{state.clients.map((c: Row) => <li key={c.id}><strong>{c.name}</strong> <small className="muted">{c.abn && `${taxId(c.abn)} · `}{c.contact_email || 'no contact email'}{c.source !== 'native' && ' · imported'}</small>{describe(c, state.fields) && <small className="muted"> · {describe(c, state.fields)}</small>}
-        {lead && <ClientDetails clientId={c.id} state={state} run={run} tick={tick} />}{lead && <ClientHistoryDetails clientId={c.id} people={state.people} run={run} open={open} />}</li>)}</ul>
+        {lead && <ClientDetails clientId={c.id} state={state} run={run} tick={tick} />}<VaultDetails clientId={c.id} run={run} tick={tick} owner={state.actor.role === 'owner'} />{lead && <ClientHistoryDetails clientId={c.id} people={state.people} run={run} open={open} />}</li>)}</ul>
       {lead && <details><summary>Add a client</summary>
         <Form label="Add client" submit={async (data, form) => run(async () => { await api('/clients', { name: data.name, ein: data.ein, contactName: data.contactName, contactEmail: data.contactEmail, ...profileBody(data) }); form.reset(); }, 'Client added')}>
           <Field label="Client name" name="name" />

@@ -37,6 +37,8 @@ export interface Bindings {
  TURNSTILE_SITE_KEY?: string
  TURNSTILE_SECRET_KEY?: string
  SESSION_SECRET: string
+ /** VAULT-001: the credential vault's own key, separate from the session secret. */
+ VAULT_KEY?: string
  SETUP_TOKEN?: string
  MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare'
  MAIL_FROM?: string

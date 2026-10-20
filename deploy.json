@@ -26,6 +26,11 @@
       "environment": "SESSION_SECRET"
     },
     {
+      "binding": "VAULT_KEY",
+      "environment": "VAULT_KEY",
+      "optional": true
+    },
+    {
       "binding": "SETUP_TOKEN",
       "environment": "SETUP_TOKEN"
     },
