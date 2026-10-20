@@ -24,7 +24,7 @@ export async function automationAppJourney(h,s,interrupt) {
   await panel.getByRole('heading',{name:'Review Review completed 1040 work',exact:true}).waitFor();
   assert.match(await panel.innerText(),/Cedar Lane LLC/);
   assert.equal((await s.state()).rules.length,0,'Preview has no live rule/effect');
-  const shot=async name=>{if(evidence){await mkdir(evidence,{recursive:true});for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`${evidence}/${name}-${width}.png`,fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No page-level overflow');}await page.setViewportSize({width:1440,height:1000});}};
+  const shot=async name=>{if(evidence)await mkdir(evidence,{recursive:true});for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(evidence)await page.screenshot({path:`${evidence}/${name}-${width}.png`,fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No page-level overflow');}await page.setViewportSize({width:1440,height:1000});};
   await shot('preview');
   await panel.getByRole('button',{name:'Save draft',exact:true}).click();
   let rule=panel.locator('article.record').filter({has:page.getByText('Review completed 1040 work',{exact:true})});
@@ -101,7 +101,7 @@ export async function automationAppJourney(h,s,interrupt) {
   await page.getByLabel('Successor for their reviews (jobs they review or manage, pending proposals)',{exact:true}).selectOption('owner@example.test');
   await page.getByRole('button',{name:'Preview transfer',exact:true}).click();
   await page.getByText('Its approval is not transferred',{exact:false}).waitFor();
-  if(evidence)for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.getByText('Offboard a person',{exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:`${evidence}/offboarding-${width}.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.getByText('Offboard a person',{exact:true}).scrollIntoViewIfNeeded();if(evidence)await page.screenshot({path:`${evidence}/offboarding-${width}.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
   await page.getByRole('button',{name:'Transfer and deactivate',exact:true}).click();
   await h.scheduled('2030-01-01T00:00:00Z');
   assert.ok((await s.state()).attempts.some(a=>a.rule_id===dependency.id&&a.status==='failed'&&/authority changed/.test(a.outcome)));
