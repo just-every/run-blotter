@@ -62,4 +62,3 @@ export function Discussions({ detail, actor, run, tick }: { detail: Row; actor: 
     </details>
   </section>;
 }
-

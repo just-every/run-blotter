@@ -51,7 +51,6 @@ test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, 
   let current=await h.json('/jobs/'+job.id,undefined,s.prep);
   await h.json(`/jobs/${job.id}/status`,{stage:'waiting',revision:current.job.revision},s.prep);
   assert.ok((await h.json('/notifications',undefined,s.prep)).some(n=>n.kind==='status_changed'&&n.job_id===job.id));
-  await notificationAppJourney(h,s,job);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   assert.ok(archive.includes('notifications.settings')&&archive.includes('notification.read'));
   await h.json(`/files/${file.id}/erase`,{confirm:'October.txt',reason:'Client requested erasure'},h.owner);
@@ -103,5 +102,15 @@ test('NOTIFY-001 / BASE-001: a real send failure creates an owned in-app excepti
   const before=h.mails.length;await h.scheduled('2026-05-01T12:00:00Z');await h.scheduled('2026-05-01T13:00:00Z');assert.equal(h.mails.length,before,'No automatic retry of the failed client send');
   assert.equal((await h.json('/notifications',undefined,s.prep)).filter(n=>n.kind==='delivery_failed'&&n.job_id===job.id).length,1);
   assert.equal((await h.json('/notifications',undefined,s.other)).length,0);
+ }finally{await h.close();}
+});
+
+
+test('NOTIFY-001 app: notification center, personal schedule and principal defaults at desktop and phone widths',async()=>{
+ const h=await harness();try{
+  const s=await fixture(h),job=await s.start('2026-10-01','2026-10-22');
+  await s.start('2026-11-01','2026-11-22');
+  await h.json('/notifications/defaults',{emailKinds:[],mandatoryKinds:['mention']},h.owner);
+  await notificationAppJourney(h,s,job);
  }finally{await h.close();}
 });
