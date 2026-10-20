@@ -69,6 +69,14 @@ export async function automationAppJourney(h,s,interrupt) {
   // A board card uses the same native status transition, rather than a synthetic event.
   await page.getByRole('button',{name:'Jobs',exact:true}).click();await page.getByRole('button',{name:'Show board',exact:true}).click();
   const move=page.getByRole('combobox',{name:'Move Cedar Lane LLC 1040 preparation',exact:true});
+  const signed=await s.rule({kind:'status',stage:'waiting',subStatusId:s.sub.id},{kind:'request',label:'Signed 8879 from board'});
+  await move.selectOption('waiting|'+s.sub.id);
+  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();
+  await panel.getByRole('button',{name:'Evaluate active rules now',exact:true}).click();
+  assert.equal((await s.detail(job.id)).requests.filter(r=>r.label==='Signed 8879 from board').length,1,'1040 board entry fires its 8879 rule exactly once');
+  assert.equal((await s.state()).attempts.filter(a=>a.rule_id===signed.id).length,1);
+  await page.getByRole('button',{name:'Jobs',exact:true}).click();await page.getByRole('button',{name:'Show board',exact:true}).click();
   await move.selectOption('waiting|'+s.docs.id);
   interrupt();
   await page.getByRole('button',{name:'Preparations',exact:true}).click();
