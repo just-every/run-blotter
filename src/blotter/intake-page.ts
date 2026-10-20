@@ -2,6 +2,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { Fault, insist } from './model';
 import { intakeToken, submitIntake } from './intake';
+import { INTAKE_MARKETING } from './marketing-consent';
 
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const CONSENT = 'Your details go only to this practice to reply to this inquiry.';
@@ -29,7 +30,7 @@ export async function intakeResponse(request: Request, original: Bindings): Prom
         let binary = ''; for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
         uploads.push({ name: f.name, mime: f.type, contentBase64: btoa(binary) });
       }
-      await submitIntake(env, request, { ...Object.fromEntries(form), consent: form.get('consent') === 'yes', turnstileToken: form.get('cf-turnstile-response'), uploads });
+      await submitIntake(env, request, { ...Object.fromEntries(form), consent: form.get('consent') === 'yes', marketing: form.get('marketing') === 'yes', turnstileToken: form.get('cf-turnstile-response'), uploads });
       received = true;
     }
   } catch (e) {
@@ -49,6 +50,7 @@ export async function intakeResponse(request: Request, original: Bindings): Prom
     <label class="field">Attachments (up to 3 files, 1 MiB each)<input name="uploads" type="file" multiple></label>
     <div hidden aria-hidden="true"><label>Leave this blank<input name="website" tabindex="-1" autocomplete="off"></label></div>
     <label class="field"><span><input name="consent" type="checkbox" value="yes" required> ${CONSENT}</span></label>
+    <label class="field"><span><input name="marketing" type="checkbox" value="yes"> ${escape(INTAKE_MARKETING.wording)}</span></label>
     <p class="muted">Spam checks: please take at least 3 seconds. This form expires after 24 hours. Up to 5 inquiries per hour from your connection.</p>
     ${turnstile ? `<div class="cf-turnstile" data-sitekey="${escape(env.TURNSTILE_SITE_KEY!)}"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''}
     <button type="submit">Send inquiry</button></form>`;

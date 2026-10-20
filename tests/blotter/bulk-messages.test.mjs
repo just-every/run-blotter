@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { harness } from './harness.mjs';
 
 const key = randomBytes(24), contact = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
@@ -182,4 +182,94 @@ test('MSG-002 / BASE-001 bulk engagement and marketing messages: segment preview
     await restored.json('/marketing-consents/confirm', { note: 'Checked the consent log against the source practice' }, restored.owner);
     assert.deepEqual((await restored.json('/bulk-messages/preview', { ...marketing, idempotencyKey: 'restored' }, restored.owner)).recipients.map(r => r.address), ['p04@example.test']);
   } finally { await h.close(); if (restored) await restored.close(); }
+});
+
+test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, and a contact merge keeps the most restrictive consent with exact undo', async () => {
+  const secret = 'test-intake-signing-key-not-a-real-secret', h = await harness({ bindings: { SESSION_SECRET: secret } });
+  try {
+    for (const [email, role] of [['leaver@example.test', 'reviewer'], ['successor@example.test', 'reviewer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }
+    const leaver = await h.login('leaver@example.test'), successor = await h.login('successor@example.test');
+    await h.json('/firm/settings', firm, h.owner);
+
+    // CRM-005: the public intake form offers an optional, unticked marketing checkbox with its exact wording, apart from the required reply consent.
+    const wording = 'Optional: also email me newsletters, seminar invitations and offers from this practice. I can unsubscribe at any time.';
+    const html = await (await h.request('/intake')).text();
+    assert.match(html, /<input name="consent" type="checkbox" value="yes" required>/);
+    assert.equal(html.match(/<input name="marketing" type="checkbox" value="yes">([^<]+)</)?.[1].trim(), wording, 'Not pre-ticked, not required, exact wording');
+    const signed = () => { const v = `${Date.now() - 4000}.${randomUUID()}`; return `${v}.${createHmac('sha256', secret).update('intake:' + v).digest('hex')}`; };
+    const inquiry = (name, contactEmail, extra = {}) => { const f = new FormData(); for (const [k, v] of Object.entries({ token: signed(), name, contactName: `${name.split(' ')[0]} Example`, contactEmail, services: 'Individual tax return', consent: 'yes', ...extra })) f.set(k, v); return h.request('/intake', f); };
+    assert.equal((await inquiry('Ivy Park', 'Ivy@Park.example', { marketing: 'yes' })).status, 200);
+    assert.equal((await inquiry('Oak Lane', 'oak@lane.example')).status, 200);
+    const { prospects } = await h.json('/pipeline', undefined, h.owner), ivy = prospects.find(p => p.name === 'Ivy Park'), oak = prospects.find(p => p.name === 'Oak Lane');
+    assert.deepEqual(ivy.answers.marketing, { wording, version: 'intake-marketing-v1', language: 'en', at: ivy.answers.consentAt });
+    assert.equal(oak.answers.marketing, undefined, 'Reply consent alone is never a marketing opt-in');
+    const onboarding = await h.json('/templates', { name: 'Onboarding', recurrence: 'annual', steps: 'Collect records', requests: 'Prior return' }, h.owner), workTypeId = 'wt-' + onboarding.id;
+    const win = { templateId: onboarding.id, preparerEmail: 'owner@example.test', reviewerEmail: 'successor@example.test', periodStart: '2026-11-01', dueDate: '2026-12-01', dueNote: 'Agreed onboarding' };
+    const ivyClient = (await h.json(`/prospects/${ivy.id}/win`, win, h.owner)).clientId, oakClient = (await h.json(`/prospects/${oak.id}/win`, win, h.owner)).clientId;
+    const ivyLog = await h.json(`/marketing-consents?clientId=${ivyClient}`, undefined, h.owner);
+    assert.deepEqual(ivyLog.events.map(e => [e.kind, e.source, e.contact_id, e.address, e.acted_at, e.wording, e.wording_version, e.language, e.actor]),
+      [['grant', 'intake_checkbox', `legacy:${ivyClient}`, 'ivy@park.example', ivy.answers.consentAt, wording, 'intake-marketing-v1', 'en', 'owner@example.test']]);
+    assert.equal(ivyLog.contacts[0].marketing, true);
+    const oakLog = await h.json(`/marketing-consents?clientId=${oakClient}`, undefined, h.owner);
+    assert.equal(oakLog.events.length, 0); assert.equal(oakLog.contacts[0].marketing, false);
+    assert.ok((await h.json(`/clients/${ivyClient}/history?kind=messages`, undefined, h.owner)).history.some(e => e.action === 'consent.marketing_granted' && /intake_checkbox/.test(e.detail)));
+
+    // ACCESS-006: a departing reviewer's unsent batches move to the review successor; the moved marketing batch needs the principal's fresh approval.
+    const welcome = await h.json('/messages/templates', { scope: 'firm', name: 'Welcome', subject: '{{work_type}} welcome for {{client_name}}', body: '{{work_type}} starts now.\nHi {{contact_first_name}}, {{sender_name}} will guide you.' }, h.owner);
+    const seminar = await h.json('/messages/templates', { scope: 'firm', name: 'Seminar', class: 'marketing', subject: 'News from {{firm_name}}', body: 'Hi {{contact_first_name}},\nOur tax seminar is open to {{client_name}}.' }, h.owner);
+    const engagement = await h.json('/bulk-messages/preview', { class: 'engagement', templateId: welcome.id, workTypeId, reason: 'Onboarding welcome', idempotencyKey: 'welcome' }, leaver);
+    assert.deepEqual(engagement.recipients.map(r => r.address).sort(), ['ivy@park.example', 'oak@lane.example']);
+    const marketing = await h.json('/bulk-messages/preview', { class: 'marketing', templateId: seminar.id, workTypeId, topic: 'tax', idempotencyKey: 'seminar' }, leaver);
+    assert.deepEqual(marketing.recipients.map(r => r.address), ['ivy@park.example'], 'Only the intake opt-in receives marketing');
+    assert.equal(marketing.exclusions.find(x => x.address === 'oak@lane.example').reason, 'no marketing opt-in');
+    await h.json(`/bulk-messages/${marketing.batch.id}/approve`, { fingerprint: marketing.batch.fingerprint }, h.owner);
+    for (const b of [engagement, marketing]) await h.json(`/bulk-messages/${b.batch.id}/schedule`, { fingerprint: b.batch.fingerprint }, leaver);
+    const offboard = { email: 'leaver@example.test', workSuccessor: 'successor@example.test', reviewSuccessor: 'successor@example.test' };
+    const preview = await h.json('/team/offboard/preview', offboard, h.owner);
+    assert.deepEqual(preview.batches.map(b => [b.id, b.class, b.status]), [[engagement.batch.id, 'engagement', 'scheduled'], [marketing.batch.id, 'marketing', 'scheduled']]);
+    assert.equal((await h.json('/team/offboard', { ...offboard, fingerprint: preview.fingerprint }, h.owner)).moved.batches, 2);
+    const [moved, held] = [await h.json(`/bulk-messages/${engagement.batch.id}`, undefined, h.owner), await h.json(`/bulk-messages/${marketing.batch.id}`, undefined, h.owner)];
+    assert.deepEqual([moved.batch.owner_email, moved.batch.status], ['successor@example.test', 'scheduled']);
+    assert.deepEqual([held.batch.owner_email, held.batch.status, held.batch.approved_by], ['successor@example.test', 'previewed', null]);
+    const start = h.mails.length;
+    await h.json(`/bulk-messages/${marketing.batch.id}/schedule`, { fingerprint: marketing.batch.fingerprint }, successor, 409);
+    await h.json(`/bulk-messages/${marketing.batch.id}/run`, {}, successor);
+    assert.equal(h.mails.length, start, 'No marketing leaves before the fresh approval');
+    await h.json(`/bulk-messages/${engagement.batch.id}/run`, {}, successor);
+    const welcomes = h.mails.slice(start);
+    assert.equal(welcomes.length, 2); assert.ok(welcomes.every(m => /successor will guide you/.test(m.text)));
+    assert.ok((await h.json(`/clients/${oakClient}/history?kind=messages`, undefined, h.owner)).history.some(e => e.action === 'bulk.sent' && e.actor === 'successor@example.test'));
+    await h.json(`/bulk-messages/${marketing.batch.id}/approve`, { fingerprint: marketing.batch.fingerprint }, successor, 403);
+    await h.json(`/bulk-messages/${marketing.batch.id}/approve`, { fingerprint: marketing.batch.fingerprint }, h.owner);
+    await h.json(`/bulk-messages/${marketing.batch.id}/schedule`, { fingerprint: marketing.batch.fingerprint }, successor);
+    await h.json(`/bulk-messages/${marketing.batch.id}/run`, {}, successor);
+    assert.deepEqual(h.mails.slice(start + 2).map(m => [m.to[0], m.headers['List-Unsubscribe-Post']]), [['ivy@park.example', 'List-Unsubscribe=One-Click']]);
+
+    // CRM-004: merging two contacts keeps the most restrictive consent on the surviving contact; undo restores each side exactly.
+    const pair = (name, extra) => h.json('/clients', { name, tags: ['merge'], contacts: [contact('Robin Dup', 'robin@dup.example'), contact('Sam Dup', 'sam@dup.example', { roles: ['tax'], ...extra })] }, h.owner);
+    const survivor = await pair('Dup Holdings LLC'), copy = await pair('Dup Holdings', { emailConsent: false });
+    const robin = survivor.contacts.find(c => c.email === 'robin@dup.example');
+    await h.json('/marketing-consents', { contactId: robin.id, kind: 'grant', actedAt: '2026-10-01T15:00:00Z', wording: 'Yes, send me seminar invitations by email.', wordingVersion: 'v1', evidence: 'Signed seminar sheet' }, h.owner);
+    const contacts = async () => [await h.json(`/clients/${survivor.id}/contacts`, undefined, h.owner), await h.json(`/clients/${copy.id}/contacts`, undefined, h.owner)];
+    const state = async () => Object.fromEntries((await h.json(`/marketing-consents?clientId=${survivor.id}`, undefined, h.owner)).contacts.map(c => [c.email, [c.email_consent, c.marketing]]));
+    const before = await contacts();
+    assert.deepEqual(await state(), { 'robin@dup.example': [1, true], 'sam@dup.example': [1, false] });
+    const compare = await h.json(`/clients/compare?a=${survivor.id}&b=${copy.id}`, undefined, h.owner);
+    const merge = { survivor: survivor.id, merged: copy.id, keep: Object.fromEntries(compare.fields.filter(f => !f.same && f.key !== 'source').map(f => [f.key, 'survivor'])) };
+    const merged = await h.json('/clients/merge', merge, successor);
+    assert.deepEqual(await state(), { 'robin@dup.example': [1, false], 'sam@dup.example': [0, false] }, 'The copy had no grant for Robin and no email consent for Sam');
+    const seminarMerge = { class: 'marketing', templateId: seminar.id, tag: 'merge', topic: 'other' };
+    const refused = await h.json('/bulk-messages/preview', { ...seminarMerge, idempotencyKey: 'merge-1' }, h.owner, 409);
+    assert.deepEqual(refused.exclusions.map(x => `${x.address}: ${x.reason}`).sort(), ['robin@dup.example: no marketing opt-in', 'sam@dup.example: email consent withdrawn']);
+    assert.ok((await h.json(`/clients/${survivor.id}/history`, undefined, h.owner)).history.some(e => e.action === 'client.merged' && /most restrictive consent kept/.test(e.detail)));
+    await h.json(`/clients/merges/${merged.id}/undo`, {}, successor);
+    assert.deepEqual(await contacts(), before, 'Undo restores both sides exactly');
+    assert.deepEqual(await state(), { 'robin@dup.example': [1, true], 'sam@dup.example': [1, false] });
+    // Merged again, only a grant the contact gives after the merge revives marketing.
+    await h.json('/clients/merge', merge, successor);
+    assert.equal((await state())['robin@dup.example'][1], false);
+    await new Promise(r => setTimeout(r, 20));
+    await h.json('/marketing-consents', { contactId: robin.id, kind: 'grant', actedAt: new Date().toISOString(), wording: 'Yes, send me seminar invitations by email.', wordingVersion: 'v1', evidence: 'Signed again at the November seminar' }, h.owner);
+    assert.equal((await state())['robin@dup.example'][1], true);
+  } finally { await h.close(); }
 });

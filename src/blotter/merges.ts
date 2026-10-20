@@ -10,7 +10,10 @@
 // Undo: for 30 days (until the merge time plus 30 x 24 hours) while the survivor
 // is unchanged: no edit to it, no later merge, and no record added to or moved
 // off it since. Changes inside the moved records travel back with them.
+// Consent (MSG-002): when two contacts merge, the most restrictive consent wins
+// on the surviving contact, and undo restores both sides exactly.
 import { client, fieldRows, linked } from './duplicates';
+import { grantedContacts } from './marketing-consent';
 import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 const UNDO_MS = 30 * 24 * 60 * 60 * 1000;
@@ -73,6 +76,13 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
   }
   if (Object.keys(contactAuthority).length) authority = [authority, ...Object.entries(contactAuthority).map(([key,value]) => `contact ${key}: ${value}`)].filter(Boolean).join('; ');
   moved.contacts = mergedContacts;
+  // A merged contact with the same address as an active survivor contact folds into it. The survivor keeps email
+  // consent only if both had it, and its marketing grants stop counting (a hold) unless the merged contact also held
+  // a current grant; a grant the contact gives after the merge revives marketing.
+  const pairs = mergedContacts.flatMap(c => { const x = c.active && c.email ? survivorContacts.find(s => s.active && s.email === c.email) : undefined; return x ? [{ c, x }] : []; });
+  const granted = await grantedContacts(db, pairs.flatMap(({ c, x }) => [c.id, x.id]));
+  moved.consent = pairs.map(({ c, x }) => ({ id: x.id, merged_contact_id: c.id, email_consent: x.email_consent, revision: x.revision, emailConsent: Boolean(x.email_consent && !c.email_consent), hold: granted.has(x.id) && !granted.has(c.id) }))
+    .filter((k: Data) => k.emailConsent || k.hold);
   moved.mergedClient = [pick(m)];
   moved.relationships = await rows(db,'SELECT id,revision FROM b_clients WHERE owner_client_id=? AND merged_into IS NULL AND id NOT IN (?,?) ORDER BY id',m.id,s.id,m.id);
   // An owner link between these duplicate records disappears rather than becoming a self-link.
@@ -99,6 +109,9 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
       return same ? stmt(db,"UPDATE b_client_contacts SET client_id=?,active=0,revision=? WHERE id=?",s.id,id(),c.id)
         : stmt(db,'UPDATE b_client_contacts SET client_id=? WHERE id=?',s.id,c.id);
     }),
+    ...moved.consent.flatMap((k: Data) => [
+      ...(k.emailConsent ? [stmt(db, 'UPDATE b_client_contacts SET email_consent=0,revision=? WHERE id=?', id(), k.id)] : []),
+      ...(k.hold ? [stmt(db, 'INSERT INTO b_marketing_merge_holds(merge_id,contact_id,merged_contact_id,held_at) VALUES(?,?,?,?)', mergeId, k.id, k.merged_contact_id, at.toISOString())] : [])]),
     ...moved.relationships.map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=?',s.id,id(),c.id)),
     ...MOVED.map(([, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=?`, s.id, m.id)),
     stmt(db,'UPDATE b_document_access SET client_id=? WHERE client_id=?',s.id,m.id),
@@ -106,7 +119,7 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
     stmt(db, 'UPDATE b_client_group_members SET client_id=? WHERE client_id=?', s.id, m.id),
     stmt(db, 'UPDATE b_clients SET name=?,abn=?,contact_name=?,contact_email=?,fields=?,tags=?,revision=?,entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=?,lifecycle=? WHERE id=?', next.name, next.abn, next.contact_name, next.contact_email, JSON.stringify(next.fields), next.tags, revision,next.entity_type,next.partner_email,next.team,next.services,next.owner_client_id,next.ssn_last4,next.lifecycle,s.id),
     stmt(db, 'UPDATE b_clients SET merged_into=?,revision=?,contact_name=?,contact_email=? WHERE id=?', s.id,m.revision,m.contact_name,m.contact_email,m.id),
-    audit(db, actor, 'client.merged', s.id, `${m.name} into ${next.name}; moved ${COUNTED.map(k => `${from[k]} ${k}`).join(', ')}${authority ? `; authority: ${authority}` : ''}`)]);
+    audit(db, actor, 'client.merged', s.id, `${m.name} into ${next.name}; moved ${COUNTED.map(k => `${from[k]} ${k}`).join(', ')}${moved.consent.length ? `; most restrictive consent kept for ${moved.consent.map((k: Data) => [k.emailConsent && 'email consent withdrawn', k.hold && 'marketing grant held'].filter(Boolean).join(' and ') + ` on ${k.id}`).join(', ')}` : ''}${authority ? `; authority: ${authority}` : ''}`)]);
   return (await merges(db, actor)).find(x => x.id === mergeId);
 }
 
@@ -158,6 +171,9 @@ export async function undoMerge(db: D1Database, actor: Actor, mergeId: string) {
   await atomic(db, actor, [ok, done, same, sameDone,
     stmt(db, 'UPDATE b_clients SET merged_into=NULL WHERE id=?', m.merged_id),
     ...(moved.contacts ?? []).map((c: Data) => stmt(db,'UPDATE b_client_contacts SET client_id=?,email=?,active=?,revision=? WHERE id=?',m.merged_id,c.email,c.active,c.revision,c.id)),
+    // The surviving contact gets back its own email consent, and the merge's marketing holds lift.
+    ...(moved.consent ?? []).filter((k: Data) => k.emailConsent).map((k: Data) => stmt(db, 'UPDATE b_client_contacts SET email_consent=?,revision=? WHERE id=?', k.email_consent, k.revision, k.id)),
+    stmt(db, 'DELETE FROM b_marketing_merge_holds WHERE merge_id=?', m.id),
     ...(moved.relationships ?? []).map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=? AND owner_client_id=?',m.merged_id,id(),c.id,m.survivor_id)),
     // Records move back while the merge is still active; the triggers allow only that.
     ...MOVED.map(([key, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=? AND id IN (SELECT value FROM json_each(?))`, m.merged_id, m.survivor_id, JSON.stringify(moved[key]))),

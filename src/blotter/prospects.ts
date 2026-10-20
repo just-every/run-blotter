@@ -9,6 +9,7 @@ import { firmCurrency } from './firm';
 // pipeline report counts conversion, stage age and fees by source and owner.
 import { prospectUploads } from './intake';
 import { createStatements, eligible } from './jobs';
+import { intakeGrantStatements } from './marketing-consent';
 import { fieldDefs, profileFields } from './profiles';
 import { atomic, audit, date, email, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -108,11 +109,14 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
     audit(db, actor, 'file.filed_from_intake', movedId, `${f.name}: received through website intake; filed on onboarding`),
   ]; });
   const fields = profileFields(await fieldDefs(db), body.fields);
+  const optIn = JSON.parse(p.answers ?? '{}').marketing as Data | undefined;
   const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_prospects WHERE id=? AND client_id IS NULL AND stage_id=?)', p.id, p.stage_id);
   await atomic(db, actor, [check,
     stmt(db, "INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,'',?,?,'native',?,?,?,'[]')", clientId, p.name, p.contact_name, p.contact_email, id(), at, JSON.stringify(fields)),
     stmt(db, 'UPDATE b_clients SET services=? WHERE id=?', p.services,clientId),
     contactInsert(db,actor,clientId,legacyContactValues(p.contact_name,p.contact_email),'legacy:'+clientId),
+    // The intake checkbox grant follows the prospect's own contact to the converted client (MSG-002).
+    ...(optIn && p.contact_email ? intakeGrantStatements(db, actor, 'legacy:'+clientId, clientId, String(p.contact_email).toLowerCase(), optIn, p.id) : []),
     ...JSON.parse(p.contacts).map((c: Data) => contactInsert(db,actor,clientId,c)),
     audit(db, actor, 'client.added', clientId, `${p.name} (won prospect)`),
     ...await createStatements(db, actor, template, { id: jobId, clientId, periodStart: date(body.periodStart, 'Onboarding period start'), dueDate: date(body.dueDate, 'Onboarding due date'),

@@ -105,10 +105,12 @@ test('CRM-005 embedded native browser intake submits with consent and an attachm
     await frame.getByLabel('Contact email',{exact:true}).fill('dana@embedded.example');
     await frame.getByLabel('Requested services (comma separated)').fill('Annual return');
     await frame.getByLabel('Attachments (up to 3 files, 1 MiB each)').setInputFiles({name:'prior-scope.txt',mimeType:'text/plain',buffer:Buffer.from('Previous scope')});
-    await frame.getByRole('checkbox').check();await page.waitForTimeout(3100);
+    // The marketing opt-in (MSG-002) is a separate, optional checkbox that starts unticked; only the reply consent is checked here.
+    assert.equal(await frame.getByRole('checkbox',{name:/also email me newsletters/}).isChecked(),false);
+    await frame.getByRole('checkbox',{name:/Your details go only to this practice/}).check();await page.waitForTimeout(3100);
     await frame.getByRole('button',{name:'Send inquiry',exact:true}).click();await frame.getByRole('status').waitFor();
     const prospect=(await h.json('/pipeline',undefined,h.owner)).prospects[0];
-    assert.equal(prospect.name,'Embedded Studio LLC');assert.equal(prospect.files.length,1);assert.ok(prospect.answers.consentAt);
+    assert.equal(prospect.name,'Embedded Studio LLC');assert.equal(prospect.files.length,1);assert.ok(prospect.answers.consentAt);assert.equal(prospect.answers.marketing,undefined);
     await ctx.close();
   } finally { await browser?.close();if(host)await new Promise(r=>host.close(r));await h.close(); }
 });
