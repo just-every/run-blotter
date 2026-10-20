@@ -49,6 +49,7 @@ export async function automationAppJourney(h,s,interrupt) {
   const details=panel.locator('details').filter({has:page.getByText('New automation rule',{exact:true})});
   if(!await details.evaluate(e=>e.open))await panel.getByText('New automation rule',{exact:true}).click();
   await panel.getByLabel('Rule name',{exact:true}).fill('Request documents on Waiting');
+  await panel.getByRole('checkbox',{name:'Cedar Lane LLC',exact:true}).check();
   await panel.getByLabel('When',{exact:true}).selectOption('status');
   await panel.getByLabel('Trigger stage',{exact:true}).selectOption('waiting');
   await panel.getByLabel('Trigger sub-status (optional)',{exact:true}).selectOption(s.docs.id);
