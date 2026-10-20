@@ -14,7 +14,7 @@ import { identity } from './identity'
 import { seedDemo } from './demo'
 import { intakeResponse } from './blotter/intake-page'
 import { clearIntakeChecks } from './blotter/intake'
-import { deliverAlerts } from './blotter/notifications'
+import { refreshNotifications } from './blotter/notifications'
 import { runRules } from './blotter/recurrence'
 
 
@@ -50,6 +50,6 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await runAutomation(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))
-    await deliverAlerts(env, new Date(controller.scheduledTime))
+    await refreshNotifications(env, new Date(controller.scheduledTime), true)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })

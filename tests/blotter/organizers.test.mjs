@@ -32,7 +32,7 @@ const answer = (value, confirmed = true) => ({ value, confirmed });
 const portal = token => `/portal/${token}/organizers`;
 const save = (h, token, o, answers, submit = false, expected = 200) => h.json(`${portal(token)}/${encodeURIComponent(o.id)}`, { revision: o.revision, answers, submit }, undefined, expected);
 
-test('PORTAL-004 / WORK-003 / MSG-001 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
+test('NOTIFY-001 / PORTAL-004 / WORK-003 / MSG-001 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
  const h = await harness();
  try {
   const s = await setup(h), { job, template, a, b, assignments, organizer } = s;
@@ -63,6 +63,7 @@ test('PORTAL-004 / WORK-003 / MSG-001 conditional organizers: explicit multi-con
   await h.json(`/portal/${ta}/requests/${request.id}`, { name: 'Ownership.pdf', mime: 'application/pdf', contentBase64: Buffer.from('Signed ownership evidence').toString('base64') });
   oa = (await h.json(portal(ta))).organizers[0];
   oa = await save(h, ta, oa, {}, true);
+  assert.equal((await h.json('/notifications',undefined,s.prep)).filter(n=>n.kind==='organizer_submitted'&&n.job_id===job.id).length,1,'NOTIFY-001 projects a submitted organizer once');
   ob = (await h.json(portal(tb))).organizers[0]; ob = await save(h, tb, ob, { bookkeeping: answer('Reconcile the new bank account') }, true);
   let staff = (await h.json(`/jobs/${job.id}/organizers`, undefined, s.reviewer)).organizers[0];
   for (const recipient of sent.recipients) {

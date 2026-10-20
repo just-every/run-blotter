@@ -32,7 +32,8 @@ import { compareClients, dismissPair, duplicates } from './duplicates';
 import { mergeClients, merges, undoMerge } from './merges';
 import { activationPreview, claimJob, createRule, previewRule, rules, runNow, setRuleStatus, skipPeriod } from './recurrence';
 import { downloadVersion, portalDecide, portalDeliverables, portalVersionFile, sendDeliverable } from './deliverables';
-import { myNotifications } from './notifications';
+import { myNotifications, refreshNotifications } from './notifications';
+import { notificationSettings, saveNotificationSettings, saveNotificationDefaults, markNotification } from './notification-settings';
 import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
 import { decideRequest, downloadFile, portalUpload, portalView, previewReminder, sendReminder, staffUpload } from './documents';
 import { addNoticeEvent, closeNotice, noticeDetail, noticeFile, notices, openNotice, updateNotice, verifyDeadline } from './notices';
@@ -68,7 +69,7 @@ import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, prev
 type C = Context<{ Bindings: Bindings }>;
 export const api = new Hono<{ Bindings: Bindings }>();
 api.get('/health', c => c.json({ status: 'ok', ...deploymentHealth(c.env) }));
-api.use('/api/*', async (c, next) => { await next(); c.header('cache-control', 'no-store'); c.header('x-content-type-options', 'nosniff'); c.header('referrer-policy', 'no-referrer'); });
+api.use('/api/*', async (c, next) => { await next(); if(c.req.method==='POST' && c.res.ok && !/\/(restore|portability)(\/|$)/.test(c.req.path)) await refreshNotifications(c.env); c.header('cache-control', 'no-store'); c.header('x-content-type-options', 'nosniff'); c.header('referrer-policy', 'no-referrer'); });
 api.onError((e, c) => {
   if (e instanceof Fault) return c.json({ error: e.message, ...e.detail }, e.status as 400);
   if (e instanceof SyntaxError) return c.json({ error: 'Supply valid JSON' }, 400);
@@ -272,6 +273,10 @@ api.post(`${P}/jobs/:id/estimates`, as(async (a, c) => setEstimate(db(c), a, par
 api.post(`${P}/jobs/:id/portal/messages`, as(async (a, c) => staffMessage(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/portal/todos`, as(async (a, c) => staffTodo(c.env, a, param(c), await body(c))));
 api.post(`${P}/threads/:id/resolve`, as(async (a, c) => resolveThread(c.env, a, param(c), await body(c))));
+api.get(`${P}/notifications/settings`, as((a,c)=>notificationSettings(db(c),a)));
+api.post(`${P}/notifications/settings`, as(async(a,c)=>saveNotificationSettings(db(c),a,await body(c))));
+api.post(`${P}/notifications/defaults`, as(async(a,c)=>saveNotificationDefaults(db(c),a,await body(c))));
+api.post(`${P}/notifications/:id/read`, as(async(a,c)=>markNotification(db(c),a,param(c),await body(c))));
 api.get(`${P}/notifications`, as((a, c) => myNotifications(db(c), a)));
 api.post(`${P}/jobs/:id/reminders/preview`, as(async (a, c) => previewReminder(db(c), a, param(c), await body(c))));
 api.get(`${P}/messages/templates`, as((a, c) => templates(db(c), a, c.req.query())));

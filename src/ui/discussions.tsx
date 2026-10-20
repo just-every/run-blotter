@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api, day, Field, Form, prose, Status, today, when, type Row, type Run } from './common';
+import { api, day, Field, Form, Status, today, when, type Row, type Run } from './common';
+
+export { MyAlerts } from './notifications';
 
 const mentionList = (value: unknown) => String(value ?? '').split(/[\s,]+/).filter(Boolean);
 
@@ -61,16 +63,3 @@ export function Discussions({ detail, actor, run, tick }: { detail: Row; actor: 
   </section>;
 }
 
-/** The signed-in person's review and discussion alerts. */
-export function MyAlerts({ tick, open }: { tick: number; open: (id: string) => void }) {
-  const [alerts, setAlerts] = useState<Row[]>([]);
-  useEffect(() => { api('/notifications').then(setAlerts).catch(() => setAlerts([])); }, [tick]);
-  if (alerts.length === 0) return null;
-  return <section className="panel">
-    <h2>Alerts</h2>
-    <ul>{alerts.slice(0, 10).map(a => <li key={a.id}>
-      {a.job_id ? <button className="quiet" onClick={() => open(a.job_id)}>{prose(a.summary)}</button> : prose(a.summary)}
-      <small className="muted"> {when(a.created_at)} · email {a.delivery}</small>
-    </li>)}</ul>
-  </section>;
-}

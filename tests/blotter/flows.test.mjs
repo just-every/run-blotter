@@ -527,7 +527,7 @@ test('DOC-003 client approval of deliverables: changes on version 1, approval bo
   await h.json(`/jobs/${work.id}/review`, { revision: after.job.revision, decision: 'signoff', note: 'Self' }, preparer, 403);
 });
 
-test('COLLAB-001 review alerts and internal threads: mention, correction, unread state, resolution, no leak to the client or unassigned staff', async () => {
+test('NOTIFY-001 / COLLAB-001 review alerts and internal threads: mention, correction, unread state, resolution, no leak to the client or unassigned staff', async () => {
   await h.json('/team', { email: 'other@example.test', name: 'Omar Other', role: 'preparer' }, h.owner);
   await h.json('/team/invite', { email: 'other@example.test' }, h.owner);
   const other = await h.login('other@example.test');
