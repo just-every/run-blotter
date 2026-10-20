@@ -1,4 +1,55 @@
-# Agent API
+# Blotter API
+
+## Native read pages (API-002 partial)
+
+`GET /api/blotter/v1/work` and `GET /api/blotter/v1/time` use an existing
+signed-in native staff session. Supply its cookie jar, kept privately, to curl:
+
+```sh
+curl -sS --cookie "$BLOTTER_COOKIE_JAR" --get \
+  'https://YOUR-INSTALLATION/api/blotter/v1/work' \
+  --data-urlencode 'limit=25' --data-urlencode 'dueFrom=2026-10-01'
+
+curl -sS --cookie "$BLOTTER_COOKIE_JAR" --get \
+  'https://YOUR-INSTALLATION/api/blotter/v1/time' \
+  --data-urlencode 'from=2026-10-01' --data-urlencode 'to=2026-10-31' \
+  --data-urlencode 'limit=25'
+```
+
+Both return `{items:[...],nextCursor:string|null}`. `limit` is an integer from
+1 to 100, default 50. To continue, repeat the same endpoint and filters and add
+`--data-urlencode "cursor=$BLOTTER_NEXT_CURSOR"`, using the returned
+`nextCursor`; stop when it is `null`. Page size may change between requests.
+Treat the cursor as opaque. It binds a version, route, normalized filters,
+actor email/role and last sort tuple; malformed cursors and incompatible
+routes, actors, roles or filters return 400, as do invalid limits and date
+ranges. A cursor grants no authority:
+every request resolves the current session and visibility again.
+
+Work accepts the queue's `workType`, `stage`, `subStatus`, `client`, `assignee`,
+`dueFrom`, `dueTo`, `overdue`, `blocked` and `priority` filters. `blocked` is
+`yes` or `no`; `overdue=1` selects overdue work; due ranges are inclusive valid
+`YYYY-MM-DD` dates. Items contain the native queue fields, including
+`client_name`, stage and blocked state. Order is ascending `due_date`,
+`client_name`, then `id`, so equal dates and clients paginate consistently.
+Principal/reviewer visibility and preparers' assigned jobs or named tasks use
+the existing native readable-job scope. Work currently loads and filters the
+authorized queue in memory before returning its bounded page.
+
+Time accepts optional inclusive `from` and `to` dates in valid `YYYY-MM-DD`
+format and `person` as an email address. Principal/reviewer sessions see all
+time; preparers see only their own entries. `person` narrows that scope and
+cannot expand it. Items retain the native timesheet entry fields plus
+`created_at`. Order is descending `date`, `created_at`, then `id`; SQL keyset
+pagination traverses beyond the legacy timesheets screen's 500-entry limit.
+
+These are live views, without snapshot semantics. New entries, edits, moving
+sort keys, changing permissions or the UTC day used for overdue work can change
+later pages. Restart pagination for a fresh traversal. This partial slice
+provides native session reads; external integration keys/scopes, webhooks and
+Zapier are not provided by these endpoints.
+
+## Agent preparations
 
 An agent works with a key that the principal or a reviewer creates in
 **Team & safety → Agent keys**. The key is shown once; keep it in your agent's
