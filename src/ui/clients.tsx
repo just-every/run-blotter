@@ -74,9 +74,10 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
           </div>
           <div className="row">
             <Field label="Period starts" name="periodStart" type="date" />
-            <Field label="Due date (recorded, not computed)" name="dueDate" type="date" />
+            <Field label="Obligation ID (calculates the due date)" name="obligationId" required={false} hint="From the client's deadline obligations; leave blank to record a date" />
+            <Field label="Due date (recorded when no obligation is given)" name="dueDate" type="date" required={false} />
           </div>
-          <Field label="Where the due date comes from" name="dueNote" value="Federal or state agency notice, checked by the principal" />
+          <Field label="Where a recorded due date comes from" name="dueNote" required={false} value="Federal or state agency notice, checked by the principal" />
           <Field label="Time budget, minutes (optional)" name="budgetMinutes" type="number" required={false} />
           <div className="row">
             <Field label="Preparer" name="preparerEmail"><select name="preparerEmail" required>{people.map(p => <option key={p.email} value={p.email}>{p.name} ({p.role})</option>)}</select></Field>

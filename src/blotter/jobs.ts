@@ -11,6 +11,7 @@ import { budget, myTimer } from './timers';
 import { staffPortal } from './portal-items';
 import { historyRow, historyWhen, PARTNER_SIGN_OFF, stageOf, statusHistory, subOf } from './statuses';
 import { clientContacts } from './client-contacts';
+import { deadlineFor, jobDeadline } from './deadlines';
 import { atomic, audit, date, guard, human, id, insist, integer, job, need, now, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -79,9 +80,12 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
   insist(template, 'Template not found', 404);
+  // A job started from a client obligation (DUE-001, DUE-003) takes its calculated due date and source.
+  const periodStart = date(body.periodStart, 'Period start');
+  const deadline = body.obligationId ? await jobDeadline(db, client.id, text(body.obligationId, 'Obligation'), periodStart, template.recurrence) : null;
   const values = {
-    id: id(), clientId: client.id, periodStart: date(body.periodStart, 'Period start'), dueDate: date(body.dueDate, 'Due date'),
-    dueNote: text(body.dueNote, 'Where the due date comes from', 300),
+    id: id(), clientId: client.id, periodStart, dueDate: deadline?.dueDate ?? date(body.dueDate, 'Due date'),
+    dueNote: deadline?.dueNote ?? text(body.dueNote, 'Where the due date comes from', 300),
     preparer: await assignee(db, body.preparerEmail, 'Preparer', ['preparer', 'reviewer']),
     reviewer: await assignee(db, body.reviewerEmail, 'Reviewer', ['reviewer']),
     // The manager job role (WORK-009) is the reviewer unless someone is named.
@@ -99,7 +103,7 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   Object.assign(values, { workTypeId: type.id, partner: roles.includes('partner') ? partner : null });
   // An optional time budget, approved by the reviewer or principal who starts the job (TIME-001).
   const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? type.budget_minutes : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
-  await atomic(db, actor, [...createStatements(db, actor, template, values), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
+  await atomic(db, actor, [...createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : []), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
   await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }
@@ -113,9 +117,12 @@ export async function rollForward(env: Bindings, actor: Actor, jobId: string, bo
   insist(template, 'Template not found', 404);
   const periodStart = addMonths(previous.period_start, STEP[template.recurrence as Recurrence]);
   if (body.periodStart !== undefined) insist(date(body.periodStart, 'Period start') === periodStart, `The next period starts ${periodStart}`, 409);
+  // A job carrying a calculated deadline rolls forward to the same obligation's next period unless a person records a date.
+  const obligation = body.dueDate === undefined ? await stmt(db, 'SELECT obligation_id FROM b_job_deadlines WHERE job_id=?', previous.id).first<string>('obligation_id') : null;
+  const deadline = obligation ? await jobDeadline(db, previous.client_id, obligation, periodStart, template.recurrence) : null;
   const values = {
     id: actor.approval?.resultId ?? id(), clientId: previous.client_id, periodStart, rolledFrom: previous.id,
-    dueDate: date(body.dueDate, 'Due date'), dueNote: text(body.dueNote, 'Where the due date comes from', 300),
+    dueDate: deadline?.dueDate ?? date(body.dueDate, 'Due date'), dueNote: deadline?.dueNote ?? text(body.dueNote, 'Where the due date comes from', 300),
     preparer: await assignee(db, previous.preparer_email, 'Preparer', ['preparer', 'reviewer']),
     reviewer: await assignee(db, previous.reviewer_email, 'Reviewer', ['reviewer']),
     manager: previous.manager_email ? await assignee(db, previous.manager_email, 'Manager', ['reviewer']) : null,
@@ -125,7 +132,7 @@ export async function rollForward(env: Bindings, actor: Actor, jobId: string, bo
   insist(values.dueDate >= periodStart, 'The due date is before the period starts');
   const exists = await stmt(db, 'SELECT id FROM b_jobs WHERE client_id=? AND template_id=? AND period_start=?', previous.client_id, template.id, periodStart).first();
   insist(!exists, `The ${periodLabel(periodStart, template.recurrence)} job already exists`, 409);
-  await atomic(db, actor, createStatements(db, actor, template, values));
+  await atomic(db, actor, [...createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : [])]);
   await advance(env, [values.id], actor.email);
   return job(db, actor, values.id);
 }
@@ -148,7 +155,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
   // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
   const portal = j.access === 'full' ? await staffPortal(db, j) : null;
-  return { contacts: await clientContacts(db,actor,j.client_id), job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  return { deadline: await deadlineFor(db, j.id), contacts: await clientContacts(db,actor,j.client_id), job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {
@@ -215,6 +222,9 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
     return jobDetail(db, actor, j.id);
   }
   insist(body.decision === 'signoff', 'Choose sign off or return');
+  // Extension work stays open until the agency's acknowledgment is recorded (DUE-001); a checklist never implies filing.
+  insist(!await stmt(db, 'SELECT 1 FROM b_job_deadlines WHERE job_id=? AND extension_recorded_at IS NOT NULL AND filing_recorded_at IS NULL', j.id).first(),
+    'Extension work stays open until the filing acknowledgment is recorded', 409);
   const selfReview = actor.email === j.preparer_email || actor.email === j.submitted_by;
   // A solo principal may review their own work, but must say so; it is recorded.
   insist(!selfReview || (actor.role === 'owner' && body.selfReview === true), 'A different person must review this job', 403);

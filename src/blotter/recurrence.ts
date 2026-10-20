@@ -11,6 +11,7 @@
 // for the client, template and period is claimed instead of duplicated. A job
 // keeps its own due date and sign-off once created: changing the rule never
 // alters an existing job.
+import { jobDeadline, obligationDue } from './deadlines';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { addMonths, createStatements, eligible, nextPeriod, periodLabel } from './jobs';
@@ -34,11 +35,11 @@ const createOn = (start: string, lead: number) => addMonths(start, -lead);
 export const dueFor = (start: string, recurrence: Recurrence, days: number) => shiftDays(shiftDays(nextPeriod(start, recurrence), -1), days);
 
 /** A rule's schedule: periods from last period on (and any earlier one not yet held), with what holds each or when it will be created. */
-function schedule(rule: Data, recurrence: Recurrence, held: Data[], today: string, count = 12) {
+function schedule(rule: Data, recurrence: Recurrence, held: Data[], today: string, dueOf: (start: string) => string, count = 12) {
   const recent = addMonths(today, -STEP[recurrence]), until = addMonths(addMonths(today, rule.lead_months), STEP[recurrence] * count);
   return periods(rule, recurrence, until).filter(p => p >= recent || !held.some(h => h.period_start === p)).slice(0, count).map(p => {
     const h = held.find(x => x.period_start === p);
-    return { periodStart: p, label: periodLabel(p, recurrence), createOn: createOn(p, rule.lead_months), dueDate: dueFor(p, recurrence, rule.due_days),
+    return { periodStart: p, label: periodLabel(p, recurrence), createOn: createOn(p, rule.lead_months), dueDate: dueOf(p),
       state: h ? h.kind : createOn(p, rule.lead_months) <= today ? 'due' : 'scheduled', jobId: h?.job_id ?? null, note: h?.note ?? '' };
   });
 }
@@ -54,6 +55,8 @@ async function ruleBody(db: D1Database, body: Data) {
     : [...new Set((Array.isArray(body.months) ? body.months : String(body.months).split(',')).map(m => integer(typeof m === 'string' ? m.trim() : m, 'Month', 1, 12)))].sort((a, b) => a - b);
   insist(months.length > 0 && months.every(m => natural.includes(m)), `Months: choose from this template's ${recurrence} cadence starting ${first} (${natural.join(', ')})`);
   insist(months.includes(monthOf(first)), 'The first period must start in one of the chosen months');
+  const obligation = body.obligationId ? text(body.obligationId, 'Obligation') : null;
+  if (obligation) await jobDeadline(db, client.id, obligation, first, recurrence);
   const end = body.endPeriod ? date(body.endPeriod, 'Last period starts') : null;
   insist(!end || end >= first, 'The last period starts before the first');
   const person = async (value: unknown, label: string, roles: string[]) => {
@@ -63,8 +66,10 @@ async function ruleBody(db: D1Database, body: Data) {
   };
   return {
     client_id: client.id, template_id: template.id, months: JSON.stringify(months), first_period: first, end_period: end,
-    lead_months: integer(body.leadMonths ?? 0, 'Lead time in months', 0, 24), due_days: integer(body.dueDays, 'Due days after the period ends', 0, 366),
-    due_note: text(body.dueNote, 'Where the due-date rule comes from', 300),
+    lead_months: integer(body.leadMonths ?? 0, 'Lead time in months', 0, 24),
+    // An obligation (DUE-001, DUE-003) calculates each period's due date; otherwise the firm's days after period end apply.
+    ...(obligation ? { due_days: 0, due_note: 'Calculated from the client obligation', obligation_id: obligation }
+      : { due_days: integer(body.dueDays, 'Due days after the period ends', 0, 366), due_note: text(body.dueNote, 'Where the due-date rule comes from', 300), obligation_id: null }),
     preparer_email: await person(body.preparerEmail, 'Preparer', ['preparer', 'reviewer']), reviewer_email: await person(body.reviewerEmail, 'Reviewer', ['reviewer']),
     manager_email: body.managerEmail ? await person(body.managerEmail, 'Manager', ['reviewer']) : null,
     budget_minutes: body.budgetMinutes === undefined || body.budgetMinutes === null || body.budgetMinutes === '' ? null : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000),
@@ -72,11 +77,13 @@ async function ruleBody(db: D1Database, body: Data) {
   };
 }
 
+const dueFunction = async (db: D1Database, rule: Data) => rule.obligation_id ? obligationDue(db, rule.obligation_id) : (start: string) => dueFor(start, rule.recurrence, rule.due_days);
+
 /** Previews a rule's schedule without saving it. */
 export async function previewRule(db: D1Database, actor: Actor, body: Data) {
   need(actor, 'owner', 'reviewer');
   const rule = await ruleBody(db, body);
-  return { schedule: schedule(rule, rule.recurrence, [], day(new Date())) };
+  return { schedule: schedule(rule, rule.recurrence, [], day(new Date()), await dueFunction(db, rule)) };
 }
 
 /** A person approves a rule; the scheduler then creates its periods. */
@@ -85,9 +92,9 @@ export async function createRule(db: D1Database, actor: Actor, body: Data) {
   const { recurrence: _, ...rule } = await ruleBody(db, body), ruleId = id();
   insist(!await stmt(db, 'SELECT 1 FROM b_recurrence_rules WHERE client_id=? AND template_id=?', rule.client_id, rule.template_id).first(), 'This client already has a rule for this template', 409);
   await atomic(db, actor, [
-    stmt(db, `INSERT INTO b_recurrence_rules(id,client_id,template_id,months,first_period,end_period,lead_months,due_days,due_note,preparer_email,reviewer_email,manager_email,budget_minutes,status,revision,approved_by,approved_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?)`, ruleId, rule.client_id, rule.template_id, rule.months, rule.first_period, rule.end_period, rule.lead_months, rule.due_days, rule.due_note,
-      rule.preparer_email, rule.reviewer_email, rule.manager_email, rule.budget_minutes, id(), actor.email, now()),
+    stmt(db, `INSERT INTO b_recurrence_rules(id,client_id,template_id,months,first_period,end_period,lead_months,due_days,due_note,preparer_email,reviewer_email,manager_email,budget_minutes,status,revision,approved_by,approved_at,obligation_id)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?)`, ruleId, rule.client_id, rule.template_id, rule.months, rule.first_period, rule.end_period, rule.lead_months, rule.due_days, rule.due_note,
+      rule.preparer_email, rule.reviewer_email, rule.manager_email, rule.budget_minutes, id(), actor.email, now(), rule.obligation_id),
     audit(db, actor, 'rule.approved', ruleId, `${rule.first_period}${rule.end_period ? ' to ' + rule.end_period : ''}, ${rule.lead_months} months ahead`)]);
   return { id: ruleId };
 }
@@ -97,7 +104,7 @@ export async function rules(db: D1Database, actor: Actor) {
   const list = await rows(db, `SELECT r.*,c.name client,t.name template,t.recurrence FROM b_recurrence_rules r JOIN b_clients c ON c.id=r.client_id JOIN b_templates t ON t.id=r.template_id ORDER BY c.name,t.name`);
   const held = await rows(db, 'SELECT * FROM b_rule_periods ORDER BY period_start'), today = day(new Date());
   return {
-    rules: list.map(r => ({ ...r, months: JSON.parse(r.months), schedule: schedule(r, r.recurrence, held.filter(h => h.rule_id === r.id), today) })),
+    rules: await Promise.all(list.map(async r => ({ ...r, months: JSON.parse(r.months), schedule: schedule(r, r.recurrence, held.filter(h => h.rule_id === r.id), today, await dueFunction(db, r)) }))),
     held, runs: await rows(db, 'SELECT * FROM b_scheduler_runs ORDER BY finished_at DESC LIMIT 10'),
   };
 }
@@ -115,7 +122,8 @@ export async function activationPreview(db: D1Database, actor: Actor, ruleId: st
   const rule = await ruleFor(db, ruleId), held = await rows(db, 'SELECT * FROM b_rule_periods WHERE rule_id=? ORDER BY period_start', ruleId), today = day(new Date());
   const through = addMonths(today, rule.lead_months), pending = periods(rule, rule.recurrence, through).filter(p => !held.some(h => h.period_start === p));
   const existing = await rows(db, 'SELECT id,period_start FROM b_jobs WHERE client_id=? AND template_id=? ORDER BY period_start', rule.client_id, rule.template_id);
-  const plan = pending.map(p => ({ periodStart: p, dueDate: dueFor(p,rule.recurrence,rule.due_days), action: existing.some(j => j.period_start === p) ? 'claim existing job' : 'create fresh job' }));
+  const dueOf = await dueFunction(db, rule);
+  const plan = pending.map(p => ({ periodStart: p, dueDate: dueOf(p), action: existing.some(j => j.period_start === p) ? 'claim existing job' : 'create fresh job' }));
   return { ruleId, restoreReview: !!rule.restore_review, held, pending: plan, nextRunLimit: MAX_PER_RUN,
     token: await digest(JSON.stringify({ rule, held, existing, today })) };
 }
@@ -190,9 +198,10 @@ export async function runRules(env: Bindings, at: Date, trigger: 'cron' | 'manua
         }
         if (!people.every(Boolean)) { held.push(`${rule.id} ${start}: an assigned person can no longer do this work`); break; }
         const jobId = id(), actor: Actor = { id: '', email: rule.approved_by, name: '', role: 'owner', channel: 'person' };
-        const values = { id: jobId, clientId: rule.client_id, periodStart: start, dueDate: dueFor(start, rule.recurrence, rule.due_days), dueNote: rule.due_note,
+        const deadline = rule.obligation_id ? await jobDeadline(db, rule.client_id, rule.obligation_id, start, rule.recurrence) : null;
+        const values = { id: jobId, clientId: rule.client_id, periodStart: start, dueDate: deadline?.dueDate ?? dueFor(start, rule.recurrence, rule.due_days), dueNote: deadline?.dueNote ?? rule.due_note,
           preparer: rule.preparer_email, reviewer: rule.reviewer_email, manager: rule.manager_email };
-        await db.batch([check, ...createStatements(db, actor, template!, values),
+        await db.batch([check, ...createStatements(db, actor, template!, values), ...(deadline ? [deadline.statement(jobId)] : []),
           stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', rule.budget_minutes, jobId),
           stmt(db, "INSERT INTO b_rule_periods(rule_id,period_start,kind,job_id,by_email,at) VALUES(?,?,'generated',?,?,?)", rule.id, start, jobId, who, now()), release,
           log('rule.generated', `${start}: ${jobId}`)]);

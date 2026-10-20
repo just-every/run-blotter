@@ -54,6 +54,7 @@ import { search } from './search';
 import { inbox } from './inbox';
 import { intakeFile } from './intake';
 import { addProspect, addStage, moveProspect, pipeline, winProspect } from './prospects';
+import { addObligation, approveRevision, approveRule, deadlineState, defineFirmRule, obligations, overrideDeadline, previewDates, previewRevision, recordExtension, recordFiling } from './deadlines';
 import { eraseCredential, portalCredentials, portalStore, reveal, setArchiveMode, staffCredentials, staffStore } from './vault';
 import { addSubStatus, deleteSubStatus, deleteView, editSubStatus, moveJob, previewSubStatusDeletion, queue, savedViews, saveView, saveWorkType, statusModel, statusReport } from './statuses';
 
@@ -257,6 +258,18 @@ api.post(`${P}/messages/templates`, as(async (a, c) => createTemplate(db(c), a, 
 api.post(`${P}/messages/templates/:id`, as(async (a, c) => editTemplate(db(c), a, param(c), await body(c))));
 api.post(`${P}/messages/templates/:id/delete`, as((a, c) => deleteTemplate(db(c), a, param(c))));
 api.post(`${P}/messages/templates/:id/copy`, as(async (a, c) => copyTemplate(db(c), a, param(c), await body(c))));
+// Sourced deadlines (DUE-001, DUE-003): the principal approves catalog rules, firm rules and source revisions; dates are calculated per obligation.
+api.get(`${P}/deadlines`, as((a, c) => deadlineState(db(c), a)));
+api.post(`${P}/deadlines/rules/:key/approve`, as((a, c) => approveRule(db(c), a, param(c, 'key'))));
+api.post(`${P}/deadlines/firm-rules`, as(async (a, c) => defineFirmRule(db(c), a, await body(c))));
+api.post(`${P}/deadlines/revisions/preview`, as(async (a, c) => previewRevision(db(c), a, await body(c))));
+api.post(`${P}/deadlines/revisions`, as(async (a, c) => approveRevision(db(c), a, await body(c))));
+api.post(`${P}/deadlines/calculate`, as(async (a, c) => previewDates(db(c), a, await body(c))));
+api.get(`${P}/clients/:id/obligations`, as((a, c) => obligations(db(c), a, param(c))));
+api.post(`${P}/clients/:id/obligations`, as(async (a, c) => addObligation(db(c), a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/deadline/extension`, as((a, c) => recordExtension(db(c), a, param(c))));
+api.post(`${P}/jobs/:id/deadline/override`, as(async (a, c) => overrideDeadline(db(c), a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/deadline/filing`, as(async (a, c) => recordFiling(db(c), a, param(c), await body(c))));
 api.get(`${P}/notices`, as((a, c) => notices(db(c), a)));
 api.post(`${P}/notices`, as(async (a, c) => openNotice(db(c), a, await body(c))));
 api.get(`${P}/notices/:id`, as((a, c) => noticeDetail(db(c), a, param(c))));

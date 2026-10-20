@@ -12,7 +12,7 @@ You can also [bring in a client list](/docs/move-in) from a CSV.
 
 Under **Job templates → Add a template**, set the name, recurrence, checklist steps, document requests and fixed fee. Each checklist step and document request goes on its own line. The prefilled **Quarterly sales-tax return** template is a starting point; check it against how your practice works before saving.
 
-Choose the fee's currency (USD; AUD remains for records from the first release) and enter the fixed fee in integer cents; use `0` for no fixed fee. Monthly, quarterly and annual recurrences describe the job's period. Due dates are recorded separately by a person.
+Choose the fee's currency (USD; AUD remains for records from the first release) and enter the fixed fee in integer cents; use `0` for no fixed fee. Monthly, quarterly and annual recurrences describe the job's period. Due dates are recorded by a person, or calculated from one of the client's deadline obligations (a firm-approved sourced rule or a firm-defined rule) when the job starts from it.
 
 ### Tasks with owners and dates
 

@@ -1,6 +1,7 @@
 import { ArchiveTransfers } from './archive-transfers';
 import { useEffect, useState } from 'react';
 import { FirmSettings } from './firm';
+import { DeadlineRules } from './deadlines';
 import { Security } from './security';
 import { MessageTemplates } from './messages';
 import { Offboarding } from './offboarding';
@@ -14,6 +15,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
   const ownRate = team.ownRateCents;
   return <div className="grid">
     {owner && <FirmSettings run={run} tick={tick} />}
+    {owner && <DeadlineRules run={run} tick={tick} />}
     {owner && <Blotter className="wide"><section className="panel">
       <h2>People and rates</h2>
       <table className="table"><thead><tr><th>Name</th><th>Role</th><th>Hourly rate</th><th>Status</th></tr></thead>

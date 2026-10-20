@@ -108,9 +108,10 @@ accounting practices; ACCEPTANCE.md is the first release. Product source is in
   the same D1 batch. Route guards alone are insufficient.
 - Agents prepare; people approve. Agent doors only read context or create
   proposals (`src/blotter/proposals.ts`).
-- Money is integer cents with explicit USD/AUD currency; new inputs default USD and historical AUD is never relabelled. Due dates are recorded by people, or set by an
-  approved recurrence rule as the period's last day plus its days (WORK-002);
-  no statutory due date is computed.
+- Money is integer cents with explicit USD/AUD currency; new inputs default USD and historical AUD is never relabelled. Due dates are recorded by people, set by an
+  approved recurrence rule as the period's last day plus its days (WORK-002), or
+  calculated from a client obligation on a firm-approved sourced deadline rule
+  (`src/blotter/deadlines.ts`, DUE-001/DUE-003); filing is never inferred.
   No lodgement, tax or GST calculation, client bookkeeping or advice.
 - Tests are integration flows through the built Worker's HTTP doors
   (`tests/blotter/`), faking only the mail provider. Keep them within

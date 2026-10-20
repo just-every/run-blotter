@@ -42,7 +42,10 @@ export function RecurrencePanel({ state, run, tick }: { state: Row; run: Run; ti
           <Field label="Due, days after the period ends" name="dueDays" type="number" value={20} />
           <Field label="Time budget, minutes (optional)" name="budgetMinutes" type="number" required={false} />
         </div>
-        <Field label="Where the due-date rule comes from" name="dueNote" />
+        <div className="row">
+          <Field label="Where the due-date rule comes from" name="dueNote" required={false} />
+          <Field label="Or an obligation ID (calculates each due date)" name="obligationId" required={false} hint="From the client's deadline obligations" />
+        </div>
         <div className="row">
           <Field label="Preparer" name="preparerEmail"><select name="preparerEmail" required>{people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select></Field>
           <Field label="Reviewer" name="reviewerEmail"><select name="reviewerEmail" required>{people.filter(p => p.role !== 'preparer').map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select></Field>

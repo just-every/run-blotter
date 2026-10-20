@@ -1,3 +1,4 @@
+import { JobDeadline } from './deadlines';
 import { OrganizerStaff } from './organizers';
 import { DocumentPackets } from './document-packets';
 import { DocumentCustody } from './document-access';
@@ -35,6 +36,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       </div>
       <p className="muted">Preparer {who(people, job.preparer_email)} · reviewer {who(people, job.reviewer_email)} · manager {who(people, job.manager_email || job.reviewer_email)}{job.partner_email && <> · partner {who(people, job.partner_email)}</>}{job.fee_cents > 0 && <> · fixed fee {money(job.fee_cents, job.currency)}</>}{job.budget_minutes && <> · time budget {job.budget_minutes} min</>}</p>
       <StarterJobSummary content={detail.starter} />
+      <JobDeadline detail={detail} actor={actor} run={run} />
       {job.status === 'signed_off' && <p className="notice">Signed off by {who(people, job.signed_off_by)} on {when(job.signed_off_at)}: {prose(job.sign_off_note)}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>

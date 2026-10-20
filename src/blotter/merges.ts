@@ -15,7 +15,7 @@ import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, t
 
 const UNDO_MS = 30 * 24 * 60 * 60 * 1000;
 /** What a client has linked, by the table that links it. Groups are memberships, merged separately. */
-const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
+const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', obligations: 'b_client_obligations', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
 const COUNTED = Object.keys(TABLES);
 const ROW = ['name', 'abn', 'contact_name', 'contact_email', 'source', 'fields', 'tags', 'revision', 'entity_type', 'partner_email', 'team', 'services', 'owner_client_id', 'ssn_last4', 'lifecycle', 'archived_at', 'archived_by'];
 const pick = (c: Data) => Object.fromEntries(ROW.map(k => [k, c[k]]));
