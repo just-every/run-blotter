@@ -46,7 +46,7 @@ export async function automationAppJourney(h,s,interrupt) {
   await rule.getByRole('button',{name:'Approve and resume rule',exact:true}).waitFor();
   const reviewed=await s.detail(job.id);await h.json(`/jobs/${job.id}/review`,{revision:reviewed.job.revision,decision:'return',note:'Await the signed authorization'},s.reviewer);
   // Enable the exact Waiting-document example entirely through the app.
-  const details=panel.locator('details').filter({has:panel.getByText('New automation rule',{exact:true})});
+  const details=panel.locator('details').filter({has:page.getByText('New automation rule',{exact:true})});
   if(!await details.evaluate(e=>e.open))await panel.getByText('New automation rule',{exact:true}).click();
   await panel.getByLabel('Rule name',{exact:true}).fill('Request documents on Waiting');
   await panel.getByLabel('When',{exact:true}).selectOption('status');
