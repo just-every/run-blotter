@@ -31,10 +31,11 @@ export async function pauseReport(db:D1Database,actor:Actor,scheduleId:string) {
 // One durable notification per due date; catching up sends one current link, not stale attachments.
 export async function runReports(env:Bindings,at=new Date()) {
   const bindings=runtimeBindings(env),db=bindings.DB,today=localClock(await firmSettings(db),at).localDate;
-  const schedules=await rows(db,`SELECT s.*,v.name FROM b_report_schedules s JOIN b_report_views v ON v.id=s.view_id WHERE s.status='active' AND s.next_date<=?`,today);
+  const schedules=await rows(db,`SELECT s.*,v.name FROM b_report_schedules s JOIN b_report_views v ON v.id=s.view_id WHERE s.status='active'`);
   for(const s of schedules) {
     const authorized=await stmt(db,`SELECT 1 WHERE EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND status='active' AND role='owner') AND (${leadSql})`,s.principal_id,s.recipient,s.recipient).first();
     if(!authorized){await stmt(db,"UPDATE b_report_schedules SET status='paused' WHERE id=?",s.id).run();continue;}
+    if(s.next_date>today)continue;
     let next=s.next_date;while(next<=today)next=shift(next,s.every_days);
     const runId=id(),notificationId=id(),[check,release]=guard(db,`EXISTS(SELECT 1 FROM b_report_schedules WHERE id=? AND status='active' AND next_date=?) AND EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND status='active' AND role='owner') AND (${leadSql})`,s.id,s.next_date,s.principal_id,s.recipient,s.recipient);
     await db.batch([check,stmt(db,'INSERT INTO b_report_runs VALUES(?,?,?,?,?)',runId,s.id,s.next_date,at.toISOString(),notificationId),

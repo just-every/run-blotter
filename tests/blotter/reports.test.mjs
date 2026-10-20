@@ -56,8 +56,10 @@ test('REPORT-001 / BASE-001: saved scheduled partner reports, deduplicated hours
   const copy=await restored.json('/reports/views',undefined,restored.owner);assert.deepEqual(copy.views,state.views);assert.equal(copy.schedules[0].status,'paused');assert.equal(copy.schedules[0].principal_id,null);assert.deepEqual(copy.runs,state.runs);
   await restored.scheduled('2026-11-20T14:00:00Z');assert.equal((await restored.json('/reports/views',undefined,restored.owner)).runs.length,1);
   const projected=await restored.json(path(f),undefined,restored.owner);assert.equal(projected.money[0].approvedExportCents,12100);
+  const sentBeforeRevocation=h.mails.length;await h.scheduled('2026-10-27T11:00:00Z');
+  assert.equal((await h.json('/reports/views',undefined,h.owner)).runs.length,2);assert.equal(h.mails.length,sentBeforeRevocation);
   await h.json('/team',{email:'reviewer@example.test',name:'Morgan Chen',role:'preparer',active:true},h.owner);
-  await h.scheduled('2026-11-20T14:00:00Z');state=await h.json('/reports/views',undefined,h.owner);assert.equal(state.schedules[0].status,'paused');assert.equal(state.runs.length,1);await h.json(path(f),undefined,s.reviewer,403);
+  await h.scheduled('2026-10-27T14:00:00Z');assert.equal(h.mails.length,sentBeforeRevocation,'A deferred report notice cannot outlive partner authority');state=await h.json('/reports/views',undefined,h.owner);assert.equal(state.schedules[0].status,'paused');assert.equal(state.runs.length,2);await h.json(path(f),undefined,s.reviewer,403);
   await h.json(`/reports/schedules/${schedule.id}/pause`,{},h.owner);
   await h.json(`/files/${s.file.id}/erase`,{confirm:'W-2.txt',reason:'Client requested source erasure'},h.owner);
   const fresh=await h.json(path(f),undefined,h.owner);assert.equal(fresh.jobs.find(j=>j.id===s.complete.id).requestDelays[0].responded_at,null);assert.ok(!JSON.stringify(fresh).includes('Retained tax source'));

@@ -30,15 +30,23 @@ export async function myNotifications(db: D1Database, actor: Actor) {
   return rows(db, 'SELECT id,kind,job_id,thread_id,summary,delivery,created_at FROM b_notifications WHERE to_email=? ORDER BY created_at DESC LIMIT 50', actor.email);
 }
 
+// REPORT-001 links retain their scheduling principal and recipient authority at delivery.
+const reportAuthority = `(n.kind<>'internal_report' OR EXISTS(
+  SELECT 1 FROM b_report_runs rr JOIN b_report_schedules rs ON rs.id=rr.schedule_id
+  JOIN oa_operators principal ON principal.id=rs.principal_id AND principal.status='active' AND principal.role='owner'
+  WHERE rr.notification_id=n.id AND rs.status='active' AND rs.recipient=n.to_email
+    AND (EXISTS(SELECT 1 FROM oa_operators WHERE email=n.to_email AND status='active' AND role='owner')
+      OR EXISTS(SELECT 1 FROM b_members WHERE email=n.to_email AND active=1 AND role='reviewer'))))`;
+
 /** Durable staff alerts wait for firm-local notification hours. In-app alerts appear immediately. */
 export async function deliverAlerts(env: Bindings, at = new Date()) {
   const bindings = runtimeBindings(env), db = bindings.DB;
   if (!localClock(await firmSettings(db), at).notificationsAllowed) return;
   const pending = await rows(db, `SELECT n.* FROM b_notifications n WHERE n.delivery='deferred: outside firm notification hours'
-    AND (EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=n.to_email AND o.status='active' AND o.role='owner')
+    AND ${reportAuthority} AND (EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=n.to_email AND o.status='active' AND o.role='owner')
       OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=n.to_email AND m.active=1)) ORDER BY n.created_at LIMIT 100`);
   for (const n of pending) {
-    const claimed = await stmt(db, "UPDATE b_notifications SET delivery='pending' WHERE id=? AND delivery='deferred: outside firm notification hours'", n.id).run();
+    const claimed = await stmt(db, `UPDATE b_notifications AS n SET delivery='pending' WHERE n.id=? AND n.delivery='deferred: outside firm notification hours' AND ${reportAuthority}`, n.id).run();
     if (!claimed.meta.changes) continue;
     const delivery = await sendMail(bindings, n.id, n.to_email, `Blotter: ${n.summary}`, `${n.summary}\n\nOpen Blotter: ${bindings.AUTH_ORIGIN}/app`);
     await stmt(db, 'UPDATE b_notifications SET delivery=? WHERE id=?', delivery, n.id).run();
