@@ -47,7 +47,7 @@ test('REPORT-001 / BASE-001: saved scheduled partner reports, deduplicated hours
   await h.json('/reports/schedules',{viewId:view.id,recipient:'prep@example.test',nextDate:'2026-10-20',everyDays:7},h.owner,400);
   const schedule=await h.json('/reports/schedules',{viewId:view.id,recipient:'reviewer@example.test',nextDate:'2026-10-20',everyDays:7},h.owner);
   await h.json('/reports/schedules',{viewId:view.id,recipient:'reviewer@example.test',nextDate:'2026-10-20',everyDays:7},s.reviewer,403);
-  const firm=await h.json('/firm',undefined,h.owner);await h.json('/firm',{...firm,name:'Cedar Practice',ein:'123456789',entity:'LLC',address:'10 Main St',city:'New York',state:'NY',zip:'10001',fiscalYearEnd:'12-31',services:['Tax'],timeZone:'America/New_York',notificationStart:'09:00',notificationEnd:'17:00',calendars:[]},h.owner);
+  const firm=await h.json('/firm/settings',undefined,h.owner);await h.json('/firm/settings',{...firm,name:'Cedar Practice',ein:'123456789',entity:'LLC',address:'10 Main St',city:'New York',state:'NY',zip:'10001',fiscalYearEnd:'12-31',services:['Tax'],timeZone:'America/New_York',notificationStart:'09:00',notificationEnd:'17:00',calendars:[]},h.owner);
   await h.scheduled('2026-10-20T02:00:00Z');let state=await h.json('/reports/views',undefined,h.owner);assert.equal(state.runs.length,0,'Firm date is still previous day');
   const before=h.mails.length;await h.scheduled('2026-10-20T11:00:00Z');await h.scheduled('2026-10-20T11:00:00Z');state=await h.json('/reports/views',undefined,h.owner);assert.equal(state.runs.length,1);assert.equal(h.mails.length,before,'Outside notification hours');
   await h.scheduled('2026-10-20T14:00:00Z');await h.scheduled('2026-10-20T14:00:00Z');

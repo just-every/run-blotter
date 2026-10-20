@@ -20,6 +20,6 @@ export async function reportAppJourney(h,s){
   await panel.getByRole('button',{name:'Pause report',exact:true}).click();
   const downloads=await Promise.all([page.waitForEvent('download'),panel.getByRole('link',{name:'Download report CSV',exact:true}).click()]);assert.match(downloads[0].suggestedFilename(),/\.csv$/);
   await panel.locator('summary').filter({hasText:'Cedar Lane LLC'}).first().click();await panel.getByRole('button',{name:'Open source job',exact:true}).first().click();
-  await page.getByRole('heading',{name:'1040 preparation',exact:true}).waitFor();await context.close();
+  await page.getByRole('heading',{name:'Cedar Lane LLC · 1040 preparation',exact:true}).waitFor();await context.close();
  }finally{await browser.close();}
 }
