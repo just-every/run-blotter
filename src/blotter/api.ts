@@ -1,3 +1,6 @@
+import { performanceReport } from './reports';
+import { downloadReport } from './report-exports';
+import { reportViews, saveReportView, scheduleReport, pauseReport } from './report-schedules';
 import { automationState, previewAutomation, saveAutomation, automationStatus, reconcileAutomation } from './automation';
 import { runAutomation } from './automation-runner';
 import { learningEvidence } from './learning-evidence';
@@ -92,6 +95,13 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
+api.get(`${P}/reports/performance`,as((a,c)=>performanceReport(db(c),a,c.req.query())));
+api.get(`${P}/reports/performance/csv`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'csv')));
+api.get(`${P}/reports/performance/pdf`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'pdf')));
+api.get(`${P}/reports/views`,as((a,c)=>reportViews(db(c),a)));
+api.post(`${P}/reports/views`,as(async(a,c)=>saveReportView(db(c),a,await body(c))));
+api.post(`${P}/reports/schedules`,as(async(a,c)=>scheduleReport(db(c),a,await body(c))));
+api.post(`${P}/reports/schedules/:id/pause`,as((a,c)=>pauseReport(db(c),a,param(c))));
 api.get(`${P}/automation`,as((a,c)=>automationState(db(c),a)));
 api.post(`${P}/automation/preview`,as(async(a,c)=>previewAutomation(db(c),a,await body(c))));
 api.post(`${P}/automation`,as(async(a,c)=>saveAutomation(db(c),a,await body(c))));

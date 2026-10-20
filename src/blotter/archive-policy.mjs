@@ -4,6 +4,7 @@
 const inactive = (table, row) => {
   // VAULT-001: the principal's "exclude" choice drops credential ciphertext; "encrypt" carries it sealed.
   if (table === 'b_vault_credentials' && row.archive_mode === 'exclude') return { ...row, sealed: null };
+  if (table === 'b_report_schedules') return { ...row, status: 'paused', principal_id: null };
   if (table === 'b_automation_rules') return { ...row, status: row.status === 'revoked' ? 'revoked' : 'paused', principal_id: null };
   if (table === 'b_automation_attempts' && ['pending','running','dispatching'].includes(row.status)) return { ...row, status: 'held', next_action: 'Restored history; reconcile, never replay' };
   if (table === 'b_recurrence_rules') return { ...row, status: 'paused', restore_review: 1 };

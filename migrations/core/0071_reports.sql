@@ -1,0 +1,4 @@
+-- Views contain filters only. Internal schedules send live, permission-checked links.
+CREATE TABLE b_report_views(id TEXT PRIMARY KEY,name TEXT NOT NULL,filters TEXT NOT NULL CHECK(json_valid(filters)),created_by TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE TABLE b_report_schedules(id TEXT PRIMARY KEY,view_id TEXT NOT NULL REFERENCES b_report_views(id),recipient TEXT NOT NULL,principal_id TEXT,created_by TEXT NOT NULL,created_at TEXT NOT NULL,next_date TEXT NOT NULL,every_days INTEGER NOT NULL CHECK(every_days BETWEEN 1 AND 366),status TEXT NOT NULL CHECK(status IN ('active','paused')));
+CREATE TABLE b_report_runs(id TEXT PRIMARY KEY,schedule_id TEXT NOT NULL REFERENCES b_report_schedules(id),due_date TEXT NOT NULL,at TEXT NOT NULL,notification_id TEXT NOT NULL,UNIQUE(schedule_id,due_date));

@@ -1,3 +1,4 @@
+import { Reports } from './reports';
 import { useEffect, useState } from 'react';
 import { api, day, PageHead, type Row, type Run } from './common';
 import { Inbox } from './inbox';
@@ -39,7 +40,7 @@ export function Workspace() {
   // A session that still owes a second factor (ACCESS-004) sees only the factor screen.
   const owed = (e: unknown) => { const need = (e as { mfa?: 'enroll' | 'verify' }).mfa; if (need) setGate(need); return !!need; };
   const reload = async () => { setState(await api('/state')); setTick(t => t + 1); };
-  useEffect(() => { const destination=new URLSearchParams(window.location.search); if(destination.has('job')||destination.has('notice')){setTab('Jobs');setJobId(destination.get('job')??'');} reload().catch(e => owed(e) || setError(e.message)); }, []);
+  useEffect(() => { const destination=new URLSearchParams(window.location.search); if(destination.has('report'))setTab('Time & billing'); if(destination.has('job')||destination.has('notice')){setTab('Jobs');setJobId(destination.get('job')??'');} reload().catch(e => owed(e) || setError(e.message)); }, []);
   const run: Run = async (job, message = 'Saved') => {
     setError(''); setNotice(''); setBusy(true);
     try { await job(); await reload(); setNotice(message); } catch (e) { if (!owed(e)) setError((e as Error).message); } finally { setBusy(false); }
@@ -66,7 +67,7 @@ export function Workspace() {
         {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
         {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
         {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
-        {tab === 'Time & billing' && <Billing actor={state.actor} people={state.people} run={run} tick={tick} />}
+        {tab === 'Time & billing' && <><Reports state={state} run={run} tick={tick} open={open}/><Billing actor={state.actor} people={state.people} run={run} tick={tick} /></>}
         {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
         {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
         {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}
