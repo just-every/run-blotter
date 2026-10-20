@@ -184,7 +184,7 @@ test('MSG-002 / BASE-001 bulk engagement and marketing messages: segment preview
   } finally { await h.close(); if (restored) await restored.close(); }
 });
 
-test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, and a contact merge keeps the most restrictive consent with exact undo', async () => {
+test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers and attached requests: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, each recipient gets its own request link, and a contact merge keeps the most restrictive consent with exact undo', async () => {
   const secret = 'test-intake-signing-key-not-a-real-secret', h = await harness({ bindings: { SESSION_SECRET: secret } });
   try {
     for (const [email, role] of [['leaver@example.test', 'reviewer'], ['successor@example.test', 'reviewer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }
@@ -244,6 +244,18 @@ test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers: the intake chec
     await h.json(`/bulk-messages/${marketing.batch.id}/schedule`, { fingerprint: marketing.batch.fingerprint }, successor);
     await h.json(`/bulk-messages/${marketing.batch.id}/run`, {}, successor);
     assert.deepEqual(h.mails.slice(start + 2).map(m => [m.to[0], m.headers['List-Unsubscribe-Post']]), [['ivy@park.example', 'List-Unsubscribe=One-Click']]);
+
+    // A request attached per recipient: an engagement template using {{portal_link}} gives each recipient its own upload link for its basis job, issued at send; marketing cannot attach one.
+    await h.json('/messages/templates', { scope: 'firm', name: 'Link offer', class: 'marketing', subject: 'News', body: 'Upload {{portal_link}}' }, h.owner, 409);
+    const docs = await h.json('/messages/templates', { scope: 'firm', name: 'Documents', subject: '{{work_type}}: documents for {{client_name}}', body: '{{work_type}} needs:\n{{outstanding_requests}}\nUpload here: {{portal_link}}' }, h.owner);
+    const requests = await h.json('/bulk-messages/preview', { class: 'engagement', templateId: docs.id, workTypeId, reason: 'Onboarding document request', idempotencyKey: 'docs' }, successor);
+    assert.equal(requests.recipients.length, 2); assert.match(requests.samples[0].body, /- Prior return\nUpload here: \[secure upload link, created when you send\]/);
+    await h.json(`/bulk-messages/${requests.batch.id}/schedule`, { fingerprint: requests.batch.fingerprint }, successor);
+    const linkStart = h.mails.length; await h.json(`/bulk-messages/${requests.batch.id}/run`, {}, successor);
+    const tokens = h.mails.slice(linkStart).map(m => m.text.match(/\/portal\/(up_[0-9a-f]+)/)?.[1]);
+    assert.equal(tokens.length, 2); assert.equal(new Set(tokens).size, 2, 'Each recipient gets its own link');
+    for (const token of tokens) assert.deepEqual((await (await h.request('/api/blotter/portal/' + token)).json()).requests.map(r => r.label), ['Prior return']);
+    assert.ok((await h.json(`/bulk-messages/${requests.batch.id}`, undefined, h.owner)).recipients.every(r => r.body.includes('/portal/…') && !/up_[0-9a-f]{16}/.test(r.body)), 'Stored text never keeps the link secret');
 
     // CRM-004: merging two contacts keeps the most restrictive consent on the surviving contact; undo restores each side exactly.
     const pair = (name, extra) => h.json('/clients', { name, tags: ['merge'], contacts: [contact('Robin Dup', 'robin@dup.example'), contact('Sam Dup', 'sam@dup.example', { roles: ['tax'], ...extra })] }, h.owner);
