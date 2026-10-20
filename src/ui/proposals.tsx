@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Blotter, api, Empty, Field, Form, prose, Status, when, who, type Row, type Run, day } from './common';
+import { Automation } from './automation';
 
 export function Proposals({ state, run, open }: { state: Row; run: Run; open: (id: string) => void }) {
   const proposals: Row[] = state.proposals;
@@ -17,5 +18,5 @@ export function Proposals({ state, run, open }: { state: Row; run: Run; open: (i
         <details><summary>Decline</summary><Form danger label="Decline" submit={async data => run(() => api(`/proposals/${p.id}/decide`, { decision: 'decline', reason: data.reason }), 'Declined')}><Field label="Reason" name="reason" /></Form></details>
       </div>}
     </article>; })}
-  </section></Blotter>;
+  </section>{state.actor.role === 'owner' && <Automation state={state} run={run} open={open} />}</Blotter>;
 }

@@ -1,3 +1,5 @@
+import { automationState, previewAutomation, saveAutomation, automationStatus, reconcileAutomation } from './automation';
+import { runAutomation } from './automation-runner';
 import { learningEvidence } from './learning-evidence';
 import { prepareLearning, decideLearning, learningDetail } from './learning';
 import { listOrganizers, saveOrganizerVersion, organizerVersions, organizerReview, clientOrganizers, clientOrganizer, saveOrganizer, previewOrganizerSend, sendOrganizer, eraseOrganizer } from './organizers';
@@ -90,6 +92,13 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
 const P = '/api/blotter';
+api.get(`${P}/automation`,as((a,c)=>automationState(db(c),a)));
+api.post(`${P}/automation/preview`,as(async(a,c)=>previewAutomation(db(c),a,await body(c))));
+api.post(`${P}/automation`,as(async(a,c)=>saveAutomation(db(c),a,await body(c))));
+api.post(`${P}/automation/run`,as(async(a,c)=>{ await automationState(db(c),a); return runAutomation(c.env); }));
+for(const [verb,status] of [['activate','active'],['pause','paused'],['revoke','revoked']]) api.post(`${P}/automation/:id/${verb}`,as((a,c)=>automationStatus(db(c),a,param(c),status)));
+api.post(`${P}/automation/attempts/:id/reconcile`,as(async(a,c)=>reconcileAutomation(db(c),a,param(c),await body(c))));
+
 
 api.get(`${P}/rules/:id/activation`, as((a,c) => activationPreview(db(c),a,param(c))));
 api.get(`${P}/portability`, as((a,c) => transfers(db(c),a)));

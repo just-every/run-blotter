@@ -1,3 +1,4 @@
+import { runAutomation } from './blotter/automation-runner'
 import { purgeDocumentUploads } from './blotter/document-packets'
 import { withDemo } from './modules/demo/index.mjs'
 import { rejectedResponse } from './base/rejected-response'
@@ -46,6 +47,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await clearIntakeChecks(env.DB)
     await purgeDocumentUploads(env.DB,new Date(controller.scheduledTime).toISOString())
     await runRules(env, new Date(controller.scheduledTime), 'cron')
+    await runAutomation(env, new Date(controller.scheduledTime))
     await deliverAlerts(env, new Date(controller.scheduledTime))
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })

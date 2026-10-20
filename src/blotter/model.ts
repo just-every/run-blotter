@@ -3,8 +3,8 @@
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number;
-  label?: string; approval?: { id: string; resultId: string };
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'automation'; sessionId?: string; sessionStartedAt?: number;
+  automation?: { ruleId: string; attemptId: string; jobId: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
 export class Fault extends Error { constructor(message: string, public status = 400, public detail: Data = {}) { super(message); } }
@@ -45,7 +45,7 @@ export function lines(value: unknown, label: string, max = 30) {
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export function need(actor: Actor, ...roles: Role[]) { insist(roles.includes(actor.role), 'Your role cannot perform this action', 403); }
-export function human(actor: Actor) { insist(actor.channel === 'person', 'A person must approve this action', 403); }
+export function human(actor: Actor) { insist(actor.channel === 'person' || (actor.channel === 'automation' && !!actor.automation), 'A person must approve this action', 403); }
 
 export const stmt = (db: D1Database, sql: string, ...values: unknown[]) => db.prepare(sql).bind(...values);
 export async function rows(db: D1Database, sql: string, ...values: unknown[]) { return (await stmt(db, sql, ...values).all<Data>()).results; }
@@ -84,7 +84,7 @@ function authority(actor: Actor) {
   };
 }
 export function audit(db: D1Database, actor: Actor, action: string, objectId: string, detail = '') {
-  const who = actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
+  const who = actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
   return stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, action, objectId, detail, now());
 }
 /** A guard row that only inserts when `sql` holds, so the whole batch fails otherwise. */
@@ -100,7 +100,16 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
     approval.push(pending, done);
     decision.push(stmt(db, "UPDATE b_proposals SET status='approved',result_id=?,decided_by=?,decided_at=? WHERE id=?", actor.approval.resultId, actor.email, now(), actor.approval.id));
   }
-  try { await db.batch([...approval, check, ...statements, ...decision, release]); }
+  const execution: D1PreparedStatement[] = [], completed: D1PreparedStatement[] = [];
+  if (actor.automation) {
+    const x = actor.automation;
+    const [allowed, finish] = guard(db, `EXISTS(SELECT 1 FROM b_automation_attempts a JOIN b_automation_rules r ON r.id=a.rule_id JOIN b_jobs j ON j.id=a.job_id JOIN b_clients c ON c.id=j.client_id
+      WHERE a.id=? AND a.rule_id=? AND a.job_id=? AND a.status='running' AND r.status='active' AND r.used<=r.budget AND r.principal_id=?
+      AND c.lifecycle='active' AND c.merged_into IS NULL AND j.client_id IN (SELECT value FROM json_each(r.definition,'$.clientIds')))` , x.attemptId, x.ruleId, x.jobId, actor.id);
+    execution.push(allowed, finish);
+    completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
+  }
+  try { await db.batch([...approval, check, ...execution, ...statements, ...decision, ...completed, release]); }
   catch (error) {
     if (/constraint|b_guard|UNIQUE|immutable|invalid job transition|only void/i.test(String(error))) throw new Fault('The record changed or this action is no longer allowed. Refresh and try again.', 409);
     throw error;
