@@ -21,7 +21,7 @@ export function ClientVault({ clientId, run, tick, owner }: { clientId: string; 
   return <div className="stack">
     <p className="muted">Stored encrypted. Revealing asks for a new code from your authenticator (or a recovery code), which lasts 5 minutes in this session; every reveal is logged. Rotation dates are reminders on this list only; no message is sent.</p>
     {vault.credentials.map((c: Row) => <details key={c.id}><summary>{c.label}{c.url && ` · ${c.url}`} · updated {when(c.updated_at)} by {c.updated_by}{c.rotationDue && ` · rotation due ${day(c.rotate_by)}`}{c.excluded && ' · not in the restored archive'}{c.erased_at && ` · erased ${day(c.erased_at)} by ${c.erased_by}: ${c.erase_reason}`}</summary>
-      {c.erased_at ? null : shown?.id === c.id ? <dl>
+      {c.erased_at ? null : shown && shown.id === c.id ? <dl>
         <dt>Portal address</dt><dd>{shown.url || '—'}</dd><dt>Username</dt><dd>{shown.username}</dd><dt>Password</dt><dd><code>{shown.password}</code></dd>{shown.notes && <><dt>Notes</dt><dd>{shown.notes}</dd></>}
         <dd><button className="quiet" onClick={() => setShown(undefined)}>Hide</button></dd>
       </dl> : <Form label="Reveal" submit={async data => run(async () => setShown(await api(`/credentials/${c.id}/reveal`, !data.code ? {} : data.code.length > 6 ? { recoveryCode: data.code } : { code: data.code })), 'Revealed; this reveal was logged')}>
