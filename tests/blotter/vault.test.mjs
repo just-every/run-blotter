@@ -22,7 +22,7 @@ test('VAULT-001 credential vault: client adds through the portal, assigned prepa
     }
     const prep = await h.login('prep@example.test'), outside = await h.login('outside@example.test');
     const client = await h.json('/clients', { name: 'Cedar Lane LLC', contacts: [{ name: 'Alex Owner', email: 'alex@example.test', roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true }] }, h.owner);
-    const template = await h.json('/templates', { name: 'Monthly sales tax', recurrence: 'monthly', steps: 'File return', requests: 'Sales report', feeCents: 25000 }, h.owner);
+    const template = await h.json('/templates', { name: 'Monthly sales tax', recurrence: 'monthly', steps: 'File return', requests: 'Sales report' }, h.owner);
     const job = await h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart: '2026-09-01', dueDate: '2026-10-23', dueNote: 'Recorded by staff', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
     const link = await h.json(`/jobs/${job.id}/reminders`, { contactId: client.contacts[0].id }, h.owner);
     const portal = `/portal/${new URL(link.portalUrl).pathname.split('/').at(-1)}/credentials`;
@@ -67,8 +67,11 @@ test('VAULT-001 credential vault: client adds through the portal, assigned prepa
     await h.json(`/clients/${client.id}/credentials`, undefined, '', 401, auth);
     await h.json(`/credentials/${added.id}/reveal`, { code: '000000' }, '', 401, auth);
     assert.ok(!h.mails.some(m => JSON.stringify(m).includes(PASSWORD) || JSON.stringify(m).includes(USERNAME)));
-    const fee = (await h.json('/billing', undefined, h.owner)).unbilled.find(l => l.kind === 'fee');
-    const draft = await h.json('/exports', { title: 'October billing', sourceKeys: [fee.source_key] }, h.owner);
+    await h.json('/team/rates', { email: 'prep@example.test', rateCents: 9000, effectiveFrom: '2026-10-01' }, h.owner);
+    const entry = await h.json(`/jobs/${job.id}/time`, { date: '2026-10-02', minutes: 30, description: 'Filed sales tax return' }, prep);
+    await h.json('/timesheets/submit', { weekStart: '2026-09-28' }, prep);
+    await h.json(`/time/${entry.id}/review`, { decision: 'approve' }, h.owner);
+    const draft = await h.json('/exports', { title: 'October billing', sourceKeys: ['time:' + entry.id] }, h.owner);
     const revision = (await h.json('/billing', undefined, h.owner)).exports.find(e => e.id === draft.id).revision;
     await h.json(`/exports/${draft.id}/approve`, { revision, reviewNote: 'Checked' }, h.owner);
     const exported = await (await h.request(`/api/blotter/exports/${draft.id}/csv`, undefined, h.owner)).text();
@@ -92,7 +95,7 @@ test('VAULT-001 credential vault: client adds through the portal, assigned prepa
 
     // Revoking the contact's authority closes their link; erasing a credential keeps its name and log and fences older archives.
     const contact = client.contacts[0];
-    await h.json(`/clients/${client.id}/contacts`, { id: contact.id, revision: contact.revision, name: contact.name, email: contact.email, roles: ['primary'], authorized: false, portal: true, requestConsent: true, emailConsent: true, active: true }, h.owner);
+    await h.json(`/clients/${client.id}/contacts`, { id: contact.id, revision: contact.revision, name: contact.name, email: contact.email, roles: ['primary'], authorized: false, portal: false, requestConsent: false, emailConsent: true, active: true }, h.owner);
     await h.json(portal, { ...login, password: PASSWORD }, '', 404);
     await h.json(`/credentials/${added.id}/erase`, { confirm: 'Ohio sales-tax portal', reason: 'Client closed the account' }, prep, 403);
     await h.json(`/credentials/${added.id}/erase`, { confirm: 'wrong', reason: 'Client closed the account' }, h.owner, 400);
