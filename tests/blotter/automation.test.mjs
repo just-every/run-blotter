@@ -146,3 +146,31 @@ test('AUTOMATE-001 / WORK-006 / WORK-007: principal previews, saves and enables 
  const h=await harness({mailResponse:(mail,mails)=>{if(uncertain&&mail.subject.startsWith('Documents for')){uncertain=false;throw new Error('Provider accepted; response interrupted');}return Response.json({id:'accepted-'+mails.length});}});
  try {const s=await fixture(h);await automationAppJourney(h,s,()=>{uncertain=true;});} finally {await h.close();}
 });
+
+
+test('AUTOMATE-001 / BASE-001: actual Worker interruption after provider acceptance retains dispatching and requires reconciliation after restart',async()=>{
+ let block=false, release, accepted;
+ const arrived=new Promise(resolve=>{accepted=resolve;});
+ const h=await harness({mailResponse:(mail,mails,request)=>{
+  if(block&&mail.subject.startsWith('Documents for')) {
+   block=false;accepted();
+   return new Promise(resolve=>{
+    const finish=()=>resolve(Response.json({id:'provider-accepted-before-interruption'}));
+    const timer=setTimeout(finish,20000);release=()=>{clearTimeout(timer);finish();};
+    request.signal.addEventListener('abort',release,{once:true});
+   });
+  }
+  return Response.json({id:'mail-'+mails.length});
+ }});
+ try {
+  const s=await fixture(h),job=await s.start();
+  const r=await s.rule({kind:'status',stage:'waiting',subStatusId:s.docs.id},{kind:'reminder',templateId:s.message.id});
+  await s.move(job.id,'waiting',s.docs.id);block=true;
+  const pending=s.run().catch(error=>({interrupted:error.message}));
+  await arrived;const sends=h.mails.length;
+  await h.restart();release?.();await pending;
+  const interrupted=(await s.state()).attempts.find(a=>a.rule_id===r.id);
+  assert.equal(interrupted.status,'dispatching','The old Worker stopped before recording the provider outcome');
+  await s.run();assert.equal(h.mails.length,sends);assert.equal((await s.state()).attempts.find(a=>a.id===interrupted.id).status,'held');
+ } finally {release?.();await h.close();}
+});

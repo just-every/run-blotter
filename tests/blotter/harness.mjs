@@ -21,7 +21,7 @@ export async function harness({bindings={},mailResponse}={}){
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
   assets:{directory:resolve('dist/client'),routerConfig:{has_user_worker:true}},d1Databases:{DB:'blotter-test'},bindings:vars,
   // The only fake is the paid mail-provider boundary; the built app is unchanged.
-  outboundService:async request=>{if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails) : Response.json({id:'test-mail-'+mails.length});},
+  outboundService:async request=>{if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails,request) : Response.json({id:'test-mail-'+mails.length});},
  }),resourcePersistencePath:join(directory,'state')};
  let mf=new Miniflare(options);
  const request=async(path,body,cookie='',extra={})=>{
