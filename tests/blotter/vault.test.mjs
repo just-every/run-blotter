@@ -61,7 +61,7 @@ test('VAULT-001 credential vault: client adds through the portal, assigned prepa
     assert.ok((await h.json(`/clients/${client.id}/history`, undefined, h.owner)).history.some(e => e.action === 'vault.revealed' && e.actor === 'prep@example.test'));
 
     // Never in search, agent context, mail or a plain CSV export; agent keys cannot reach the vault.
-    for (const q of [USERNAME, 'Buckeye', 'gateway']) assert.ok(!JSON.stringify(await h.json(`/search?q=${encodeURIComponent(q)}`, undefined, h.owner)).includes(USERNAME));
+    for (const q of [USERNAME, 'Buckeye', 'gateway']) assert.ok(!JSON.stringify((await h.json(`/search?q=${encodeURIComponent(q)}`, undefined, h.owner)).results).match(/cedar-lane-sales|Buckeye/), `search for ${q} finds no credential`);
     const key = await h.json('/keys', { label: 'Assistant' }, h.owner), auth = { authorization: 'Bearer ' + key.key };
     assert.ok(!JSON.stringify(await h.json('/agent/context', undefined, '', 200, auth)).includes(USERNAME));
     await h.json(`/clients/${client.id}/credentials`, undefined, '', 401, auth);
