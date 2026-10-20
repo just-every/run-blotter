@@ -190,3 +190,17 @@ Question records store source references and fingerprints, not document bytes or
 copied workflow answer values. Whole-client retention/erasure remains ERASURE-002.
 Signed-scope joining (ENGAGE-001), connected books (LEDGER-001), semantic conflict
 detection and ledger variance analysis remain unimplemented; READY-001 stays partial.
+
+## Bulk client messages and marketing consent (MSG-002, partial)
+
+Person-session doors; the principal and reviewers preview and schedule, and the principal approves marketing. A batch's class (engagement or marketing), template version, segment, recipients and exclusions are fixed at preview (ct 20 Oct 21:21Z). Product policy, not legal certification.
+
+- `POST /api/blotter/bulk-messages/preview`: `{idempotencyKey,class,templateId,workTypeId?,tag?,entityType?,reason (engagement),role? (engagement: primary|billing|tax|bookkeeping),topic (marketing: tax|other),chunkSize?}`. Returns the batch with its fingerprint, recipients with their basis, every exclusion with its reason, three sample renderings and, for "other services" marketing, the section 7216 notice. A repeated `idempotencyKey` returns the existing batch (`resubmitted: true`).
+- `GET /api/blotter/bulk-messages` and `GET /api/blotter/bulk-messages/:id`: batches, per-recipient status (pending, held, accepted, delivered, bounced, complained, failed, uncertain), stored rendered text and exclusions.
+- `POST /api/blotter/bulk-messages/:id/approve`: `{fingerprint}`; principal only, marketing only.
+- `POST /api/blotter/bulk-messages/:id/schedule`: `{fingerprint,sendAt?}`; resubmitting a scheduled or sent batch changes nothing.
+- `POST /api/blotter/bulk-messages/:id/run`: send the next throttled chunk now; the hourly Cron Trigger sends one chunk of each due batch.
+- `GET /api/blotter/bulk-messages/review` and `POST /api/blotter/bulk-messages/recipients/:id/misclassified` `{reason}`: the principal's review of engagement notices sent to addresses without a current marketing opt-in.
+- `GET /api/blotter/marketing-consents?clientId=`: the append-only consent log and each contact's current eligibility; `POST /api/blotter/marketing-consents` `{contactId,kind: grant|withdraw,actedAt,wording,wordingVersion,language?,evidence,source?: staff_reply}`; `POST /api/blotter/marketing-consents/:id/correct` `{reason}` (principal); `POST /api/blotter/marketing-consents/confirm` `{note}` (principal, after a restore).
+- `POST /api/blotter/mail/events`: Resend delivery, bounce and complaint webhooks, verified with `MAIL_WEBHOOK_SECRET` (Svix signature) and applied once per event id. Other event types and other mail are acknowledged untracked.
+- `GET`/`POST /unsubscribe?t=…`: the public one-page unsubscribe (link token or typed address) and the RFC 8058 one-click POST.

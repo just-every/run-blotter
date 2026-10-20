@@ -13,6 +13,8 @@ import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { seedDemo } from './demo'
 import { intakeResponse } from './blotter/intake-page'
+import { unsubscribeResponse } from './blotter/unsubscribe-page'
+import { runBulk } from './blotter/bulk-messages'
 import { clearIntakeChecks } from './blotter/intake'
 import { refreshNotifications } from './blotter/notifications'
 import { runRules } from './blotter/recurrence'
@@ -33,6 +35,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (asset) return asset
     const intake = await intakeResponse(request, env)
     if (intake) return rejectedResponse(request, intake)
+    const unsubscribe = await unsubscribeResponse(request, env)
+    if (unsubscribe) return rejectedResponse(request, unsubscribe)
     const auth = await authResponse(request, env)
     if (auth) return auth
     // The installed variant: the Lobby at / and the public claim state it reads.
@@ -50,6 +54,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await runAutomation(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))
+    await runBulk(env, new Date(controller.scheduledTime))
     await refreshNotifications(env, new Date(controller.scheduledTime), true)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })

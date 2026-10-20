@@ -1,7 +1,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { recipientFor, contactGuard } from './client-recipients';
 import { issueLink, sendMail } from './documents';
-import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
+import { LINK_PREVIEW, engagementOnly, render, templateFiles, usable, valuesFor } from './messages';
 import { organizerAnswers, organizerStaffGuard, storedOrganizer } from './organizers-store';
 import { organizerProjection, submittedAnswers } from './organizers-client';
 import { advance } from './flow';
@@ -26,6 +26,7 @@ async function prepared(db: D1Database, actor: Actor, jobId: string, body: Data)
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
   const outstanding = (await rows(db, "SELECT r.label,m.key FROM b_requests r LEFT JOIN b_organizer_requests m ON m.request_id=r.id WHERE r.job_id=? AND r.status='requested' AND r.organizer_active=1 ORDER BY r.ordinal", j.id));
   const template = body.templateId ? await usable(db, actor, text(body.templateId, 'Message template')) : null;
+  engagementOnly(template);
   const files = template ? await templateFiles(db, template.id, template.version, true) : [];
   const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : template?.subject ?? `Organizer: ${j.title} ${j.period_label}`;
   const message = body.body !== undefined ? text(body.body, 'Message', 10_000) : template?.body ?? 'Hello {{contact_first_name}},\nPlease complete your assigned questions for {{work_item}} ({{period}}).\n{{portal_link}}';

@@ -1,4 +1,7 @@
 import { readiness, prepareReadiness, decideReadiness } from './readiness';
+import { approveBatch, batchDetail, batches, markMisclassified, previewBatch, reviewList, runBatch, scheduleBatch } from './bulk-messages';
+import { providerEvent } from './bulk-events';
+import { confirmMarketing, consentLog, correctConsent, recordConsent } from './marketing-consent';
 import { workPage, timePage } from './read-pages';
 import { performanceReport } from './reports';
 import { downloadReport } from './report-exports';
@@ -105,6 +108,20 @@ api.get(`${P}/reports/views`,as((a,c)=>reportViews(db(c),a)));
 api.post(`${P}/reports/views`,as(async(a,c)=>saveReportView(db(c),a,await body(c))));
 api.post(`${P}/reports/schedules`,as(async(a,c)=>scheduleReport(db(c),a,await body(c))));
 api.post(`${P}/reports/schedules/:id/pause`,as((a,c)=>pauseReport(db(c),a,param(c))));
+api.get(`${P}/bulk-messages`,as((a,c)=>batches(db(c),a)));
+api.post(`${P}/bulk-messages/preview`,as(async(a,c)=>previewBatch(db(c),a,await body(c))));
+api.get(`${P}/bulk-messages/review`,as((a,c)=>reviewList(db(c),a)));
+api.post(`${P}/bulk-messages/recipients/:id/misclassified`,as(async(a,c)=>markMisclassified(db(c),a,param(c),await body(c))));
+api.get(`${P}/bulk-messages/:id`,as((a,c)=>batchDetail(db(c),a,param(c))));
+api.post(`${P}/bulk-messages/:id/approve`,as(async(a,c)=>approveBatch(db(c),a,param(c),await body(c))));
+api.post(`${P}/bulk-messages/:id/schedule`,as(async(a,c)=>scheduleBatch(db(c),a,param(c),await body(c))));
+api.post(`${P}/bulk-messages/:id/run`,as((a,c)=>runBatch(c.env,a,param(c))));
+api.get(`${P}/marketing-consents`,as((a,c)=>consentLog(db(c),a,c.req.query())));
+api.post(`${P}/marketing-consents`,as(async(a,c)=>recordConsent(db(c),a,await body(c))));
+api.post(`${P}/marketing-consents/confirm`,as(async(a,c)=>confirmMarketing(db(c),a,await body(c))));
+api.post(`${P}/marketing-consents/:id/correct`,as(async(a,c)=>correctConsent(db(c),a,param(c),await body(c))));
+// Provider delivery events: authenticated by the provider's webhook signature, not a session.
+api.post(`${P}/mail/events`,async c=>c.json(await providerEvent(c.env,c.req.raw)));
 api.get(`${P}/automation`,as((a,c)=>automationState(db(c),a)));
 api.post(`${P}/automation/preview`,as(async(a,c)=>previewAutomation(db(c),a,await body(c))));
 api.post(`${P}/automation`,as(async(a,c)=>saveAutomation(db(c),a,await body(c))));

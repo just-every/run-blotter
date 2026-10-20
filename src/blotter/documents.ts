@@ -9,7 +9,7 @@ import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { clientTasks } from './tasks';
 import { portalItems } from './portal-items';
-import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
+import { LINK_PREVIEW, engagementOnly, render, templateFiles, usable, valuesFor } from './messages';
 import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
@@ -123,6 +123,7 @@ async function reminderContext(db: D1Database, actor: Actor, jobId: string, cont
 /** A message template (MSG-001) rendered for this job: the template's current version, or the sender's edited text. */
 async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<typeof reminderContext>>, body: Data, link: string) {
   const t = body.templateId ? await usable(db, actor, text(body.templateId, 'Template')) : null;
+  engagementOnly(t);
   const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : t?.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : t?.body;
   insist(subject && message, 'Choose a template or write the subject and message');
   const rendered = render(subject, message, await valuesFor(db, actor, ctx.j, ctx.client, ctx.outstanding, link), body.values);

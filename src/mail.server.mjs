@@ -1,4 +1,7 @@
-import { createMailSender } from './modules/mail/index.mjs'
+import { createMailSender, verifyWebhook } from './modules/mail/index.mjs'
+
+// MSG-002: provider delivery events are accepted only with the provider's webhook signature.
+export const verifyMailWebhook = input => verifyWebhook(input)
 
 export function operatorMail(env) {
  if (env.RER_DEMO === '1' || env.AUTH_LOCAL === 'true') {
