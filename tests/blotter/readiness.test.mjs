@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
+import { readinessPortalJourney } from './readiness-ui.mjs';
 
 const people = { preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' };
 const bytes = Buffer.from('Native statement bytes; no ledger connection claimed').toString('base64');
@@ -11,7 +12,7 @@ async function setup(h) {
   }
   const prep = await h.login(people.preparerEmail), reviewer = await h.login(people.reviewerEmail), other = await h.login('other@example.test'), unassignedReviewer = await h.login('unassigned-reviewer@example.test');
   const client = await h.json('/clients', { name: 'Cedar Lane LLC', contactName: 'Alex Rivera', contactEmail: 'alex@example.test' }, h.owner);
-  const template = await h.json('/templates', { name: 'Monthly bookkeeping', recurrence: 'monthly', steps: 'Review statement', requests: 'Bank statement', questions: [{ key: 'cash', label: 'Any new bank accounts?', options: ['Yes','No'] }] }, h.owner);
+  const template = await h.json('/templates', { name: 'Monthly bookkeeping', recurrence: 'monthly', tasks: [{ label: 'Review statement', when: { question: 'cash', equals: ['Yes','No'] } }], requests: 'Bank statement', questions: [{ key: 'cash', label: 'Any new bank accounts?', options: ['Yes','No'] }] }, h.owner);
   const start = (periodStart, extra = {}) => h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart, dueDate: '2027-04-15', dueNote: 'Recorded engagement date', ...people, ...extra }, h.owner);
   return { prep, reviewer, other, unassignedReviewer, client, template, start };
 }
@@ -50,7 +51,7 @@ test('READY-001 / BASE-001: live native evidence map, prior answers, human-appro
     assert.match(evidence.coverage.signedScope, /unavailable/);
     assert.match(evidence.coverage.varianceAnalysis, /unavailable/);
     assert.match(evidence.coverage.interpretation, /not inferred contradictions/);
-    const key = await h.json('/keys', { label: 'Readiness assistant' }, s.prep), auth = { authorization: 'Bearer ' + key.key };
+    const key = await h.json('/keys', { label: 'Readiness assistant' }, s.reviewer), auth = { authorization: 'Bearer ' + key.key };
     const before = await h.json('/jobs/' + current.id, undefined, s.prep), mailCount = h.mails.length;
     const q = await h.json(`/agent/jobs/${current.id}/readiness/questions`, { sourceKind: 'request', sourceId: requestId }, '', 200, auth);
     assert.equal((await h.json(`/agent/jobs/${current.id}/readiness/questions`, { sourceKind: 'request', sourceId: requestId }, '', 200, auth)).id, q.id);
@@ -71,7 +72,7 @@ test('READY-001 / BASE-001: live native evidence map, prior answers, human-appro
     const sent = await h.json(`/jobs/${current.id}/reminders`, {}, s.prep), token = new URL(sent.portalUrl).pathname.split('/').at(-1);
     const portal = await h.json(`/portal/${token}`, undefined);
     assert.ok(portal.todos.some(t => t.id === todoId));
-    await h.json(`/portal/${token}/todos/${todoId}`, { response: 'The February statement is attached; please review the new account.' });
+    await readinessPortalJourney(h, token);
     let after = await map(h, current.id, s.prep);
     assert.equal(after.questions.find(q => q.id === rejected.id).status, 'declined');
     assert.equal(after.questions.find(x => x.id === q.id).progress, 'evidence_received_judgment_required');
@@ -108,7 +109,7 @@ test('READY-001 / BASE-001: live native evidence map, prior answers, human-appro
     assert.ok(latest.includes('readiness.approve') && latest.includes('readiness.decline') && latest.includes('readiness.resolve'));
     const stale = await harness(); copies.push(stale);
     await stale.json('/restore', { archive: archiveBefore, journal: latest, confirm: 'RESTORE' }, stale.owner, 409);
-    await h.json(`/keys/${key.id}/revoke`, {}, s.prep);
+    await h.json(`/keys/${key.id}/revoke`, {}, s.reviewer);
     await h.json(`/agent/jobs/${current.id}/readiness`, undefined, '', 401, auth);
   } finally { await h.close(); for (const copy of copies) await copy.close(); }
 });
