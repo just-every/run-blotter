@@ -70,7 +70,7 @@ test('AUTOMATE-001 / WORK-006 / WORK-007 / BASE-001: approved native rules, boar
   const due=await s.rule({kind:'due',at:'2027-01-03T09:00:00-05:00'},{kind:'assign',role:'manager',email:'reviewer@example.test'});
   await h.scheduled('2027-01-03T13:59:59Z');assert.equal((await s.detail(a.id)).job.manager_email,null);
   await h.scheduled('2027-01-03T14:00:00Z');await h.scheduled('2027-01-03T14:00:00Z');assert.equal((await s.detail(a.id)).job.manager_email,'reviewer@example.test');assert.equal((await s.state()).attempts.filter(x=>x.rule_id===due.id).length,1);
-  const revocation=await s.rule({kind:'due',at:'2027-01-04T00:00:00Z'},{kind:'assign',role:'manager',email:'other@example.test'}).catch(()=>null);assert.equal(revocation,null,'An ineligible reviewer/manager is refused at preview');
+  await h.json('/automation/preview',{name:'Ineligible manager',clientIds:[s.client.id],trigger:{kind:'due',at:'2027-01-04T00:00:00Z'},action:{kind:'assign',role:'manager',email:'other@example.test'},budget:1},h.owner,409);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(archive.includes('automation.effect'));assert.ok(archive.includes('automation:'));assert.ok(!archive.includes(key.key));assert.ok(!archive.includes('W2 evidence'));
   const restored=await harness();copies.push(restored);await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
   const after=await restored.json('/automation',undefined,restored.owner);assert.ok(after.rules.every(x=>x.status==='paused'||x.status==='revoked'));assert.ok(after.rules.every(x=>x.principal_id===null));assert.equal(after.attempts.length,(await s.state()).attempts.length);
@@ -107,4 +107,47 @@ test('AUTOMATE-001 / BASE-001: templated status mail acceptance, provider-respon
   await h.json('/team',{email:'reviewer@example.test',name:'Former reviewer',role:'preparer',active:true},h.owner);
   await h.scheduled('2027-02-01T12:00:00Z');assert.equal((await s.detail(a.id)).job.manager_email,null);assert.ok((await s.state()).attempts.some(x=>x.rule_id===assignment.id&&/authority changed/.test(x.outcome)));
  }finally{await h.close();}
+});
+
+test('AUTOMATE-001 / BASE-001: request/organizer/proposal completion, roll-forward, immutable replacement versions and lost principal authority through native account administration',async()=>{
+ const h=await harness();
+ try {
+  const s=await fixture(h),a=await s.start();
+  const requests=await s.rule({kind:'request_complete'},{kind:'request',label:'Accepted-request follow-up'});
+  const initial=(await s.detail(a.id)).requests[0];
+  await h.json(`/requests/${initial.id}/files`,{name:'W2.txt',mime:'text/plain',contentBase64:Buffer.from('W2 evidence').toString('base64')},s.prep);
+  await h.json(`/requests/${initial.id}/decide`,{decision:'accept'},s.prep);await s.run();await s.run();
+  assert.equal((await s.detail(a.id)).requests.filter(x=>x.label==='Accepted-request follow-up').length,1);assert.equal((await s.state()).attempts.filter(x=>x.rule_id===requests.id).length,1);
+  const proposals=await s.rule({kind:'proposal'},{kind:'rollforward',dueDate:'2028-04-15',dueNote:'Client-confirmed next-year engagement target'});
+  await h.json('/agent/prepare-reminder',{jobId:a.id,message:'Prepared only'},'',401);
+  const key=await h.json('/keys',{label:'Prepare reminder only'},h.owner);
+  const p=await h.json('/agent/prepare-reminder',{jobId:a.id,message:'Prepared only'},'',200,{authorization:'Bearer '+key.key});
+  await h.json(`/proposals/${p.id}/decide`,{decision:'decline',reason:'Use the approved follow-up instead'},h.owner);
+  await s.run();await s.run();const next=(await s.detail(a.id)).nextJobId;assert.ok(next);assert.equal((await s.detail(next)).job.due_date,'2028-04-15');assert.equal((await s.state()).attempts.filter(x=>x.rule_id===proposals.id).length,1);
+  const template=await h.json('/templates',{name:'Ownership organizer work',recurrence:'annual',steps:'Inspect response',requests:'Statement',organizer:{name:'Ownership questions',kind:'bookkeeping',questions:[{key:'owner',label:'Who owns the company?',type:'text',required:true}]}},h.owner);
+  const job=await h.json('/jobs',{clientId:s.client.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Recorded client engagement',preparerEmail:'prep@example.test',reviewerEmail:'reviewer@example.test'},h.owner);
+  const organizer=(await h.json(`/jobs/${job.id}/organizers`,undefined,h.owner)).organizers[0];
+  const contact=s.client.contacts[0];const sent=await h.json(`/jobs/${job.id}/organizers/send`,{revision:organizer.revision,assignments:{owner:contact.id},templateId:s.message.id},s.prep);
+  const token=new URL(sent.recipients[0].portalUrl).pathname.split('/').at(-1);
+  const organizerRule=await s.rule({kind:'organizer_complete'},{kind:'request',label:'Inspect submitted ownership'});
+  let clientOrganizer=(await h.json(`/portal/${token}/organizers`)).organizers[0];
+  await h.json(`/portal/${token}/organizers/${organizer.id}`,{revision:clientOrganizer.revision,answers:{owner:{value:'Alex Rivera',confirmed:true}},submit:false});await s.run();assert.ok(!(await s.detail(job.id)).requests.some(x=>x.label==='Inspect submitted ownership'));
+  clientOrganizer=(await h.json(`/portal/${token}/organizers`)).organizers[0];
+  await h.json(`/portal/${token}/organizers/${organizer.id}`,{revision:clientOrganizer.revision,answers:{},submit:true});await s.run();await s.run();assert.equal((await s.detail(job.id)).requests.filter(x=>x.label==='Inspect submitted ownership').length,1);assert.equal((await s.state()).attempts.filter(x=>x.rule_id===organizerRule.id).length,1);
+  const replacement=await s.rule({kind:'status',stage:'ready'},{kind:'request',label:'Replacement version'},10,{ruleId:requests.id});
+  const state=await s.state();assert.equal(state.rules.find(x=>x.id===requests.id).status,'revoked');assert.equal(state.rules.find(x=>x.id===replacement.id).version,2);
+  // Use Base's real fresh-proof and account-role doors to remove the approving principal's authority.
+  let response=await h.request('/auth/step-up',{action:'owner:transfer',returnTo:'/app'},h.owner);assert.equal(response.status,202,await response.text());
+  const proof=h.mails.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)[1];response=await h.request('/auth/confirm',{token:proof},h.owner);assert.equal(response.status,303,await response.text());
+  const operators=await(await h.request('/auth/operators',undefined,h.owner)).json();
+  const owner=operators.find(x=>x.email==='owner@example.test'),successor=operators.find(x=>x.email==='reviewer@example.test');
+  response=await h.request('/auth/operator/role',{operatorId:successor.id,role:'owner'},h.owner);assert.equal(response.status,200,await response.text());
+  const authorityRule=await s.rule({kind:'due',at:'2028-01-01T00:00:00Z'},{kind:'request',label:'No authority, no action'});
+  response=await h.request('/auth/operator/role',{operatorId:owner.id,role:'member'},h.owner);assert.equal(response.status,200,await response.text());
+  const before=(await h.json(`/jobs/${job.id}`,undefined,s.prep)).requests.length;
+  await h.scheduled('2028-01-01T00:00:00Z');
+  assert.equal((await h.json(`/jobs/${job.id}`,undefined,s.prep)).requests.length,before);
+  const successorCookie=await h.login('reviewer@example.test');
+  assert.ok((await h.json('/automation',undefined,successorCookie)).attempts.some(x=>x.rule_id===authorityRule.id&&x.status==='refused'&&/principal.*authority/.test(x.outcome)));
+ } finally {await h.close();}
 });

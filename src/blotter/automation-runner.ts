@@ -1,3 +1,4 @@
+import { listOrganizers } from './organizers';
 // Source events are committed with domain writes. Each event/version has one durable claim.
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { atomic, audit, guard, id, insist, now, rows, stmt, type Actor, type Data } from './model';
@@ -56,7 +57,13 @@ export async function runAutomation(env:Bindings,at=new Date()) {
         const j=await stmt(db,"SELECT j.* FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE j.id=? AND c.lifecycle='active' AND c.merged_into IS NULL AND j.client_id IN (SELECT value FROM json_each(?))",e.job_id,JSON.stringify(d.clientIds)).first<Data>();
         insist(j,'Client scope or lifecycle changed',409);
         if(t.kind==='file') insist(await stmt(db,'SELECT 1 FROM b_files WHERE id=? AND erased_at IS NULL',e.source.slice(5)).first(),'Source file was erased',409);
-        if(t.kind==='organizer_complete') insist(await stmt(db,'SELECT 1 FROM b_organizer_submissions WHERE id=? AND erased_at IS NULL',e.source.slice(10)).first(),'Organizer source was erased',409);
+        if(t.kind==='organizer_complete') {
+          const submission=await stmt(db,'SELECT s.* FROM b_organizer_submissions s WHERE s.id=? AND s.erased_at IS NULL AND s.version=(SELECT MAX(version) FROM b_organizer_submissions WHERE organizer_id=s.organizer_id)',e.source.slice(10)).first<Data>();
+          insist(submission,'Organizer source was erased or superseded',409);
+          const sourceActor:Actor={id:principal.id,email:principal.email,name:principal.display_name,role:'owner',channel:'automation',automation:{ruleId:r.id,attemptId,jobId:j.id,external:false}};
+          const current=(await listOrganizers(db,sourceActor,j.id)).organizers.find(o=>o.id===submission.organizer_id);
+          insist(current && current.completeness.unresolved.length===0,'Organizer still has unanswered required questions',409);
+        }
         if(t.kind==='tasks_complete') insist(!await stmt(db,`SELECT 1 FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')}`,j.id).first(),'Tasks are no longer complete',409);
         const actor:Actor={id:principal.id,email:principal.email,name:principal.display_name,role:'owner',channel:'automation',automation:{ruleId:r.id,attemptId,jobId:j.id,external:d.action.kind==='reminder'}};
         const [check,release]=guard(db,`EXISTS(SELECT 1 FROM b_automation_rules r JOIN oa_operators o ON o.id=r.principal_id WHERE r.id=? AND r.status='active' AND r.used<r.budget AND o.status='active' AND o.role='owner' AND o.email=r.approved_by) AND EXISTS(SELECT 1 FROM b_automation_attempts WHERE id=? AND status='pending')`,r.id,attemptId);
