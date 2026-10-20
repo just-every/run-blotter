@@ -4,7 +4,7 @@ export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
   id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number;
-  automation?: { ruleId: string; attemptId: string; jobId: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
+  automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
 export class Fault extends Error { constructor(message: string, public status = 400, public detail: Data = {}) { super(message); } }
@@ -104,9 +104,15 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
   if (actor.automation) {
     const x = actor.automation;
     const [allowed, finish] = guard(db, `EXISTS(SELECT 1 FROM b_automation_attempts a JOIN b_automation_rules r ON r.id=a.rule_id JOIN b_jobs j ON j.id=a.job_id JOIN b_clients c ON c.id=j.client_id
-      WHERE a.id=? AND a.rule_id=? AND a.job_id=? AND a.status='running' AND r.status='active' AND r.used<=r.budget AND r.principal_id=?
+      WHERE a.id=? AND a.rule_id=? AND a.job_id=? AND a.status='running' AND j.revision=? AND r.status='active' AND r.used<=r.budget AND r.principal_id=?
       AND c.lifecycle='active' AND c.merged_into IS NULL AND j.client_id IN (SELECT value FROM json_each(r.definition,'$.clientIds'))
-      AND (json_extract(r.definition,'$.action.kind')<>'reminder' OR EXISTS(SELECT 1 FROM b_msg_templates m WHERE m.id=json_extract(r.definition,'$.action.templateId') AND m.version=json_extract(r.definition,'$.action.templateVersion') AND m.deleted_at IS NULL)))` , x.attemptId, x.ruleId, x.jobId, actor.id);
+      AND (substr(a.event_key,1,5)<>'file:' OR EXISTS(SELECT 1 FROM b_files f WHERE f.id=substr(a.event_key,6) AND f.erased_at IS NULL))
+      AND (substr(a.event_key,1,10)<>'organizer:' OR EXISTS(SELECT 1 FROM b_organizer_submissions s WHERE s.id=substr(a.event_key,11) AND s.erased_at IS NULL))
+      AND (json_extract(r.definition,'$.action.kind')<>'rollforward' OR NOT EXISTS(
+        SELECT 1 FROM json_each(json_array(j.preparer_email,j.reviewer_email,j.manager_email,j.partner_email)) p WHERE p.value IS NOT NULL
+        AND NOT EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=p.value AND o.role='owner' AND o.status='active')
+        AND NOT EXISTS(SELECT 1 FROM b_members m WHERE m.email=p.value AND m.active=1 AND (m.role='reviewer' OR (p.key=0 AND m.role='preparer')))))
+      AND (json_extract(r.definition,'$.action.kind')<>'reminder' OR EXISTS(SELECT 1 FROM b_msg_templates m WHERE m.id=json_extract(r.definition,'$.action.templateId') AND m.version=json_extract(r.definition,'$.action.templateVersion') AND m.deleted_at IS NULL)))` , x.attemptId, x.ruleId, x.jobId, x.revision, actor.id);
     execution.push(allowed, finish);
     completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
   }

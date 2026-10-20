@@ -92,6 +92,21 @@ export async function automationAppJourney(h,s,interrupt) {
   await panel.getByText('Human reconciliation: accepted; Provider dashboard confirms this exact attempt was accepted',{exact:false}).waitFor();
   await shot('outcomes-reconciled');
   assert.equal(h.mails.length,sent);
+  const dependency=await s.rule({kind:'due',at:'2030-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});
+  await page.getByRole('button',{name:'Team & safety',exact:true}).click();
+  await page.getByText('Offboard a person',{exact:true}).click();
+  await page.getByLabel('Departing person',{exact:true}).selectOption('reviewer@example.test');
+  await page.getByLabel('Successor for their work (jobs they prepare, tasks, notices, discussions, template tasks)',{exact:true}).selectOption('other@example.test');
+  await page.getByLabel('Successor for their reviews (jobs they review or manage, pending proposals)',{exact:true}).selectOption('owner@example.test');
+  await page.getByRole('button',{name:'Preview transfer',exact:true}).click();
+  await page.getByText('Its approval is not transferred',{exact:false}).waitFor();
+  if(evidence)for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.getByText('Offboard a person',{exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:`${evidence}/offboarding-${width}.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
+  await page.getByRole('button',{name:'Transfer and deactivate',exact:true}).click();
+  await h.scheduled('2030-01-01T00:00:00Z');
+  assert.ok((await s.state()).attempts.some(a=>a.rule_id===dependency.id&&a.status==='failed'&&/authority changed/.test(a.outcome)));
+  await page.getByRole('button',{name:'Preparations',exact:true}).click();
+  await panel.getByText('Assignee authority changed',{exact:false}).waitFor();
+  await shot('offboarding-refused');
   await context.close();
  } finally {await browser.close();}
 }

@@ -165,7 +165,7 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
       subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 })))),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
   if (actor.automation) {
-    insist(await stmt(db,"SELECT 1 FROM b_automation_rules r JOIN oa_operators o ON o.id=r.principal_id WHERE r.id=? AND r.status='active' AND r.used<=r.budget AND o.status='active' AND o.role='owner' AND EXISTS(SELECT 1 FROM b_client_contacts c WHERE c.id=? AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.request_consent=1 AND c.revision=?)",actor.automation.ruleId,ctx.contact.id,ctx.contact.revision).first(),'Automation paused or authority revoked before dispatch',409);
+    insist(await stmt(db,"SELECT 1 FROM b_automation_rules r JOIN oa_operators o ON o.id=r.principal_id WHERE r.id=? AND r.status='active' AND r.used<=r.budget AND o.status='active' AND o.role='owner' AND EXISTS(SELECT 1 FROM b_client_contacts c WHERE c.id=? AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.request_consent=1 AND c.email_consent=1 AND c.revision=?)",actor.automation.ruleId,ctx.contact.id,ctx.contact.revision).first(),'Automation paused or authority revoked before dispatch',409);
   }
   const delivery = await sendMail(bindings, reminderId, client.contact_email, subject, message, files);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();

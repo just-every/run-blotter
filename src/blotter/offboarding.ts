@@ -13,7 +13,7 @@ const OPEN_JOB = "b_jobs.status<>'signed_off'";
 
 /** Everything a member owns that would be orphaned by their departure. */
 async function owned(db: D1Database, leaver: string) {
-  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients] = await Promise.all([
+  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients, automations] = await Promise.all([
     rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.status,b_jobs.revision,b_jobs.submitted_by,b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email,c.name client
       FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${OPEN_JOB} AND ?1 IN (b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email) ORDER BY b_jobs.due_date`, leaver),
     rows(db, `SELECT s.job_id,s.ordinal,s.label,b_jobs.title job FROM b_job_steps s JOIN b_jobs ON b_jobs.id=s.job_id WHERE ${OPEN_JOB} AND s.done_at IS NULL AND s.assignee_email=? ORDER BY b_jobs.due_date,s.ordinal`, leaver),
@@ -30,8 +30,9 @@ async function owned(db: D1Database, leaver: string) {
     rows(db, 'SELECT k.id,k.label FROM b_agent_keys k JOIN oa_operators o ON o.id=k.owner_id WHERE o.email=? AND k.revoked=0', leaver),
     stmt(db, 'SELECT COUNT(*) n FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE o.email=? AND s.revoked_at IS NULL', leaver).first<Data>(),
     rows(db, `SELECT id,name,partner_email,team,revision FROM b_clients WHERE merged_into IS NULL AND (partner_email=? OR EXISTS(SELECT 1 FROM json_each(team) WHERE value=?)) ORDER BY name`, leaver,leaver),
+    rows(db,"SELECT id,name,version,status,definition FROM b_automation_rules WHERE status<>'revoked' AND (approved_by=? OR json_extract(definition,'$.action.email')=?) ORDER BY name,version",leaver,leaver),
   ]);
-  return { clients, jobs, tasks, rules, notices, threads, portal, proposals, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
+  return { clients, jobs, tasks, rules, notices, threads, portal, proposals, automations, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
 }
 
 async function plan(db: D1Database, actor: Actor, body: Data) {
@@ -81,6 +82,10 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     const team = [...new Set(JSON.parse(c.team).map((person: string) => person === leaver ? p.workSuccessor : person))];
     statements.push(check,stmt(db,'UPDATE b_clients SET partner_email=?,team=?,revision=? WHERE id=?',c.partner_email === leaver ? p.reviewSuccessor : c.partner_email,JSON.stringify(team),id(),c.id),
       audit(db,actor,'client.team_transferred',c.id,`offboarding ${leaver}: team to ${p.workSuccessor}, partner to ${p.reviewSuccessor}`),release);
+  }
+  for (const r of p.automations) {
+    const [check,done]=guard(db,'EXISTS(SELECT 1 FROM b_automation_rules WHERE id=? AND version=? AND status=? AND definition=?)',r.id,r.version,r.status,r.definition);
+    statements.push(check,done,audit(db,actor,'automation.offboarding_checked',r.id,`Offboarding ${leaver}; standing version remains immutable, inactive assignee is refused; new successor version requires fresh approval`));
   }
   for (const r of p.rules) {
     const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_recurrence_rules WHERE id=? AND revision=?)', r.id, r.revision);
