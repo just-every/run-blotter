@@ -16,8 +16,9 @@ async function fixture(h){
 test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, mandatory policy, read state, scoped links and source erasure',async()=>{
  const h=await harness();let stale;try{
   const s=await fixture(h),before=h.mails.length;
+  await h.json('/notifications/defaults',{emailKinds:['work_assigned'],mandatoryKinds:[]},h.owner);
   const job=await s.start('2026-10-01','2026-10-22');
-  assert.equal(h.mails.length,before,'New assignment events default to in-app only');
+  assert.equal(h.mails.length,before,'Firm suggestions cannot silently enable new assignment emails');
   let alerts=await h.json('/notifications',undefined,s.prep);
   for(const kind of ['work_assigned','task_assigned'])assert.equal(alerts.filter(n=>n.job_id===job.id&&n.kind===kind).length,1);
   assert.equal((await h.json('/notifications',undefined,s.other)).length,0);
@@ -115,7 +116,7 @@ test('NOTIFY-001 app: notification center, personal schedule and principal defau
  const h=await harness();try{
   const s=await fixture(h),job=await s.start('2026-10-01','2026-10-22');
   await s.start('2026-11-01','2026-11-22');
-  await h.json('/notifications/defaults',{emailKinds:[],mandatoryKinds:['mention']},h.owner);
+  await h.json('/notifications/defaults',{emailKinds:['work_assigned'],mandatoryKinds:['mention']},h.owner);
   await notificationAppJourney(h,s,job);
  }finally{await h.close();}
 });

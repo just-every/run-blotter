@@ -22,7 +22,7 @@ export async function notificationAppJourney(h,s,job){
   await panel.getByText('Notification settings',{exact:true}).click();
   await panel.getByLabel('IANA time zone').fill('America/Chicago');await panel.getByLabel('Daily digest time').fill('07:00');await panel.getByLabel('Due-soon lead time (days)').fill('3');
   await panel.getByRole('button',{name:'Save notification settings',exact:true}).click();await panel.getByRole('status').filter({hasText:'Notification settings saved'}).waitFor();
-  assert.equal((await h.json('/notifications/settings',undefined,s.prep)).personal.timeZone,'America/Chicago');
+  const saved=(await h.json('/notifications/settings',undefined,s.prep)).personal;assert.equal(saved.timeZone,'America/Chicago');assert.ok(saved.emailKinds.includes('work_assigned'),'Saving the suggested event is the individual opt-in');
   assert.ok(await panel.getByLabel('Mention (mandatory)',{exact:true}).isDisabled());
   await capture('personal-settings');
   await panel.getByText('Notification settings',{exact:true}).click();await panel.getByRole('button',{name:'Work assigned to you',exact:true}).first().click();

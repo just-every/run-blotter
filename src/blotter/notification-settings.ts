@@ -20,7 +20,7 @@ export async function notificationDefaults(db:D1Database) {
 }
 export async function personalSettings(db:D1Database,email:string,firm?:Data) {
   const defaults=await notificationDefaults(db), row=await stmt(db,'SELECT settings FROM b_notification_settings WHERE email=?',email).first<Data>();
-  return {timeZone:(firm??await firmSettings(db)).timeZone,quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:defaults.emailKinds.filter((k:string)=>legacy.includes(k)),...JSON.parse(row?.settings??'{}')};
+  return {timeZone:(firm??await firmSettings(db)).timeZone,quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:defaults.emailKinds.filter((k:string)=>legacy.includes(k)),...JSON.parse(row?.settings??'{}'),configured:!!row};
 }
 export async function notificationSettings(db:D1Database,actor:Actor) {
   return {personal:await personalSettings(db,actor.email),firm:await notificationDefaults(db),kinds,role:actor.role};

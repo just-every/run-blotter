@@ -4,7 +4,7 @@ import { api, Field, Form, prose, when, type Row } from './common';
 type Kind = { id: string; label: string; legacyEmail: boolean };
 type Personal = {
   timeZone: string; quietStart: string; quietEnd: string; digestTime: string;
-  digestEnabled: boolean; leadDays: number; emailKinds: string[];
+  digestEnabled: boolean; leadDays: number; emailKinds: string[]; configured: boolean;
 };
 type Defaults = { emailKinds: string[]; mandatoryKinds: string[] };
 type Settings = { personal: Personal; firm: Defaults; kinds: Kind[]; role: string };
@@ -84,9 +84,9 @@ function PersonalSettings({ settings: { personal, firm, kinds }, save, busy }: {
   }, 'Notification settings saved')}>
     <fieldset disabled={busy}>
       <legend>Email events</legend>
-      <p className="muted">Every event remains available in-app. Firm-mandatory email events cannot be turned off.</p>
+      <p className="muted">Every event remains available in-app. Firm-mandatory email events cannot be turned off. New event defaults are suggestions until you save your own email choices.</p>
       {kinds.map(k => <label className="check" key={k.id}>
-        <input type="checkbox" name={`email:${k.id}`} defaultChecked={personal.emailKinds.includes(k.id) || firm.mandatoryKinds.includes(k.id)} disabled={firm.mandatoryKinds.includes(k.id)} />
+        <input type="checkbox" name={`email:${k.id}`} defaultChecked={personal.emailKinds.includes(k.id) || firm.mandatoryKinds.includes(k.id) || (!personal.configured && firm.emailKinds.includes(k.id))} disabled={firm.mandatoryKinds.includes(k.id)} />
         {k.label}{firm.mandatoryKinds.includes(k.id) && ' (mandatory)'}
       </label>)}
     </fieldset>
@@ -112,7 +112,7 @@ function FirmDefaults({ settings: { firm, kinds }, save, busy }: { settings: Set
   return <Form label="Save firm notification defaults" disabled={busy} submit={async () => save('/notifications/defaults', {
     emailKinds: kinds.filter(k => emailKinds.includes(k.id) || mandatoryKinds.includes(k.id)).map(k => k.id), mandatoryKinds,
   }, 'Firm notification defaults saved')}>
-    <p className="muted">Choose default email events and events every staff member must receive by email.</p>
+    <p className="muted">Choose default email events and events every staff member must receive by email. New event defaults are suggested on each person’s first settings form; email starts after they save their choices, unless the event is mandatory.</p>
     <fieldset disabled={busy}>
       <legend>Default email events</legend>
       {kinds.map(k => <label className="check" key={k.id}>
