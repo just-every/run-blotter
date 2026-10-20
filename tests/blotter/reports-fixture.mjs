@@ -5,7 +5,7 @@ export async function reportFixture(h) {
  const prep=await h.login('prep@example.test'),reviewer=await h.login('reviewer@example.test');
  const client=await h.json('/clients',{name:'Cedar Lane LLC',contactName:'Alex Rivera',contactEmail:'alex@example.test'},h.owner);
  const other=await h.json('/clients',{name:'Maple Grove Trust'},h.owner);
- const template=await h.json('/templates',{name:'1040 preparation',recurrence:'annual',steps:[{label:'Reconcile source',afterDocuments:[1]}],requests:'W-2 statement',feeCents:5000},h.owner);
+ const template=await h.json('/templates',{name:'1040 preparation',recurrence:'annual',tasks:[{label:'Reconcile source',assignee:'preparer',afterDocuments:[1],estimateMinutes:120}],requests:'W-2 statement',feeCents:5000},h.owner);
  const type=(await h.json('/work-types',undefined,h.owner)).workTypes.find(t=>t.template_id===template.id);
  const start=(clientId,periodStart)=>h.json('/jobs',{clientId,templateId:template.id,periodStart,dueDate:'2026-04-15',dueNote:'Practitioner recorded engagement target',preparerEmail:'prep@example.test',reviewerEmail:'reviewer@example.test'},h.owner);
  const complete=await start(client.id,'2026-01-01'),open=await start(client.id,'2026-02-01');await start(other.id,'2026-03-01');
