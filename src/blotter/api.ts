@@ -1,3 +1,4 @@
+import { workPage, timePage } from './read-pages';
 import { performanceReport } from './reports';
 import { downloadReport } from './report-exports';
 import { reportViews, saveReportView, scheduleReport, pauseReport } from './report-schedules';
@@ -249,6 +250,8 @@ api.post(`${P}/jobs/:id/status`, as(async (a, c) => moveJob(db(c), a, param(c), 
 api.get(`${P}/views`, as((a, c) => savedViews(db(c), a)));
 api.post(`${P}/views`, as(async (a, c) => saveView(db(c), a, await body(c))));
 api.post(`${P}/views/:id/delete`, as((a, c) => deleteView(db(c), a, param(c))));
+api.get(`${P}/v1/work`, as((a,c)=>workPage(db(c),a,c.req.query())));
+api.get(`${P}/v1/time`, as((a,c)=>timePage(db(c),a,c.req.query())));
 api.get(`${P}/queue`, as((a, c) => queue(db(c), a, c.req.query())));
 api.get(`${P}/reports/status-time`, as((a, c) => statusReport(db(c), a, c.req.query())));
 api.get(`${P}/capacity`, as((a, c) => capacity(db(c), a, c.req.query())));

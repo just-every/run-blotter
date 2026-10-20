@@ -11,13 +11,17 @@ const shift = (day: string, days: number) => new Date(Date.parse(day + 'T00:00:0
 /** The Monday that starts this date's timesheet week. */
 export const weekStart = (day: string) => shift(day, -((new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7));
 
+// Shared native time-entry projection; each reader supplies its live person scope.
+export const timeEntryFields = `t.id,t.job_id,t.person_email,t.date,t.minutes,t.rate_cents,t.amount_cents,t.currency,t.description,t.billable,
+  s.status,s.week_start,s.reason,s.submitted_at,s.decided_by,s.decided_at,j.title job,j.period_label period,c.name client,
+  EXISTS(SELECT 1 FROM b_periods p WHERE t.date BETWEEN p.start_date AND p.end_date) locked`;
+export const timeEntryFrom = `FROM b_time t JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id
+  LEFT JOIN b_time_status s ON s.entry_id=t.id`;
+
 export async function timesheets(db: D1Database, actor: Actor) {
   const lead = actor.role !== 'preparer';
   return {
-    entries: await rows(db, `SELECT t.id,t.job_id,t.person_email,t.date,t.minutes,t.rate_cents,t.amount_cents,t.currency,t.description,t.billable,
-        s.status,s.week_start,s.reason,s.submitted_at,s.decided_by,s.decided_at,j.title job,j.period_label period,c.name client,
-        EXISTS(SELECT 1 FROM b_periods p WHERE t.date BETWEEN p.start_date AND p.end_date) locked
-      FROM b_time t JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id LEFT JOIN b_time_status s ON s.entry_id=t.id
+    entries: await rows(db, `SELECT ${timeEntryFields} ${timeEntryFrom}
       WHERE ? OR t.person_email=? ORDER BY t.date DESC,t.created_at DESC LIMIT 500`, lead ? 1 : 0, actor.email),
     periods: await rows(db, 'SELECT * FROM b_periods ORDER BY start_date DESC'),
   };
