@@ -49,7 +49,7 @@ export function Automation({ state, run, open }: { state: Row; run: Run; open: (
   });
   return <section className="panel">
     <h2>Automation</h2>
-    <p className="muted">Review the clients, jobs and lifetime effect budget, save a draft, then approve it separately. Active rules act under your standing principal approval until you pause or revoke them. Normal job review gates still apply. Uncertain mail delivery is held for human reconciliation and is never automatically retried.</p>
+    <p className="muted">Review the clients, jobs and lifetime attempt budget, save a draft, then approve it separately. Active rules act under your standing principal approval until you pause or revoke them. Normal job review gates still apply. Uncertain mail delivery is held for human reconciliation and is never automatically retried.</p>
     {error && <p className="error" role="alert">{error} <button className="quiet" onClick={() => run(async () => {
       const [rules, statuses, messages] = await Promise.all([api('/automation'), api('/work-types'), api('/messages/templates')]);
       setData(rules); setModel(statuses); setTemplates(messages.templates); setError('');
@@ -71,7 +71,7 @@ export function Automation({ state, run, open }: { state: Row; run: Run; open: (
         <p className="muted">For example, all tasks complete can move work to In review; a Waiting sub-status can send a chosen message template. Choose the clients explicitly. Previewing and saving a draft do not activate a rule.</p>
         <Form label="Preview rule" disabled={!draft.clientIds.length} submit={async () => run(async () => {
           if (!draft.clientIds.length) throw new Error('Choose at least one client');
-          if (!Number.isSafeInteger(Number(draft.budget)) || Number(draft.budget) < 1) throw new Error('The lifetime effect budget must be a positive whole number');
+          if (!Number.isSafeInteger(Number(draft.budget)) || Number(draft.budget) < 1) throw new Error('The lifetime attempt budget must be a positive whole number');
           if (draft.triggerKind === 'due' && (!/^\d{4}-\d{2}-\d{2}T.+(Z|[+-]\d{2}:\d{2})$/.test(draft.at) || Number.isNaN(new Date(draft.at).getTime()))) throw new Error('Enter a valid ISO 8601 time including Z or a timezone offset');
           const submitted = body(); setReview(undefined); setReview({ ...await api('/automation/preview', submitted), body: submitted });
         }, 'Automation preview ready; review it before saving')}>
@@ -100,7 +100,7 @@ export function Automation({ state, run, open }: { state: Row; run: Run; open: (
         {review && <section className="notice" aria-label="Automation preview">
           <h3>Review {review.body.name}</h3><p>{prose(review.description)}</p>
           <Definition definition={review.definition} model={model} templates={templates} state={state} />
-          <p>Lifetime budget: {review.body.budget} effects. These {review.jobs.length} jobs match now; later matching jobs for the selected clients may also be acted on while the rule is active.</p>
+          <p>Lifetime budget: {review.body.budget} attempts. These {review.jobs.length} jobs match now; later matching jobs for the selected clients may also be acted on while the rule is active.</p>
           {!review.jobs.length ? <p>No jobs match now.</p> : <ul className="list">{review.jobs.map((j: Row) => <li key={j.id}><button className="quiet text-action" onClick={() => open(j.id)}>{j.client} · {j.title}</button></li>)}</ul>}
           {review.previews?.map((p: Row) => <article className="record" key={p.jobId}><h4>Message for {state.jobs.find((j: Row) => j.id === p.jobId)?.title ?? p.jobId}</h4>{p.error ? <p className="error">{prose(p.error)}</p> : <><p>To: {p.to}</p><p>Subject: {prose(p.subject)}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{prose(p.body)}</p>{p.missing?.length > 0 && <p className="error">Unresolved: {p.missing.map((v: Row) => v.label).join(', ')}</p>}</>}</article>)}
           <button onClick={() => run(async () => { await api('/automation', { ...review.body, fingerprint: review.fingerprint }); setReview(undefined); setData(await api('/automation')); }, 'Draft saved; approve and activate it separately')}>Save draft</button>

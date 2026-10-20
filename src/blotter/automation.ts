@@ -34,7 +34,7 @@ export async function previewAutomation(db: D1Database, actor: Actor, body: Data
   const definition={clientIds,trigger,action}, jobs=await rows(db,"SELECT j.id,j.title,c.name client,j.revision FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE j.client_id IN (SELECT value FROM json_each(?)) AND j.status<>'signed_off' ORDER BY j.id",JSON.stringify(clientIds));
   const previews=[];
   if(action.kind==='reminder') for(const j of jobs) {try {previews.push({jobId:j.id,...await previewReminder(db,actor,j.id,action)});} catch(e) { previews.push({jobId:j.id,error:e instanceof Error?e.message:'Cannot send'}); }}
-  return {name,budget,definition,jobs,previews,description:`${trigger.kind} → ${action.kind}; at most ${budget} lifetime attempts; future work for these clients is included`,fingerprint:await digest(JSON.stringify({name,budget,definition,jobs,previews}))};
+  return {name,budget,definition,jobs,previews,description:`At most ${budget} lifetime attempts, including failures; future work for these explicitly selected clients is included`,fingerprint:await digest(JSON.stringify({name,budget,definition,jobs,previews}))};
 }
 export async function saveAutomation(db:D1Database,actor:Actor,body:Data) {
   const p=await previewAutomation(db,actor,body);insist(body.fingerprint===p.fingerprint,'Preview the current rule and scope first',409);
