@@ -1474,7 +1474,7 @@ test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and 
   assert.deepEqual((await h.json('/capacity?week=2029-03-05', undefined, preparer)).people.map(p => p.email), ['preparer@example.test']);
 });
 
-test('CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
+test('NOTIFY-001 / CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
   for (const [address, name] of [['leaver@example.test', 'Lee Leaver'], ['cover@example.test', 'Cam Cover']]) await h.json('/team', { email: address, name, role: 'preparer' }, h.owner);
   const close = await h.json('/templates', { name: 'Coverage close', recurrence: 'monthly', steps: 'unused', requests: 'Bank statements', tasks: [{ label: 'Close the month', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 120 }] }, h.owner);
   const ret = await h.json('/templates', { name: 'Coverage return', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms', tasks: [{ label: 'Prepare return', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 240, afterJob: { templateId: close.id, gate: 'signed_off' } }] }, h.owner);

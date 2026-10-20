@@ -3,7 +3,7 @@ import { runtimeBindings, type Bindings } from '../auth.server';
 import { sendMail } from './documents';
 import { firmSettings, localClock } from './firm';
 import { id, now, rows, stmt, type Actor, type Data } from './model';
-import { notificationAuthority } from './notification-authority';
+import { notificationAuthority, notificationJobAuthority } from './notification-authority';
 import { notificationDefaults, personalSettings } from './notification-settings';
 import { syncNotificationEvents, dueNotifications } from './notification-events';
 import { deliverDigests } from './notification-digest';
@@ -24,10 +24,11 @@ export async function reviewRequested(env: Bindings, jobId: string, by: string) 
 }
 export async function myNotifications(db: D1Database, actor: Actor) {
   const alerts=await rows(db, `SELECT n.*,
-    (SELECT c.name||' · '||j.title||' · '||j.period_label FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE j.id=n.job_id) item_label,
+    (SELECT c.name||' · '||j.title||' · '||j.period_label FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE j.id=n.job_id AND ${notificationJobAuthority}) item_label,
+    CASE WHEN ${notificationJobAuthority} THEN n.job_id ELSE NULL END authorized_job_id,
     (SELECT j.id FROM b_threads t JOIN b_jobs j ON j.client_id=t.client_id WHERE t.id=n.thread_id AND (?<>'preparer' OR j.preparer_email=?) ORDER BY j.created_at DESC LIMIT 1) linked_job_id
     FROM b_notifications n WHERE n.to_email=? AND ${notificationAuthority} ORDER BY n.created_at DESC,n.id DESC LIMIT 200`,actor.role,actor.email,actor.email);
-  return alerts.map(n=>({...n,job_id:n.job_id??n.linked_job_id}));
+  return alerts.map(n=>({...n,job_id:n.authorized_job_id??n.linked_job_id}));
 }
 export function outsideQuiet(settings:Data,at:Date) {
   const c=localClock({...settings,notificationStart:settings.quietStart,notificationEnd:settings.quietEnd},at);
@@ -45,7 +46,8 @@ export async function deliverAlerts(env: Bindings, at = new Date()) {
     if(!localClock(firm,at).notificationsAllowed||!outsideQuiet(personal,at))continue;
     const claimed=await stmt(db,`UPDATE b_notifications AS n SET delivery='pending' WHERE n.id=? AND n.delivery IN ('in-app only','deferred: outside firm notification hours') AND ${notificationAuthority}`,n.id).run();
     if(!claimed.meta.changes)continue;
-    const link=n.job_id?`${bindings.AUTH_ORIGIN}/app?job=${encodeURIComponent(n.job_id)}`:`${bindings.AUTH_ORIGIN}/app`;
+    const canOpen=n.job_id&&await stmt(db,`SELECT 1 FROM b_notifications n WHERE n.id=? AND ${notificationJobAuthority}`,n.id).first();
+    const link=canOpen?`${bindings.AUTH_ORIGIN}/app?job=${encodeURIComponent(n.job_id)}`:`${bindings.AUTH_ORIGIN}/app`;
     const delivery=await sendMail(bindings,n.id,n.to_email,safeSubject(n.summary),`${n.summary}\n\nOpen Blotter: ${link}`);
     await stmt(db,'UPDATE b_notifications SET delivery=? WHERE id=?',delivery,n.id).run();
     if(n.kind!=='delivery_failed' && /^(failed|not sent|rejected)/.test(delivery)) await stmt(db,"INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at) VALUES(?,?,'delivery_failed',?,'Staff notification delivery failed','in-app only',?)",'failed:'+n.id,n.to_email,n.job_id,at.toISOString()).run();
