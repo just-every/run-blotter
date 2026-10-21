@@ -1,0 +1,56 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {harness} from './harness.mjs';
+import {rateWorkTypeJourney} from './rate-worktypes-ui.mjs';
+
+test('TIME-003 / BASE-001 work-type rates distinguish shared templates, keep precedence and effective snapshots through restore', async()=>{
+ const h=await harness();let restored;
+ try{
+  for(const [email,role] of [['pat@example.test','preparer'],['riley@example.test','reviewer']])await h.json('/team',{email,name:email.split('@')[0],role},h.owner);
+  const pat=await h.login('pat@example.test');
+  const template=await h.json('/templates',{name:'Individual return',recurrence:'annual',steps:'Prepare return',requests:'W-2'},h.owner);
+  const ordinary=await h.json('/work-types',{name:'1040 standard',templateId:template.id},h.owner);
+  const complex=await h.json('/work-types',{name:'1040 complex',templateId:template.id},h.owner);
+  const independent=await h.json('/work-types',{name:'Advisory without a default template'},h.owner);
+  const client=await h.json('/clients',{name:'Cedar Grove LLC'},h.owner);
+  const start=async(type,year)=>h.json('/jobs',{clientId:client.id,templateId:template.id,workTypeId:type.id,periodStart:`${year}-01-01`,dueDate:`${year+1}-04-15`,dueNote:'Firm recorded target',preparerEmail:'pat@example.test',reviewerEmail:'riley@example.test'},h.owner);
+  const [standard,advanced,advisory]=[await start(ordinary,2024),await start(complex,2025),await start(independent,2026)];
+  const card=(body,who=h.owner,status=200)=>h.json('/team/rates',{effectiveFrom:'2026-01-01',...body},who,status);
+  const time=(job,date='2026-10-21')=>h.json(`/jobs/${job.id}/time`,{date,minutes:60,description:'Prepare client work'},pat);
+  const price=async(job,expected,date)=>{const entry=await time(job,date);assert.deepEqual([entry.rateCents,entry.rateSource,entry.amountCents],expected);return entry;};
+  await card({scope:'role',role:'preparer',rateCents:9000});
+  await price(standard,[9000,'role',9000]);
+  await card({scope:'staff',email:'pat@example.test',rateCents:10000});
+  await price(standard,[10000,'staff',10000]);
+  await card({scope:'service',templateId:template.id,rateCents:12000});
+  await price(standard,[12000,'service',12000]);
+  await card({scope:'service',workTypeId:ordinary.id,rateCents:15000});
+  await card({scope:'service',workTypeId:complex.id,rateCents:22000});
+  await card({scope:'service',templateId:template.id,rateCents:13000,effectiveFrom:'2026-10-01'});
+  await price(standard,[15000,'service',15000]);
+  const past=await price(advanced,[22000,'service',22000]);
+  await card({scope:'service',workTypeId:independent.id,rateCents:17000});
+  await price(advisory,[17000,'service',17000]);
+  await card({scope:'client',clientId:client.id,rateCents:25000});
+  await price(advanced,[25000,'client',25000]);
+  await card({scope:'client_service',clientId:client.id,templateId:template.id,rateCents:27000});
+  await price(advanced,[27000,'client_service',27000]);
+  await card({scope:'client_service',clientId:client.id,workTypeId:complex.id,rateCents:30000});
+  await price(advanced,[30000,'client_service',30000]);
+  await price(standard,[27000,'client_service',27000]);
+  await card({scope:'client_service',clientId:client.id,workTypeId:complex.id,rateCents:33000,effectiveFrom:'2026-11-01'});
+  await price(advanced,[30000,'client_service',30000],'2026-10-31');
+  await price(advanced,[33000,'client_service',33000],'2026-11-01');
+  assert.equal((await h.json(`/jobs/${advanced.id}`,undefined,pat)).time.find(t=>t.id===past.id).rate_cents,22000);
+  await card({scope:'service',workTypeId:complex.id,rateCents:1},pat,403);
+  await card({scope:'service',workTypeId:'missing',rateCents:1},h.owner,404);
+  await card({scope:'service',workTypeId:complex.id,templateId:template.id,rateCents:1},h.owner,400);
+  await rateWorkTypeJourney(h,complex,client);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  const rates=(await restored.json('/team',undefined,restored.owner)).rates;
+  assert.ok(rates.some(r=>r.work_type_id===complex.id&&r.rate_cents===33000));
+  assert.ok(rates.some(r=>r.template_id===template.id&&r.work_type_id===null&&r.rate_cents===13000));
+  assert.equal((await restored.json(`/jobs/${advanced.id}`,undefined,restored.owner)).time.find(t=>t.id===past.id).rate_cents,22000);
+ }finally{await restored?.close();await h.close();}
+});

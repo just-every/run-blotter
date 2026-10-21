@@ -27,7 +27,7 @@ export async function taskOrdinal(db: D1Database, j: Data, value: unknown) {
 
 /** A new time entry on a job at the rate in force on its date, as guarded statements. */
 export async function newEntry(db: D1Database, actor: Actor, j: Data, body: Data) {
-  const day = date(body.date), basis = { date: day, clientId: j.client_id, templateId: j.template_id, email: actor.email, role: actor.role };
+  const day = date(body.date), basis = { date: day, clientId: j.client_id, templateId: j.template_id, workTypeId: j.work_type_id, email: actor.email, role: actor.role };
   const rate = await resolveRate(db, basis);
   insist(rate, `Ask the principal to set a rate in force on ${day} for you, your role, this service or this client`, 409);
   insist(rate.currency === j.currency, `The rate is in ${rate.currency}; set a ${j.currency} rate for this job`, 409);
