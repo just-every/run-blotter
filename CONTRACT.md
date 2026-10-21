@@ -281,13 +281,13 @@ Current statuses start from the 16 October code audit at `890a91aaf2c7dc4b2e513e
 
 ## Status
 
-Judged from the code and tests at commit `28e80faa8b49db16638d24764005fc81ebd1b3ec` (21 October 2026).
+Judged from the code and tests at commit `1e99cb9379483702eeed481bb58d78c381e5cb2b` (21 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 49 | 15 | 42 | 106 |
-| All | 49 | 15 | 42 | 106 |
+| Target and push further | 50 | 14 | 42 | 106 |
+| All | 50 | 14 | 42 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -304,7 +304,7 @@ Judged from the code and tests at commit `28e80faa8b49db16638d24764005fc81ebd1b3
 | `WORK-001` | Reusable engagement templates | target | done | `src/blotter/clients.ts`; `src/blotter/jobs.ts`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-002` | Automatic recurring work and roll forward | target | done | `src/blotter/recurrence.ts`; `src/blotter/jobs.ts`; `src/server.ts`; `wrangler.jsonc`; `migrations/core/0028_recurrence.sql`; `src/ui/recurrence.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-003` | Dependencies and conditional workflow | target | done | `src/blotter/flow.ts`; `src/blotter/tasks.ts`; `src/blotter/jobs.ts`; `migrations/core/0027_task_flow.sql`; `src/ui/flow.tsx`; `tests/blotter/flows.test.mjs` |  |
-| `WORK-004` | Bulk work scheduling and assignment | target | partial | `src/blotter/bulk.ts`; `src/ui/bulk.tsx`; `tests/blotter/flows.test.mjs` | Bulk scheduling, group segments and guarded reassignment exist. Existing journeys do not assert group selection preselecting clients, principal-as-both-roles bulk refusal, or the alternative single-job acknowledged principal self-review. |
+| `WORK-004` | Bulk work scheduling and assignment | target | done | `src/blotter/bulk.ts`; `src/ui/bulk.tsx`; `tests/blotter/flows.test.mjs`; `tests/blotter/work-bulk.test.mjs`; `tests/blotter/work-bulk-ui.mjs` (named WORK-004 public-door journeys) |  |
 | `WORK-005` | Firm work queues | target | done | `src/blotter/clients.ts`; `src/ui/jobs.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-006` | Personal plans boards and calendars | target | done | `src/blotter/planner.ts`; `src/blotter/filters.ts`; `src/blotter/statuses.ts`; `migrations/core/0041_plans_boards.sql`; `src/ui/plan.tsx`; `src/ui/calendar.tsx`; `src/ui/statuses.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `WORK-007` | Firm work types and status model | target | done | `src/blotter/statuses.ts`; `src/blotter/jobs.ts`; `src/ui/statuses.tsx`; `migrations/core/0038_work_types_statuses.sql`; `migrations/core/0039_saved_views.sql`; `migrations/core/0040_job_roles.sql`; `tests/blotter/flows.test.mjs` |  |

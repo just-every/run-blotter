@@ -1,6 +1,6 @@
 // Bulk scheduling and reassignment (WORK-004): preview every impacted job and
 // conflict, then commit exactly that preview.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, type Row, type Run, day } from './common';
 
 const ACTION: Record<string, string> = { create: 'Will be created', exists: 'Already exists, kept', excluded: 'Excluded', conflict: 'Conflict', change: 'Will change', unchanged: 'No change' };
@@ -21,13 +21,14 @@ function Outcome({ plan, commit, run }: { plan: Row; commit: () => Promise<void>
 
 export function ScheduleBulk({ state, run, segment }: { state: Row; run: Run; segment?: Row[] }) {
   const [plan, setPlan] = useState<Row>(), [request, setRequest] = useState<Row>();
+  useEffect(() => { setPlan(undefined); setRequest(undefined); }, [segment]);
   const people: Row[] = state.people;
   if (!state.clients.length || !state.templates.length) return <Empty>Add clients and a template first.</Empty>;
   // A filtered segment (CRM-002) narrows the table to its clients, already included.
   const shown: Row[] = segment ?? state.clients;
   const pick = (name: string, roles: string[], label?: string) => <select name={name} aria-label={label} defaultValue=""><option value="">Resolve (last period, then default)</option>{people.filter(p => roles.includes(p.role)).map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select>;
   return <>
-    <Form key={shown.map(c => c.id).join()} label="Preview" submit={async data => run(async () => {
+    <Form key={`${segment ? 'segment' : 'all'}:${shown.map(c => c.id).join(',')}`} label="Preview" submit={async data => run(async () => {
       const clients = shown.filter((c: Row) => data['include:' + c.id]).map((c: Row) => ({ clientId: c.id, exclude: data['include:' + c.id] === 'exclude', preparerEmail: data['preparer:' + c.id], reviewerEmail: data['reviewer:' + c.id] }));
       const body = { templateId: data.templateId, periodStart: data.periodStart, dueDate: data.dueDate, dueNote: data.dueNote, preparerEmail: data.preparerEmail, reviewerEmail: data.reviewerEmail, clients };
       setRequest(body); setPlan(await api('/bulk/schedule/preview', body));
