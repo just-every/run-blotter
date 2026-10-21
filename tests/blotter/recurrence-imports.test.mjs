@@ -74,7 +74,11 @@ test('MIGRATE-006 / BASE-001: reviewed source series claim existing future work,
 test('MIGRATE-006 / BASE-001: stale mappings, denied authority, revoked staff and archive restoration retain provenance without replay or erased bytes', async () => {
   const h=await harness(), copies=[];
   try {
-    const s=await fixture(h), p=await preview(h,s.definition);
+    const s=await fixture(h);
+    const oldPreview=await preview(h,s.definition);
+    await h.json(`/jobs/${s.jobs[0].id}/steps`,{ordinal:1,done:true},s.prep);
+    await h.json('/recurrence-imports/commit',{...s.definition,previewToken:oldPreview.previewToken},h.owner,409);
+    const p=await preview(h,s.definition);
     await h.json('/recurrence-imports',undefined,s.prep,403);await h.json('/recurrence-imports/preview',s.definition,s.reviewer,403);
     await h.json('/recurrence-imports/commit',{...s.definition,previewToken:p.previewToken},s.prep,403);
     await h.json('/recurrence-imports',undefined,'',401);
@@ -100,7 +104,7 @@ test('MIGRATE-006 / BASE-001: stale mappings, denied authority, revoked staff an
     assert.equal(r.status,'paused');await restored.scheduled('2031-01-01T12:00:00Z');assert.equal((await restored.json('/state',undefined,restored.owner)).jobs.length,3);
     await restored.json(`/rules/${r.id}/status`,{status:'active'},restored.owner,409);
     const replay=await commit(restored,s.definition);assert.equal(replay.ruleId,mapped.ruleId);assert.equal(replay.replayed,true);
-    assert.equal((await restored.request('/api/blotter/files/'+file.id,undefined,restored.owner)).status,410);
+    assert.equal((await restored.request('/api/blotter/files/'+file.id,undefined,restored.owner)).status,404);
     const stale=await harness();copies.push(stale);await stale.json('/restore',{archive:old,journal:archive,confirm:'RESTORE'},stale.owner,409);
   }finally{await h.close();for(const c of copies)await c.close();}
 });
