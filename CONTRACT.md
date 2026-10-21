@@ -281,7 +281,7 @@ Current statuses start from the 16 October code audit at `890a91aaf2c7dc4b2e513e
 
 ## Status
 
-Judged from the code and tests at commit `0a4edfd5df9140afcb85d7d664191b9084487cee` (21 October 2026).
+Judged from the code and tests at commit `da29fef8be3a77932606d8cd7c0e991e1211a11b` (22 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
