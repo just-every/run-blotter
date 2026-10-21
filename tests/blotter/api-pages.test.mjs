@@ -106,7 +106,7 @@ test('API-002 native time pages: descending keys, inclusive dates, own-person sc
   await h.json(path('time'), undefined, '', 401);
 });
 
-test('API-002 native client pages: exact fields, tied Unicode names, scope, bound cursors and read-only traversal', async () => {
+test('API-002 / BASE-001 native client pages: exact fields, tied Unicode names, scope, bound cursors and read-only traversal', async () => {
   const made = [];
   for (const name of ['Client ties café', 'Client ties café', 'Ω client', '𐀀 client', '😀 client']) {
     made.push(await h.json('/clients', { name }, h.owner));
@@ -160,9 +160,19 @@ test('API-002 native client pages: exact fields, tied Unicode names, scope, boun
   await h.json(path('clients'), undefined, '', 401, { authorization: 'Bearer ' + key.key });
   assert.deepEqual(await h.json('/state', undefined, h.owner), before);
   assert.deepEqual((await h.json('/team', undefined, h.owner)).audit, audit);
+  // The same public read door retains portable client fields, never source credentials.
+  const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+  assert.ok(!archive.includes(key.key));
+  const restored = await harness();
+  try {
+    await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    assert.deepEqual((await restored.json(path('clients', { limit: 100 }), undefined, restored.owner)).items, listed);
+    await restored.json(path('clients'), undefined, prep, 401);
+    await restored.json(path('clients'), undefined, '', 401, { authorization: 'Bearer ' + key.key });
+  } finally { await restored.close(); }
 });
 
-test('API-002 client cursors lose job/task authority and follow current roles, MFA and member status', async () => {
+test('API-002 / BASE-001 client cursors lose job/task authority and follow current roles, MFA and member status', async () => {
   const address = 'pages-reader@example.test';
   await h.json('/team', { email: address, name: 'Page reader', role: 'preparer' }, h.owner);
   await h.json('/team/invite', { email: address }, h.owner);
