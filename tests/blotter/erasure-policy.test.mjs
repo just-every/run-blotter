@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
 import { retentionJourney } from './erasure-ui.mjs';
-import { build, finishOpenWork, approvedExport, SENTINEL, IDENTITY, b64, enroll, totp } from './erasure-fixture.mjs';
+import { build, contact, finishOpenWork, approvedExport, signedOff, team, SENTINEL, IDENTITY, b64, enroll, totp } from './erasure-fixture.mjs';
 
 const file = (h, id, who = h.owner) => h.request('/api/blotter/files/' + id, undefined, who);
 const rowsOf = archive => archive.trim().split('\n').map(JSON.parse).filter(p => p.kind === 'part').flatMap(p => p.items).filter(i => i.kind === 'row');
@@ -140,6 +140,15 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.ok(JSON.stringify(marketing).includes('withdraw'), 'The withdrawal carried to the other client contact');
     await h.json('/marketing-consents', { contactId: s.other.contacts[0].id, kind: 'grant', source: 'staff_evidence', actedAt: '2026-10-02T10:00:00Z', evidence: 'Asked at the front desk', wording: 'Email me offers', wordingVersion: 'v1' }, h.owner, 409);
 
+    // The mapped marketing import consults the erased withdrawals too: only an opt-in captured after the erasure could be mapped.
+    const fields = ['client_id', 'client_name', 'entity_type', 'contact_name', 'contact_email', 'contact_roles', 'authorized', 'email_consent', 'tags', 'marketing_opt_in', 'marketing_captured_at', 'marketing_wording', 'marketing_wording_version', 'marketing_language', 'marketing_evidence'];
+    const grant = (n, email) => ({ client_id: 'mapped-' + n, client_name: 'Mapped client ' + n, entity_type: 'individual', contact_name: 'Mapped ' + n, contact_email: email, contact_roles: 'primary', authorized: 'true', email_consent: 'true', tags: 'tax',
+      marketing_opt_in: 'true', marketing_captured_at: '2026-10-01T10:00:00-04:00', marketing_wording: 'Yes email me the newsletter.', marketing_wording_version: 'v1', marketing_language: 'en', marketing_evidence: 'Signed consent record' });
+    const csv = rows => [fields.join(','), ...rows.map(r => fields.map(k => JSON.stringify(String(r[k] ?? ''))).join(','))].join('\n');
+    const mapped = rows => h.json('/import/preview', { csv: csv(rows), filename: 'Consent.csv', mapping: Object.fromEntries(fields.map(k => [k, k])) }, h.owner);
+    assert.ok((await mapped([grant(1, 'alex@example.test')])).summary.errors.some(e => /withdrew consent before a client erasure/.test(e)));
+    assert.deepEqual((await mapped([grant(2, 'newcomer@example.test')])).summary.errors, []);
+
     // Ordinary surfaces: a random Erased client label, the legal name only behind the audited retained-records door.
     const erased = await h.json(`/clients/${id}/detail`, undefined, h.owner);
     assert.match(erased.name, /^Erased client [0-9a-f]{8}$/);
@@ -223,4 +232,69 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.match((await target.json(`/clients/${id}/detail`, undefined, target.owner)).name, /^Erased client /);
     assert.equal((await target.json('/erasure-journal', undefined, target.owner)).receipts.length, 1);
   } finally { await h.close(); await target.close(); }
+});
+
+test('ERASURE-002 / holds by client and record class leave named exceptions, refuse the single-item doors inside them, merged clients are erased with their survivor, and an unclassified store stops the preview', async () => {
+  const h = await harness();
+  try {
+    const s = await team(h);
+    const client = await h.json('/clients', { name: 'Maple Works LLC' }, h.owner);
+    const twin = await h.json('/clients', { name: 'Maple Works Inc' }, h.owner);
+    const template = await h.json('/templates', { name: 'Close', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank statement\nPayroll register' }, h.owner);
+    const job = await h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart: '2026-01-01', dueDate: '2027-04-15', dueNote: 'Target', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+    const fileId = await signedOff(h, s, job, { name: 'return.txt', mime: 'text/plain', contentBase64: b64('Return bytes') });
+    const credential = await h.json(`/clients/${client.id}/credentials`, { label: 'State portal', username: 'maple-user', password: 'synthetic-blotter-1', notes: '' }, h.owner);
+    const comparison = await h.json(`/clients/compare?a=${client.id}&b=${twin.id}`, undefined, h.owner);
+    const merge = await h.json('/clients/merge', { survivor: client.id, merged: twin.id, keep: Object.fromEntries(comparison.fields.filter(f => !f.same && f.key !== 'source').map(f => [f.key, 'survivor'])) }, h.owner);
+    const detail = await h.json(`/clients/${client.id}/detail`, undefined, h.owner);
+    await h.json(`/clients/${client.id}/lifecycle`, { lifecycle: 'archived', revision: detail.revision }, h.owner);
+    const erase = (planHash, name = 'Maple Works LLC') => h.json(`/clients/${client.id}/erasure`, { planHash, confirm: name, reason: 'Client left' }, h.owner);
+    const preview = () => h.json(`/clients/${client.id}/erasure/preview`, undefined, h.owner);
+    const hold = (extra, who = 'owner@example.test') => h.json(`/clients/${client.id}/retention`, { kind: 'hold', reason: 'Counsel asked', owner: who, reviewDate: '2999-01-01', ...extra }, h.owner);
+
+    // A held record class: its records stay, the preview names the hold, and the single-item door is refused naming it.
+    const vaultHold = await hold({ scope: 'class', class: 'vault' });
+    const firmHold = await hold({ scope: 'class', class: 'message', firmWide: true });
+    const firm = await h.json('/retention/holds', undefined, h.owner);
+    assert.deepEqual(firm.holds.map(x => [x.class, x.client_name, x.reviewDue]).sort(), [['message', null, false], ['vault', 'Maple Works LLC', false]]);
+    const held = await preview();
+    assert.ok(held.classes.find(c => c.class === 'vault').held >= 1 && held.classes.find(c => c.class === 'vault').holds[0].id === vaultHold.id);
+    assert.match((await h.json(`/credentials/${credential.id}/erase`, { confirm: 'State portal', reason: 'Try' }, h.owner, 409)).error, /ERASURE-002 hold/);
+    await h.json(`/clients/${client.id}/retention`, { scope: 'file', targetId: fileId, kind: 'hold', reason: 'Exhibit', owner: 'owner@example.test', reviewDate: '2999-01-01' }, h.owner);
+    assert.match((await h.json(`/files/${fileId}/erase`, { confirm: 'return.txt', reason: 'Try' }, h.owner, 409)).error, /Exhibit/);
+
+    // A hold on the whole client: access links are revoked, everything else stays, and the client is not erased.
+    const clientHold = await hold({ scope: 'client' });
+    const frozen = await preview();
+    assert.ok(frozen.eligible && frozen.classes.every(c => c.removed === 0 && c.marker === 0 || c.class === 'link'), 'Under a client hold only access revocation runs');
+    await erase(frozen.planHash);
+    assert.equal((await h.json(`/clients/${client.id}/detail`, undefined, h.owner)).name, 'Maple Works LLC');
+    assert.ok(!(await h.json(`/clients/${client.id}/credentials`, undefined, h.owner)).credentials[0].erased_at);
+
+    // Release the holds: the client, its credential and the merged record are erased; the merge cannot be undone.
+    for (const m of [clientHold, vaultHold, firmHold]) await h.json(`/retention/${m.id}/release`, { reason: 'Matter closed' }, h.owner);
+    const fileHold = (await h.json(`/clients/${client.id}/retention`, undefined, h.owner)).marks.find(m => m.scope === 'file');
+    await h.json(`/retention/${fileHold.id}/release`, { reason: 'Matter closed' }, h.owner);
+
+    // An unclassified table, or an unclassified byte column, stops the preview: the registry fails closed.
+    await h.db.prepare('CREATE TABLE b_mystery(id TEXT, payload_base64 TEXT)').run();
+    const stopped = await preview();
+    assert.equal(stopped.eligible, false);
+    assert.match(stopped.blockers[0], /Unclassified.*table b_mystery/);
+    await h.db.prepare('DROP TABLE b_mystery').run();
+    await h.db.prepare('ALTER TABLE b_notices ADD COLUMN extra_bytes TEXT').run();
+    assert.match((await preview()).blockers[0], /column b_notices\.extra_bytes/);
+    await h.db.prepare('ALTER TABLE b_notices DROP COLUMN extra_bytes').run();
+
+    const ready = await preview();
+    assert.deepEqual(ready.blockers, []);
+    const receipt = await erase(ready.planHash);
+    assert.ok(receipt.steps.some(x => x.table === 'b_client_merges'));
+    assert.ok(!(await h.json(`/clients/${client.id}/credentials`, undefined, h.owner)).credentials[0].sealed);
+    assert.match((await h.db.prepare('SELECT name FROM b_clients WHERE id=?').bind(twin.id).first()).name, /^Erased client [0-9a-f]{8}$/, 'The merged record is erased with its survivor');
+    const history = JSON.stringify(await h.json('/clients/merges', undefined, h.owner));
+    assert.ok(!history.includes('Maple Works'), 'The merge history keeps ids with the personal values replaced');
+    await h.json(`/clients/merges/${merge.id}/undo`, {}, h.owner, 409);
+    assert.equal((await h.json('/erasure-journal', undefined, h.owner)).receipts.length, 2, 'The held run and the completed run are both journaled');
+  } finally { await h.close(); }
 });

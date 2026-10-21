@@ -111,6 +111,10 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { cls: 'structure', table: 'b_client_group_members', action: 'delete', label: 'Group memberships', where: `client_id=${s.c}` },
     { cls: 'structure', table: 'b_client_import_bindings', action: 'delete', label: 'Import source bindings', where: `client_id=${s.c}` },
     { cls: 'api', table: 'b_api_client_writes', action: 'delete', label: 'API idempotency receipts', where: `client_id=${s.c}` },
+    // Erasure covers the survivor and every record merged into it; the merge journal keeps ids and times with the personal values replaced.
+    { cls: 'structure', table: 'b_client_merges', action: 'redact', label: 'Merge history: chosen and prior values replaced (ids, authors and times stay)', where: `survivor_id=${s.c} AND (choices<>'{}' OR survivor_before<>'{}' OR survivor_seen<>'{}' OR authority<>'')`, set: `choices='{}',authority='',survivor_before='{}',survivor_seen='{}'` },
+    { cls: 'structure', table: 'b_clients', action: 'redact', label: 'Clients merged into this one: name, identifiers and fields (a random Erased client label)', where: `merged_into=${s.c} AND erased_at IS NULL`,
+      set: `name=${opaque('Erased client ')},abn='',contact_name='',contact_email='',source='erased',fields='{}',tags='[]',ssn_last4='',erased_at=${at}` },
     { cls: 'structure', table: 'b_duplicate_dismissals', action: 'delete', label: 'Duplicate-review dismissals', where: `client_a=${s.c} OR client_b=${s.c}` },
   ];
   if (audited) all.push({ cls: 'audit', table: 'b_audit', action: 'redact', label: 'Audit detail naming the client or its contacts (actor, action, object and time stay)', where: audited.where, set: audited.set });

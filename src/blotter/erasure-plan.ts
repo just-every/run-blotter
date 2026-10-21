@@ -18,6 +18,7 @@ async function auditedValues(db: D1Database, clientId: string) {
   const client = (await rows(db, 'SELECT * FROM b_clients WHERE id=?', clientId))[0];
   const identity = client ? await identityOf(db, client) : null;
   const found = [...await rows(db, 'SELECT name v,contact_name w,contact_email x FROM b_clients WHERE id=?', clientId),
+    ...await rows(db, 'SELECT name v,contact_name w,contact_email x FROM b_clients WHERE merged_into=?', clientId),
     ...await rows(db, "SELECT name v,first_name||' '||last_name w,email x,phone y FROM b_client_contacts WHERE client_id=?", clientId)].flatMap(r => Object.values(r));
   if (identity) found.push(identity.taxpayerId, ...Object.values(identity.address));
   return [...new Set(found.map(v => String(v ?? '').trim()).filter(v => v.length >= 4 && !people.has(v.toLowerCase()) && !/^Erased (contact|client)/.test(v)))].sort();
@@ -82,7 +83,7 @@ export async function plan(db: D1Database, actor: Actor, clientId: string) {
   if (client.erased_at) blockers.push('This client was already erased');
   if (client.lifecycle !== 'archived') blockers.push('Archive the client before requesting erasure');
   blockers.push(...await openWork(db, clientId));
-  if (client.merged_into || await stmt(db, 'SELECT 1 FROM b_client_merges WHERE survivor_id=? OR merged_id=?', clientId, clientId).first()) blockers.push('This client is part of a merge; its history cannot be erased until ct rules on merge history (ERASURE-002)');
+  if (client.merged_into) blockers.push('This client was merged into another. Erase the surviving client: erasure covers it and every record merged into it.');
   // Which marks preserve what, so the preview can say held with the hold.
   const holders = (cls: string) => marks.filter(m => m.scope === 'client' || (m.scope === 'class' && m.class === cls) || m.scope === 'job' || m.scope === 'file').map(m => ({ id: m.id, scope: m.scope, kind: m.kind, owner: m.owner, reason: m.reason }));
   const classes = (Object.keys(CLIENT_CLASSES) as ClientClass[]).map(cls => {

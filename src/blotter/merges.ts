@@ -161,6 +161,7 @@ export async function undoMerge(db: D1Database, actor: Actor, mergeId: string) {
   insist(m, 'Merge not found', 404);
   insist(!m.authority || actor.role === 'owner', 'Only the principal can undo a merge made on their authority', 403);
   const state = (await merges(db, actor)).find(x => x.id === m.id)!;
+  insist(!await stmt(db, 'SELECT 1 FROM b_clients WHERE id IN (?,?) AND erased_at IS NOT NULL', m.survivor_id, m.merged_id).first(), 'This merge cannot be undone: the client was erased (ERASURE-002)', 409);
   insist(state.undo !== 'undone', 'This merge was already undone', 409);
   insist(state.undo !== 'expired', 'The 30-day undo window for this merge has passed', 409);
   insist(state.undo === 'available', 'The surviving client changed after the merge, so it can no longer be undone', 409);

@@ -11,7 +11,7 @@ import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, t
 
 /** Triggers that forbid rewriting history; suspended only inside one approved erasure batch and recreated verbatim. */
 export const GUARDS = ['b_deliverable_versions_immutable', 'b_expenses_immutable', 'b_marketing_consents_update', 'b_notice_events_immutable', 'b_notices_closed',
-  'b_portal_items_closed', 'b_thread_messages_immutable', 'b_threads_resolved', 'b_time_immutable'];
+  'b_portal_items_closed', 'b_thread_messages_immutable', 'b_threads_resolved', 'b_time_immutable', 'b_clients_merged', 'b_client_merges_history'];
 
 export async function erasurePreview(db: D1Database, actor: Actor, clientId: string) {
   human(actor); need(actor, 'owner');
