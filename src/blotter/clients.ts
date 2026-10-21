@@ -28,7 +28,7 @@ export function clientTaxId(body: Data) {
   return body.ein !== undefined ? ein(body.ein) : abn(body.abn);
 }
 
-export async function addClient(db: D1Database, actor: Actor, body: Data) {
+export async function prepareClient(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const client = {
     id: id(), name: text(body.name, 'Client name', 200), abn: clientTaxId(body),
@@ -40,14 +40,21 @@ export async function addClient(db: D1Database, actor: Actor, body: Data) {
   insist(body.contacts === undefined || (Array.isArray(body.contacts) && body.contacts.length <= 50), 'Record at most 50 contacts');
   const contacts = (body.contacts ?? []).map((c: Data) => contactValues(c));
   insist(!contacts.length || (!client.contactName && !client.contactEmail), 'Use contacts or the legacy single contact fields, not both');
-  await atomic(db, actor, [
+  const statements = [
     stmt(db, 'INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,?,?,?,?,?,?,?,?)', client.id, client.name, client.abn, client.contactName, client.contactEmail, 'native', id(), now(), JSON.stringify(client.fields), JSON.stringify(client.tags)),
     stmt(db, 'UPDATE b_clients SET entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=? WHERE id=?', entity.entity_type,entity.partner_email,entity.team,entity.services,entity.owner_client_id,entity.ssn_last4,client.id),
     ...(client.contactName || client.contactEmail ? [contactInsert(db,actor,client.id,legacyContactValues(client.contactName,client.contactEmail),'legacy:'+client.id)] : []),
     ...contacts.map((c: Data) => contactInsert(db, actor, client.id, c)),
     audit(db, actor, 'client.added', client.id, client.name),
-  ]);
-  return { ...client, ...await clientDetail(db, actor, client.id), fields:client.fields, tags:client.tags };
+  ];
+  return { client, statements };
+}
+
+
+export async function addClient(db: D1Database, actor: Actor, body: Data) {
+  const { client, statements } = await prepareClient(db, actor, body);
+  await atomic(db, actor, statements);
+  return { ...client, ...await clientDetail(db, actor, client.id), fields: client.fields, tags: client.tags };
 }
 
 

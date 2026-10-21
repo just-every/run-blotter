@@ -65,6 +65,50 @@ later pages. Restart pagination for a fresh traversal. This partial slice
 provides native session reads; external integration keys/scopes, webhooks and
 Zapier are not provided by these endpoints.
 
+## Native billing export history (API-002 partial)
+
+`GET /api/blotter/v1/billing/exports` uses the native principal/reviewer
+session and MFA checks. It returns native export metadata and snapshot strings,
+plus explicit snapshot currency (historical currency-less snapshots retain
+AUD), excluding CSV bytes. Download approved CSVs through the existing
+`GET /api/blotter/exports/:id/csv` door. Preparers cannot read financial history.
+
+The `{items,nextCursor}` envelope and limits follow the read pages above.
+Optional `status` is `draft`, `approved` or `void`; `from` and `to` are inclusive
+UTC preparation days (`YYYY-MM-DD`). SQL keysets order by `prepared_at DESC`,
+then `id DESC`. Cursors bind route, filters and staff email/role; each request
+resolves current membership and financial authority. Pages are live views and
+create no data or grants. Restored pages retain the original billing snapshots.
+
+## Native replay-safe client creation (API-002 partial)
+
+`POST /api/blotter/v1/clients` uses the same native principal/reviewer session,
+MFA, same-origin request check, client/contact validation and required custom
+fields as the app. Supply a private cookie jar, the installation's Origin,
+JSON body and an `Idempotency-Key` header (1–128 ASCII letters, digits, dots,
+underscores, colons or hyphens). Agent bearer keys do not authenticate it.
+
+```sh
+curl -sS --cookie "$BLOTTER_COOKIE_JAR" \
+  'https://YOUR-INSTALLATION/api/blotter/v1/clients' \
+  -H 'Origin: https://YOUR-INSTALLATION' -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: create-cedar-2026' \
+  --data '{"name":"Cedar River Tax LLC","ein":"92-7654321","services":["1120-S"]}'
+```
+
+The response is the native client detail plus `clientId` and `replayed`.
+Keep the same key for the same intent: repeated or concurrent requests create
+one client, contacts and creation audit. JSON object property order does not
+matter; array order and exact scalar values do. A conflicting payload returns
+409; validation failure does not consume the key. Keys are scoped to the
+current actor email. A replay rechecks current membership, role and MFA and
+returns current client data rather than an old cached response; if the client
+has merged away, native not-found behavior refuses it without creating another.
+Receipts retain only key/request digests, actor, client reference and time and
+survive archive restore. They contain no raw request or credential. Whole-client
+receipt retention/erasure is inherited by ERASURE-002. This door adds no
+integration credential, task action, webhook or general rate-limit contract.
+
 ## Agent preparations
 
 An agent works with a key that the principal or a reviewer creates in
