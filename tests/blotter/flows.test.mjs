@@ -1623,7 +1623,8 @@ test('SEARCH-001 firm-wide search: a client by last name (with a typo), a phrase
   await h.json(`/jobs/${theirs.id}/threads`, { anchor: 'client', title: 'Trust distribution minutes', body: 'Trustee resolution on the beneficiary distribution is missing' }, reviewer);
   const find = (q, cookie = reviewer, extra = '') => h.json(`/search?q=${encodeURIComponent(q)}${extra}`, undefined, cookie);
   await h.json('/search?q=', undefined, reviewer, 400);
-  await h.json('/search?q=x&type=invoice', undefined, reviewer, 400);
+  await h.json('/search?q=x&type=unsupported', undefined, reviewer, 400);
+  assert.deepEqual((await h.json('/search?q=x&type=invoice', undefined, reviewer)).results, []);
   // A client by last name, tolerating a typo, opened through the client history door.
   for (const q of ['okonkwo', 'Okonkow']) assert.ok((await find(q)).results.some(r => r.type === 'client' && r.id === okonkwo.id), q);
   const byName = await find('Amara Okonkwo');
