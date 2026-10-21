@@ -31,6 +31,8 @@ export async function observedCopies(db: D1Database, clientId: string): Promise<
   const csvs = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='export.downloaded' AND object_id IN
     (SELECT s.export_id FROM b_export_sources s WHERE s.source_key IN (SELECT 'time:'||id FROM b_time WHERE job_id IN ${jobs}) OR s.source_key IN (SELECT 'exp:'||id FROM b_expenses WHERE client_id=${c}) OR s.source_key IN (SELECT 'fee:'||id FROM b_jobs WHERE client_id=${c})) GROUP BY actor`);
   out.push(...named(csvs, who => `Billing CSVs downloaded by staff (${who})`, 'billing-downloads', who => `${who} (the named downloader)`));
+  const reports=await rows(db,`SELECT actor,count(*) n FROM b_audit WHERE action='report.client_downloaded' AND object_id=${c} GROUP BY actor`);
+  out.push(...named(reports,who=>`Client data in report CSVs/PDFs downloaded by staff (${who})`,'report-downloads',who=>`${who} (the named downloader)`));
   const archives = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='archive.downloaded' AND at>=(SELECT created_at FROM b_clients WHERE id=${c}) GROUP BY actor`);
   out.push(...named(archives, who => `Owner archives downloaded (${who})`, 'archive-downloads', who => `${who} (the named downloader)`));
   const reads = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='agent.read' AND instr(detail,${c})>0 GROUP BY actor`);

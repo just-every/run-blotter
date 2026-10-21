@@ -1,8 +1,9 @@
+import {invoiceReportRows} from './report-invoices';
 import { performanceReport } from './reports';
 import { audit, type Actor, type Data } from './model';
 
 const cell = (v:unknown) => {let s=String(v??'');if(/^[=+\-@]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';};
-function lines(r:Data) {
+function lines(r:Data,origin:string) {
   return [ ['generated_at',r.generatedAt],['basis',r.basis],['period_from',r.filters.from],['period_to',r.filters.to],
     ...Object.entries(r.totals),
     ['job_id','client','service','stage','due_date','overdue','blocked','turnaround_minutes','review_returns','currency','unbilled_cents','approved_export_cents','margin_before_staff_cost_cents','source'],
@@ -11,7 +12,7 @@ function lines(r:Data) {
     ...r.money.map((m:Data)=>[m.currency,m.approvedTimeCents,m.fixedFeeCents,m.expenseChargeCents,m.expenseCostCents,m.marginBeforeStaffCostCents,m.unbilledCents,m.approvedExportCents]),
     ['work_type','stage','sub_status','entries','current','minutes','source_job_ids'],...r.statuses.map((s:Data)=>[s.workType,s.stage,s.subStatus,s.entries,s.current,s.minutes,s.jobIds.join(' ')]),
     ['person','available_minutes','demand_minutes','approved_minutes','billable_minutes','utilization_percent'],...r.people.map((p:Data)=>[p.email,p.availableMinutes,p.demandMinutes,p.approvedMinutes,p.billableMinutes,p.utilizationPercent]),
-    ['request_id','job_id','asked_at','responded_at','delay_minutes'],...r.jobs.flatMap((j:Data)=>j.requestDelays.map((q:Data)=>[q.id,j.id,q.asked_at,q.responded_at,q.delayMinutes])) ];
+    ['request_id','job_id','asked_at','responded_at','delay_minutes'],...r.jobs.flatMap((j:Data)=>j.requestDelays.map((q:Data)=>[q.id,j.id,q.asked_at,q.responded_at,q.delayMinutes])), ...invoiceReportRows(r.invoiceReporting,origin) ];
 }
 // A paginated text PDF, using built-in Helvetica. UTF-16 text is retained in the CSV;
 // PDF uses printable ASCII transliteration and declares that rendering in its header.
@@ -38,8 +39,9 @@ function pdf(rows:unknown[][]) {
 export async function downloadReport(db:D1Database,actor:Actor,query:Data,format:string,origin:string) {
   const r=await performanceReport(db,actor,query);
   for(const j of r.jobs)j.source=origin+j.source;
-  const data=lines(r);
-  await audit(db,actor,'report.exported','report',`${format}; ${JSON.stringify(r.filters)}`).run();
+  const data=lines(r,origin);
+  await db.batch([audit(db,actor,'report.exported','report',`${format}; ${JSON.stringify(r.filters)}`),
+    ...[...new Set<string>(r.jobs.map((j:Data)=>j.client_id))].map(clientId=>audit(db,actor,'report.client_downloaded',clientId,JSON.stringify({format,filters:r.filters}))) ]);
   return new Response(format==='pdf'?pdf([['Blotter performance report (ASCII rendering; CSV retains original text)'],...data]):data.map(row=>row.map(cell).join(',')).join('\r\n')+'\r\n',{
     headers:{'content-type':format==='pdf'?'application/pdf':'text/csv; charset=utf-8','content-disposition':`attachment; filename="blotter-performance.${format==='pdf'?'pdf':'csv'}"`,'cache-control':'no-store'} });
 }

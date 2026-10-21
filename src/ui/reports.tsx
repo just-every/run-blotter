@@ -1,3 +1,4 @@
+import {ReportInvoices} from './report-invoices';
 import { ReportFinancialGroups } from './report-financials';
 import { ReportSources, ReportCapacitySources } from './report-sources';
 import { useEffect, useState } from 'react';
@@ -23,7 +24,7 @@ export function Reports({state,run,tick,open}:{state:Row;run:Run;tick:number;ope
         <p>Margin before staff cost {money(j.financial.marginBeforeStaffCostCents,j.financial.currency)} · unbilled {money(j.financial.unbilledCents,j.financial.currency)} · approved exports {money(j.financial.approvedExportCents,j.financial.currency)}</p>
         <ReportSources job={j}/></details>)}</div>
       <h3>Money by stored currency</h3>{report.money.map((m:Row)=><p key={m.currency}>{m.currency}: approved time {money(m.approvedTimeCents,m.currency)} · earned fixed fees {money(m.fixedFeeCents,m.currency)} · approved expense charges {money(m.expenseChargeCents,m.currency)} · expense costs {money(m.expenseCostCents,m.currency)} · margin before staff cost {money(m.marginBeforeStaffCostCents,m.currency)}</p>)}
-      <ReportFinancialGroups report={report} open={open}/>
+      <ReportFinancialGroups report={report} open={open}/><ReportInvoices data={report.invoiceReporting} open={open}/>
       <h3>Status history by work type</h3>{report.statuses.map((s:Row,n:number)=><p key={n}>{s.workType} · {s.label}{s.subStatus?' / '+s.subStatus:''}: {s.current} current · {s.entries} entries · {s.minutes} min</p>)}
       <h3>Capacity and utilization</h3>{report.people.map((p:Row)=><details key={p.email}><summary>{p.name}: {p.billableMinutes} billable min / {p.availableMinutes} available min · {p.utilizationPercent??'—'}% · {p.demandMinutes} planned min</summary><ReportCapacitySources person={p}/></details>)}
       <Form label="Save report view" submit={f=>run(()=>api('/reports/views',{...filters,name:f.name}),'Report view saved')}><Field label="Report view name" name="name"/></Form>

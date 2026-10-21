@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { PDFDocument } from 'pdf-lib';
 import { harness } from './harness.mjs';
 import { invoiceJourney } from './invoices-ui.mjs';
+import {assertInvoiceReport} from './invoice-report-proof.mjs';
 import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -63,12 +64,15 @@ test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and 
     assert.deepEqual(p.snapshot.lines.map(l => l.source_key).sort(), input.sourceKeys.toSorted());
     await h.json('/invoices', { ...input, previewHash: 'stale' }, h.owner, 409);
     const invoice = await h.json('/invoices', { ...input, previewHash: p.previewHash }, h.owner);
+    const pendingDeposit=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
+    assert.ok(pendingDeposit.blockers.some(b=>/unapplied deposit/i.test(b)),'A draft reservation does not settle the recorded deposit for erasure');
     await h.json('/exports', { title: 'Duplicate invoice source', sourceKeys: [`time:${hourly.id}`] }, h.owner, 409);
     await h.json('/invoices', { ...input, previewHash: p.previewHash }, h.owner, 409);
     await h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Review' }, s.reviewer, 403);
     await h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: 'stale', reviewNote: 'Review' }, h.owner, 409);
     const issued = await issue(h, invoice);
     await h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Duplicate event' }, h.owner, 409);
+    await assertInvoiceReport(h,s,invoice.id);
     const document = await pdf(h, invoice.id), again = await pdf(h, invoice.id);
     assert.deepEqual(document, again); assert.equal(hash(document), issued.sha256);
     assert.equal(document.subarray(0, 5).toString(), '%PDF-');
@@ -131,6 +135,7 @@ test('BILL-002 / BASE-001: monthly events generate one draft per entitlement, pr
     const prorated = await authorize(h, s, { kind: 'proration', reference: 'PRORATION-DEC-1', description: 'Explicit ten-day scope adjustment', amountCents: 4500, authorization: 'Principal and client agreed this exact ten-day charge; no automatic proration' });
     assert.equal((await h.json('/invoices', undefined, h.owner)).sources.find(l => l.source_key === prorated.sourceKey).amount_cents, 4500);
     await issue(h, first); const originalPdf = await pdf(h, first.id);
+    await assertInvoiceReport(h,s,first.id);
     if (process.env.BLOTTER_INVOICE_EVIDENCE) await invoiceJourney(h, s, rule);
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     restored = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-3' } });
