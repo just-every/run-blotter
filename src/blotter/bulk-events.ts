@@ -6,7 +6,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { verifyMailWebhook } from '../mail.server.mjs';
 import { withdrawStatements } from './marketing-consent';
-import { notify } from './notifications';
+import { deliverAlerts, notify } from './notifications';
 import { Fault, id, insist, now, stmt, type Data } from './model';
 
 const TYPES: Record<string, 'delivered' | 'bounced' | 'complained'> = { 'email.delivered': 'delivered', 'email.bounced': 'bounced', 'email.complained': 'complained' };
@@ -37,10 +37,16 @@ export async function providerEvent(env: Bindings, request: Request) {
     stmt(db, `UPDATE b_bulk_recipients SET status=? WHERE id=? AND ${NEXT[type]}`, type, r.id),
     stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), 'mail provider', `bulk.${type}`, r.job_id ?? r.client_id, `${r.class}: ${detail} for ${r.address}`, at),
   ];
-  if (hard) statements.push(stmt(db, 'INSERT OR IGNORE INTO b_mail_suppressions(address,reason,source_event,at) VALUES(?,?,?,?)', r.address, 'hard bounce', eventId, at));
+  if (hard) statements.push(stmt(db, 'INSERT OR IGNORE INTO b_mail_suppressions(address,reason,source_event,at) VALUES(?,?,?,?)', r.address, 'hard bounce', eventId, at),
+    stmt(db, `INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at)
+      SELECT ?,?,'delivery_failed',?,'Bulk message bounced','in-app only',?
+      WHERE EXISTS(SELECT 1 FROM oa_operators WHERE email=? AND role='owner' AND status='active')
+         OR EXISTS(SELECT 1 FROM b_members WHERE email=? AND active=1)`,
+      'bulk-bounced:' + r.id, r.owner_email, r.job_id, at, r.owner_email, r.owner_email));
   if (type === 'complained') statements.push(...withdrawStatements(db, r.address, 'provider_complaint', 'mail provider', `provider complaint ${eventId}`, r.client_id));
   try { await db.batch(statements); }
   catch (error) { if (/UNIQUE/i.test(String(error))) return { eventId, duplicate: true }; throw error; }
+  if (hard) await deliverAlerts(env);
   if (type === 'complained') await notify(env, [r.owner_email], { kind: 'delivery_failed', jobId: r.job_id, summary: `A recipient complained about your ${r.class} message; marketing is withdrawn for that address` });
   return { eventId, type, recipient: r.id };
 }

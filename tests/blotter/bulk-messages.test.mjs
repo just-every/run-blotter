@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { harness } from './harness.mjs';
+import { bulkFailureJourney } from './bulk-failure-ui.mjs';
 
 const key = randomBytes(24), contact = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
 // The provider edge is faked: events are signed exactly as Resend (Svix) signs them.
@@ -11,8 +12,9 @@ const signed = (event, id) => {
 };
 const firm = { name: 'Cardinal Tax & Books', ein: '12-3456789', entity: 'LLC', address: '100 Main Street', city: 'Raleigh', state: 'NC', zip: '27601', fiscalYearEnd: '12-31', services: 'Individual tax', currency: 'USD', timeZone: 'America/New_York', notificationStart: '08:00', notificationEnd: '18:00', calendars: [] };
 
-test('MSG-002 / BASE-001 bulk engagement and marketing messages: segment preview, exclusions, approval, throttled rechecked dispatch, provider events, unsubscribe, corrections and restore hold', async () => {
-  const h = await harness({ bindings: { MAIL_WEBHOOK_SECRET: 'whsec_' + key.toString('base64') } }); let restored;
+test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: segment preview, exclusions, approval, throttled rechecked dispatch, provider events, unsubscribe, corrections and restore hold', async () => {
+  let refusedAddress = '';
+  const h = await harness({ bindings: { MAIL_WEBHOOK_SECRET: 'whsec_' + key.toString('base64') }, mailResponse: (mail, mails) => mail.to.includes(refusedAddress) ? Response.json({ message: 'Provider refused recipient' }, { status: 422 }) : Response.json({ id: 'test-mail-' + mails.length }) }); let restored;
   try {
     for (const [email, role] of [['reviewer@example.test', 'reviewer'], ['prep@example.test', 'preparer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }
     const review = await h.login('reviewer@example.test'), prep = await h.login('prep@example.test');
@@ -74,6 +76,8 @@ test('MSG-002 / BASE-001 bulk engagement and marketing messages: segment preview
     await h.json(`/bulk-messages/${preview.batch.id}/run`, {}, review); await h.scheduled(Date.now() + 120_000);
     assert.equal(h.mails.length - before, 33);
 
+    assert.equal((await h.json('/notifications', undefined, review)).filter(n => n.kind === 'delivery_failed').length, 0, 'Unsent consent holds are not delivery failures');
+
     // Provider events: signed delivery and hard bounce, once each, filed to that client's history.
     const sent0 = detail.recipients.find(r => r.client_id === clients[0].id), sent1 = detail.recipients.find(r => r.client_id === clients[1].id);
     const delivered = { type: 'email.delivered', created_at: new Date().toISOString(), data: { email_id: sent0.provider_message_id, to: ['p00@example.test'] } };
@@ -82,6 +86,13 @@ test('MSG-002 / BASE-001 bulk engagement and marketing messages: segment preview
     assert.equal((await (await h.request('/api/blotter/mail/events', delivered, '', signed(delivered, 'evt-1'))).json()).type, 'delivered');
     assert.equal((await (await h.request('/api/blotter/mail/events', bounce, '', signed(bounce, 'evt-2'))).json()).type, 'bounced');
     assert.ok((await (await h.request('/api/blotter/mail/events', bounce, '', signed(bounce, 'evt-2'))).json()).duplicate);
+    assert.equal((await h.request('/api/blotter/mail/events', bounce, '', signed(bounce, 'evt-2-again'))).status, 200);
+    const bounceAlerts = (await h.json('/notifications', undefined, review)).filter(n => n.kind === 'delivery_failed');
+    assert.equal(bounceAlerts.length, 1, 'Repeated hard-bounce events create one owned failure notice');
+    assert.equal(bounceAlerts[0].delivery, 'not enabled: in-app only');
+    assert.equal((await h.json('/notifications', undefined, prep)).filter(n => n.kind === 'delivery_failed').length, 0);
+    assert.equal((await h.json('/notifications', undefined, h.owner)).filter(n => n.kind === 'delivery_failed').length, 0);
+    await h.json(`/notifications/${bounceAlerts[0].id}/read`, { read: true }, prep, 404);
     detail = await h.json(`/bulk-messages/${preview.batch.id}`, undefined, h.owner);
     assert.equal(detail.recipients.find(r => r.id === sent0.id).status, 'delivered'); assert.equal(detail.recipients.find(r => r.id === sent1.id).status, 'bounced');
     const history1 = await h.json(`/clients/${clients[1].id}/history?kind=messages`, undefined, h.owner);
@@ -166,6 +177,40 @@ test('MSG-002 / BASE-001 bulk engagement and marketing messages: segment preview
 
     // Reminders, organizer invitations and automation send engagement class only.
     await h.json('/automation/preview', { name: 'Marketing rule', clientIds: [clients[0].id], trigger: { kind: 'due', at: '2027-01-04T00:00:00Z' }, action: { kind: 'reminder', templateId: news.id }, budget: 1 }, h.owner, 409);
+
+    // NOTIFY-001: provider refusals use the owner's chosen channel, safe content and durable once-only delivery.
+    await h.json('/firm/settings', { ...firm, notificationStart: '00:00', notificationEnd: '00:00' }, h.owner);
+    await h.json('/notifications/settings', { timeZone: 'America/New_York', quietStart: '00:00', quietEnd: '00:00', digestTime: '07:00', digestEnabled: false, leadDays: 1, emailKinds: ['delivery_failed'] }, review);
+    await h.json(`/clients/${clients[3].id}/profile`, { tags: 'failure-proof' }, h.owner);
+    refusedAddress = 'p03@example.test';
+    const failuresBefore = (await h.json('/notifications', undefined, review)).filter(n => n.kind === 'delivery_failed').length;
+    const failurePreview = await h.json('/bulk-messages/preview', { ...engagement, tag: 'failure-proof', idempotencyKey: 'provider-refusal' }, review);
+    assert.equal(failurePreview.recipients.length, 1);
+    await h.json(`/bulk-messages/${failurePreview.batch.id}/schedule`, { fingerprint: failurePreview.batch.fingerprint }, review);
+    const failureMailStart = h.mails.length;
+    const failedBatch = await h.json(`/bulk-messages/${failurePreview.batch.id}/run`, {}, review);
+    assert.equal(failedBatch.recipients[0].status, 'failed');
+    const failureNotices = (await h.json('/notifications', undefined, review)).filter(n => n.kind === 'delivery_failed');
+    assert.equal(failureNotices.length, failuresBefore + 1);
+    const staffMail = h.mails.slice(failureMailStart).filter(m => m.to.includes('reviewer@example.test'));
+    assert.equal(staffMail.length, 1);
+    assert.match(staffMail[0].subject, /delivery failed/i);
+    assert.ok(!/Client|p03|1040|12-3456789|Provider refused/.test(staffMail[0].subject), 'Failure subjects omit client content and provider errors');
+    await h.json(`/bulk-messages/${failurePreview.batch.id}/run`, {}, review);
+    await h.restart(); await h.scheduled(Date.now());
+    assert.equal(h.mails.slice(failureMailStart).filter(m => m.to.includes('reviewer@example.test')).length, 1);
+    assert.equal((await h.json('/notifications', undefined, review)).filter(n => n.kind === 'delivery_failed').length, failuresBefore + 1);
+    refusedAddress = '';
+    await bulkFailureJourney(h,review);
+
+    // A signed bounce for an inactive batch owner never creates a delayed notice for their next activation.
+    await h.json('/team', { email: 'reviewer@example.test', name: 'reviewer', role: 'reviewer', active: false }, h.owner);
+    const inactiveBounce = { ...bounce, data: { ...bounce.data, email_id: sent0.provider_message_id, to: ['p00@example.test'] } };
+    assert.equal((await h.request('/api/blotter/mail/events', inactiveBounce, '', signed(inactiveBounce, 'evt-inactive'))).status, 200);
+    await h.json('/notifications', undefined, review, 401);
+    await h.json('/team', { email: 'reviewer@example.test', name: 'reviewer', role: 'reviewer', active: true }, h.owner);
+    const rejoined = await h.login('reviewer@example.test');
+    assert.equal((await h.json('/notifications', undefined, rejoined)).filter(n => n.kind === 'delivery_failed').length, failuresBefore + 1);
 
     // Archive: consent travels, tokens do not, batches return paused, and marketing stays off until the principal confirms.
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();

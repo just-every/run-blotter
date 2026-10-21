@@ -8,6 +8,7 @@
 // An engagement template using {{portal_link}} attaches the request: each
 // recipient gets its own secure upload link for its basis job, issued at send.
 import { runtimeBindings, type Bindings } from '../auth.server';
+import { deliverAlerts } from './notifications';
 import { operatorMail } from '../mail.server.mjs';
 import { demoEffect } from '../modules/demo/index.mjs';
 import { firmSettings } from './firm';
@@ -308,12 +309,18 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
       if (r.organizer_id) await stmt(db, 'UPDATE b_organizer_deliveries SET delivery=? WHERE id=?', outcome.delivery, 'bulk:' + r.id).run();
       sent++;
       await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status=?,subject=?,body=?,delivery=?,provider_message_id=? WHERE id=? AND attempt_id=? AND status='claimed'", outcome.status, storedSubject, stored, outcome.delivery, outcome.providerMessageId, r.id, attemptId),
-        stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), b.owner_email, outcome.status === 'accepted' ? 'bulk.sent' : 'bulk.failed', historyObject(r), `${b.class}: "${storedSubject}" to ${r.address}: ${outcome.delivery}`, now())]);
+        stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), b.owner_email, outcome.status === 'accepted' ? 'bulk.sent' : 'bulk.failed', historyObject(r), `${b.class}: "${storedSubject}" to ${r.address}: ${outcome.delivery}`, now()),
+        ...(outcome.status === 'failed' && !r.organizer_id ? [stmt(db, `INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at)
+          SELECT ?,?,'delivery_failed',?,'Bulk message delivery failed','in-app only',?
+          WHERE EXISTS(SELECT 1 FROM oa_operators WHERE email=? AND role='owner' AND status='active')
+             OR EXISTS(SELECT 1 FROM b_members WHERE email=? AND active=1)`,
+          'bulk-failed:' + r.id, b.owner_email, r.job_id, now(), b.owner_email, b.owner_email)] : [])]);
     }
     const left = await stmt(db, "SELECT count(*) n FROM b_bulk_recipients WHERE batch_id=? AND status IN ('pending','claimed')", b.id).first<Data>();
     if (!Number(left?.n)) await stmt(db, "UPDATE b_bulk_batches SET status='sent' WHERE id=? AND status='sending'", b.id).run();
     results.push({ id: b.id, sent, held, remaining: Number(left?.n ?? 0) });
   }
+  await deliverAlerts(env);
   return { batches: results };
 }
 
