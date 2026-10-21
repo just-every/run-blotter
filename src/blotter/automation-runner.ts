@@ -64,6 +64,7 @@ export async function runAutomation(env:Bindings,at=new Date()) {
           const current=(await listOrganizers(db,sourceActor,j.id)).organizers.find(o=>(o as Data).id===submission.organizer_id);
           insist(current && current.completeness.unresolved.length===0,'Organizer still has unanswered required questions',409);
         }
+        if(t.kind==='signature_complete')insist(await stmt(db,"SELECT 1 FROM b_signatures WHERE ('signature:'||id||':'||attempt)=? AND status='completed' AND erased_at IS NULL",e.source).first(),'Signature source was erased or superseded',409);
         if(t.kind==='tasks_complete') insist(!await stmt(db,`SELECT 1 FROM b_job_steps s WHERE s.job_id=? AND ${pendingStep('s')}`,j.id).first(),'Tasks are no longer complete',409);
         const actor:Actor={id:principal.id,email:principal.email,name:principal.display_name,role:'owner',channel:'agent',automation:{ruleId:r.id,attemptId,jobId:j.id,revision:j.revision,external:d.action.kind==='reminder'}};
         const [check,release]=guard(db,`EXISTS(SELECT 1 FROM b_automation_rules r JOIN oa_operators o ON o.id=r.principal_id WHERE r.id=? AND r.status='active' AND r.used<r.budget AND o.status='active' AND o.role='owner' AND o.email=r.approved_by) AND EXISTS(SELECT 1 FROM b_automation_attempts WHERE id=? AND status='pending')`,r.id,attemptId);

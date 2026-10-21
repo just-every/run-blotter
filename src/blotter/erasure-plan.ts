@@ -1,3 +1,4 @@
+import {signatureOpenWork} from './signatures-retention';
 import { invoiceOpenBalances } from './invoices-sources';
 // ERASURE-002 dry run (ct 22 Oct 2026): every record class with its action (removed; payload
 // replaced by the erasure marker; retained with class, clock and expiry; held with the hold; or
@@ -28,7 +29,7 @@ async function auditedValues(db: D1Database, clientId: string) {
 /** The marks that preserve records: the client, record classes (this client or the whole firm), jobs and files. */
 async function heldBy(db: D1Database, clientId: string, today: string) {
   const marks = await rows(db, `SELECT id,scope,target_id,class,kind,until,owner,review_date,reason,placed_by FROM b_retention_marks WHERE (client_id=? OR (client_id IS NULL AND scope='class')) AND ${active(today)} ORDER BY placed_at,id`, clientId);
-  const held: Held = { client: marks.some(m => m.scope === 'client'), classes: marks.filter(m => m.scope === 'class').map(m => String(m.class)), jobs: marks.filter(m => m.scope === 'job').map(m => String(m.target_id)), files: marks.filter(m => m.scope === 'file').map(m => String(m.target_id)) };
+  const held: Held = { client: marks.some(m => m.scope === 'client'), classes: marks.filter(m => m.scope === 'class').map(m => String(m.class)), jobs: marks.filter(m => m.scope === 'job').map(m => String(m.target_id)), files: marks.filter(m => m.scope === 'file'||m.scope==='signature').map(m => String(m.target_id)) };
   return { marks, held };
 }
 
@@ -56,6 +57,7 @@ async function openWork(db: D1Database, clientId: string) {
   if (organizers) out.push(`${organizers} open organizer request(s) the client has not answered. Wait for the answer or take the organizer back first.`);
   const proposals = await count(db, 'b_proposals', `status='pending' AND json_extract(payload,'$.jobId') IN ${jobs}`) + await count(db, 'b_automation_attempts', `job_id IN ${jobs} AND status IN ('pending','running','dispatching')`);
   if (proposals) out.push(`${proposals} pending agent run(s) for this client. Decide or let them finish first.`);
+  out.push(...await signatureOpenWork(db,clientId));
   for(const item of await invoiceOpenBalances(db,clientId))out.push(`Open balance: ${item.title} (${item.balance_cents} USD cents). Resolve it before erasure.`);
   for(const r of await rows(db,"SELECT title FROM b_invoice_retainers WHERE client_id=? AND status='active'",clientId))out.push(`Active invoice retainer: ${r.title}. Pause or cancel it first.`);
   return out;

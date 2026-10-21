@@ -9,7 +9,7 @@ import { clocks, localDate, periods, type Clocked } from './retention-clock';
 import { atomic, audit, date, human, id, insist, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 const COPY_KINDS = ['document', 'provider', 'buyer'] as const;
-const SCOPES = ['client', 'job', 'file', 'engagement', 'export', 'class'] as const;
+const SCOPES = ['client', 'job', 'file', 'engagement', 'export','signature', 'class'] as const;
 export const SUBJECTS = ['client', 'contact', 'prospect'] as const;
 
 /** Today in the firm's time zone, the calendar every clock and mark is read in. */
@@ -22,14 +22,14 @@ async function clientRow(db: D1Database, clientId: string) {
   return c;
 }
 
-export type Target = { clientIds: string[]; jobId?: string; fileId?: string; engagementId?: string; exportId?: string; cls?: ClientClass };
+export type Target = { clientIds: string[]; jobId?: string; fileId?: string; engagementId?: string; exportId?: string; signatureId?:string; cls?: ClientClass };
 /** Active marks that cover a target: its client, its job, file or record, or its record class for this client or the whole firm. */
 export async function marksCovering(db: D1Database, target: Target, kinds: ('hold' | 'retain')[] = ['hold', 'retain']) {
   const today = await firmToday(db);
   const marks = await rows(db, `SELECT * FROM b_retention_marks WHERE ${active(today)} ORDER BY placed_at,id`);
   return marks.filter(m => kinds.includes(m.kind) && (
     (m.scope === 'client' && target.clientIds.includes(m.client_id)) || (m.scope === 'job' && m.target_id === target.jobId) || (m.scope === 'file' && m.target_id === target.fileId)
-    || (m.scope === 'engagement' && m.target_id === target.engagementId) || (m.scope === 'export' && m.target_id === target.exportId)
+    || (m.scope==='signature'&&m.target_id===target.signatureId) || (m.scope === 'engagement' && m.target_id === target.engagementId) || (m.scope === 'export' && m.target_id === target.exportId)
     || (m.scope === 'class' && m.class === target.cls && (!m.client_id || target.clientIds.includes(m.client_id)))));
 }
 const holdName = (m: Data) => `${m.kind === 'hold' ? 'hold' : 'retention'} ${String(m.id).slice(0, 8)} (${m.reason}; owner ${m.owner ?? m.placed_by})`;
@@ -98,9 +98,10 @@ export async function placeMark(db: D1Database, actor: Actor, clientId: string, 
     target = text(body.targetId, 'Record');
     const found = {
       job: ['SELECT 1 FROM b_jobs WHERE id=? AND client_id=?', 'Job'], file: ['SELECT 1 FROM b_files f JOIN b_jobs j ON j.id=f.job_id WHERE f.id=? AND j.client_id=?', 'File'],
+      signature:['SELECT 1 FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=? AND j.client_id=?','Signed document'],
       engagement: ['SELECT 1 FROM b_engagements WHERE id=? AND client_id=?', 'Engagement'],
       export: ["SELECT 1 FROM b_exports WHERE id=? AND status='approved' AND EXISTS(SELECT 1 FROM b_export_sources s WHERE s.export_id=b_exports.id AND (s.source_key IN (SELECT 'time:'||t.id FROM b_time t JOIN b_jobs j ON j.id=t.job_id WHERE j.client_id=?2) OR s.source_key IN (SELECT 'exp:'||e.id FROM b_expenses e WHERE e.client_id=?2) OR s.source_key IN (SELECT 'fee:'||j.id FROM b_jobs j WHERE j.client_id=?2)))", 'Billing export'],
-    }[body.scope as 'job' | 'file' | 'engagement' | 'export'];
+    }[body.scope as 'job' | 'file' | 'engagement' | 'export' | 'signature'];
     insist(await stmt(db, found[0], target, clientId).first(), `${found[1]} not found for this client`, 404);
   }
   if (body.kind === 'hold') {

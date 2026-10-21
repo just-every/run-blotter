@@ -4,6 +4,7 @@ import { notificationAuthority } from './notification-authority';
 import { atomic, audit, human, insist, integer, need, now, stmt, text, type Actor, type Data } from './model';
 
 export const kinds = [
+  ['signature','Signature request updated',false],
   ['work_assigned','Work assigned',false],['task_assigned','Task assigned',false],
   ['review_requested','Review requested',true],['review_returned','Review returned',true],
   ['mention','Mention',true],['correction','Correction requested',true],['reply','Discussion reply',true],['resolved','Discussion resolved',true],

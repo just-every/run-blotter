@@ -13,7 +13,7 @@ import { eligible } from './jobs';
 /** Each history kind and the audit actions it covers. */
 const KINDS: Record<string, string> = {
   clients: "a.action LIKE 'client.%'",
-  documents: "a.action LIKE 'request.%' OR a.action LIKE 'file.%' OR a.action LIKE 'deliverable.%'",
+  documents: "a.action LIKE 'request.%' OR a.action LIKE 'file.%' OR a.action LIKE 'deliverable.%' OR a.action LIKE 'signature.%'",
   assignments: "a.action IN ('job.started','job.rolled_forward','job.reassigned','job.task_access','client.merged','client.merge_undone') OR a.action LIKE 'step.%' OR a.action LIKE 'coverage.%'",
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
   deadlines: "a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",

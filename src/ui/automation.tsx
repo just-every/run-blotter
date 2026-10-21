@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, prose, Status, when, who, type Row, type Run, day } from './common';
 
-const TRIGGERS: Record<string, string> = { tasks_complete: 'All tasks complete', status: 'Job reaches a status', file: 'File received', request_complete: 'Document requests complete', organizer_complete: 'Organizer complete', proposal: 'Preparation decided', due: 'At a recorded time' };
+const TRIGGERS: Record<string, string> = { signature_complete:'Signature completed', tasks_complete: 'All tasks complete', status: 'Job reaches a status', file: 'File received', request_complete: 'Document requests complete', organizer_complete: 'Organizer complete', proposal: 'Preparation decided', due: 'At a recorded time' };
 const ACTIONS: Record<string, string> = { status: 'Change status', reminder: 'Send a templated reminder', assign: 'Assign a person', request: 'Create a document request', rollforward: 'Roll work forward' };
 const INITIAL: Row = { name: '', clientIds: [], triggerKind: 'tasks_complete', triggerStage: 'waiting', triggerSub: '', at: '', actionKind: 'status', actionStage: 'in_review', actionSub: '', templateId: '', role: 'preparer', email: '', label: '', dueDate: '', dueNote: '', budget: '1' };
 

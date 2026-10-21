@@ -1,3 +1,4 @@
+import {signatureOutsideCopies} from './signatures-retention';
 import { invoiceObservedCopies } from './invoices-erasure';
 // ERASURE-002 observed outside copies (ct 22 Oct 2026). Blotter names every copy of a client's
 // data it can observe leaving the installation, with its owner, and never claims to delete one:
@@ -14,7 +15,7 @@ const named = (rowsOf: Data[], label: (owner: string) => string, source: string,
 
 export async function observedCopies(db: D1Database, clientId: string): Promise<Observed[]> {
   const c = lit(clientId), jobs = `(SELECT id FROM b_jobs WHERE client_id=${c})`, files = `(SELECT file_key FROM b_document_sources WHERE client_id=${c})`;
-  const out: Observed[] = [...await invoiceObservedCopies(db,clientId)];
+  const out: Observed[] = [...await signatureOutsideCopies(db,clientId) as Observed[],...await invoiceObservedCopies(db,clientId)];
   const relay = Number((await rows(db, `SELECT
     (SELECT count(*) FROM b_reminders WHERE job_id IN ${jobs} AND delivery LIKE 'accepted by %')
     +(SELECT count(*) FROM b_organizer_deliveries WHERE organizer_id IN (SELECT id FROM b_job_organizers WHERE job_id IN ${jobs}) AND delivery LIKE 'accepted by %')

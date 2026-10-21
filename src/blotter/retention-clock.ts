@@ -1,3 +1,4 @@
+import {signatureClocks} from './signatures-retention';
 import { invoiceClocks } from './invoices-erasure';
 // ERASURE-002 retention clocks (ct 22 Oct 2026). Each retained record class has a period in
 // whole years (default 7, minimum 1; SIGN-001's IRS e-file authorizations at least 3) and a
@@ -65,7 +66,7 @@ export function addYears(day: string, years: number) {
 }
 const latest = (days: (string | null | undefined)[]) => days.filter((d): d is string => !!d).sort().at(-1) ?? null;
 
-export type Clocked = { jobId?:string; kind: 'job' | 'engagement' | 'export' | 'invoice'; id: string; cls: RetainedClass; clientIds: string[]; label: string; clock: string; years: number; expiry: string };
+export type Clocked = { jobId?:string; kind: 'job' | 'engagement' | 'export' | 'invoice' | 'signature'; id: string; cls: RetainedClass; clientIds: string[]; label: string; clock: string; years: number; expiry: string };
 
 /** Every retained record with its computed clock and expiry. Records past their date are listed by the expiry module, never erased here. */
 export async function clocks(db: D1Database): Promise<Clocked[]> {
@@ -93,6 +94,7 @@ export async function clocks(db: D1Database): Promise<Clocked[]> {
     const clock = latest(events)!;
     out.push({ kind: 'export', id: x.id, cls: 'billing', clientIds, label: x.title, clock, years: years.billing, expiry: addYears(clock, years.billing) });
   }
+  out.push(...await signatureClocks(db,tz,years.signed_documents));
   out.push(...await invoiceClocks(db,tz,years.billing));
   return out;
 }

@@ -1,3 +1,4 @@
+import { SignatureRequests } from './signatures';
 import { JobDeadline } from './deadlines';
 import { OrganizerStaff } from './organizers';
 import { DocumentPackets } from './document-packets';
@@ -28,6 +29,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
   const canReview = job.status === 'review' && (actor.role === 'owner' || actor.email === (job.reviewed_at ? job.partner_email : job.reviewer_email));
   const selfReview = actor.email === job.preparer_email || actor.email === job.submitted_by;
   return <div className="stack">
+    {job.access==='full'&&<SignatureRequests detail={detail} run={run} tick={tick} readOnly={!!actor.readOnly}/>}
     <button className="quiet back" onClick={back}>← All jobs</button>
     <Blotter className="job-working"><section className="panel">
       <div className="split">

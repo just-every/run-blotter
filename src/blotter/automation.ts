@@ -16,7 +16,7 @@ export async function previewAutomation(db: D1Database, actor: Actor, body: Data
   const clientIds = [...new Set(body.clientIds.map(String))].sort();
   for (const c of clientIds) insist(await stmt(db,"SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL",c).first(),'Choose active clients',409);
   const input = body.trigger ?? {}, act = body.action ?? {};
-  insist(['status','tasks_complete','file','request_complete','organizer_complete','proposal','due'].includes(input.kind),'Choose a native trigger');
+  insist(['status','tasks_complete','file','request_complete','organizer_complete','signature_complete','proposal','due'].includes(input.kind),'Choose a native trigger');
   const trigger:Data = {kind:input.kind};
   if(input.kind==='status') {
     insist(STAGES.includes(input.stage),'Choose the trigger stage'); trigger.stage=input.stage;

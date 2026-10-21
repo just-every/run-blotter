@@ -1,3 +1,4 @@
+import {pendingSignatures,transferSignatures} from './signatures';
 // Staff offboarding (ACCESS-006). The principal previews everything a member
 // owns, names a work successor and a review successor, and commits one batch
 // that moves it all and deactivates the member. A member already deactivated
@@ -14,7 +15,7 @@ const OPEN_JOB = "b_jobs.status<>'signed_off'";
 
 /** Everything a member owns that would be orphaned by their departure. */
 async function owned(db: D1Database, leaver: string) {
-  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients, automations, batches] = await Promise.all([
+  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients, automations, batches,signatures] = await Promise.all([
     rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.status,b_jobs.revision,b_jobs.submitted_by,b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email,c.name client
       FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${OPEN_JOB} AND ?1 IN (b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email) ORDER BY b_jobs.due_date`, leaver),
     rows(db, `SELECT s.job_id,s.ordinal,s.label,b_jobs.title job FROM b_job_steps s JOIN b_jobs ON b_jobs.id=s.job_id WHERE ${OPEN_JOB} AND s.done_at IS NULL AND s.assignee_email=? ORDER BY b_jobs.due_date,s.ordinal`, leaver),
@@ -33,8 +34,9 @@ async function owned(db: D1Database, leaver: string) {
     rows(db, `SELECT id,name,partner_email,team,revision FROM b_clients WHERE merged_into IS NULL AND (partner_email=? OR EXISTS(SELECT 1 FROM json_each(team) WHERE value=?)) ORDER BY name`, leaver,leaver),
     rows(db,"SELECT id,name,version,status,definition FROM b_automation_rules WHERE status<>'revoked' AND (approved_by=? OR json_extract(definition,'$.action.email')=?) ORDER BY name,version",leaver,leaver),
     rows(db, "SELECT id,class,status,reason,topic,send_at,approved_by FROM b_bulk_batches WHERE owner_email=? AND status<>'sent' ORDER BY created_at,id", leaver),
+    pendingSignatures(db,leaver),
   ]);
-  return { clients, jobs, tasks, rules, notices, threads, portal, proposals, automations, batches, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
+  return { signatures,clients, jobs, tasks, rules, notices, threads, portal, proposals, automations, batches, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
 }
 
 async function plan(db: D1Database, actor: Actor, body: Data) {
@@ -113,11 +115,12 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     stmt(db, 'DELETE FROM b_timers WHERE person_email=?', leaver),
     ...p.time.filter(t => !t.status).map(t => stmt(db, "INSERT INTO b_time_status(entry_id,person_email,week_start,status,submitted_at) VALUES(?,?,?,'submitted',?)", t.id, leaver, weekStart(t.date), at)),
     stmt(db, 'DELETE FROM b_activity_consent WHERE person_email=?', leaver),
+    ...transferSignatures(db,actor,p.signatures,leaver,p.workSuccessor),
     ...deactivation(db, leaver),
-    audit(db, actor, 'member.offboarded', leaver, `work to ${p.workSuccessor}, reviews to ${p.reviewSuccessor}: ${p.jobs.length} jobs, ${p.tasks.length} tasks, ${p.rules.length} recurring rules, ${p.notices.length} notices, ${p.threads.length} discussions, ${p.portal.length} client questions and to-dos, ${p.proposals.length} proposals, ${p.batches.length} message batches, ${p.templates.length} templates${p.timer ? `, timer on ${p.timer.title} since ${p.timer.started_at} discarded` : ''}, ${p.time.filter(t => !t.status).length} time entries submitted, ${p.keys.length} agent keys and ${p.sessions} sessions revoked`),
+    audit(db, actor, 'member.offboarded', leaver, `work to ${p.workSuccessor}, reviews to ${p.reviewSuccessor}: ${p.signatures.length} pending signature requests, ${p.jobs.length} jobs, ${p.tasks.length} tasks, ${p.rules.length} recurring rules, ${p.notices.length} notices, ${p.threads.length} discussions, ${p.portal.length} client questions and to-dos, ${p.proposals.length} proposals, ${p.batches.length} message batches, ${p.templates.length} templates${p.timer ? `, timer on ${p.timer.title} since ${p.timer.started_at} discarded` : ''}, ${p.time.filter(t => !t.status).length} time entries submitted, ${p.keys.length} agent keys and ${p.sessions} sessions revoked`),
   );
   await atomic(db, actor, statements);
-  return { email: leaver, active: false, moved: { clients:p.clients.length, jobs: p.jobs.length, tasks: p.tasks.length, rules: p.rules.length, notices: p.notices.length, threads: p.threads.length, portal: p.portal.length, proposals: p.proposals.length, batches: p.batches.length, templates: p.templates.length } };
+  return { email: leaver, active: false, moved: { signatures:p.signatures.length, clients:p.clients.length, jobs: p.jobs.length, tasks: p.tasks.length, rules: p.rules.length, notices: p.notices.length, threads: p.threads.length, portal: p.portal.length, proposals: p.proposals.length, batches: p.batches.length, templates: p.templates.length } };
 }
 
 /** Deactivating a member revokes every session and agent key they hold; reactivation needs a new sign-in and new keys. */

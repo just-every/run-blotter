@@ -1,3 +1,4 @@
+import {signatureExpiryEffects} from './signatures-retention';
 import { invoiceExpiryEffects } from './invoices-erasure';
 import { invoiceOpenBalances,noInvoiceOpenBalanceSql } from './invoices-sources';
 // ERASURE-002 Ready to erase (ct 22 Oct 2026). Nothing expires or is purged automatically:
@@ -18,6 +19,7 @@ const MARK = '[erased]';
 
 /** What confirming one record removes: bytes and personal fields only; ids, kinds, totals, revisions, attribution and hashes stay. */
 function effects(record: Clocked, at: string): Effect[] {
+  if(record.kind==='signature')return signatureExpiryEffects(record.id,at);
   if(record.kind==='invoice')return invoiceExpiryEffects(record.id,at);
   const r = lit(record.id);
   if (record.kind === 'job') return [
@@ -49,7 +51,7 @@ export async function readyToErase(db: D1Database, actor: Actor) {
   const today = await firmToday(db), done = await confirmed(db), ready: Data[] = [], skipped: Data[] = [];
   for (const c of await clocks(db)) {
     if (done.has(`${c.kind}:${c.id}`)) continue;
-    const target = { clientIds: c.clientIds,...(c.jobId?{jobId:c.jobId}:{}), ...(c.kind === 'job' ? { jobId: c.id } : c.kind === 'engagement' ? { engagementId: c.id } : { exportId: c.id }), cls: c.cls };
+    const target = { clientIds: c.clientIds,...(c.jobId?{jobId:c.jobId}:{}),...(c.kind==='signature'?{signatureId:c.id,jobId:(await stmt(db,'SELECT job_id FROM b_signatures WHERE id=?',c.id).first<Data>())?.job_id}:{}), ...(c.kind === 'job' ? { jobId: c.id } : c.kind === 'engagement' ? { engagementId: c.id } : { exportId: c.id }), cls: c.cls };
     const marks = await marksCovering(db, target), files = c.kind === 'job' ? await rows(db, 'SELECT id FROM b_files WHERE job_id=?', c.id) : [];
     const fileHolds = (await marksCovering(db, { ...target, fileId: undefined }, ['hold'])).length ? [] : (await rows(db, "SELECT id,target_id,reason,owner FROM b_retention_marks WHERE scope='file' AND kind='hold' AND released_at IS NULL")).filter(m => files.some(f => f.id === m.target_id));
     const until = marks.filter(m => m.kind === 'retain').map(m => String(m.until)).sort().at(-1) ?? null, effective = [c.expiry, until].filter(Boolean).sort().at(-1)!;

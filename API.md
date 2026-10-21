@@ -332,3 +332,26 @@ and billing expiry refuse named open invoices and unapplied deposit/credit liabi
 After whole-client erasure, retained invoices disappear from ordinary billing lists. Explicit invoice detail/PDF doors require the principal and attribute retained-record reads; expiry lists use opaque labels.
 
 The existing `GET /api/blotter/reports/performance` response includes `invoiceReporting` for the same selected job-period cohort: native invoices and their source links, monthly retainers, supplied credits and current USD receivables. The existing CSV/PDF exports include the same financial values and source URLs. Supplied credits are recorded evidence, not verified provider settlement; exports record each included client and its named downloader for ERASURE-002 receipts.
+
+### Native document signatures (SIGN-002)
+
+Staff prepare a frozen PDF and fields at `POST /jobs/:id/signatures`: title, formKind,
+mode (`sequential` or `parallel`), ordered authorized contactIds, file and fields.
+Each field supplies contactId, type (`signature`, `initials`, `date`, `text`), page,
+x/y from the top left in PDF points, width/height and label. Every signer needs a signature
+field. Read `/signatures/:id`, then explicitly `/send` with its revision. Declined/restored
+requests resend as a fresh attempt; `/void` needs revision and reason and prevents signing.
+IRS e-file authorizations and KBA-required forms refuse this general-signing door.
+
+Each invitation uses the existing contact-bound portal. `/portal/:token/signatures/:id`
+returns that signer's fields and consent version. `/sign` needs the current revision/attempt,
+explicit consent/intent, consentVersion and values keyed by field id; `/decline` needs a
+reason and revision. A non-signer cannot read it, and sequential signers cannot sign early.
+Completed signed PDFs and certificates are under `/signatures/:id/files/signed` and
+`/files/certificate`, with the same contact-scoped download routes. The certificate states
+that portal possession does not verify identity, and records typed signatures, consent,
+link id, times, order and hashes; connection IP and browser details are not collected.
+Pending requests transfer in the ordinary offboarding batch. Completed attribution stays.
+Signed documents join retention clocks, holds, erasure preview/receipt and restore fencing;
+restored pending requests remain held until explicitly resent. Signature-complete automation
+uses the same scoped, budgeted, live-authority and once-only effect transaction.

@@ -1,3 +1,4 @@
+import {signatureErasureSteps,signatureRetained} from './signatures-retention';
 import { invoiceErasureSteps,invoiceRetainedRows,invoiceSnapshotIdsSql } from './invoices-erasure';
 // ERASURE-002 scope (ct 22 Oct 2026): every client-linked table, with the one SQL predicate that
 // both counts a step in the preview and applies it on approval. Signed-off work, signed
@@ -55,7 +56,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const s = selectors(x), at = lit(x.at), who = lit(x.who), why = lit(x.reason);
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
-  const all: Step[] = [...invoiceErasureSteps(x),
+  const all: Step[] = [...signatureErasureSteps(x),...invoiceErasureSteps(x),
     {cls:'link',table:'b_access_grants',action:'delete',label:'Staff client grants',where:`client_id=${s.c}`},
     {cls:'link',table:'b_access_team_clients',action:'delete',label:'Team client grants',where:`client_id=${s.c}`},
     {cls:'link',table:'b_sensitive_grants',action:'delete',label:'Sensitive-document staff grants',where:`file_key IN (SELECT file_key FROM b_document_sources WHERE client_id=${s.c})`},
@@ -139,7 +140,7 @@ export const unheld = (x: Context, audited: { where: string; set: string } | nul
 export function retained(x: Context): { key: string; cls: ClientClass; label: string; reason: string; owner: string; sql: string }[] {
   const s = selectors(x), keep = x.held.client ? '0' : '1';
   const principal = 'Principal';
-  return [...invoiceRetainedRows(x.client,principal),
+  return [signatureRetained(x),...invoiceRetainedRows(x.client,principal),
     { key: 'signed_off_jobs', cls: 'signed_work', label: 'Signed-off jobs (status history, checklist outcomes, reviewer and partner notes, sign-off)', reason: 'Signed-off work is kept whole until its clock expires.', owner: principal, sql: `SELECT count(*) n FROM b_jobs WHERE client_id=${s.c} AND status='signed_off' AND ${keep} AND id IN ${s.JE}` },
     { key: 'accepted_documents', cls: 'signed_work', label: 'Accepted documents on signed-off jobs', reason: 'Accepted documents are part of signed-off work.', owner: principal, sql: `SELECT count(*) n FROM b_files WHERE id IN ${s.FR} AND job_id IN ${s.JE} AND ${keep}` },
     { key: 'consumed_originals', cls: 'signed_work', label: 'Submitted organizer originals a signed-off job consumed', reason: 'Consumed originals are part of signed-off work.', owner: principal, sql: `SELECT count(*) n FROM b_organizer_submissions WHERE id IN ${s.CONSUMED} AND organizer_id IN ${s.ORG} AND ${keep}` },

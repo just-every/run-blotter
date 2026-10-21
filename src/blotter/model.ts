@@ -108,6 +108,7 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
       WHERE a.id=? AND a.rule_id=? AND a.job_id=? AND a.status='running' AND j.revision=? AND r.status='active' AND r.used<=r.budget AND r.principal_id=?
       AND c.lifecycle='active' AND c.merged_into IS NULL AND j.client_id IN (SELECT value FROM json_each(r.definition,'$.clientIds'))
       AND (substr(a.event_key,1,5)<>'file:' OR EXISTS(SELECT 1 FROM b_files f WHERE f.id=substr(a.event_key,6) AND f.erased_at IS NULL))
+      AND (substr(a.event_key,1,10)<>'signature:' OR EXISTS(SELECT 1 FROM b_signatures s WHERE ('signature:'||s.id||':'||s.attempt)=a.event_key AND s.status='completed' AND s.erased_at IS NULL))
       AND (substr(a.event_key,1,10)<>'organizer:' OR EXISTS(SELECT 1 FROM b_organizer_submissions s WHERE s.id=substr(a.event_key,11) AND s.erased_at IS NULL))
       AND (json_extract(r.definition,'$.action.kind')<>'rollforward' OR NOT EXISTS(
         SELECT 1 FROM json_each(json_array(j.preparer_email,j.reviewer_email,j.manager_email,j.partner_email)) p WHERE p.value IS NOT NULL

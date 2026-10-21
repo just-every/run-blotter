@@ -22,6 +22,7 @@ export function Offboarding({ state, members, run }: { state: Row; members: Row[
     {plan && <article className="record">
       <h3>Transfer from {plan.name}</h3>
       <ul className="list">
+        {plan.signatures.map((s:Row)=><li key={s.id}>Pending signature “{s.title}” ({s.status}) → {plan.workSuccessor}</li>)}
         {plan.clients.map((c:Row) => <li key={c.id}>{c.name}: client partner and assigned team responsibility</li>)}
         {plan.jobs.map((j: Row) => <li key={j.id}>{j.client} · {j.title} · {j.period_label}: preparer {j.to.preparer}, reviewer {j.to.reviewer}{j.to.manager ? `, manager ${j.to.manager}` : ''}</li>)}
         {plan.tasks.map((t: Row) => <li key={t.job_id + t.ordinal}>Task “{t.label}” on {t.job} → {plan.workSuccessor}</li>)}
@@ -36,7 +37,7 @@ export function Offboarding({ state, members, run }: { state: Row; members: Row[
         {plan.time.length > 0 && <li>{count(plan.time.filter((t: Row) => !t.status).length, 'unsubmitted time entry', 'unsubmitted time entries')} submitted for approval on their behalf; {count(plan.time.filter((t: Row) => t.status === 'submitted').length, 'entry', 'entries')} already waiting; {count(plan.time.filter((t: Row) => t.status === 'returned').length, 'returned entry', 'returned entries')} never billed (delete before closing their period)</li>}
         <li>{count(plan.keys.length, 'agent key')} and {count(plan.sessions, 'session')} revoked</li>
       </ul>
-      {!plan.clients.length && !plan.jobs.length && !plan.tasks.length && !plan.rules.length && !plan.automations.length && !plan.notices.length && !plan.threads.length && !plan.proposals.length && !plan.batches.length && !plan.templates.length && <Empty>They own no open work.</Empty>}
+      {!plan.signatures.length && !plan.clients.length && !plan.jobs.length && !plan.tasks.length && !plan.rules.length && !plan.automations.length && !plan.notices.length && !plan.threads.length && !plan.proposals.length && !plan.batches.length && !plan.templates.length && <Empty>They own no open work.</Empty>}
       {plan.problems.length > 0 ? <p className="error">Resolve first: {plan.problems.join('; ')}</p>
         : <button className="danger" onClick={() => run(async () => { await api('/team/offboard', { email: plan.email, workSuccessor: plan.workSuccessor, reviewSuccessor: plan.reviewSuccessor, fingerprint: plan.fingerprint }); setPlan(undefined); }, 'Work transferred and person deactivated')}>Transfer and deactivate</button>}
     </article>}

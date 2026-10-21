@@ -1,3 +1,4 @@
+import { signatureRoutes } from './signature-routes';
 import { invoiceRoutes } from './invoice-routes';
 import { accessGate, redactAccess } from './access-gate';
 import { permissions, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
@@ -114,6 +115,7 @@ const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAUL
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
 invoiceRoutes(api,{as,body,db,param});
+signatureRoutes(api,{as,body,db,param,sameOrigin});
 api.get(`${P}/access`,as((a,c)=>permissions(db(c),a)));
 api.post(`${P}/access/step-up`,as(async(a,c)=>stepUp(db(c),a,site(c),await body(c))));
 api.post(`${P}/access/teams`,as(async(a,c)=>saveTeamAccess(db(c),a,await body(c))));
@@ -436,7 +438,7 @@ api.post(`${P}/agent/:command`, asAgent(async (a, c) => propose(db(c), a, param(
 
 // Client portal: the link's secret is the only credential; same-origin uploads only.
 api.get(`${P}/portal/:token`, async c => c.json(await portalView(db(c), param(c, 'token'), branding.name)));
-const sameOrigin = (c: C) => insist(c.req.header('origin') === runtimeBindings(c.env).AUTH_ORIGIN && c.req.header('sec-fetch-site') !== 'cross-site', 'Invalid request origin', 403);
+function sameOrigin(c:C) { return insist(c.req.header('origin') === runtimeBindings(c.env).AUTH_ORIGIN && c.req.header('sec-fetch-site') !== 'cross-site', 'Invalid request origin', 403); }
 api.post(`${P}/portal/:token/requests/:request`, async c => {
   sameOrigin(c);
   return c.json(await portalUpload(db(c), param(c, 'token'), param(c, 'request'), await body(c)));

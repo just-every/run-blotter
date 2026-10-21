@@ -1,3 +1,4 @@
+import { PortalSignatures } from './signatures';
 import { PortalOrganizers } from './organizers';
 import { useEffect, useState } from 'react';
 import { Blotter, readFile, Status, when, type Row, day } from './common';
@@ -40,7 +41,7 @@ export function Portal({ token }: { token: string }) {
         <PortalOrganizers path={path} busy={busy} act={act} reload={load} />
         <ClientTasks tasks={view.tasks} />
         <PortalConversation view={view} path={path} busy={busy} act={act} reload={load} />
-        <PortalDeliverables path={path} busy={busy} act={act} />
+        <PortalSignatures path={path} busy={busy} act={act}/><PortalDeliverables path={path} busy={busy} act={act} />
         <PortalCredentials path={path} busy={busy} act={act} />
       </>}
     </main>
