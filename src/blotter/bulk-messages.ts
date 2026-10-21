@@ -14,7 +14,7 @@ import { demoEffect } from '../modules/demo/index.mjs';
 import { firmSettings } from './firm';
 import { issueLink } from './documents';
 import { issueBulkOrganizer, organizerAttachment, recheckOrganizer } from './bulk-organizers';
-import { LINK_PREVIEW, render, usable, valuesFor } from './messages';
+import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
 import { marketingGrantSql, marketingHold, withdrawnSql } from './marketing-consent';
 import { Fault, atomic, audit, digest, human, id, insist, integer, need, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
@@ -166,11 +166,11 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
 export async function batchDetail(db: D1Database, actor: Actor, batchId: string) {
   need(actor, 'owner', 'reviewer');
   const batch = await batchRow(db, batchId);
-  const recipients = await rows(db, `SELECT r.id,r.client_id,c.name client,r.contact_id,r.address,r.basis,r.job_id,r.organizer_id,r.organizer_revision,r.status,r.held_reason,r.subject,r.body,r.delivery,r.provider_message_id,r.attempted_at,r.misclassified_by,r.misclassified_reason
+  const recipients = await rows(db, `SELECT r.id,r.client_id,c.name client,r.contact_id,r.address,r.basis,r.job_id,r.organizer_id,r.organizer_revision,r.status,r.held_reason,r.subject,r.body,r.attachments,r.delivery,r.provider_message_id,r.attempted_at,r.misclassified_by,r.misclassified_reason
     FROM b_bulk_recipients r JOIN b_clients c ON c.id=r.client_id WHERE r.batch_id=? ORDER BY r.ordinal`, batchId);
   const exclusions = await rows(db, 'SELECT x.client_id,c.name client,x.contact_id,x.address,x.reason FROM b_bulk_exclusions x JOIN b_clients c ON c.id=x.client_id WHERE x.batch_id=? ORDER BY c.name,x.address', batchId);
   const counts: Record<string, number> = {}; for (const r of recipients) counts[r.status] = (counts[r.status] ?? 0) + 1;
-  return { batch: { ...batch, filter: JSON.parse(batch.filter) }, recipients, exclusions, counts };
+  return { batch: { ...batch, filter: JSON.parse(batch.filter) }, attachments: await templateFiles(db, batch.template_id, batch.template_version), recipients, exclusions, counts };
 }
 
 export async function batches(db: D1Database, actor: Actor) {
@@ -229,12 +229,13 @@ async function recheck(db: D1Database, b: Data, r: Data, linked: boolean) {
 }
 
 /** Mail one bulk message; the provider's message id is kept for its delivery events. */
-async function deliver(env: Bindings, deliveryId: string, to: string, subject: string, message: string, unsubscribe?: string) {
+async function deliver(env: Bindings, deliveryId: string, to: string, subject: string, message: string, files: Data[], unsubscribe?: string) {
   const bindings = runtimeBindings(env), sender = operatorMail(bindings);
   if (!sender) return { status: 'failed', delivery: 'not sent: no mail provider is configured', providerMessageId: null };
   try {
     const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, ch => `&#${ch.charCodeAt(0)};`)}</p>`).join('');
-    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {}, ...(unsubscribe ? { unsubscribe: { url: unsubscribe, oneClick: true } } : {}) }),
+    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {}, ...(unsubscribe ? { unsubscribe: { url: unsubscribe, oneClick: true } } : {}),
+      ...(files.length ? { attachments: files.map(f => ({ filename: f.name, contentType: f.mime, content: Uint8Array.from(atob(f.content_base64), c => c.charCodeAt(0)) })) } : {}) }),
       { status: 'accepted', provider: 'demo mail', providerMessageId: null });
     if (result.status === 'development') return { status: 'accepted', delivery: 'suppressed in development (no email sent)', providerMessageId: null };
     return { status: result.status === 'accepted' ? 'accepted' : result.status === 'uncertain' ? 'uncertain' : 'failed', delivery: `${result.status} by ${result.provider}`, providerMessageId: result.providerMessageId ?? null };
@@ -252,6 +253,8 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
     await stmt(db, "UPDATE b_bulk_batches SET status='sending' WHERE id=? AND status='scheduled'", b.id).run();
     const template = await stmt(db, 'SELECT subject,body FROM b_msg_template_versions WHERE template_id=? AND version=?', b.template_id, b.template_version).first<Data>();
     const sender = await senderFor(db, b.owner_email), firm = await firmSettings(db), linked = b.class === 'engagement' && attachesRequest(template!);
+    // Every message goes with this template version's files, which never change; each recipient records them.
+    const files = await templateFiles(db, b.template_id, b.template_version, true), recorded = JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 })));
     let sent = 0, held = 0;
     for (const r of await rows(db, "SELECT * FROM b_bulk_recipients WHERE batch_id=? AND status='pending' ORDER BY ordinal LIMIT ?", b.id, b.chunk_size)) {
       const attemptId = id();
@@ -288,7 +291,7 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
       let message = rendered.body, unsubscribe: string | undefined, stored = link ? rendered.body.replaceAll(link.url, `${origin}/portal/…`) : rendered.body;
       if (link) {
         try {
-          if (r.organizer_id) await issueBulkOrganizer(db, sender, b, { ...r, attempt_id: attemptId }, link.statements, storedSubject, stored);
+          if (r.organizer_id) await issueBulkOrganizer(db, sender, b, { ...r, attempt_id: attemptId }, link.statements, storedSubject, stored, recorded);
           else await db.batch(link.statements);
         } catch (error) {
           if (!(error instanceof Fault)) throw error;
@@ -305,10 +308,10 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
         const footer = ['', '--', `You receive marketing email from ${firm.name || 'this practice'} because you opted in. Unsubscribe: ${link}`, postalAddress(firm)].join('\n');
         message += '\n' + footer; stored += '\n' + footer.replace(link, `${origin}/unsubscribe?t=…`);
       }
-      const outcome = await deliver(env, r.id, r.address, rendered.subject, message, unsubscribe);
+      const outcome = await deliver(env, r.id, r.address, rendered.subject, message, files, unsubscribe);
       if (r.organizer_id) await stmt(db, 'UPDATE b_organizer_deliveries SET delivery=? WHERE id=?', outcome.delivery, 'bulk:' + r.id).run();
       sent++;
-      await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status=?,subject=?,body=?,delivery=?,provider_message_id=? WHERE id=? AND attempt_id=? AND status='claimed'", outcome.status, storedSubject, stored, outcome.delivery, outcome.providerMessageId, r.id, attemptId),
+      await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status=?,subject=?,body=?,attachments=?,delivery=?,provider_message_id=? WHERE id=? AND attempt_id=? AND status='claimed'", outcome.status, storedSubject, stored, recorded, outcome.delivery, outcome.providerMessageId, r.id, attemptId),
         stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), b.owner_email, outcome.status === 'accepted' ? 'bulk.sent' : 'bulk.failed', historyObject(r), `${b.class}: "${storedSubject}" to ${r.address}: ${outcome.delivery}`, now()),
         ...(outcome.status === 'failed' && !r.organizer_id ? [stmt(db, `INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at)
           SELECT ?,?,'delivery_failed',?,'Bulk message delivery failed','in-app only',?

@@ -27,7 +27,7 @@ export async function recheckOrganizer(db: D1Database, recipient: Data) {
 
 /** Link issuance and invitation attribution share the exact live source fence. */
 export async function issueBulkOrganizer(db: D1Database, sender: Actor, batch: Data, recipient: Data,
-  linkStatements: D1PreparedStatement[], subject: string, storedMessage: string) {
+  linkStatements: D1PreparedStatement[], subject: string, storedMessage: string, attachments = '[]') {
   const at = now(), [contact, contactDone] = contactGuard(db, recipient.client_id, recipient.contact_id);
   const [fresh, freshDone] = guard(db, `EXISTS(SELECT 1 FROM b_job_organizers o JOIN b_jobs j ON j.id=o.job_id
     WHERE o.id=? AND o.revision=? AND o.erased_at IS NULL AND j.id=? AND j.client_id=? AND j.status='open'
@@ -43,8 +43,8 @@ export async function issueBulkOrganizer(db: D1Database, sender: Actor, batch: D
   try {
     await db.batch([contact, fresh, ...linkStatements,
       stmt(db, `INSERT INTO b_organizer_deliveries(id,organizer_id,contact_id,to_email,subject,message,template_id,template_version,attachments,delivery,sent_by,sent_at)
-        VALUES(?,?,?,?,?,?,?,?,'[]','pending',?,?)`, 'bulk:' + recipient.id, recipient.organizer_id, recipient.contact_id,
-        recipient.address, subject, storedMessage, batch.template_id, batch.template_version, sender.email, at),
+        VALUES(?,?,?,?,?,?,?,?,?,'pending',?,?)`, 'bulk:' + recipient.id, recipient.organizer_id, recipient.contact_id,
+        recipient.address, subject, storedMessage, batch.template_id, batch.template_version, attachments, sender.email, at),
       // Issuing another invitation changes no answers, assignments or revision.
       stmt(db, 'UPDATE b_job_organizers SET sent_at=COALESCE(sent_at,?) WHERE id=?', at, recipient.organizer_id),
       audit(db, sender, 'organizer.invitation_issued', recipient.job_id,

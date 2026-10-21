@@ -779,6 +779,25 @@ test('MSG-001 message templates: a firm template with an attachment renders per 
   assert.deepEqual(sent.attachments.map(a => [a.filename, a.content_type, Buffer.from(a.content, 'base64').toString()]), [['month-end-checklist.pdf', 'application/pdf', '%PDF month-end checklist v1']]);
   assert.deepEqual(JSON.parse(stored.attachments).map(f => [f.name, f.sha256]), [['month-end-checklist.pdf', sha('%PDF month-end checklist v1')]]);
   assert.equal(stored.message, harbour.body.replace('[secure upload link, created when you send]', `${h.origin}/portal/…`));
+  // The same template composes a portal message: previewed, refused naming the field, and sent with its file for the client to download from their link.
+  const token = portalToken(sent);
+  const portalPreview = await h.json(`/jobs/${nextJob.id}/portal/messages/preview`, { templateId: close.id }, reviewer);
+  assert.deepEqual([portalPreview.subject, portalPreview.attachments.map(f => f.name)], [harbour.subject, ['month-end-checklist.pdf']]);
+  assert.equal(portalPreview.body, harbour.body.replace('[secure upload link, created when you send]', 'this secure page'));
+  assert.match((await h.json(`/jobs/${tideJob.id}/portal/messages`, { templateId: close.id }, reviewer, 409)).error, /contact first name/);
+  await h.json(`/jobs/${nextJob.id}/portal/messages`, { templateId: close.id }, reviewer);
+  const clientView = (await h.json(`/portal/${token}`)).messages.find(m => m.subject === harbour.subject);
+  assert.equal(clientView.body, portalPreview.body);
+  assert.deepEqual(clientView.files.map(f => [f.name, f.size]), [['month-end-checklist.pdf', 27]]);
+  const file = await h.request(`/api/blotter/portal/${token}/messages/${clientView.id}/files/1`);
+  assert.equal(file.status, 200);
+  assert.match(file.headers.get('content-disposition'), /^attachment; filename="month-end-checklist\.pdf"$/);
+  assert.equal(await file.text(), '%PDF month-end checklist v1');
+  assert.equal((await h.request(`/api/blotter/portal/${token}/messages/${clientView.id}/files/2`)).status, 404);
+  const tideToken = portalToken(h.mails.findLast(m => m.to.includes('studio@tidepool.example')));
+  assert.equal((await h.request(`/api/blotter/portal/${tideToken}/messages/${clientView.id}/files/1`)).status, 404, 'Another client link never reaches this message file');
+  const portalSent = (await h.json('/jobs/' + nextJob.id, undefined, reviewer)).portal.messages.find(m => m.template_id === close.id);
+  assert.deepEqual([portalSent.template_version, portalSent.body, JSON.parse(portalSent.attachments).map(f => [f.name, f.sha256])], [1, portalPreview.body, [['month-end-checklist.pdf', sha('%PDF month-end checklist v1')]]]);
   // Only the principal edits firm templates; a preparer saves a personal copy and edits that.
   await h.json(`/messages/templates/${close.id}`, { subject: 'x', body: 'y' }, reviewer, 403);
   await h.json(`/messages/templates/${close.id}`, { subject: 'x', body: 'y' }, preparer, 403);
@@ -805,6 +824,9 @@ test('MSG-001 message templates: a firm template with an attachment renders per 
   await h.json(`/messages/templates/${close.id}/delete`, {}, h.owner);
   await h.json(`/jobs/${nextJob.id}/reminders`, { templateId: close.id }, reviewer, 404);
   assert.deepEqual((await h.json('/jobs/' + nextJob.id, undefined, reviewer)).reminders[0], stored);
+  await h.json(`/jobs/${nextJob.id}/portal/messages`, { templateId: close.id }, reviewer, 404);
+  assert.equal(await (await h.request(`/api/blotter/portal/${token}/messages/${clientView.id}/files/1`)).text(), '%PDF month-end checklist v1', 'The sent portal message keeps its file after its template changed and was deleted');
+  assert.deepEqual((await h.json(`/portal/${token}`)).messages.find(m => m.id === clientView.id), clientView);
 });
 
 test('DUE-002 tax notices: open from a client upload, verify the deadline, assign, link a transcript and receipt, follow up; a failed response stays open and closing needs evidence and an outcome', async () => {

@@ -74,3 +74,24 @@ export function ReminderComposer({ jobId, run, sent, copied = [], contacts = [] 
       </Form>}
   </div>;
 }
+
+/** Compose a portal message from a template: preview it for the chosen contact, fill any missing field, then send it to the client link. */
+export function PortalMessageComposer({ jobId, run, contacts = [] }: { jobId: string; run: Run; contacts?: Row[] }) {
+  const [list, setList] = useState<Row[]>([]), [draft, setDraft] = useState<Row>({ templateId: '' }), [preview, setPreview] = useState<Row>();
+  useEffect(() => { api('/messages/templates').then(s => setList(s.templates.filter((t: Row) => t.message_class === 'engagement'))).catch(() => setList([])); }, []);
+  const show = async (next: Row) => { setDraft(next); setPreview(next.templateId ? await api(`/jobs/${jobId}/portal/messages/preview`, next) : undefined); };
+  return <details><summary>Send from a template</summary><div className="stack">
+    <Field label="Contact the message is written for" name="contactId"><select name="contactId" value={draft.contactId ?? ''} onChange={e => run(() => show({ ...draft, contactId: e.target.value || undefined }), 'Preview updated')}><option value="">Primary contact</option>{contacts.filter(c => c.active && c.authorized && c.portal && c.request_consent && c.email_consent).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+    <Field label="Template" name="templateId"><select name="templateId" value={draft.templateId} onChange={e => run(() => show({ ...draft, templateId: e.target.value, values: undefined }), 'Preview updated')}>
+      <option value="">Choose a template</option>{list.map(t => <option key={t.id} value={t.id}>{t.name} ({t.scope === 'firm' ? 'firm' : 'mine'})</option>)}</select></Field>
+    {preview && <div className="notice">
+      <p><strong>{preview.subject}</strong></p><MessageText>{preview.body}</MessageText>
+      {preview.attachments.length > 0 && <p className="muted">The client can download: {preview.attachments.map((f: Row) => f.name).join(', ')}</p>}
+      {preview.missing.length > 0 && <Form label="Fill in and preview again" submit={async data => run(() => show({ ...draft, values: { ...(draft.values ?? {}), ...data } }), 'Preview updated')}>
+        <p className="error">Missing: {preview.missing.map((m: Row) => m.label).join(', ')}. Fill them in, or choose another template.</p>
+        {preview.missing.map((m: Row) => <Field key={m.key} label={m.label} name={m.key} />)}
+      </Form>}
+    </div>}
+    <button disabled={!preview || preview.missing.length > 0} onClick={() => run(async () => { await api(`/jobs/${jobId}/portal/messages`, draft); setDraft({ templateId: '' }); setPreview(undefined); }, 'Message shown on the client link')}>Send to the client link</button>
+  </div></details>;
+}

@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { harness } from './harness.mjs';
 import { bulkFailureJourney } from './bulk-failure-ui.mjs';
 
+const pdf = (name, text) => ({ name, mime: 'application/pdf', contentBase64: Buffer.from(text).toString('base64') });
 const key = randomBytes(24), contact = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
 // The provider edge is faked: events are signed exactly as Resend (Svix) signs them.
 const signed = (event, id) => {
@@ -34,8 +35,8 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
 
     // Template classes (MSG-001 carrier): marketing refuses engagement placeholders; only the principal changes a class.
     await h.json('/messages/templates', { scope: 'firm', name: 'Bad newsletter', class: 'marketing', subject: 'News', body: 'Due {{due_date}}' }, h.owner, 409);
-    const kickoff = await h.json('/messages/templates', { scope: 'firm', name: 'Kickoff', subject: '{{work_type}} kickoff for {{client_name}}', body: 'Your {{work_type}} engagement with {{firm_name}} starts now.\nHi {{contact_first_name}}, your organizer follows.' }, h.owner);
-    const news = await h.json('/messages/templates', { scope: 'firm', name: 'Spring newsletter', class: 'marketing', subject: 'News from {{firm_name}}', body: 'Hi {{contact_first_name}},\nOur spring seminar is open to {{client_name}}.' }, h.owner);
+    const kickoff = await h.json('/messages/templates', { scope: 'firm', name: 'Kickoff', subject: '{{work_type}} kickoff for {{client_name}}', body: 'Your {{work_type}} engagement with {{firm_name}} starts now.\nHi {{contact_first_name}}, your organizer follows.', attachments: [pdf('kickoff-guide.pdf', '%PDF kickoff guide')] }, h.owner);
+    const news = await h.json('/messages/templates', { scope: 'firm', name: 'Spring newsletter', class: 'marketing', subject: 'News from {{firm_name}}', body: 'Hi {{contact_first_name}},\nOur spring seminar is open to {{client_name}}.', attachments: [pdf('seminar-agenda.pdf', '%PDF spring agenda')] }, h.owner);
     assert.equal(kickoff.message_class, 'engagement'); assert.equal(news.message_class, 'marketing');
     const personal = await h.json('/messages/templates', { scope: 'personal', name: 'Mine', subject: '{{work_type}} note', body: '{{work_type}} update' }, review);
     await h.json(`/messages/templates/${personal.id}`, { subject: 'Offer', body: 'Offer', class: 'marketing' }, review, 403);
@@ -44,6 +45,10 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
     const engagement = { class: 'engagement', templateId: kickoff.id, workTypeId, reason: 'Tax-season kickoff for active 1040 engagements', chunkSize: 20 };
     await h.json('/bulk-messages/preview', { ...engagement, templateId: news.id, idempotencyKey: 'x1' }, h.owner, 409);
     await h.json('/bulk-messages/preview', { ...engagement, idempotencyKey: 'x2' }, prep, 403);
+    // MSG-001: a bulk message cannot be filled in per recipient, so a template with an unresolved field reaches nobody and names it.
+    const invoice = await h.json('/messages/templates', { scope: 'firm', name: 'Invoice notice', subject: '{{work_type}} invoice {{invoice_amount}}', body: '{{work_type}} invoice of {{invoice_amount}} is due {{invoice_due_date}}.' }, h.owner);
+    const unresolved = await h.json('/bulk-messages/preview', { ...engagement, templateId: invoice.id, idempotencyKey: 'invoice-1' }, review, 409);
+    assert.ok(unresolved.exclusions.length > 0 && unresolved.exclusions.every(x => /^unresolved placeholder: invoice amount/.test(x.reason)));
     const preview = await h.json('/bulk-messages/preview', { ...engagement, idempotencyKey: 'kick-1' }, review);
     assert.equal(preview.recipients.length, 34); assert.equal(preview.samples.length, 3);
     assert.equal(preview.samples[0].subject, '1040 kickoff for Client 00'); assert.match(preview.samples[0].body, /Hi Pat00, your organizer follows/);
@@ -71,6 +76,11 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
     const kickoffMails = h.mails.slice(before);
     assert.equal(kickoffMails.length, 33); assert.ok(kickoffMails.every(m => !m.headers?.['List-Unsubscribe']));
     assert.equal(new Set(kickoffMails.map(m => m.to[0])).size, 33);
+    // MSG-001: every bulk message carries the template version's file, and each recipient records exactly which file it was.
+    assert.ok(kickoffMails.every(m => m.attachments.length === 1 && m.attachments[0].filename === 'kickoff-guide.pdf' && Buffer.from(m.attachments[0].content, 'base64').toString() === '%PDF kickoff guide'));
+    assert.deepEqual(preview.attachments.map(f => [f.name, f.size]), [['kickoff-guide.pdf', 18]]);
+    assert.ok(detail.recipients.filter(r => r.status === 'accepted').every(r => JSON.parse(r.attachments).map(f => [f.name, f.mime, f.size, f.sha256]).join() === ['kickoff-guide.pdf', 'application/pdf', 18, createHash('sha256').update('%PDF kickoff guide').digest('hex')].join()));
+    assert.equal(JSON.parse(detail.recipients.find(r => r.status === 'held').attachments).length, 0, 'A held recipient was sent no file');
     // Resubmitting the schedule and running again sends no duplicate.
     assert.ok((await h.json(`/bulk-messages/${preview.batch.id}/schedule`, { fingerprint: preview.batch.fingerprint }, review)).resubmitted);
     await h.json(`/bulk-messages/${preview.batch.id}/run`, {}, review); await h.scheduled(Date.now() + 120_000);
@@ -132,6 +142,7 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
     const m1Start = h.mails.length; await h.json(`/bulk-messages/${m1.batch.id}/run`, {}, h.owner);
     const newsletters = h.mails.slice(m1Start);
     assert.equal(newsletters.length, 4);
+    assert.ok(newsletters.every(m => m.attachments.map(a => a.filename).join() === 'seminar-agenda.pdf'), 'Marketing batches carry the template version file too');
     for (const m of newsletters) {
       assert.match(m.headers['List-Unsubscribe'], /^<https:\/\/127\.0\.0\.1:\d+\/unsubscribe\?t=us_[0-9a-f]{64}>$/); assert.equal(m.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
       assert.match(m.text, /Unsubscribe: https:\/\/\S+\/unsubscribe\?t=us_/); assert.match(m.text, /Cardinal Tax & Books, 100 Main Street, Raleigh, NC 27601/);

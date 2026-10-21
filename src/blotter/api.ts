@@ -61,7 +61,7 @@ import { adjustEntry, closePeriod, correctEntry, entryHistory, reviewEntry, subm
 import { agentContext, decideProposal, propose } from './proposals';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
-import { clientQuestion, completeTodo, staffMessage, staffTodo } from './portal-items';
+import { clientQuestion, completeTodo, portalMessageFile, previewPortalMessage, staffMessage, staffTodo } from './portal-items';
 import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from './coverage';
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
 import { forecast, saveScenario, scenarios } from './forecast';
@@ -301,6 +301,7 @@ api.post(`${P}/coverage/preview`, as(async (a, c) => previewCoverage(db(c), a, a
 api.post(`${P}/coverage`, as(async (a, c) => approveCoverage(c.env, a, await body(c))));
 api.post(`${P}/coverage/conflicts/:id/resolve`, as(async (a, c) => resolveConflict(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/estimates`, as(async (a, c) => setEstimate(db(c), a, param(c), await body(c))));
+api.post(`${P}/jobs/:id/portal/messages/preview`, as(async (a, c) => previewPortalMessage(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/portal/messages`, as(async (a, c) => staffMessage(c.env, a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/portal/todos`, as(async (a, c) => staffTodo(c.env, a, param(c), await body(c))));
 api.post(`${P}/threads/:id/resolve`, as(async (a, c) => resolveThread(c.env, a, param(c), await body(c))));
@@ -402,6 +403,7 @@ api.post(`${P}/portal/:token/requests/:request`, async c => {
   sameOrigin(c);
   return c.json(await portalUpload(db(c), param(c, 'token'), param(c, 'request'), await body(c)));
 });
+api.get(`${P}/portal/:token/messages/:item/files/:ordinal`, async c => portalMessageFile(db(c), param(c, 'token'), param(c, 'item'), param(c, 'ordinal')));
 api.post(`${P}/portal/:token/messages`, async c => {
   sameOrigin(c);
   return c.json(await clientQuestion(c.env, param(c, 'token'), await body(c)));
