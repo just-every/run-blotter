@@ -44,7 +44,7 @@ function schedule(rule: Data, recurrence: Recurrence, held: Data[], today: strin
   });
 }
 
-async function ruleBody(db: D1Database, body: Data) {
+export async function ruleBody(db: D1Database, body: Data) {
   const client = await stmt(db, "SELECT id FROM b_clients WHERE id=? AND merged_into IS NULL AND lifecycle='active'", text(body.clientId, 'Client')).first<Data>();
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
@@ -91,12 +91,16 @@ export async function createRule(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const { recurrence: _, ...rule } = await ruleBody(db, body), ruleId = id();
   insist(!await stmt(db, 'SELECT 1 FROM b_recurrence_rules WHERE client_id=? AND template_id=?', rule.client_id, rule.template_id).first(), 'This client already has a rule for this template', 409);
-  await atomic(db, actor, [
-    stmt(db, `INSERT INTO b_recurrence_rules(id,client_id,template_id,months,first_period,end_period,lead_months,due_days,due_note,preparer_email,reviewer_email,manager_email,budget_minutes,status,revision,approved_by,approved_at,obligation_id)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?)`, ruleId, rule.client_id, rule.template_id, rule.months, rule.first_period, rule.end_period, rule.lead_months, rule.due_days, rule.due_note,
-      rule.preparer_email, rule.reviewer_email, rule.manager_email, rule.budget_minutes, id(), actor.email, now(), rule.obligation_id),
+  await atomic(db, actor, [ruleInsert(db, actor, ruleId, rule),
     audit(db, actor, 'rule.approved', ruleId, `${rule.first_period}${rule.end_period ? ' to ' + rule.end_period : ''}, ${rule.lead_months} months ahead`)]);
   return { id: ruleId };
+}
+
+/** Shared native/import write; imports require the existing activation review. */
+export function ruleInsert(db: D1Database, actor: Actor, ruleId: string, rule: Data, imported = false) {
+  return stmt(db, `INSERT INTO b_recurrence_rules(id,client_id,template_id,months,first_period,end_period,lead_months,due_days,due_note,preparer_email,reviewer_email,manager_email,budget_minutes,status,revision,approved_by,approved_at,obligation_id,restore_review)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, ruleId, rule.client_id, rule.template_id, rule.months, rule.first_period, rule.end_period, rule.lead_months, rule.due_days, rule.due_note,
+    rule.preparer_email, rule.reviewer_email, rule.manager_email, rule.budget_minutes, imported ? 'paused' : 'active', id(), actor.email, now(), rule.obligation_id, imported ? 1 : 0);
 }
 
 export async function rules(db: D1Database, actor: Actor) {

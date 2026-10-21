@@ -266,3 +266,42 @@ Person-session doors; the principal and reviewers preview and schedule, and the 
 - `GET /api/blotter/marketing-consents?clientId=`: the append-only consent log and each contact's current eligibility; `POST /api/blotter/marketing-consents` `{contactId,kind: grant|withdraw,actedAt,wording,wordingVersion,language?,evidence,source?: staff_reply}`; `POST /api/blotter/marketing-consents/:id/correct` `{reason}` (principal); `POST /api/blotter/marketing-consents/confirm` `{note}` (principal, after a restore).
 - `POST /api/blotter/mail/events`: Resend delivery, bounce and complaint webhooks, verified with `MAIL_WEBHOOK_SECRET` (Svix signature) and applied once per event id. Other event types and other mail are acknowledged untracked.
 - `GET`/`POST /unsubscribe?t=…`: the public one-page unsubscribe (link token or typed address) and the RFC 8058 one-click POST.
+
+
+### Reviewed recurring-series carry-over (MIGRATE-006, partial)
+
+The principal can use these authenticated person-session doors. They share the
+existing client-import authority; agent keys cannot commit or read this report.
+This accepts a reviewed native mapping, not a raw incumbent export or a claim
+that extraction/reconciliation has occurred.
+
+- `POST /api/blotter/recurrence-imports/preview`: no writes. Supply `source`
+  (`karbon`, `taxdome`, `canopy`, `financial-cents`, `double`), `practiceId`,
+  `seriesId`, a checked `sourceNote`, active `ownerEmail`, `mapping`, and `items`.
+  The mapping uses WORK-002's `clientId`, `templateId`, `firstPeriod`, optional
+  `endPeriod` and `months`, `leadMonths`, `dueDays`, `dueNote`, `preparerEmail`,
+  `reviewerEmail`, optional `managerEmail` and integer `budgetMinutes`, plus the
+  source's `frequency`. It must exactly equal the mapped template cadence.
+  Items are up to twelve `{sourceItemId, jobId}` mappings to existing jobs.
+  Body limit: 80,000 characters. The result shows ready/held, reasons, native
+  rule/period details, and an exact `previewToken`.
+- `POST /api/blotter/recurrence-imports/commit`: resubmit that body with its
+  `previewToken`. An unsupported mapping records an owned hold. A valid mapping
+  atomically creates a paused rule and every source-linked existing-job claim.
+  Native job edits, dates, roles and status remain intact. Correct a held mapping
+  by previewing/committing its source identity again. Exact mapped replays return
+  the same binding/rule; changed mapped replays refuse without overwriting work.
+- `GET /api/blotter/recurrence-imports`: retained source mappings, owned holds and
+  item-to-native-job provenance. No source credential, file bytes or new client
+  grant is accepted. A second series using the same client/template is held;
+  native rules currently allow one rule per pair.
+
+Review activation using `GET /api/blotter/rules/:id/activation`, then POST
+`{status:"active",previewToken:token}` to `/api/blotter/rules/:id/status`.
+The same review is required after restoration; historical jobs/claims are never
+replayed. Paused native imported rules appear under Clients & templates →
+Recurring work → Review schedule before activation.
+
+This slice does not extract source recurrence, create missing imported jobs,
+carry previous-item answers or reconcile a complete authorized practice export.
+MIGRATE-001–005 and MIGRATE-006 retain those full source-specific destinations.

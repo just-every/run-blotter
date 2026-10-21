@@ -1,3 +1,4 @@
+import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
 import { billingExportPage } from './billing-read';
 import { createClientOnce } from './client-writes';
 import { readiness, prepareReadiness, decideReadiness } from './readiness';
@@ -240,6 +241,9 @@ api.post(`${P}/bulk/schedule`, as(async (a, c) => commitSchedule(c.env, a, await
 api.post(`${P}/bulk/reassign/preview`, as(async (a, c) => previewReassign(db(c), a, await body(c))));
 api.post(`${P}/bulk/reassign`, as(async (a, c) => commitReassign(db(c), a, await body(c))));
 api.post(`${P}/jobs/:id/roll-forward`, as(async (a, c) => rollForward(c.env, a, param(c), await body(c))));
+api.get(`${P}/recurrence-imports`, as((a,c) => recurrenceImports(db(c),a)));
+api.post(`${P}/recurrence-imports/preview`, as(async(a,c) => previewRecurrenceImport(db(c),a,await body(c,80_000))));
+api.post(`${P}/recurrence-imports/commit`, as(async(a,c) => commitRecurrenceImport(db(c),a,await body(c,80_000))));
 api.get(`${P}/rules`, as((a, c) => rules(db(c), a)));
 api.post(`${P}/rules`, as(async (a, c) => createRule(db(c), a, await body(c))));
 api.post(`${P}/rules/preview`, as(async (a, c) => previewRule(db(c), a, await body(c))));
