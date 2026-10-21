@@ -1,3 +1,4 @@
+import { ClientErasure } from './client-erasure';
 import { ClientObligations } from './deadlines';
 import { DocumentPackets } from './document-packets';
 import { useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
   return <details onToggle={e => setOpened(e.currentTarget.open)}><summary>Client details and contacts</summary>
     {detail && <div className="stack" key={detail.revision}>
       <details><summary>Client document folders</summary><DocumentPackets clientId={clientId} run={run} tick={tick} /></details>
+      {state.actor.role === 'owner' && <details><summary>Retention, holds and erasure</summary><ClientErasure clientId={clientId} client={detail} jobs={state.jobs.filter((j: Row) => j.client_id === clientId)} run={run} tick={tick} /></details>}
       <details><summary>Deadline obligations</summary><ClientObligations clientId={clientId} lead={state.actor.role !== 'preparer'} run={run} tick={tick} /></details>
       <p>{detail.entity_type} · {detail.lifecycle}{detail.ssn_last4 && ` · SSN ${detail.ssn_last4}`}</p>
       <p className="muted">Contact permissions apply only to this entity. A job link proves possession of the link; it does not verify a person's identity.</p>

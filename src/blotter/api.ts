@@ -62,6 +62,8 @@ import { adjustEntry, closePeriod, correctEntry, entryHistory, reviewEntry, subm
 import { agentContext, decideProposal, propose } from './proposals';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
+import { eraseClient, erasureJournal, erasurePreview, erasureReceipt } from './client-erasure';
+import { closeCopy, placeMark, recordCopy, releaseMark, retentionState } from './client-retention';
 import { clientQuestion, completeTodo, portalMessageFile, previewPortalMessage, staffMessage, staffTodo } from './portal-items';
 import { approveCoverage, coveragePlans, previewCoverage, resolveConflict } from './coverage';
 import { addBlock, capacity, removeBlock, setCapacity, setEstimate } from './capacity';
@@ -368,6 +370,15 @@ api.post(`${P}/requests/:id/files`, as(async (a, c) => staffUpload(db(c), a, par
 api.post(`${P}/requests/:id/decide`, as(async (a, c) => decideRequest(c.env, a, param(c), await body(c))));
 api.get(`${P}/files/:id`, as((a, c) => downloadFile(db(c), a, param(c))));
 api.post(`${P}/files/:id/erase`, as(async (a, c) => eraseFile(db(c), a, param(c), await body(c))));
+api.get(`${P}/clients/:id/retention`, as((a, c) => retentionState(db(c), a, param(c))));
+api.post(`${P}/clients/:id/retention`, as(async (a, c) => placeMark(db(c), a, param(c), await body(c))));
+api.post(`${P}/retention/:id/release`, as(async (a, c) => releaseMark(db(c), a, param(c), await body(c))));
+api.post(`${P}/clients/:id/external-copies`, as(async (a, c) => recordCopy(db(c), a, param(c), await body(c))));
+api.post(`${P}/external-copies/:id/close`, as(async (a, c) => closeCopy(db(c), a, param(c), await body(c))));
+api.get(`${P}/clients/:id/erasure/preview`, as((a, c) => erasurePreview(db(c), a, param(c))));
+api.post(`${P}/clients/:id/erasure`, as(async (a, c) => eraseClient(db(c), a, param(c), await body(c))));
+api.get(`${P}/erasures/:id`, as((a, c) => erasureReceipt(db(c), a, param(c))));
+api.get(`${P}/erasure-journal`, as((a, c) => erasureJournal(db(c), a)));
 api.get(`${P}/billing`, as((a, c) => billingState(db(c), a)));
 api.post(`${P}/exports`, as(async (a, c) => prepareExport(db(c), a, await body(c))));
 api.post(`${P}/exports/:id/approve`, as(async (a, c) => approveExport(db(c), a, param(c), await body(c))));

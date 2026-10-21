@@ -305,3 +305,7 @@ Recurring work → Review schedule before activation.
 This slice does not extract source recurrence, create missing imported jobs,
 carry previous-item answers or reconcile a complete authorized practice export.
 MIGRATE-001–005 and MIGRATE-006 retain those full source-specific destinations.
+
+## Retention and whole-client erasure (ERASURE-002)
+
+Owner, person session only. `GET /clients/:id/retention` lists marks and recorded external copies; `POST /clients/:id/retention` with `{scope:'client'|'job'|'file',targetId,kind:'hold'|'retain',until,reason}` places a mark and `POST /retention/:id/release` with `{reason}` releases it. `POST /clients/:id/external-copies` records `{kind:'document'|'provider'|'buyer',system,holder,note}`; `POST /external-copies/:id/close` with `{note}` records the principal's confirmation that the holder deleted it. `GET /clients/:id/erasure/preview` (archived clients only) returns blockers, per-table counts, named retained exceptions with owners, active marks, external copies and a `planHash`. `POST /clients/:id/erasure` with `{planHash,confirm:<client name>,reason}` erases exactly that plan (409 when it changed) and returns the receipt; `GET /erasures/:id` rereads it and `GET /erasure-journal` exports every receipt with the portability epoch and tombstones. Receipts hold counts and named exceptions, never values. Restore an older archive only with `journal` set to a newer archive.

@@ -10,6 +10,7 @@ import { firmCurrency } from './firm';
 import { prospectUploads } from './intake';
 import { createStatements, eligible } from './jobs';
 import { intakeGrantStatements } from './marketing-consent';
+import { erasedAddress } from './erasure-scope';
 import { fieldDefs, profileFields } from './profiles';
 import { atomic, audit, date, email, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -109,7 +110,9 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
     audit(db, actor, 'file.filed_from_intake', movedId, `${f.name}: received through website intake; filed on onboarding`),
   ]; });
   const fields = profileFields(await fieldDefs(db), body.fields);
-  const optIn = JSON.parse(p.answers ?? '{}').marketing as Data | undefined;
+  const optedIn = JSON.parse(p.answers ?? '{}').marketing as Data | undefined;
+  // An address that withdrew before a client erasure gets no carried grant.
+  const optIn = optedIn && p.contact_email && !await erasedAddress(db, String(p.contact_email).toLowerCase(), String(optedIn.at)) ? optedIn : undefined;
   const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_prospects WHERE id=? AND client_id IS NULL AND stage_id=?)', p.id, p.stage_id);
   await atomic(db, actor, [check,
     stmt(db, "INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,'',?,?,'native',?,?,?,'[]')", clientId, p.name, p.contact_name, p.contact_email, id(), at, JSON.stringify(fields)),

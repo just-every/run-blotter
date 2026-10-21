@@ -4,6 +4,7 @@
 // principal records a correction. Grants belong to one contact relationship;
 // withdrawals apply to the address across the whole firm. Product policy, not
 // legal certification.
+import { refuseErasedAddress } from './erasure-scope';
 import { atomic, audit, human, id, insist, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 /** An event a later owner correction voided. */
@@ -72,6 +73,7 @@ export async function recordConsent(db: D1Database, actor: Actor, body: Data) {
   const event = { id: id(), actedAt: instant(body.actedAt, 'When the contact acted'), evidence: text(body.evidence, 'Evidence', 1000),
     wording: body.kind === 'grant' ? text(body.wording, 'Exact consent wording', 1000) : optional(body.wording, 'Wording', 1000),
     version: body.kind === 'grant' ? text(body.wordingVersion, 'Wording version', 60) : optional(body.wordingVersion, 'Wording version', 60), language: optional(body.language, 'Language', 20) || 'en' };
+  if (body.kind === 'grant') await refuseErasedAddress(db, contact.email, event.actedAt);
   await atomic(db, actor, [
     stmt(db, `INSERT INTO b_marketing_consents(id,contact_id,client_id,address,channel,kind,source,acted_at,recorded_at,actor,wording,wording_version,language,evidence) VALUES(?,?,?,?,'email',?,?,?,?,?,?,?,?,?)`,
       event.id, contact.id, contact.client_id, contact.email, body.kind, source, event.actedAt, now(), actor.email, event.wording, event.version, event.language, event.evidence),

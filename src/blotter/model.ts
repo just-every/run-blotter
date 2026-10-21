@@ -116,7 +116,7 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
     execution.push(allowed, finish);
     completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
   }
-  try { await db.batch([...approval, check, ...execution, ...statements, ...decision, ...completed, release]); }
+  try { const results = await db.batch([...approval, check, ...execution, ...statements, ...decision, ...completed, release]); return results.slice(approval.length + 1 + execution.length, approval.length + 1 + execution.length + statements.length); }
   catch (error) {
     if (/constraint|b_guard|UNIQUE|immutable|invalid job transition|only void/i.test(String(error))) throw new Fault('The record changed or this action is no longer allowed. Refresh and try again.', 409);
     throw error;
