@@ -71,7 +71,8 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   await h.json('/backup',undefined,other,403);
   await h.json('/access/step-up',{recoveryCode:codes[2]},other);
   const archive=await(await h.request('/api/blotter/backup',undefined,other)).text();
-  assert.ok(archive.includes('b_access_team_clients')&&!archive.includes('b_access_stepups"'));
+  const archiveRows=archive.trim().split('\n').map(JSON.parse).filter(r=>r.kind==='part').flatMap(p=>p.items).filter(r=>r.kind==='row');
+  assert.ok(archiveRows.some(r=>r.table==='b_access_team_clients')&&!archiveRows.some(r=>r.table==='b_access_stepups'));
   await h.json('/backup',undefined,a,403);
   const audit=(await h.json('/team',undefined,h.owner)).audit;
   assert.ok(audit.some(e=>e.action==='access.document_restricted')&&audit.some(e=>e.action==='access.step_up'));
