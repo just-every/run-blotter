@@ -37,6 +37,7 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   assert.deepEqual((await h.json('/state',undefined,a)).clients.map(c=>c.name).sort(),[clients[0].name,clients[1].name].sort());
   assert.deepEqual((await h.json('/v1/clients',undefined,b)).items.map(c=>c.id).sort(),[clients[1].id,clients[2].id].sort());
   await h.json('/jobs/'+jobs[2].id,undefined,a,404);
+  assert.equal((await h.json(`/clients/${clients[0].id}/detail`,undefined,a)).abn,'123456789','Authorized reviewers retain entity-edit data');
   assert.deepEqual((await h.json('/v1/work',undefined,read)).items.map(j=>j.id),[jobs[0].id]);
   await h.json(`/jobs/${jobs[0].id}/steps`,{ordinal:1,done:true},read,403);
   await h.json('/clients',{name:'Cannot write'},read,403);

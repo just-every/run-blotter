@@ -67,7 +67,7 @@ export async function redactAccess(db:D1Database,actor:Actor,value:unknown):Prom
   const forbidden=new Set((await rows(db,`SELECT sd.file_key FROM b_sensitive_documents sd WHERE NOT ${documentAuthority(actor,'sd.file_key')}`)).map(r=>String(r.file_key)));
   const walk=(v:any):any=>{
     if(Array.isArray(v))return v.filter(item=>!item || typeof item!=='object' || ![item.file_key,item.file_id,item.fileId,item.open?.fileId,item.id].some(key=>forbidden.has(String(key)))).map(walk);
-    if(v && typeof v==='object')return Object.fromEntries(Object.entries(v).map(([key,item])=>[key, key==='abn'||key==='ssn_last4' ? (typeof item==='string'&&item? '•••••'+item.replace(/\D/g,'').slice(-4):item) :walk(item)]));
+    if(v && typeof v==='object')return Object.fromEntries(Object.entries(v).map(([key,item])=>[key, (actor.readOnly||actor.role==='preparer')&&(key==='abn'||key==='ssn_last4') ? (typeof item==='string'&&item? '•••••'+item.replace(/\D/g,'').slice(-4):item) :walk(item)]));
     return v;
   };
   return walk(value);
