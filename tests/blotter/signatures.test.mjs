@@ -4,13 +4,13 @@ import {createHash} from 'node:crypto';
 import {inflateSync} from 'node:zlib';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
-import {signatureAppJourney} from './signatures-ui.mjs';
+import {signatureAppJourney,signatureOwnerJourney} from './signatures-ui.mjs';
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
 const contact=n=>({name:({5:'Mia Chen',6:'Jonah Chen',7:'Avery Lane'})[n],firstName:({5:'Mia',6:'Jonah',7:'Avery'})[n],email:`synthetic-blotter-${n}@example.test`,roles:['primary'],authorized:true,signer:true,portal:true,requestConsent:true,emailConsent:true,consentNote:'Explicit synthetic entity and signer authority'});
 async function fixture(h){
-  const sessions={};for(const email of [prepEmail,successorEmail,outsideEmail]){await h.json('/team',{email,name:email,role:'preparer'},h.owner);await h.json('/team/invite',{email},h.owner);sessions[email]=await h.login(email);}
+  const sessions={};for(const [email,name] of [[prepEmail,'Pat Harper'],[successorEmail,'Cameron Morgan'],[outsideEmail,'Casey Drew']]){await h.json('/team',{email,name,role:'preparer'},h.owner);await h.json('/team/invite',{email},h.owner);sessions[email]=await h.login(email);}
   const client=await h.json('/clients',{name:'Cedar Lane Manufacturing LLC',contacts:[contact(5),contact(6),contact(7)]},h.owner);
   const template=await h.json('/templates',{name:'Annual financial statement review',recurrence:'annual',steps:'Inspect evidence',requests:'Evidence'},h.owner);
   const job=await h.json('/jobs',{clientId:client.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Client agreed date',preparerEmail:prepEmail,reviewerEmail:'owner@example.test'},h.owner);
@@ -64,7 +64,9 @@ test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized seq
   const parallel=await sent(h,f,{mode:'parallel',title:'synthetic-blotter-15'});const second=token(parallel.invitations[1]);assert.equal((await open(h,second,parallel.id)).canSign,true);await sign(h,second,parallel.id,await open(h,second,parallel.id));const first=token(parallel.invitations[0]);await sign(h,first,parallel.id,await open(h,first,parallel.id));
   const voided=await sent(h,f,{title:'synthetic-blotter-16'}),vt=token(voided.invitations[0]),vv=await open(h,vt,voided.id);await h.json(`/signatures/${voided.id}/void`,{revision:voided.revision,reason:'Document replaced'},f.prep);await sign(h,vt,voided.id,vv,409);
   if(process.env.BLOTTER_SIGNATURE_EVIDENCE)await signatureAppJourney(h,f);
-  const pending=await sent(h,f,{title:'synthetic-blotter-17'}),transfer={email:prepEmail,workSuccessor:successorEmail,reviewSuccessor:'owner@example.test'},preview=await h.json('/team/offboard/preview',transfer,h.owner);
+  const pending=await sent(h,f,{title:'2026 management confirmation'}),transfer={email:prepEmail,workSuccessor:successorEmail,reviewSuccessor:'owner@example.test'};
+  await signatureOwnerJourney(h,f,pending,transfer);
+  const preview=await h.json('/team/offboard/preview',transfer,h.owner);
   assert.ok(preview.signatures.some(s=>s.id===pending.id));assert.ok(!preview.signatures.some(s=>s.id===done.id));await h.json('/team/offboard',{...transfer,fingerprint:preview.fingerprint},h.owner);
   assert.equal((await h.json(`/signatures/${pending.id}`,undefined,f.successor)).requester_email,successorEmail);const old=await h.json(`/signatures/${done.id}`,undefined,h.owner);assert.equal(old.requester_email,prepEmail);assert.equal(old.original_requester,prepEmail);assert.equal((await h.json('/team/offboard/preview',transfer,h.owner)).signatures.length,0);await h.json(`/signatures/${pending.id}`,undefined,f.prep,401);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();copy=await harness();await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},copy.owner);const restored=await copy.json(`/signatures/${pending.id}`,undefined,copy.owner);assert.equal(restored.status,'held');assert.equal((await copy.request(`/api/blotter/portal/${token(pending.invitations[0])}/signatures/${pending.id}`)).status,404);assert.equal(sha(Buffer.from(await(await copy.request(`/api/blotter/signatures/${done.id}/files/signed`,undefined,copy.owner)).arrayBuffer())),done.signed_sha256);

@@ -37,3 +37,33 @@ export async function signatureAppJourney(h,f){
   await signerContext.close();await context.close();
  }finally{await browser.close();}
 }
+
+/** Inspect the three inherited staff screens while the pending requester is active. */
+export async function signatureOwnerJourney(h,f,pending,transfer){
+ const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
+ const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ try{
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
+  await context.addCookies(h.owner.split('; ').map(c=>{const at=c.indexOf('=');return {name:c.slice(0,at),value:c.slice(at+1),url:h.origin};}));
+  const page=await context.newPage();await page.goto(h.origin+'/app');
+  const nav=name=>page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name,exact:true}).click();
+  const capture=async(target,name)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await target.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await target.screenshot({path:`${evidence}/${name}-${width}.png`});}await page.setViewportSize({width:1440,height:1000});};
+  await nav('Clients & templates');
+  const clients=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Clients',exact:true})}),record=clients.locator('ul.list > li').filter({hasText:f.client.name}).first();
+  await record.getByText('Client details and contacts',{exact:true}).click();await record.getByText('Client document folders',{exact:true}).click();
+  const signatures=record.locator('section.panel').filter({has:page.getByRole('heading',{name:'Document signatures',exact:true})});
+  await signatures.getByRole('button',{name:'October management representation',exact:true}).click();await signatures.getByRole('link',{name:'Completion certificate',exact:true}).waitFor();await capture(signatures,'client-signed-folder');
+  await nav('Preparations');
+  const automation=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Automation',exact:true})});
+  await automation.getByText('New automation rule',{exact:true}).click();await automation.getByLabel('Rule name',{exact:true}).fill('Review completed representation');
+  await automation.getByRole('checkbox',{name:f.client.name,exact:true}).check();await automation.getByLabel('When',{exact:true}).selectOption('signature_complete');
+  await automation.getByLabel('Then',{exact:true}).selectOption('request');await automation.getByLabel('Document request',{exact:true}).fill('Review signed management representation');
+  await automation.getByRole('button',{name:'Preview rule',exact:true}).click();await automation.getByRole('heading',{name:'Review Review completed representation',exact:true}).waitFor();await capture(automation,'signature-automation-preview');
+  await nav('Team & safety');await page.getByText('Offboard a person',{exact:true}).click();
+  await page.getByLabel('Departing person',{exact:true}).selectOption(transfer.email);await page.getByLabel('Successor for their work (jobs they prepare, tasks, notices, discussions, template tasks)',{exact:true}).selectOption(transfer.workSuccessor);
+  await page.getByLabel('Successor for their reviews (jobs they review or manage, pending proposals, unsent message batches)',{exact:true}).selectOption(transfer.reviewSuccessor);
+  await page.getByRole('button',{name:'Preview transfer',exact:true}).click();
+  const offboarding=page.locator('details').filter({has:page.getByText('Offboard a person',{exact:true})});await offboarding.getByText(`Pending signature “${pending.title}”`,{exact:false}).waitFor();await capture(offboarding,'signature-offboarding-preview');
+  await context.close();
+ }finally{await browser.close()}
+}
