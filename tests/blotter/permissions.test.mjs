@@ -83,7 +83,7 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   destination=await harness();await destination.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},destination.owner);
   const restored=await destination.json('/access',undefined,destination.owner);
   assert.equal(restored.teams.length,2);assert.ok(restored.members.find(m=>m.email==='read@example.test').read_only);
-  await h.json(`/clients/${spare.id}/lifecycle`,{lifecycle:'archived',reason:'Client requested erasure'},h.owner);
+  await h.json(`/clients/${spare.id}/lifecycle`,{revision:(await h.json(`/clients/${spare.id}/detail`,undefined,h.owner)).revision,lifecycle:'archived'},h.owner);
   const scope=await h.json(`/clients/${spare.id}/erasure/preview`,undefined,h.owner);
   assert.equal(scope.eligible,true,JSON.stringify(scope.blockers));
   const erased=await h.json(`/clients/${spare.id}/erasure`,{planHash:scope.planHash,confirm:spare.name,reason:'Client request'},h.owner);
