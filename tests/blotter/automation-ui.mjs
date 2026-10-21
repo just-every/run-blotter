@@ -98,7 +98,7 @@ export async function automationAppJourney(h,s,interrupt) {
   await page.getByText('Offboard a person',{exact:true}).click();
   await page.getByLabel('Departing person',{exact:true}).selectOption('reviewer@example.test');
   await page.getByLabel('Successor for their work (jobs they prepare, tasks, notices, discussions, template tasks)',{exact:true}).selectOption('other@example.test');
-  await page.getByLabel('Successor for their reviews (jobs they review or manage, pending proposals)',{exact:true}).selectOption('owner@example.test');
+  await page.getByLabel('Successor for their reviews (jobs they review or manage, pending proposals, unsent message batches)',{exact:true}).selectOption('owner@example.test');
   await page.getByRole('button',{name:'Preview transfer',exact:true}).click();
   await page.getByText('Its approval is not transferred',{exact:false}).waitFor();
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.getByText('Offboard a person',{exact:true}).scrollIntoViewIfNeeded();if(evidence)await page.screenshot({path:`${evidence}/offboarding-${width}.png`});if(evidence)await page.getByRole('heading',{name:'Transfer from reviewer@example.test',exact:true}).locator('..').screenshot({path:`${evidence}/offboarding-plan-${width}.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}

@@ -1,12 +1,12 @@
 // CRM-005 intake through the public, embeddable HTTP form and signed-in pipeline.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID, randomBytes } from 'node:crypto';
 import { harness } from './harness.mjs';
 import { createServer } from 'node:http';
 
 test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
-  const secret = 'test-intake-signing-key-not-a-real-secret', h = await harness({bindings:{SESSION_SECRET:secret}});let restored;
+  const secret = randomBytes(32).toString('hex'), h = await harness({bindings:{SESSION_SECRET:secret}});let restored;
   try {
     const page = await h.request('/intake'), html = await page.text();
     assert.match(page.headers.get('content-security-policy'), /frame-ancestors \*/);
@@ -105,10 +105,12 @@ test('CRM-005 embedded native browser intake submits with consent and an attachm
     await frame.getByLabel('Contact email',{exact:true}).fill('dana@embedded.example');
     await frame.getByLabel('Requested services (comma separated)').fill('Annual return');
     await frame.getByLabel('Attachments (up to 3 files, 1 MiB each)').setInputFiles({name:'prior-scope.txt',mimeType:'text/plain',buffer:Buffer.from('Previous scope')});
-    await frame.getByRole('checkbox').check();await page.waitForTimeout(3100);
+    // The marketing opt-in (MSG-002) is a separate, optional checkbox that starts unticked; only the reply consent is checked here.
+    assert.equal(await frame.getByRole('checkbox',{name:/also email me newsletters/}).isChecked(),false);
+    await frame.getByRole('checkbox',{name:/Your details go only to this practice/}).check();await page.waitForTimeout(3100);
     await frame.getByRole('button',{name:'Send inquiry',exact:true}).click();await frame.getByRole('status').waitFor();
     const prospect=(await h.json('/pipeline',undefined,h.owner)).prospects[0];
-    assert.equal(prospect.name,'Embedded Studio LLC');assert.equal(prospect.files.length,1);assert.ok(prospect.answers.consentAt);
+    assert.equal(prospect.name,'Embedded Studio LLC');assert.equal(prospect.files.length,1);assert.ok(prospect.answers.consentAt);assert.equal(prospect.answers.marketing,undefined);
     await ctx.close();
   } finally { await browser?.close();if(host)await new Promise(r=>host.close(r));await h.close(); }
 });

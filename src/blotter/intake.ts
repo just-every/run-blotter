@@ -2,6 +2,7 @@ import { staffDownload } from './document-shares';
 // Public intake and approved spam checks (CRM-005; ct 19 Oct 10:05Z).
 import type { Bindings } from '../auth.server';
 import { decodeFile } from './documents';
+import { INTAKE_MARKETING } from './marketing-consent';
 import { digest, guard, id, insist, now, rows, stmt, text, email, optional, type Actor, type Data } from './model';
 
 const HOUR = 3_600_000, DAY = 24 * HOUR;
@@ -35,7 +36,11 @@ export async function submitIntake(env: Bindings, request: Request, body: Data) 
   const name = text(body.name, 'Business or individual name', 200), contact = text(body.contactName, 'Contact name', 200), contactEmail = email(body.contactEmail, 'Contact email');
   const source = optional(body.source, 'Lead source', 120) || 'Website intake', services = text(body.services, 'Requested services', 1000).split(',').map(s => s.trim()).filter(Boolean);
   insist(services.length > 0 && services.length <= 20 && services.every(s => s.length <= 120), 'List up to 20 requested services');
-  const answers = { feeBand: optional(body.feeBand, 'Estimated annual budget', 120), details: optional(body.details, 'Inquiry details', 4000), consent: 'Your details go only to this practice to reply to this inquiry.', consentAt: now() };
+  const consentAt = now();
+  // The optional marketing checkbox is the contact's own opt-in (MSG-002); its grant follows the contact when the prospect is won.
+  const answers = { feeBand: optional(body.feeBand, 'Estimated annual budget', 120), details: optional(body.details, 'Inquiry details', 4000), consent: 'Your details go only to this practice to reply to this inquiry.', consentAt,
+    ...(body.marketing === true ? { marketing: { ...INTAKE_MARKETING, at: consentAt } } : {}) };
+  const recorded = body.marketing === true ? 'Website inquiry; consent and marketing opt-in recorded' : 'Website inquiry; consent recorded';
   insist(Array.isArray(body.uploads ?? []) && (body.uploads ?? []).length <= 3, 'Upload up to three files');
   const files = [];
   for (const f of body.uploads ?? []) { const decoded = decodeFile(f); files.push({ ...decoded, id: id(), hash: await digest(decoded.bytes) }); }
@@ -54,8 +59,8 @@ export async function submitIntake(env: Bindings, request: Request, body: Data) 
     await env.DB.batch([check,
       stmt(env.DB, "INSERT INTO b_prospects(id,name,contact_name,contact_email,source,services,fee_cents,owner_email,stage_id,stage_since,answers,created_by,created_at,currency) VALUES(?,?,?,?,?,?,0,?,'ps-inquiry',?,?,'website',?,'USD')", prospectId, name, contact, contactEmail, source, JSON.stringify(services), owner.email, time, JSON.stringify(answers), time),
       ...files.map(f => stmt(env.DB, 'INSERT INTO b_prospect_files(id,prospect_id,name,mime,size,sha256,content_base64,uploaded_at) VALUES(?,?,?,?,?,?,?,?)', f.id, prospectId, f.name, f.mime, f.bytes.length, f.hash, f.encoded, time)),
-      stmt(env.DB, "INSERT INTO b_prospect_events(id,prospect_id,to_stage,note,by_email,at) VALUES(?,?,'ps-inquiry','Website inquiry; consent recorded','website',?)", id(), prospectId, time),
-      stmt(env.DB, "INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,'website','prospect.intake',?,'Website inquiry; consent recorded',?)", id(), prospectId, time),
+      stmt(env.DB, "INSERT INTO b_prospect_events(id,prospect_id,to_stage,note,by_email,at) VALUES(?,?,'ps-inquiry',?,'website',?)", id(), prospectId, recorded, time),
+      stmt(env.DB, "INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,'website','prospect.intake',?,?,?)", id(), prospectId, recorded, time),
       stmt(env.DB, 'INSERT INTO b_intake_limits(id,ip_digest,expires_at) VALUES(?,?,?)', id(), ipDigest, at + HOUR),
       stmt(env.DB, 'INSERT INTO b_intake_tokens(digest,expires_at) VALUES(?,?)', tokenDigest, Number(stamp) + DAY),
       stmt(env.DB, 'DELETE FROM b_intake_limits WHERE expires_at<=?', at),

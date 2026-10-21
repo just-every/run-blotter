@@ -4,7 +4,8 @@
 // in a hurry is offboarded the same way afterwards. Commit plans again and must
 // match the preview. Past messages, decisions and recorded time keep their
 // authors; only open work changes hands. Deactivation revokes the member's
-// sessions and agent keys.
+// sessions and agent keys. Unsent bulk-message batches move to the review
+// successor (MSG-002); a moved marketing batch needs the principal's fresh approval.
 import { atomic, audit, digest, email, guard, human, id, insist, need, now, rows, stmt, type Actor, type Data } from './model';
 import { eligible } from './jobs';
 import { weekStart } from './timesheets';
@@ -13,7 +14,7 @@ const OPEN_JOB = "b_jobs.status<>'signed_off'";
 
 /** Everything a member owns that would be orphaned by their departure. */
 async function owned(db: D1Database, leaver: string) {
-  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients, automations] = await Promise.all([
+  const [jobs, tasks, rules, notices, threads, portal, proposals, templates, timer, time, keys, sessions, clients, automations, batches] = await Promise.all([
     rows(db, `SELECT b_jobs.id,b_jobs.title,b_jobs.period_label,b_jobs.status,b_jobs.revision,b_jobs.submitted_by,b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email,c.name client
       FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${OPEN_JOB} AND ?1 IN (b_jobs.preparer_email,b_jobs.reviewer_email,b_jobs.manager_email,b_jobs.partner_email) ORDER BY b_jobs.due_date`, leaver),
     rows(db, `SELECT s.job_id,s.ordinal,s.label,b_jobs.title job FROM b_job_steps s JOIN b_jobs ON b_jobs.id=s.job_id WHERE ${OPEN_JOB} AND s.done_at IS NULL AND s.assignee_email=? ORDER BY b_jobs.due_date,s.ordinal`, leaver),
@@ -31,8 +32,9 @@ async function owned(db: D1Database, leaver: string) {
     stmt(db, 'SELECT COUNT(*) n FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE o.email=? AND s.revoked_at IS NULL', leaver).first<Data>(),
     rows(db, `SELECT id,name,partner_email,team,revision FROM b_clients WHERE merged_into IS NULL AND (partner_email=? OR EXISTS(SELECT 1 FROM json_each(team) WHERE value=?)) ORDER BY name`, leaver,leaver),
     rows(db,"SELECT id,name,version,status,definition FROM b_automation_rules WHERE status<>'revoked' AND (approved_by=? OR json_extract(definition,'$.action.email')=?) ORDER BY name,version",leaver,leaver),
+    rows(db, "SELECT id,class,status,reason,topic,send_at,approved_by FROM b_bulk_batches WHERE owner_email=? AND status<>'sent' ORDER BY created_at,id", leaver),
   ]);
-  return { clients, jobs, tasks, rules, notices, threads, portal, proposals, automations, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
+  return { clients, jobs, tasks, rules, notices, threads, portal, proposals, automations, batches, templates: templates.map(t => ({ id: t.id, name: t.name, steps: JSON.parse(t.steps) })), timer: timer ?? null, time, keys, sessions: Number(sessions!.n) };
 }
 
 async function plan(db: D1Database, actor: Actor, body: Data) {
@@ -56,7 +58,8 @@ async function plan(db: D1Database, actor: Actor, body: Data) {
     return { ...r, to, reasons: to.reviewer === to.preparer ? [`${to.reviewer} cannot review their own work`] : [] };
   });
   // The review successor matters only when there are reviews, manager roles or proposals to hand over.
-  const reviews = [...o.jobs, ...o.rules].some(x => x.reviewer_email === leaver || x.manager_email === leaver || x.partner_email === leaver) || o.proposals.length > 0 || o.clients.some(c => c.partner_email === leaver);
+  // Only the principal and reviewers send bulk-message batches, so unsent batches go to the review successor.
+  const reviews = [...o.jobs, ...o.rules].some(x => x.reviewer_email === leaver || x.manager_email === leaver || x.partner_email === leaver) || o.proposals.length > 0 || o.batches.length > 0 || o.clients.some(c => c.partner_email === leaver);
   if (reviews && !await eligible(db, review, ['reviewer'])) problems.push(`${review} is not an active reviewer or the principal`);
   for (const line of [...jobs, ...rules]) for (const reason of line.reasons) problems.push(`${line.client} ${line.title ?? line.template}: ${reason}`);
   const result = { email: leaver, name: member.name, active: !!member.active, workSuccessor: work, reviewSuccessor: review, ...o, jobs, rules, problems };
@@ -87,6 +90,14 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     const [check,done]=guard(db,'EXISTS(SELECT 1 FROM b_automation_rules WHERE id=? AND version=? AND status=? AND definition=?)',r.id,r.version,r.status,r.definition);
     statements.push(check,done,audit(db,actor,'automation.offboarding_checked',r.id,`Offboarding ${leaver}; standing version remains immutable, inactive assignee is refused; new successor version requires fresh approval`));
   }
+  for (const b of p.batches) {
+    // A moved marketing batch loses its approval and waits, previewed, for the principal to approve the same preview again.
+    const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_bulk_batches WHERE id=? AND owner_email=? AND status=?)', b.id, leaver, b.status);
+    statements.push(check, b.class === 'marketing'
+      ? stmt(db, "UPDATE b_bulk_batches SET owner_email=?,approved_by=NULL,approved_at=NULL,status=CASE WHEN status IN ('scheduled','sending') THEN 'previewed' ELSE status END WHERE id=?", p.reviewSuccessor, b.id)
+      : stmt(db, 'UPDATE b_bulk_batches SET owner_email=? WHERE id=?', p.reviewSuccessor, b.id), release,
+      audit(db, actor, 'bulk.transferred', b.id, `offboarding ${leaver}: ${b.class} batch to ${p.reviewSuccessor}${b.class === 'marketing' ? "; needs the principal's fresh approval" : ''}`));
+  }
   for (const r of p.rules) {
     const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_recurrence_rules WHERE id=? AND revision=?)', r.id, r.revision);
     statements.push(check, stmt(db, 'UPDATE b_recurrence_rules SET preparer_email=?,reviewer_email=?,manager_email=?,revision=? WHERE id=?', r.to.preparer, r.to.reviewer, r.to.manager, id(), r.id), release);
@@ -103,10 +114,10 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     ...p.time.filter(t => !t.status).map(t => stmt(db, "INSERT INTO b_time_status(entry_id,person_email,week_start,status,submitted_at) VALUES(?,?,?,'submitted',?)", t.id, leaver, weekStart(t.date), at)),
     stmt(db, 'DELETE FROM b_activity_consent WHERE person_email=?', leaver),
     ...deactivation(db, leaver),
-    audit(db, actor, 'member.offboarded', leaver, `work to ${p.workSuccessor}, reviews to ${p.reviewSuccessor}: ${p.jobs.length} jobs, ${p.tasks.length} tasks, ${p.rules.length} recurring rules, ${p.notices.length} notices, ${p.threads.length} discussions, ${p.portal.length} client questions and to-dos, ${p.proposals.length} proposals, ${p.templates.length} templates${p.timer ? `, timer on ${p.timer.title} since ${p.timer.started_at} discarded` : ''}, ${p.time.filter(t => !t.status).length} time entries submitted, ${p.keys.length} agent keys and ${p.sessions} sessions revoked`),
+    audit(db, actor, 'member.offboarded', leaver, `work to ${p.workSuccessor}, reviews to ${p.reviewSuccessor}: ${p.jobs.length} jobs, ${p.tasks.length} tasks, ${p.rules.length} recurring rules, ${p.notices.length} notices, ${p.threads.length} discussions, ${p.portal.length} client questions and to-dos, ${p.proposals.length} proposals, ${p.batches.length} message batches, ${p.templates.length} templates${p.timer ? `, timer on ${p.timer.title} since ${p.timer.started_at} discarded` : ''}, ${p.time.filter(t => !t.status).length} time entries submitted, ${p.keys.length} agent keys and ${p.sessions} sessions revoked`),
   );
   await atomic(db, actor, statements);
-  return { email: leaver, active: false, moved: { clients:p.clients.length, jobs: p.jobs.length, tasks: p.tasks.length, rules: p.rules.length, notices: p.notices.length, threads: p.threads.length, portal: p.portal.length, proposals: p.proposals.length, templates: p.templates.length } };
+  return { email: leaver, active: false, moved: { clients:p.clients.length, jobs: p.jobs.length, tasks: p.tasks.length, rules: p.rules.length, notices: p.notices.length, threads: p.threads.length, portal: p.portal.length, proposals: p.proposals.length, batches: p.batches.length, templates: p.templates.length } };
 }
 
 /** Deactivating a member revokes every session and agent key they hold; reactivation needs a new sign-in and new keys. */

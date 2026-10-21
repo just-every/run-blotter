@@ -5,11 +5,14 @@
 // principal's approval, the firm's postal address and each address's own
 // opt-in, and go once per address. Dispatch claims each recipient, rechecks it
 // immediately before sending and never retries a held, failed or uncertain one.
+// An engagement template using {{portal_link}} attaches the request: each
+// recipient gets its own secure upload link for its basis job, issued at send.
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { operatorMail } from '../mail.server.mjs';
 import { demoEffect } from '../modules/demo/index.mjs';
 import { firmSettings } from './firm';
-import { render, usable, valuesFor } from './messages';
+import { issueLink } from './documents';
+import { LINK_PREVIEW, render, usable, valuesFor } from './messages';
 import { marketingGrantSql, marketingHold, withdrawnSql } from './marketing-consent';
 import { Fault, atomic, audit, digest, human, id, insist, integer, need, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
@@ -23,6 +26,8 @@ export function postalAddress(firm: Data) {
   return firm.address && firm.city && firm.state && firm.zip ? `${firm.name || 'The practice'}, ${firm.address}, ${firm.city}, ${firm.state} ${firm.zip}` : '';
 }
 const opener = (s: string) => ENGAGEMENT_OPENERS.some(k => new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`).test(s));
+/** An engagement template that attaches each recipient's document request through its own upload link. */
+const attachesRequest = (t: Data) => /\{\{\s*portal_link\s*\}\}/.test(`${t.subject}\n${t.body}`);
 
 type Candidate = { client: Data; contact: Data; basis: string; jobId: string | null; job: Data | null };
 
@@ -42,14 +47,14 @@ async function basisFor(db: D1Database, clientId: string, workTypeId: string) {
 }
 
 /** Placeholder values for one recipient: only firm, sender, first name and client name for marketing. */
-async function values(db: D1Database, sender: Actor, batchClass: string, c: Candidate) {
+async function values(db: D1Database, sender: Actor, batchClass: string, c: Candidate, link = '') {
   const contact = { ...c.client, contact_name: c.contact.first_name || c.contact.name };
   if (batchClass === 'marketing') {
     const v = await valuesFor(db, sender, { title: '', period_label: '', due_date: '' }, contact, [], '');
     return { firm_name: v.firm_name, sender_name: v.sender_name, client_name: v.client_name, contact_first_name: v.contact_first_name } as Record<string, string>;
   }
   const outstanding = c.jobId ? (await rows(db, "SELECT label FROM b_requests WHERE job_id=? AND status='requested' AND organizer_active=1 ORDER BY ordinal", c.jobId)).map(r => r.label as string) : [];
-  const v = await valuesFor(db, sender, c.job ?? {}, contact, outstanding, '');
+  const v = await valuesFor(db, sender, c.job ?? {}, contact, outstanding, link);
   // A rule without a job yet names its work type only; work item, period and due date stay unresolved.
   return { ...v, work_type: c.job?.work_type_name || c.job?.title || '', work_item: c.jobId ? v.work_item : '', period: c.jobId ? v.period : '', due_date: c.jobId ? v.due_date : '' } as Record<string, string>;
 }
@@ -120,9 +125,12 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
   }
   const sender = await senderFor(db, actor.email);
   const { included, excluded } = await candidates(db, body.class, filter, role);
-  const recipients = [];
+  const recipients = [], linked = body.class === 'engagement' && attachesRequest(t);
   for (const c of included) {
-    const r = render(t.subject, t.body, await values(db, sender, body.class, c), undefined);
+    // A request link needs an open basis job and a contact authorized for requests (portal and request consent).
+    const unlinked = !linked ? '' : !c.jobId ? 'no open job to attach the request to' : !c.contact.request_consent || !c.contact.portal ? 'contact not authorized for requests' : '';
+    if (unlinked) { excluded.push({ client_id: c.client.id, client: c.client.name, contact_id: c.contact.id, address: c.contact.email, reason: unlinked }); continue; }
+    const r = render(t.subject, t.body, await values(db, sender, body.class, c, linked ? LINK_PREVIEW : ''), undefined);
     if (r.missing.length) excluded.push({ client_id: c.client.id, client: c.client.name, contact_id: c.contact.id, address: c.contact.email, reason: `unresolved placeholder: ${r.missing.map(m => m.label).join(', ')}` });
     else recipients.push({ c, r });
   }
@@ -183,7 +191,7 @@ export async function scheduleBatch(db: D1Database, actor: Actor, batchId: strin
 }
 
 /** Why a claimed recipient may not be sent now (Q6/Q7), or '' when it may. */
-async function recheck(db: D1Database, b: Data, r: Data) {
+async function recheck(db: D1Database, b: Data, r: Data, linked: boolean) {
   const c = await stmt(db, `SELECT c.*,e.lifecycle,e.merged_into,${suppressed} invalid,${marketingGrantSql} granted,EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value=?) has_role
     FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=? AND c.client_id=?`, b.role, r.contact_id, r.client_id).first<Data>();
   if (!c || c.lifecycle !== 'active' || c.merged_into) return 'client archived or merged';
@@ -193,6 +201,8 @@ async function recheck(db: D1Database, b: Data, r: Data) {
   if (b.class === 'engagement') {
     if (!c.authorized || !c.has_role) return 'contact no longer authorized for this role';
     if (!await basisFor(db, r.client_id, JSON.parse(b.filter).workTypeId)) return 'engagement basis ended';
+    if (linked && (!c.request_consent || !c.portal)) return 'contact no longer authorized for requests';
+    if (linked && !await stmt(db, "SELECT 1 FROM b_jobs WHERE id=? AND status<>'signed_off'", r.job_id).first()) return 'the job holding the attached request closed';
     return '';
   }
   if (!c.granted) return 'marketing opt-in withdrawn or voided';
@@ -225,13 +235,13 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
   for (const b of due) {
     await stmt(db, "UPDATE b_bulk_batches SET status='sending' WHERE id=? AND status='scheduled'", b.id).run();
     const template = await stmt(db, 'SELECT subject,body FROM b_msg_template_versions WHERE template_id=? AND version=?', b.template_id, b.template_version).first<Data>();
-    const sender = await senderFor(db, b.owner_email), firm = await firmSettings(db);
+    const sender = await senderFor(db, b.owner_email), firm = await firmSettings(db), linked = b.class === 'engagement' && attachesRequest(template!);
     let sent = 0, held = 0;
     for (const r of await rows(db, "SELECT * FROM b_bulk_recipients WHERE batch_id=? AND status='pending' ORDER BY ordinal LIMIT ?", b.id, b.chunk_size)) {
       const attemptId = id();
       const claimed = await stmt(db, "UPDATE b_bulk_recipients SET status='claimed',attempt_id=?,attempted_at=? WHERE id=? AND status='pending'", attemptId, now(), r.id).run();
       if (!claimed.meta.changes) continue;
-      const reason = await recheck(db, b, r);
+      const reason = await recheck(db, b, r, linked);
       if (reason) {
         held++;
         await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", `held: not sent (${reason})`, r.id, attemptId),
@@ -241,21 +251,33 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
       const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', r.client_id).first<Data>();
       const contact = await stmt(db, 'SELECT * FROM b_client_contacts WHERE id=?', r.contact_id).first<Data>();
       const job = r.job_id ? await stmt(db, 'SELECT j.*,w.name work_type_name FROM b_jobs j LEFT JOIN b_work_types w ON w.id=j.work_type_id WHERE j.id=?', r.job_id).first<Data>() : (await basisFor(db, r.client_id, JSON.parse(b.filter).workTypeId))?.job ?? null;
-      const rendered = render(template!.subject, template!.body, await values(db, sender, b.class, { client: client!, contact: contact!, basis: r.basis, jobId: r.job_id, job }), undefined);
+      // The recipient's own upload link replaces any earlier link it held for this job; only the sent mail carries the secret.
+      let link: Awaited<ReturnType<typeof issueLink>> | null = null;
+      if (linked) {
+        try { link = await issueLink(db, sender, r.job_id, origin, r.contact_id); }
+        catch (error) {
+          if (!(error instanceof Fault)) throw error;
+          held++;
+          await stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", `held: not sent (${error.message})`, r.id, attemptId).run();
+          continue;
+        }
+      }
+      const rendered = render(template!.subject, template!.body, await values(db, sender, b.class, { client: client!, contact: contact!, basis: r.basis, jobId: r.job_id, job }, link?.url ?? ''), undefined);
       if (rendered.missing.length) {
         held++;
         await stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", `held: not sent (unresolved placeholder: ${rendered.missing.map(m => m.label).join(', ')})`, r.id, attemptId).run();
         continue;
       }
-      let message = rendered.body, link: string | undefined, stored = rendered.body;
+      if (link) await db.batch(link.statements);
+      let message = rendered.body, unsubscribe: string | undefined, stored = link ? rendered.body.replaceAll(link.url, `${origin}/portal/…`) : rendered.body;
       if (b.class === 'marketing') {
         const token = secret('us_');
-        link = `${origin}/unsubscribe?t=${token}`;
+        const link = unsubscribe = `${origin}/unsubscribe?t=${token}`;
         await stmt(db, 'INSERT INTO b_unsubscribe_tokens(digest,recipient_id,address,created_at) VALUES(?,?,?,?)', await digest(token), r.id, r.address, now()).run();
         const footer = ['', '--', `You receive marketing email from ${firm.name || 'this practice'} because you opted in. Unsubscribe: ${link}`, postalAddress(firm)].join('\n');
         message += '\n' + footer; stored += '\n' + footer.replace(link, `${origin}/unsubscribe?t=…`);
       }
-      const outcome = await deliver(env, r.id, r.address, rendered.subject, message, link);
+      const outcome = await deliver(env, r.id, r.address, rendered.subject, message, unsubscribe);
       sent++;
       await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status=?,subject=?,body=?,delivery=?,provider_message_id=? WHERE id=? AND attempt_id=? AND status='claimed'", outcome.status, rendered.subject, stored, outcome.delivery, outcome.providerMessageId, r.id, attemptId),
         stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), b.owner_email, outcome.status === 'accepted' ? 'bulk.sent' : 'bulk.failed', historyObject(r), `${b.class}: "${rendered.subject}" to ${r.address}: ${outcome.delivery}`, now())]);

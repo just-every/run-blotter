@@ -8,11 +8,32 @@ import { atomic, audit, human, id, insist, need, now, optional, rows, stmt, text
 
 /** An event a later owner correction voided. */
 export const voided = (alias: string) => `EXISTS(SELECT 1 FROM b_marketing_consents v WHERE v.corrects_id=${alias}.id)`;
-/** The contact `c` holds an email grant later than every withdrawal of its address (a withdrawal at the same instant wins). */
+/**
+ * The contact `c` holds an email grant later than every withdrawal of its address (a withdrawal at the same
+ * instant wins) and later than any standing contact-merge hold on it (CRM-004: the most restrictive consent wins).
+ */
 export const marketingGrantSql = `EXISTS(SELECT 1 FROM b_marketing_consents g WHERE g.contact_id=c.id AND g.kind='grant' AND g.channel='email' AND g.address=c.email AND NOT ${voided('g')}
-  AND NOT EXISTS(SELECT 1 FROM b_marketing_consents w WHERE w.address=c.email AND w.kind='withdraw' AND w.channel='email' AND NOT ${voided('w')} AND w.acted_at>=g.acted_at))`;
+  AND NOT EXISTS(SELECT 1 FROM b_marketing_consents w WHERE w.address=c.email AND w.kind='withdraw' AND w.channel='email' AND NOT ${voided('w')} AND w.acted_at>=g.acted_at)
+  AND NOT EXISTS(SELECT 1 FROM b_marketing_merge_holds h WHERE h.contact_id=c.id AND h.held_at>=g.acted_at))`;
 export const withdrawnSql = `EXISTS(SELECT 1 FROM b_marketing_consents w WHERE w.address=c.email AND w.kind='withdraw' AND w.channel='email' AND NOT ${voided('w')})`;
 const STAFF_SOURCES = ['staff_evidence', 'staff_reply'];
+/** The public intake form's optional, unticked marketing checkbox (CRM-005 carrier), kept apart from the reply consent. */
+export const INTAKE_MARKETING = { wording: 'Optional: also email me newsletters, seminar invitations and offers from this practice. I can unsubscribe at any time.', version: 'intake-marketing-v1', language: 'en' };
+
+/** Contacts, by id, holding a current marketing grant. */
+export async function grantedContacts(db: D1Database, ids: string[]) {
+  return new Set(ids.length ? (await rows(db, `SELECT c.id FROM b_client_contacts c WHERE c.id IN (SELECT value FROM json_each(?)) AND ${marketingGrantSql}`, JSON.stringify(ids))).map(r => String(r.id)) : []);
+}
+
+/**
+ * A prospect's own intake opt-in, recorded against its converted contact when the prospect is won: the contact
+ * acted when the inquiry was submitted; the person winning the prospect records the carried grant.
+ */
+export function intakeGrantStatements(db: D1Database, actor: Actor, contactId: string, clientId: string, address: string, optIn: Data, prospectId: string) {
+  return [stmt(db, `INSERT INTO b_marketing_consents(id,contact_id,client_id,address,channel,kind,source,acted_at,recorded_at,actor,wording,wording_version,language,evidence) VALUES(?,?,?,?,'email','grant','intake_checkbox',?,?,?,?,?,?,?)`,
+    id(), contactId, clientId, address, optIn.at, now(), actor.email, optIn.wording, optIn.version, optIn.language, `website intake checkbox on prospect ${prospectId}`),
+    audit(db, actor, 'consent.marketing_granted', clientId, `${address}: intake_checkbox`)];
+}
 
 function instant(value: unknown, label: string) {
   const v = text(value, label, 40);
