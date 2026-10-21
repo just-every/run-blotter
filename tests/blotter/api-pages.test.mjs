@@ -1,5 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { harness } from './harness.mjs';
 
 let h, prep, other, client, hidden, jobs, entries;
@@ -103,4 +104,120 @@ test('API-002 native time pages: descending keys, inclusive dates, own-person sc
   assert.equal((await h.json(path('time', { limit: 100 }), undefined, h.owner)).items.length, entries.length + 1);
   assert.equal((await h.json('/timesheets', undefined, prep)).entries.length, entries.length);
   await h.json(path('time'), undefined, '', 401);
+});
+
+test('API-002 native client pages: exact fields, tied Unicode names, scope, bound cursors and read-only traversal', async () => {
+  const made = [];
+  for (const name of ['Client ties café', 'Client ties café', 'Ω client', '𐀀 client', '😀 client']) {
+    made.push(await h.json('/clients', { name }, h.owner));
+  }
+  const individual = await h.json('/clients', { name: 'Archived individual', entityType: 'individual', ssnLast4: '7438', services: ['Tax'], tags: ['Pages'] }, h.owner);
+  await h.json(`/clients/${individual.id}/lifecycle`, { revision: individual.revision, lifecycle: 'archived' }, h.owner);
+  const duplicate = await h.json('/clients', { name: 'Merged duplicate' }, h.owner);
+  const comparison = await h.json(`/clients/compare?a=${made[0].id}&b=${duplicate.id}`, undefined, h.owner);
+  await h.json('/clients/merge', {
+    survivor: made[0].id, merged: duplicate.id,
+    keep: Object.fromEntries(comparison.fields.filter(f => !f.same && f.key !== 'source').map(f => [f.key, 'survivor'])),
+  }, h.owner);
+  const key = await h.json('/keys', { label: 'Client pages denial' }, h.owner);
+  const before = await h.json('/state', undefined, h.owner), audit = (await h.json('/team', undefined, h.owner)).audit;
+  const listed = await allPages('clients', { limit: 1 }, h.owner);
+  const sqlCompare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
+  const ordered = [...before.clients].sort((a, b) => sqlCompare(a.name, b.name) || sqlCompare(a.id, b.id));
+  assert.deepEqual(listed, ordered, 'Every native field and masked value survives pagination');
+  assert.ok(!listed.some(c => c.id === duplicate.id), 'Merged clients stay excluded');
+  assert.equal(listed.find(c => c.id === individual.id).ssn_last4, '•••••7438');
+  assert.equal(listed.find(c => c.id === individual.id).lifecycle, 'archived');
+  assert.equal(typeof listed.find(c => c.id === individual.id).services, 'string', 'Keep native workspace JSON fields');
+  assert.deepEqual(await allPages('clients', { limit: 2 }, prep), (await h.json('/state', undefined, prep)).clients);
+  assert.deepEqual(await allPages('clients', { limit: 1, client: individual.id }, prep), []);
+  assert.deepEqual(await allPages('clients', { limit: 1, client: individual.id }, h.owner), [listed.find(c => c.id === individual.id)]);
+  assert.deepEqual(await allPages('clients', { limit: 1, client: duplicate.id }, h.owner), []);
+  assert.deepEqual(await allPages('clients', { limit: 1, client: 'missing' }, h.owner), []);
+  assert.deepEqual((await h.json(path('clients'), undefined, h.owner)).items, listed);
+  const first = await h.json(path('clients', { limit: 1 }), undefined, h.owner);
+  const rest = await h.json(path('clients', { limit: 100, cursor: first.nextCursor }), undefined, h.owner);
+  assert.deepEqual([...first.items, ...rest.items], listed, 'Changing page size retains the position');
+  assert.equal(rest.nextCursor, null);
+  const filtered = await h.json(path('clients', { client: individual.id }), undefined, h.owner);
+  assert.equal(filtered.nextCursor, null);
+  for (const query of [{ client: individual.id }, { client: duplicate.id }]) {
+    await h.json(path('clients', { ...query, cursor: first.nextCursor }), undefined, h.owner, 400);
+  }
+  await h.json(path('clients', { cursor: first.nextCursor }), undefined, prep, 400);
+  for (const route of ['work', 'time']) {
+    await h.json(path(route, { cursor: first.nextCursor }), undefined, h.owner, 400);
+    const page = await h.json(path(route, { limit: 1 }), undefined, h.owner);
+    await h.json(path('clients', { cursor: page.nextCursor }), undefined, h.owner, 400);
+  }
+  const decoded = JSON.parse(Buffer.from(first.nextCursor, 'base64url').toString('utf8'));
+  for (const altered of [{ ...decoded, v: 2 }, { ...decoded, after: ['name'] }, { ...decoded, after: ['name', 'id', 'extra'] }, { ...decoded, after: [7, 'id'] }, { ...decoded, after: ['', 'id'] }, { ...decoded, actor: { ...decoded.actor, role: 'reviewer' } }]) {
+    await h.json(path('clients', { cursor: Buffer.from(JSON.stringify(altered)).toString('base64url') }), undefined, h.owner, 400);
+  }
+  for (const cursor of ['?', '', 'bad', Buffer.from('{"v":9}').toString('base64url')]) await h.json(path('clients', { cursor }), undefined, h.owner, 400);
+  for (const limit of ['0', '101', '1.5', 'NaN', '']) await h.json(path('clients', { limit }), undefined, h.owner, 400);
+  await h.json(path('clients'), undefined, '', 401);
+  await h.json(path('clients'), undefined, '', 401, { authorization: 'Bearer ' + key.key });
+  assert.deepEqual(await h.json('/state', undefined, h.owner), before);
+  assert.deepEqual((await h.json('/team', undefined, h.owner)).audit, audit);
+});
+
+test('API-002 client cursors lose job/task authority and follow current roles, MFA and member status', async () => {
+  const address = 'pages-reader@example.test';
+  await h.json('/team', { email: address, name: 'Page reader', role: 'preparer' }, h.owner);
+  await h.json('/team/invite', { email: address }, h.owner);
+  let reader = await h.login(address);
+  const clients = [];
+  for (const name of ['A reader anchor', 'M reader job', 'Z reader task']) clients.push(await h.json('/clients', { name }, h.owner));
+  const ordinary = await h.json('/templates', { name: 'Reader job', recurrence: 'annual', steps: 'Prepare', requests: 'Source' }, h.owner);
+  const named = await h.json('/templates', { name: 'Reader named task', recurrence: 'annual', tasks: [{ label: 'Named task', assignee: address }], requests: 'Source' }, h.owner);
+  const start = (clientId, templateId, preparerEmail) => h.json('/jobs', { clientId, templateId, preparerEmail, reviewerEmail: 'owner@example.test', periodStart: '2026-01-01', dueDate: '2026-12-01', dueNote: 'Recorded target' }, h.owner);
+  await start(clients[0].id, ordinary.id, address);
+  const assigned = await start(clients[1].id, ordinary.id, address);
+  const taskJob = await start(clients[2].id, named.id, otherEmail);
+  assert.deepEqual((await allPages('clients', { limit: 1 }, reader)).map(c => c.id), clients.map(c => c.id));
+  assert.deepEqual((await allPages('clients', { limit: 1, client: clients[2].id }, reader)).map(c => c.id), [clients[2].id]);
+  assert.equal((await h.json(`/jobs/${taskJob.id}`, undefined, reader)).job.access, 'task');
+  await h.json('/team', { email: address, name: 'Page reader', role: 'reviewer' }, h.owner);
+  assert.deepEqual(await allPages('clients', { limit: 2 }, reader), (await h.json('/state', undefined, h.owner)).clients);
+  const lead = await h.json(path('clients', { limit: 1 }), undefined, reader);
+  await h.json('/team', { email: address, name: 'Page reader', role: 'preparer' }, h.owner);
+  await h.json(path('clients', { cursor: lead.nextCursor }), undefined, reader, 400);
+  const first = await h.json(path('clients', { limit: 1 }), undefined, reader);
+  const move = { jobIds: [assigned.id], preparerEmail: otherEmail };
+  const preview = await h.json('/bulk/reassign/preview', move, h.owner);
+  await h.json('/bulk/reassign', { ...move, fingerprint: preview.fingerprint }, h.owner);
+  assert.deepEqual((await h.json(path('clients', { cursor: first.nextCursor }), undefined, reader)).items.map(c => c.id), [clients[2].id]);
+  assert.deepEqual(await allPages('clients', { limit: 1, client: clients[1].id }, reader), []);
+  const transfer = { email: address, workSuccessor: otherEmail, reviewSuccessor: 'owner@example.test' };
+  const plan = await h.json('/team/offboard/preview', transfer, h.owner);
+  assert.ok(plan.tasks.some(t => t.job_id === taskJob.id));
+  await h.json('/team/offboard', { ...transfer, fingerprint: plan.fingerprint }, h.owner);
+  await h.json(path('clients', { cursor: first.nextCursor }), undefined, reader, 401);
+  await h.json('/team', { email: address, name: 'Page reader', role: 'preparer' }, h.owner);
+  reader = await h.login(address);
+  assert.deepEqual(await h.json(path('clients', { cursor: first.nextCursor }), undefined, reader), { items: [], nextCursor: null }, 'A new session for the same actor cannot recover transferred task scope');
+  assert.deepEqual(await allPages('clients', { limit: 1, client: clients[2].id }, reader), []);
+  await h.json(`/jobs/${taskJob.id}`, undefined, reader, 404);
+
+  const enroll = async cookie => {
+    const start = await h.json('/mfa/totp/start', {}, cookie);
+    let bits = 0, value = 0; const bytes = [];
+    for (const char of start.secret) { value = (value << 5) | 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(char); bits += 5; if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; } }
+    const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000) - 1));
+    const mac = createHmac('sha1', Buffer.from(bytes)).update(counter).digest(), offset = mac[19] & 15;
+    const code = String((mac.readUInt32BE(offset) & 0x7fffffff) % 1e6).padStart(6, '0');
+    return h.json('/mfa/totp/confirm', { id: start.id, code }, cookie);
+  };
+  await enroll(h.owner);
+  await h.json('/team/mfa-policy', { required: true }, h.owner);
+  assert.equal((await h.json(path('clients'), undefined, reader, 403)).mfa, 'enroll');
+  const enrolled = await enroll(reader);
+  await h.json(path('clients'), undefined, reader);
+  const second = await h.login(address);
+  assert.equal((await h.json(path('clients'), undefined, second, 403)).mfa, 'verify');
+  await h.json('/mfa/verify', { recoveryCode: enrolled.recoveryCodes[0] }, second);
+  await h.json(path('clients'), undefined, second);
+  await h.json('/team', { email: address, name: 'Page reader', role: 'preparer', active: false }, h.owner);
+  await h.json(path('clients'), undefined, second, 401);
 });

@@ -2,8 +2,10 @@
 
 ## Native read pages (API-002 partial)
 
-`GET /api/blotter/v1/work` and `GET /api/blotter/v1/time` use an existing
-signed-in native staff session. Supply its cookie jar, kept privately, to curl:
+`GET /api/blotter/v1/work`, `GET /api/blotter/v1/time` and
+`GET /api/blotter/v1/clients` use an existing signed-in native staff session,
+with the same current-member and MFA checks as the app. Agent keys do not
+authenticate these endpoints. Supply the session's cookie jar, kept privately, to curl:
 
 ```sh
 curl -sS --cookie "$BLOTTER_COOKIE_JAR" --get \
@@ -14,9 +16,13 @@ curl -sS --cookie "$BLOTTER_COOKIE_JAR" --get \
   'https://YOUR-INSTALLATION/api/blotter/v1/time' \
   --data-urlencode 'from=2026-10-01' --data-urlencode 'to=2026-10-31' \
   --data-urlencode 'limit=25'
+
+curl -sS --cookie "$BLOTTER_COOKIE_JAR" --get \
+  'https://YOUR-INSTALLATION/api/blotter/v1/clients' \
+  --data-urlencode 'limit=25'
 ```
 
-Both return `{items:[...],nextCursor:string|null}`. `limit` is an integer from
+All return `{items:[...],nextCursor:string|null}`. `limit` is an integer from
 1 to 100, default 50. To continue, repeat the same endpoint and filters and add
 `--data-urlencode "cursor=$BLOTTER_NEXT_CURSOR"`, using the returned
 `nextCursor`; stop when it is `null`. Page size may change between requests.
@@ -42,6 +48,16 @@ time; preparers see only their own entries. `person` narrows that scope and
 cannot expand it. Items retain the native timesheet entry fields plus
 `created_at`. Order is descending `date`, `created_at`, then `id`; SQL keyset
 pagination traverses beyond the legacy timesheets screen's 500-entry limit.
+
+Clients accepts an optional exact client id as `client`, intersected with the
+session's existing workspace scope. Principals and reviewers see all unmerged
+clients, including clients without jobs and archived clients. Preparers see
+only clients with a currently readable job, including access through named
+tasks. Items retain every native workspace client field and its existing
+types (including JSON strings), with the same masked `ssn_last4` value.
+Order is ascending `name`, then `id`, using SQL keyset pagination. Each page
+rechecks job and task visibility; transferring access removes clients from
+later pages even when a previously issued cursor is reused.
 
 These are live views, without snapshot semantics. New entries, edits, moving
 sort keys, changing permissions or the UTC day used for overdue work can change

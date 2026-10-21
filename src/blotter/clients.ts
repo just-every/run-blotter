@@ -2,6 +2,7 @@ import { organizerTemplate, validateOrganizerWorkflow } from './organizers-defin
 import { contactInsert, contactValues, legacyContactValues, readableClient } from './client-contacts';
 import { clientDetail, entityValues } from './client-lifecycle';
 import { firmCurrency, firmSettings } from './firm';
+import { readClients } from './client-read';
 // Clients and recurring job templates.
 import { fieldDefs, groups, profileFields, tagList } from './profiles';
 import { pendingStep } from './flow';
@@ -98,12 +99,10 @@ export async function workspace(db: D1Database, actor: Actor) {
     FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id LEFT JOIN b_work_types w ON w.id=b_jobs.work_type_id
     WHERE ${readableJobSql}
     ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...readableJobParams(actor));
-  const clients = wide ? await rows(db, 'SELECT * FROM b_clients WHERE merged_into IS NULL ORDER BY name')
-    : await rows(db, `SELECT c.* FROM b_clients c WHERE merged_into IS NULL AND EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql}) ORDER BY name`, ...readableJobParams(actor));
   return {
     actor: { email: actor.email, name: actor.name, role: actor.role },
     jobs,
-    clients: clients.map(c => ({ ...c, ssn_last4:c.ssn_last4 ? '•••••'+c.ssn_last4 : '' })),
+    clients: await readClients(db, actor),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),
     statusModel: await statusModel(db),
     firm: { timeZone: firm.timeZone, currency: firm.currency },

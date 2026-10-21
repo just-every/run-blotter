@@ -1,10 +1,11 @@
 // API-002's native-session read pages. Cursors carry position, never authority.
 import { listJobs, parseFilters } from './filters';
-import { email, Fault, insist, integer, rows, type Actor, type Data } from './model';
+import { readClients, type ClientPosition } from './client-read';
+import { email, Fault, insist, integer, optional, rows, type Actor, type Data } from './model';
 import { timeEntryFields, timeEntryFrom } from './timesheets';
 
-type Position = [string, string, string];
-type Route = 'work' | 'time';
+type Position = [string, string, string] | ClientPosition;
+type Route = 'work' | 'time' | 'clients';
 const cursorError = 'Invalid cursor; restart with the same route, filters and staff session role';
 const limitFor = (query: Data) => query.limit === undefined ? 50 : integer(query.limit, 'Limit', 1, 100);
 
@@ -33,8 +34,8 @@ function position(query: Data, route: Route, filters: Data, actor: Actor): Posit
   insist(Object.keys(cursor).sort().join(',') === 'actor,after,filters,route,v' && cursor.v === 1 && cursor.route === route, cursorError);
   insist(cursor.actor?.email === actor.email && cursor.actor?.role === actor.role, cursorError);
   insist(JSON.stringify(cursor.filters) === JSON.stringify(filters), cursorError);
-  insist(Array.isArray(cursor.after) && cursor.after.length === 3 && cursor.after.every((part: unknown) => typeof part === 'string' && part.length > 0 && part.length <= 1000), cursorError);
-  checkedDate(cursor.after[0], 'Cursor date');
+  insist(Array.isArray(cursor.after) && cursor.after.length === (route === 'clients' ? 2 : 3) && cursor.after.every((part: unknown) => typeof part === 'string' && part.length > 0 && part.length <= 1000), cursorError);
+  if (route !== 'clients') checkedDate(cursor.after[0], 'Cursor date');
   if (route === 'time') insist(Number.isFinite(Date.parse(cursor.after[1])) && /^\d{4}-\d{2}-\d{2}T/.test(cursor.after[1]), cursorError);
   return cursor.after as Position;
 }
@@ -82,4 +83,13 @@ export async function timePage(db: D1Database, actor: Actor, query: Data) {
     WHERE ${where.join(' AND ')} ORDER BY t.date DESC,t.created_at DESC,t.id DESC LIMIT ?`, ...params, limit + 1);
   const items = entries.slice(0, limit), last = items[items.length - 1];
   return { items, nextCursor: entries.length > limit ? next('time', filters, [last.date, last.created_at, last.id], actor) : null };
+}
+
+/** SQL name/id keysets intersect the same live scope and exact fields as workspace. */
+export async function clientPage(db: D1Database, actor: Actor, query: Data) {
+  const limit = limitFor(query), filters = { client: optional(query.client, 'Client', 100) };
+  const after = position(query, 'clients', filters, actor) as ClientPosition | null;
+  const clients = await readClients(db, actor, { client: filters.client, after, limit: limit + 1 });
+  const items = clients.slice(0, limit), last = items[items.length - 1];
+  return { items, nextCursor: clients.length > limit ? next('clients', filters, [last.name, last.id], actor) : null };
 }
