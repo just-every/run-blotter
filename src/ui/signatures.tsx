@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
+import {SignaturePdfPreview} from './signature-pdf-preview';
 import { api, Field, Form, readFile, Status, when, type Row, type Run } from './common';
 
 /** Reuses the existing job/client panels and forms. Frozen requests are never edited. */
@@ -33,7 +34,7 @@ export function SignatureRequests({detail,clientId,run,tick=0,readOnly=false}:{d
     {!readOnly&&job&&job.status!=='signed_off'&&job.access!=='task'&&<details><summary>Prepare a signature request</summary>
       <p>Choose a PDF up to 1 MiB and 200 pages. Place all fields before sending; a sent document cannot be changed. PDF positions use points (72 points per inch), measured from the page's upper-left corner.</p>
       <Field label="PDF to sign" name="signaturePdf"><input type="file" name="signaturePdf" accept="application/pdf" onChange={e=>{const file=e.target.files?.[0];if(file)run(async()=>{if(file.size>1048576)throw new Error('Signature PDFs must be at most 1 MiB');const doc=await PDFDocument.load(await file.arrayBuffer());setPdf({file:await readFile(file),url:URL.createObjectURL(file),pages:doc.getPages().map(p=>({width:p.getWidth(),height:p.getHeight()}))});setFields([])})}}/></Field>
-      {pdf&&<><p>{pdf.file.name} · {pdf.pages.length} pages. <a href={pdf.url} target="_blank" rel="noreferrer">Open PDF to inspect placement</a></p><iframe title="Signature PDF original preview" src={pdf.url} style={{width:'100%',height:400,border:'1px solid var(--line)'}}/></>}
+      {pdf&&<><p>{pdf.file.name} · {pdf.pages.length} pages. <a href={pdf.url} target="_blank" rel="noreferrer">Open PDF to inspect placement</a></p><SignaturePdfPreview file={pdf.file} pages={pdf.pages} fields={fields}/></>}
       <fieldset><legend>Authorized signers in signing order</legend>{signerContacts.length===0&&<p>Add contacts with signer authority, portal permission and request/email consent first.</p>}
         {signerContacts.map(c=><label className="check" key={c.id}><input type="checkbox" checked={chosen.includes(c.id)} onChange={e=>{setChosen(e.target.checked?[...chosen,c.id]:chosen.filter(id=>id!==c.id));if(!e.target.checked)setFields(fields.filter(f=>f.contactId!==c.id))}}/>{c.name} &lt;{c.email}&gt;</label>)}
         <ol>{chosen.map((id,index)=><li key={id}>{name(id)} {index>0&&<button type="button" className="quiet" onClick={()=>setChosen(chosen.map((v,i)=>i===index-1?id:i===index?chosen[index-1]:v))}>Move earlier</button>}</li>)}</ol>

@@ -16,6 +16,7 @@ export async function signatureAppJourney(h,f){
   const capture=async(page,target,name)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await target.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name} ${width} overflows`);await target.screenshot({path:`${evidence}/${name}-${width}.png`});}await page.setViewportSize({width:1440,height:1000});};
   await panel.getByText('Prepare a signature request',{exact:true}).click();
   await panel.getByLabel('PDF to sign',{exact:true}).setInputFiles({name:'October-representation.pdf',mimeType:'application/pdf',buffer:f.bytes});
+  await panel.getByRole('img',{name:'PDF page 1',exact:true}).waitFor({state:'visible'});
   for(const c of f.client.contacts.slice(0,2))await panel.getByLabel(`${c.name} <${c.email}>`,{exact:true}).check();
   for(let i=0;i<2;i++){await panel.getByLabel('Field signer',{exact:true}).selectOption(f.client.contacts[i].id);await panel.getByLabel('Field label',{exact:true}).fill(`Signature ${i+1}`);await panel.getByLabel('Top (points)',{exact:true}).fill(String(500+i*50));await panel.getByRole('button',{name:'Place field on PDF',exact:true}).click();}
   await panel.getByLabel('Document title',{exact:true}).fill('October management representation');await capture(staff,panel,'staff-field-placement');
