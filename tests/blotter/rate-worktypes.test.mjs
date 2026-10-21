@@ -7,6 +7,7 @@ test('TIME-003 / BASE-001 work-type rates distinguish shared templates, keep pre
  const h=await harness();let restored;
  try{
   for(const [email,role] of [['pat@example.test','preparer'],['riley@example.test','reviewer']])await h.json('/team',{email,name:email.split('@')[0],role},h.owner);
+  await h.json('/team/invite',{email:'pat@example.test'},h.owner);
   const pat=await h.login('pat@example.test');
   const template=await h.json('/templates',{name:'Individual return',recurrence:'annual',steps:'Prepare return',requests:'W-2'},h.owner);
   const ordinary=await h.json('/work-types',{name:'1040 standard',templateId:template.id},h.owner);
