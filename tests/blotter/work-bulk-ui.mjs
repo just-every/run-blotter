@@ -42,6 +42,7 @@ export async function workBulkJourney(h, { clients, template, group }) {
     await bulk.getByLabel('Where the due date comes from', { exact: true }).fill('Firm quarterly close schedule');
     await bulk.getByLabel('Default preparer', { exact: true }).selectOption('owner@example.test');
     await bulk.getByLabel('Default reviewer', { exact: true }).selectOption('reviewer@example.test');
+    await bulk.getByLabel(`${clients[0].name} reviewer`, {exact:true}).selectOption('reviewer@example.test');
     await inclusion(clients[1]).selectOption('exclude');
     await bulk.getByRole('button', { name: 'Preview', exact: true }).click();
     await bulk.getByRole('button', { name: 'Commit this plan', exact: true }).waitFor();
@@ -57,6 +58,7 @@ export async function workBulkJourney(h, { clients, template, group }) {
     await bulk.getByLabel('Where the due date comes from', { exact: true }).fill('Firm quarterly close schedule');
     await bulk.getByLabel('Default preparer', { exact: true }).selectOption('owner@example.test');
     await bulk.getByLabel('Default reviewer', { exact: true }).selectOption('reviewer@example.test');
+    await bulk.getByLabel(`${clients[0].name} reviewer`, {exact:true}).selectOption('reviewer@example.test');
     await inclusion(clients[1]).selectOption('exclude');
     await bulk.getByRole('button', { name: 'Preview', exact: true }).click();
     await bulk.getByRole('button', { name: 'Commit this plan', exact: true }).click();
