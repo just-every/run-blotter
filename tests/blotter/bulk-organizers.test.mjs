@@ -21,7 +21,7 @@ async function clientWork(h, label, { organizer = true, assign = true } = {}) {
     { key: questionKey, label: `${label} owner document question`, type: 'text', required: false },
     { key: otherKey, label: `${label} bookkeeper document question`, type: 'text', required: false },
   ] };
-  const template = await h.json('/templates', { name: `${label} close`, recurrence: 'monthly', tasks: [{ label: 'Prepare close' }], requests: [],
+  const template = await h.json('/templates', { name: `${label} close`, recurrence: 'monthly', tasks: [{ label: 'Prepare close' }], requests: ['Bank statement'],
     ...(organizer ? { organizer: definition } : {}) }, h.owner);
   const job = await h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart: '2026-01-01', dueDate: '2027-04-15', dueNote: 'Recorded firm engagement target',
     preparerEmail: 'owner@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
@@ -144,6 +144,10 @@ test('MSG-002 / PORTAL-004 / BASE-001 organizer batches refuse missing authority
     await h.json(`/organizers/${erased.organizer.id}/erase`, { revision: erased.organizer.revision, confirm: erased.definition.name, reason: 'Client requested removal of organizer answers' }, h.owner);
     const closed = await clientWork(h, 'Closed');
     let detail = await h.json(`/jobs/${closed.job.id}`, undefined, h.owner);
+    for (const request of detail.requests) {
+      await h.json(`/requests/${request.id}/files`, { name: 'Statement.txt', mime: 'text/plain', contentBase64: Buffer.from('Source statement for the closed engagement').toString('base64') }, h.owner);
+      await h.json(`/requests/${request.id}/decide`, { decision: 'accept' }, h.owner);
+    }
     for (const step of detail.steps) await h.json(`/jobs/${closed.job.id}/steps`, { ordinal: step.ordinal, done: true }, h.owner);
     detail = await h.json(`/jobs/${closed.job.id}`, undefined, h.owner);
     await h.json(`/jobs/${closed.job.id}/submit`, { revision: detail.job.revision }, h.owner);
