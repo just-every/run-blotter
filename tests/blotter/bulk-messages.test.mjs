@@ -48,7 +48,7 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
     // MSG-001: a bulk message cannot be filled in per recipient, so a template with an unresolved field reaches nobody and names it.
     const invoice = await h.json('/messages/templates', { scope: 'firm', name: 'Invoice notice', subject: '{{work_type}} invoice {{invoice_amount}}', body: '{{work_type}} invoice of {{invoice_amount}} is due {{invoice_due_date}}.' }, h.owner);
     const unresolved = await h.json('/bulk-messages/preview', { ...engagement, templateId: invoice.id, idempotencyKey: 'invoice-1' }, review, 409);
-    assert.ok(unresolved.exclusions.length > 0 && unresolved.exclusions.every(x => /^unresolved placeholder: invoice amount/.test(x.reason)));
+    assert.equal(unresolved.exclusions.filter(x => /^unresolved placeholder: invoice amount/.test(x.reason)).length, 34, 'Every otherwise eligible recipient is excluded with the field named');
     const preview = await h.json('/bulk-messages/preview', { ...engagement, idempotencyKey: 'kick-1' }, review);
     assert.equal(preview.recipients.length, 34); assert.equal(preview.samples.length, 3);
     assert.equal(preview.samples[0].subject, '1040 kickoff for Client 00'); assert.match(preview.samples[0].body, /Hi Pat00, your organizer follows/);
