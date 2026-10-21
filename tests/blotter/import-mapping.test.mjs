@@ -47,7 +47,7 @@ test('BASE-001 / IMPORT-001 mapped entity/contact CSV: write-free errors and dup
   assert.deepEqual(h.mails.at(-1).to,[contacts[0].email],'Imported contacts are routable without changing their identity or grants');
   const edited=state.clients.find(c=>c.name==='Client 1'),detail=await h.json(`/clients/${edited.id}/detail`,undefined,h.owner);
   await h.json(`/clients/${edited.id}/contacts`,{id:detail.contacts[0].id,revision:detail.contacts[0].revision,name:'Corrected Contact'},h.owner);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const restoredJournal=await restored.json('/import/status',{id:jobId},restored.owner);assert.equal(Buffer.from(restoredJournal.originals[0].original.base64,'base64').toString(),body.csv);assert.equal((await restored.json(`/clients/${imported.id}/contacts`,undefined,restored.owner)).length,2);
   let undone=await h.json('/import/undo',{id:jobId},h.owner);while(undone.job.state==='undoing')undone=await h.json('/import/undo',{id:jobId},h.owner);
   const after=await h.json('/state',undefined,h.owner);assert.equal(after.clients.length,before+2);assert.ok(after.clients.some(c=>c.id===imported.id));assert.ok(after.clients.some(c=>c.id===edited.id));assert.equal((await h.json(`/jobs/${work.id}`,undefined,h.owner)).job.id,work.id);
@@ -97,7 +97,7 @@ test('MSG-002 / IMPORT-001 / BASE-001: separately reviewed mapped opt-ins requir
   const commit=await h.json('/import/commit',{...body,fingerprint:review.fingerprint,marketingAttested:true},h.owner),jobId=commit.job.id;
   assert.ok(commit.job.checkpoint>0&&commit.job.checkpoint<commit.job.total,'Consent is committed in the existing resumable chunks');
   const pendingArchive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
-  restored=await harness();await restored.json('/restore',{archive:pendingArchive,confirm:'RESTORE'},restored.owner);
+  restored=await harness();await restored.json('/restore',{archive:pendingArchive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   let resumed=(await restored.json('/import/resume',{id:jobId},restored.owner)).job;
   while(resumed.state!=='completed')resumed=(await restored.json('/import/resume',{id:jobId},restored.owner)).job;
   const resumedLog=await restored.json('/marketing-consents',undefined,restored.owner);
@@ -124,7 +124,7 @@ test('MSG-002 / IMPORT-001 / BASE-001: separately reviewed mapped opt-ins requir
   const packetJob=await h.json('/jobs',{clientId:client0.id,templateId:packetTemplate.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Recorded review date',preparerEmail:'reviewer@example.test',reviewerEmail:'owner@example.test'},h.owner);
   const packetRequest=(await h.json(`/jobs/${packetJob.id}`,undefined,h.owner)).requests[0];
   const packet=await h.json(`/requests/${packetRequest.id}/files`,{name:'consent-source.txt',mime:'text/plain',contentBase64:Buffer.from('Stored consent source attachment').toString('base64')},h.owner);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const restoredEvents=(await restored.json('/marketing-consents',undefined,restored.owner)).events.filter(e=>e.source==='import');
   assert.deepEqual(restoredEvents.map(({restored,...e})=>e),events.map(({restored,...e})=>e));assert.ok(restoredEvents.every(e=>e.restored===1));
   await restored.json('/bulk-messages/preview',{...batch,idempotencyKey:'after-restore'},restored.owner,409);
@@ -166,7 +166,7 @@ test('MSG-002 / IMPORT-001 / BASE-001 native-match consent: provenance never gra
   // Use a separate empty source for the empty-log archive, without suppressing or altering this log.
   const empty=await harness();let archive;
   try {archive=await(await empty.request('/api/blotter/backup',undefined,empty.owner)).text();}finally{await empty.close();}
-  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const fresh={mapping:marketingMapping,csv:consentCsv([importedContact('after-empty',sourceGrant)])};
   const next=await restored.json('/import/preview',fresh,restored.owner);await restored.json('/import/commit',{...fresh,fingerprint:next.fingerprint,marketingAttested:true},restored.owner);
   const log=await restored.json('/marketing-consents',undefined,restored.owner);assert.equal(log.events.length,1);assert.equal(log.events[0].restored,0);assert.match(log.hold,/off after a restore/);

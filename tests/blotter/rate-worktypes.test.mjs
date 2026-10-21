@@ -48,7 +48,7 @@ test('TIME-003 / BASE-001 work-type rates distinguish shared templates, keep pre
   await card({scope:'service',workTypeId:complex.id,templateId:template.id,rateCents:1},h.owner,400);
   await rateWorkTypeJourney(h,complex,client);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
-  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const rates=(await restored.json('/team',undefined,restored.owner)).rates;
   assert.ok(rates.some(r=>r.work_type_id===complex.id&&r.rate_cents===33000));
   assert.ok(rates.some(r=>r.template_id===template.id&&r.work_type_id===null&&r.rate_cents===13000));

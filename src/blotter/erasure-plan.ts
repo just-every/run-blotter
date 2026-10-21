@@ -102,7 +102,7 @@ export async function plan(db: D1Database, actor: Actor, clientId: string) {
   const eligible = blockers.length === 0;
   return { x, client, list, audited, counts, carry, withdrawn, retained: retainedAll, marks, copies, observed, records, blockers, totals, planHash, remainder, held, classes, heldTotal, fingerprint: await fingerprint(db),
     preview: { client: { id: clientId, ref: clientId.slice(0, 8), name: client.name, lifecycle: client.lifecycle }, eligible, blockers, erase: counts.filter(c => c.count > 0).map(({ table, action, label, cls, count }) => ({ table, action, label, class: cls, count })),
-      classes, totals, withdrawalsCarried: carry, retained: retainedAll, records: records.map(r => ({ ...r, retainedUntil: r.expiry })), holds: marks, held: counts.filter(c => c.preserved > 0).map(c => ({ table: c.table, label: c.label, class: c.cls, count: c.preserved })),
+      classes, totals, withdrawalsCarried: carry, retained: retainedAll, records: records.map(r => ({ ...r, class: r.cls })), holds: marks, held: counts.filter(c => c.preserved > 0).map(c => ({ table: c.table, label: c.label, class: c.cls, count: c.preserved })),
       suppressionDigests: withdrawn.length, sealedRemainder: remainder,
       externalCopies: [...copies.map(c => ({ ...c, source: 'principal-recorded', status: c.closed_at ? 'closed' : 'open', action: c.closed_at ? 'confirmed deleted by the principal' : `Not erased by Blotter; ${c.holder} must delete it` })),
         ...observed.map(o => ({ source: o.source, kind: 'observed', system: o.label, holder: o.owner, count: o.count, status: 'open', action: `Not erased by Blotter; ${o.owner} controls it` }))],

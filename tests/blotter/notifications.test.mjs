@@ -90,7 +90,7 @@ test('NOTIFY-001 / BASE-001: due thresholds, user-local quiet hours and once-dai
   await h.json(`/jobs/${soon.id}/threads`,{title:'Deferred source check',body:'Inspect source',mentions:['prep@example.test']},h.owner);
   assert.ok((await h.json('/notifications',undefined,s.prep)).some(n=>n.kind==='mention'&&n.delivery.startsWith('deferred:')));
   await h.json('/notifications/settings',{...base,digestEnabled:true},h.owner);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   assert.equal((await restored.json('/notifications/settings',undefined,restored.owner)).personal.digestEnabled,false);
   const copied=await(await restored.request('/api/blotter/backup',undefined,restored.owner)).text();assert.ok(copied.includes('held after restore: deferred: outside firm notification hours'));
   const sent=restored.mails.length;await restored.scheduled('2026-11-01T12:00:00Z');assert.equal(restored.mails.length,sent,'Restored delivery history cannot replay without staff authority');

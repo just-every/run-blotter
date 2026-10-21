@@ -73,7 +73,7 @@ test('API-002 / BASE-001 native client writes: atomic concurrent replay, conflic
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     assert.ok(!archive.includes(key)); assert.ok(!archive.includes(agent.key));
     restored = await harness();
-    await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     const replayed = await restored.json('/v1/clients', payload, restored.owner, 200, headers);
     assert.equal(replayed.id, first.id); assert.equal(replayed.replayed, true);
     assert.equal((await restored.json('/state', undefined, restored.owner)).clients.filter(c => c.name === payload.name).length, 1);

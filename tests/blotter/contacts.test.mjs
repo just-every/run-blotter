@@ -49,7 +49,7 @@ test('BASE-001 / CRM-001 entities, contact-specific authority, routing, editing,
   const offboard = await h.json('/team/offboard/preview',{email:'reviewer@example.test',workSuccessor:'other@example.test',reviewSuccessor:'owner@example.test'},h.owner);assert.ok(offboard.clients.some(x=>x.id===c.id));
   await h.json('/team/offboard',{email:'reviewer@example.test',workSuccessor:'other@example.test',reviewSuccessor:'owner@example.test',fingerprint:offboard.fingerprint},h.owner);
   detail=await h.json(`/clients/${c.id}/detail`,undefined,h.owner);assert.equal(detail.partner_email,'owner@example.test');
-  const archive=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  const archive=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const copy=await restored.json(`/clients/${c.id}/detail`,undefined,restored.owner);assert.equal(copy.contacts.length,3);assert.equal(copy.revision,detail.revision);assert.equal(copy.contacts.find(x=>x.id===lu.id).portal,0);assert.deepEqual(copy.services,['Sales tax','Payroll']);assert.equal((await restored.json(`/clients/${c.id}/history`,undefined,restored.owner)).jobs.length,2);
  } finally {await restored?.close();await h.close()}
 });

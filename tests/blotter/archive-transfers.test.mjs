@@ -69,7 +69,7 @@ test('ARCHIVE-002 / BASE-001: interrupted multi-year native export and restore p
   await h.json(`/portability/exports/${started.id}/download?table=oa_sessions`,undefined,h.owner,404);
   target=await harness();
   await target.json('/portability/imports',{manifest,confirm:'NO'},target.owner,400);
-  const restored=await target.json('/portability/imports',{manifest,confirm:'RESTORE'},target.owner);
+  const restored=await target.json('/portability/imports',{manifest,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},target.owner);
   const first=parts.find(p=>p.kind==='part');
   let status=await target.json(`/portability/imports/${restored.id}/parts`,{part:first},target.owner);
   assert.equal(status.completed,1);
@@ -78,7 +78,7 @@ test('ARCHIVE-002 / BASE-001: interrupted multi-year native export and restore p
   const wrong={...first,sha256:'0'.repeat(64)};
   await target.json(`/portability/imports/${restored.id}/parts`,{part:wrong},target.owner,400);
   for(const part of parts.filter(p=>p.kind==='part'&&p.index!==first.index))await target.json(`/portability/imports/${restored.id}/parts`,{part},target.owner);
-  assert.equal((await target.json(`/portability/imports/${restored.id}/finalize`,{archiveHash:closing.archiveHash,contentHash:closing.contentHash},target.owner)).phase,'complete');
+  assert.equal((await target.json(`/portability/imports/${restored.id}/finalize`,{archiveHash:closing.archiveHash,contentHash:closing.contentHash,acknowledge: 'erasure history unverified: supply your latest erasure journal'},target.owner)).phase,'complete');
   const rt=await exportAll(target);assert.deepEqual(rowsOf(rt.archive),rowsOf(archive),'Every product record, count, relationship, currency amount and permission survives; new archive action attribution is checked separately');
   assert.ok((await target.json('/team',undefined,target.owner)).audit.some(a=>a.action==='archive.restored'&&a.actor==='owner@example.test'&&a.object_id===restored.id));
   assert.equal(await(await target.request('/api/blotter/files/'+jobs.latestFile,undefined,target.owner)).text(),Buffer.from(file.contentBase64,'base64').toString());
@@ -117,7 +117,7 @@ test('ARCHIVE-002 / BASE-001: current erasure journal invalidates staged snapsho
   await h.json(`/portability/exports/${old.t.id}/download`,undefined,h.owner,404);
   const fresh=await exportAll(h);assert.ok(!fresh.archive.includes(file.contentBase64));
   const journal=records(fresh.archive)[0],parts=records(old.archive),closing=parts.at(-1);
-  target=await harness();const r=await target.json('/portability/imports',{manifest:parts[0],confirm:'RESTORE'},target.owner);
+  target=await harness();const r=await target.json('/portability/imports',{manifest:parts[0],confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},target.owner);
   for(const part of parts.filter(p=>p.kind==='part'))await target.json(`/portability/imports/${r.id}/parts`,{part},target.owner);
   await target.json(`/portability/imports/${r.id}/finalize`,{archiveHash:closing.archiveHash,contentHash:closing.contentHash,laterJournal:{sourceIdentity:journal.sourceIdentity,epoch:journal.epoch,journal:journal.journal}},target.owner,409);
   await target.json(`/portability/imports/${r.id}/abort`,{},target.owner);

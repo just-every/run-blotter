@@ -225,7 +225,7 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
 
     // Archive: consent travels, tokens do not, batches return paused, and marketing stays off until the principal confirms.
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
-    restored = await harness(); await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    restored = await harness(); await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     const restoredLog = await restored.json(`/marketing-consents?clientId=${clients[0].id}`, undefined, restored.owner);
     assert.deepEqual(restoredLog.events.map(e => [e.kind, e.source]), log.events.map(e => [e.kind, e.source])); assert.ok(restoredLog.events.every(e => e.restored === 1));
     assert.match(restoredLog.hold, /off after a restore/);

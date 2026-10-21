@@ -139,7 +139,7 @@ test('DUE-001 sourced obligations: five approved rule types for clients in two s
     // Archives carry rules, revisions, relief and job dates; erasing the acknowledgment fences older archives.
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     const target = await harness(); others.push(target);
-    await target.json('/restore', { archive, confirm: 'RESTORE' }, target.owner);
+    await target.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner);
     const restored = await target.json('/deadlines', undefined, target.owner);
     assert.deepEqual([restored.revisions.map(r => r.version), restored.relief.map(r => r.postponedTo), restored.catalog.filter(r => r.approved).length], [['2026.2'], ['2026-10-15'], 6]);
     assert.deepEqual(await deadline(target, j1040.id), after1040);

@@ -52,7 +52,7 @@ test('REPORT-001 / BASE-001: saved scheduled partner reports, deduplicated hours
   const before=h.mails.length;await h.scheduled('2026-10-20T11:00:00Z');await h.scheduled('2026-10-20T11:00:00Z');state=await h.json('/reports/views',undefined,h.owner);assert.equal(state.runs.length,1);assert.equal(h.mails.length,before,'Outside notification hours');
   await h.scheduled('2026-10-20T14:00:00Z');await h.scheduled('2026-10-20T14:00:00Z');
   const notices=h.mails.slice(before).filter(m=>(m.text??'').includes('/app?report='+view.id));assert.equal(notices.length,1);assert.ok(notices[0].to.includes('reviewer@example.test'));assert.ok(!JSON.stringify(notices[0]).includes('12100'));
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const copy=await restored.json('/reports/views',undefined,restored.owner);assert.deepEqual(copy.views,state.views);assert.equal(copy.schedules[0].status,'paused');assert.equal(copy.schedules[0].principal_id,null);assert.deepEqual(copy.runs,state.runs);
   await restored.scheduled('2026-11-20T14:00:00Z');assert.equal((await restored.json('/reports/views',undefined,restored.owner)).runs.length,1);
   const projected=await restored.json(path(f),undefined,restored.owner);assert.equal(projected.money[0].approvedExportCents,12100);

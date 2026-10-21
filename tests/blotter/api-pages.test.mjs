@@ -165,7 +165,7 @@ test('API-002 / BASE-001 native client pages: exact fields, tied Unicode names, 
   assert.ok(!archive.includes(key.key));
   const restored = await harness();
   try {
-    await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     assert.deepEqual((await restored.json(path('clients', { limit: 100 }), undefined, restored.owner)).items, listed);
     await restored.json(path('clients'), undefined, prep, 401);
     await restored.json(path('clients'), undefined, '', 401, { authorization: 'Bearer ' + key.key });

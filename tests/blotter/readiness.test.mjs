@@ -89,7 +89,7 @@ test('READY-001 / BASE-001: live native evidence map, prior answers, human-appro
     await decide(h, current.id, q.id, 'resolve', s.unassignedReviewer, 403);
     const archiveBefore = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     const restored = await harness(); copies.push(restored);
-    await restored.json('/restore', { archive: archiveBefore, confirm: 'RESTORE' }, restored.owner);
+    await restored.json('/restore', { archive: archiveBefore, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     const restoredMap = await map(restored, current.id, restored.owner);
     assert.deepEqual(restoredMap, await map(h, current.id, h.owner));
     assert.ok(!archiveBefore.includes(key.key));

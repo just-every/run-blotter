@@ -109,7 +109,7 @@ test('DOC-001 / BASE-001 realistic multi-page packets resume exactly; corrected 
     const staged = await start(h, f, bytes); await h.json(`/packet-uploads/${staged.id}/chunks`, first, f.prep);
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     assert.ok(!archive.includes(staged.id));
-    restored = await harness(); await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    restored = await harness(); await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     assert.deepEqual(Buffer.from(await (await restored.request(`/api/blotter/files/${v2.fileId}`, undefined, restored.owner)).arrayBuffer()), corrected);
     assert.equal((await restored.json(`/clients/${f.client.id}/document-packets`, undefined, restored.owner)).total, 2);
     await h.json(`/files/${u.fileId}/erase`, { confirm: 'Q3 bank receipts.pdf', reason: 'Client retention request' }, h.owner);

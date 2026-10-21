@@ -2,6 +2,7 @@
 // fences older archives. Adapted from just-every/run-satchel src/satchel/archive.ts (MIT).
 import { ensureLegacyContacts } from './client-contacts';
 import { refuseHeld } from './client-retention';
+import { recordAcknowledgement, requireAcknowledgement, withReport } from './erasure-restore';
 import { createPortability, readArchive } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
 import { atomic, audit, human, insist, job, need, now, stmt, text, type Actor, type Data } from './model';
@@ -21,6 +22,7 @@ export async function backup(db: D1Database, actor: Actor) {
 export async function restore(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
   insist(body.confirm === 'RESTORE', 'Type RESTORE to confirm an empty-destination restore');
+  const acknowledged = requireAcknowledgement(body.journal, body.acknowledge);
   const source = text(body.archive, 'Archive', 64_000_000), service = await createPortability({ db, policy });
   const records = [];
   for await (const record of readArchive(new Response(source).body!)) records.push(record);
@@ -35,7 +37,7 @@ export async function restore(db: D1Database, actor: Actor, body: Data) {
     for (const item of records) {
       if (item.kind === 'manifest') importId = await service.imports.create(item, actor.id);
       else if (item.kind === 'part') { insist(importId, 'Missing archive manifest'); await service.imports.uploadPart(importId, item.index, item); }
-      else { insist(importId, 'Missing archive manifest'); const result = await service.imports.finalize(importId, { archiveHash: item.archiveHash, contentHash: item.contentHash, laterJournal }); await ensureLegacyContacts(db); return result; }
+      else { insist(importId, 'Missing archive manifest'); const result = await service.imports.finalize(importId, { archiveHash: item.archiveHash, contentHash: item.contentHash, laterJournal }); await ensureLegacyContacts(db); await recordAcknowledgement(db, actor, acknowledged, importId); return withReport(result, actor, acknowledged); }
     }
     throw new Error('Incomplete archive');
   } catch (error) { if (importId) await service.imports.abort(importId); throw error; }

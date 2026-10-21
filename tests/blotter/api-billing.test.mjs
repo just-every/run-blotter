@@ -87,7 +87,7 @@ test('API-002 / BASE-001 native billing pages retain financial authority, filter
     assert.ok(!archive.includes(key.key));
     const restored = await harness();
     try {
-      await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+      await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
       assert.deepEqual(await pages(restored, restored.owner), listed);
       await restored.json(path(), undefined, reviewer, 401);
       await restored.json(path(), undefined, '', 401, { authorization: 'Bearer ' + key.key });

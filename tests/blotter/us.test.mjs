@@ -57,7 +57,7 @@ test('US-001 money: USD defaults, stored AUD remains distinct through time, bill
     }
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     restored = await harness();
-    await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     const after = await restored.json('/state', undefined, restored.owner);
     assert.deepEqual(after.jobs.map(j => [j.id, j.currency, j.fee_cents]).sort(), Object.values(jobs).map(j => [j.id, j.currency, j.fee_cents]).sort());
     for (const { id, csv } of csvs) assert.equal(await (await restored.request(`/api/blotter/exports/${id}/csv`, undefined, restored.owner)).text(), csv);
@@ -160,7 +160,7 @@ test('US-001 firm setup: US practice details, filing calendar, local DST clock a
     assert.equal(unchanged.job.currency, 'USD');
     await h.json('/firm/settings', settings, h.owner);
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
-    restored = await harness(); await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    restored = await harness(); await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     assert.deepEqual(await restored.json('/firm/settings', undefined, restored.owner), saved);
     const state = await restored.json('/state', undefined, restored.owner);
     assert.equal(state.firm.timeZone, settings.timeZone); assert.equal(state.jobs.length, jobs.length);

@@ -141,7 +141,7 @@ test('LEARN-001 / BASE-001: source-linked repeated review learning, selected-cli
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     assert.ok(!archive.includes(key.key));
     const restored = await harness(); copies.push(restored);
-    await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     assert.deepEqual(await restored.json(`/learning/${first.id}`, undefined, restored.owner), detail);
     assert.equal((await restored.json(`/learning/${rejected.id}`, undefined, restored.owner)).status, 'declined');
     const may = await restored.json('/jobs', { clientId: s.client.id, templateId: s.template.id, periodStart: '2026-05-01', dueDate: '2026-06-15', dueNote: 'Restored work target', ...people }, restored.owner);

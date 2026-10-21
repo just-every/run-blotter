@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
+import { retentionJourney } from './erasure-ui.mjs';
 import { build, finishOpenWork, approvedExport, SENTINEL, IDENTITY, b64, enroll, totp } from './erasure-fixture.mjs';
 
 const file = (h, id, who = h.owner) => h.request('/api/blotter/files/' + id, undefined, who);
@@ -94,6 +95,8 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.equal(preview.holds.find(m => m.id === engagementHold.id).owner, 'reviewer@example.test');
     assert.equal((await h.json(`/clients/${id}/erasure/preview`, undefined, h.owner)).planHash, preview.planHash, 'A preview changes nothing');
 
+    await retentionJourney(h, 'before', IDENTITY.name);
+
     // Approval: the digest, a reason and the typed client name; a changed preview is refused as stale; one atomic batch.
     await h.json(`/clients/${id}/erasure`, { planHash: preview.planHash, confirm: IDENTITY.name, reason: 'Client asked' }, s.reviewer, 403);
     await h.json(`/clients/${id}/erasure`, { planHash: 'f'.repeat(64), confirm: IDENTITY.name, reason: 'Client asked' }, h.owner, 409);
@@ -154,6 +157,8 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     const history = JSON.stringify(await h.json(`/clients/${id}/history`, undefined, h.owner));
     assert.ok(history.includes('client.erased') && !history.includes('alex@example.test'), 'Audit rows stay with their values replaced');
 
+    await retentionJourney(h, 'after', 'Erased client');
+
     // The receipt names every outside copy with its owner and holds no erased value.
     const journal = await h.json('/erasure-journal', undefined, h.owner);
     assert.equal(journal.receipts.length, 1);
@@ -210,7 +215,11 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     const stale = await target.request('/api/blotter/restore', { archive: old, journal: latest, confirm: 'RESTORE' }, target.owner);
     assert.equal(stale.status, 409);
     assert.match((await stale.json()).error, /erasure/);
-    assert.equal((await target.json('/restore', { archive: latest, confirm: 'RESTORE' }, target.owner)).phase, 'complete');
+    // A fresh destination without the journal restores only after the unverified-history acknowledgment, recorded in the import report.
+    assert.match((await target.json('/restore', { archive: latest, confirm: 'RESTORE' }, target.owner, 409)).error, /erasure history unverified/);
+    const report = await target.json('/restore', { archive: latest, confirm: 'RESTORE', acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner);
+    assert.equal(report.phase, 'complete');
+    assert.deepEqual([report.erasureHistory.status, report.erasureHistory.acknowledgedBy], ['unverified', 'owner@example.test']);
     assert.match((await target.json(`/clients/${id}/detail`, undefined, target.owner)).name, /^Erased client /);
     assert.equal((await target.json('/erasure-journal', undefined, target.owner)).receipts.length, 1);
   } finally { await h.close(); await target.close(); }

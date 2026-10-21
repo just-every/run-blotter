@@ -98,7 +98,7 @@ test('MIGRATE-006 / BASE-001: stale mappings, denied authority, revoked staff an
     assert.ok(!old.includes(key.key));
     await h.json('/files/'+file.id+'/erase',{confirm:'Bank evidence.txt',reason:'Approved removal of statement bytes'},h.owner);
     const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
-    const restored=await harness();copies.push(restored);await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+    const restored=await harness();copies.push(restored);await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
     assert.deepEqual(await restored.json('/recurrence-imports',undefined,restored.owner),await h.json('/recurrence-imports',undefined,h.owner));
     const r=(await restored.json('/rules',undefined,restored.owner)).rules.find(r=>r.id===mapped.ruleId);
     assert.equal(r.status,'paused');await restored.scheduled('2031-01-01T12:00:00Z');assert.equal((await restored.json('/state',undefined,restored.owner)).jobs.length,3);

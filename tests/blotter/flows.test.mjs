@@ -657,15 +657,15 @@ test('BASE-001 / erasing a file removes its bytes everywhere and fences older ar
 });
 
 test('BASE-001 / restore needs an empty installation, an intact archive and the latest erasure journal', async () => {
-  await h.json('/restore', { archive: newArchive, confirm: 'RESTORE' }, h.owner, 409);
+  await h.json('/restore', { archive: newArchive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, h.owner, 409);
   const target = await harness();
   try {
-    const damaged = await target.request('/api/blotter/restore', { archive: newArchive.replace('Harbour Lane', 'Harbour Lame'), confirm: 'RESTORE' }, target.owner);
+    const damaged = await target.request('/api/blotter/restore', { archive: newArchive.replace('Harbour Lane', 'Harbour Lame'), confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner);
     assert.equal(damaged.status, 400);
     const stale = await target.request('/api/blotter/restore', { archive: oldArchive, journal: newArchive, confirm: 'RESTORE' }, target.owner);
     assert.equal(stale.status, 409);
     assert.match((await stale.json()).error, /erasure/);
-    assert.equal((await target.json('/restore', { archive: newArchive, confirm: 'RESTORE' }, target.owner)).phase, 'complete');
+    assert.equal((await target.json('/restore', { archive: newArchive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner)).phase, 'complete');
     const rowsOf = archive => archive.trim().split('\n').map(line => JSON.parse(line)).filter(r => r.kind === 'part').flatMap(p => p.items).filter(i => i.kind === 'row').map(i => JSON.stringify({ table: i.table, row: i.row })).sort();
     const roundtrip = await (await target.request('/api/blotter/backup', undefined, target.owner)).text();
     assert.deepEqual(rowsOf(roundtrip), rowsOf(newArchive), 'Every archived row survives export, restore and export');

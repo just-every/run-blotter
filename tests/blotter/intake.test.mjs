@@ -67,7 +67,7 @@ test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embe
     const archive=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.doesNotMatch(archive, /UHJpb3Igc2NvcGUgZG9jdW1lbnQ=/);
     restored=await harness();
     await restored.json('/restore',{confirm:'RESTORE',archive:backup,journal:archive},restored.owner,409);
-    await restored.json('/restore',{confirm:'RESTORE',archive},restored.owner);
+    await restored.json('/restore',{confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal',archive},restored.owner);
     assert.equal((await restored.request('/api/blotter'+fileDoor,undefined,restored.owner)).status,404);
   } finally { await restored?.close();await h.close(); }
 });

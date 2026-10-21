@@ -163,7 +163,7 @@ test('PORTAL-004 / WORK-008 organizers travel through starter releases, individu
   const branch=await h.json(`/jobs/${future.id}`,undefined,h.owner);assert.equal(branch.answers.find(q=>q.key==='changes').value,'No');assert.equal(branch.steps.find(t=>t.label===branchTask.label).state,'not_applicable');
 
   const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
-  restored = await harness(); await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+  restored = await harness(); await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
   assert.deepEqual((await restored.json(`/jobs/${oldJob.id}/organizers`, undefined, restored.owner)).organizers[0].definition, original.definition);
   assert.deepEqual(await restored.json(`/templates/${work.templateId}/organizer`, undefined, restored.owner), await h.json(`/templates/${work.templateId}/organizer`, undefined, h.owner));
  } finally { await restored?.close(); await h.close(); }
@@ -189,7 +189,7 @@ test('BASE-001 / PORTAL-004 authority, revocation, attributed originals and port
   assert.ok(!archive.includes(token) && !archive.includes(key.key));
   const archivedRows = archive.trim().split('\n').map(JSON.parse).filter(p => p.kind === 'part').flatMap(p => p.items).filter(i => i.kind === 'row');
   assert.ok(archivedRows.some(i => i.table === 'b_organizer_submissions')); assert.ok(!archivedRows.some(i => i.table === 'b_portal_links'));
-  restored = await harness(); await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+  restored = await harness(); await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
   const before = await h.json(`/jobs/${job.id}/organizers`, undefined, h.owner), after = await restored.json(`/jobs/${job.id}/organizers`, undefined, restored.owner);
   assert.deepEqual(after.organizers, before.organizers);
   await restored.json(portal(token), undefined, undefined, 404);
@@ -266,7 +266,7 @@ test('BASE-001 / PORTAL-004 typed owner erasure removes answer content and deriv
   assert.ok(history.history.some(e => e.action === 'organizer.erased' && e.actor === 'owner@example.test'));
   target = await harness();
   await target.json('/restore', { archive: oldArchive, journal: latest, confirm: 'RESTORE' }, target.owner, 409);
-  await target.json('/restore', { archive: latest, confirm: 'RESTORE' }, target.owner);
+  await target.json('/restore', { archive: latest, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner);
   const restored = (await target.json(`/jobs/${job.id}/organizers`, undefined, target.owner)).organizers[0];
   assert.ok(restored.erased_at); assert.ok(restored.submissions.every(s => s.answers === null));
   assert.equal((await target.json(`/jobs/${nextJob.id}/organizers`, undefined, target.owner)).organizers[0].answers.owners.value, '');

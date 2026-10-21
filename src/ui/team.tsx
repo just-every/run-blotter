@@ -1,4 +1,5 @@
 import { ArchiveTransfers } from './archive-transfers';
+import { Retention } from './retention';
 import { useEffect, useState } from 'react';
 import { FirmSettings } from './firm';
 import { DeadlineRules } from './deadlines';
@@ -63,6 +64,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
       <Form label="Create agent key" submit={async data => run(async () => setKey(await api('/keys', data)), 'Agent key created')}><Field label="Agent name" name="label" value="Practice assistant" /></Form>
     </section>}
     {owner && <ArchiveTransfers run={run} tick={tick} />}
+    {owner && <Retention run={run} tick={tick} />}
     {owner && <section className="panel">
       <h2>Erase a client file</h2>
       <p className="muted">Removes the file's bytes permanently. Its name, hash and history remain, and older archives can no longer be restored without this erasure's journal.</p>

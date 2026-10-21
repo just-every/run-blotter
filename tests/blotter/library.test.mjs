@@ -97,7 +97,7 @@ test('WORK-008 starter library: adopt, tailor, start work, preview releases and 
   const future=await jobFrom(h,client,adopted['monthly-close'],'2026-02-01');
   assert.ok((await view(h,future.id)).requests.some(r=>r.label===requestChange.after));
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
-  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE'},restored.owner);
+  restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal'},restored.owner);
   assert.deepEqual((await restored.json('/library',undefined,restored.owner)).adoptions, (await h.json('/library',undefined,h.owner)).adoptions);
   assert.deepEqual(await view(restored,close.id),originals[close.id]);
  } finally {await restored?.close();await h.close();}

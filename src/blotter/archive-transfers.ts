@@ -2,6 +2,7 @@
 import { createPortability, readArchive } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
 import { ensureLegacyContacts } from './client-contacts';
+import { recordAcknowledgement, requireAcknowledgement, withReport } from './erasure-restore';
 import { atomic, audit, human, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 const owner = (actor: Actor) => { human(actor); need(actor, 'owner'); };
@@ -45,10 +46,12 @@ export async function uploadTransferPart(db: D1Database, actor: Actor, transferI
 }
 export async function finalizeTransfer(db: D1Database, actor: Actor, transferId: string, body: Data) {
   const { service } = await owned(db, actor, transferId, 'import');
+  const acknowledged = requireAcknowledgement(body.laterJournal, body.acknowledge);
   const result = await service.imports.finalize(transferId, { archiveHash: text(body.archiveHash, 'Archive hash', 64), contentHash: text(body.contentHash, 'Content hash', 64), laterJournal: body.laterJournal });
   await ensureLegacyContacts(db);
   await atomic(db, actor, [stmt(db, "INSERT OR IGNORE INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,'archive.restored',?,'Verified archive restored; schedules paused and credentials excluded',?)",'archive:'+transferId,actor.email,transferId,now())]);
-  return result;
+  await recordAcknowledgement(db, actor, acknowledged, transferId);
+  return withReport(result, actor, acknowledged);
 }
 export async function abortTransfer(db: D1Database, actor: Actor, kind: 'export' | 'import', transferId: string) {
   const { service } = await owned(db, actor, transferId, kind);

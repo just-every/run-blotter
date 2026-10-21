@@ -114,7 +114,7 @@ test('MSG-002 / PORTAL-004 / BASE-001 bulk organizer invitations preserve contac
     assert.ok(!archive.includes(agent.key));
     assert.ok(archiveRows(archive, 'b_organizer_deliveries').length > 0);
     restored = await harness();
-    await restored.json('/restore', { archive, confirm: 'RESTORE' }, restored.owner);
+    await restored.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, restored.owner);
     for (const c of clients) assert.deepEqual((await organizerFor(restored, c.job.id)).deliveries, (await organizerFor(h, c.job.id)).deliveries);
     const exported = await (await restored.request('/api/blotter/backup', undefined, restored.owner)).text();
     assert.deepEqual(archiveRows(exported, 'b_organizer_deliveries'), archiveRows(archive, 'b_organizer_deliveries'));

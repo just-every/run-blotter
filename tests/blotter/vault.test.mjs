@@ -87,7 +87,7 @@ test('VAULT-001 credential vault: client adds through the portal, assigned prepa
     for (const archive of [encrypted, excluded]) assert.ok(!archive.includes(PASSWORD) && !archive.includes(USERNAME));
     for (const [archive, message] of [[encrypted, /another installation's vault key/], [excluded, /excluded from the archive/]]) {
       const target = await harness(); restored.push(target);
-      await target.json('/restore', { archive, confirm: 'RESTORE' }, target.owner);
+      await target.json('/restore', { archive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner);
       assert.deepEqual((await target.json(`/clients/${client.id}/credentials`, undefined, target.owner)).credentials.map(c => c.label), ['Ohio sales-tax portal']);
       const own = await enroll(target, target.owner);
       assert.match((await target.json(`/credentials/${added.id}/reveal`, { code: totp(own.secret, 1) }, target.owner, 409)).error, message);

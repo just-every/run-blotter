@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { api, Field, Form, type Row, type Run } from './common';
 import { archiveFile } from './archive-transfer-file';
 
+const UNVERIFIED = 'erasure history unverified: supply your latest erasure journal';
+
 export function ArchiveTransfers({ run, tick }: { run: Run; tick: number }) {
-  const [list, setList] = useState<Row[]>([]), [file, setFile] = useState<File>(), [journal, setJournal] = useState<File>(), [busy, setBusy] = useState(false), [progress, setProgress] = useState('');
+  const [list, setList] = useState<Row[]>([]), [file, setFile] = useState<File>(), [journal, setJournal] = useState<File>(), [acknowledged, setAcknowledged] = useState(false), [busy, setBusy] = useState(false), [progress, setProgress] = useState('');
   const load = async () => setList((await api('/portability')).transfers);
   useEffect(() => { load().catch(e => run(async () => { throw e; })); }, [tick]);
   const work = (fn: () => Promise<void>) => run(async () => { setBusy(true); try { await fn(); } finally { setBusy(false); await load(); } });
@@ -12,6 +14,7 @@ export function ArchiveTransfers({ run, tick }: { run: Run; tick: number }) {
     if (!file) throw new Error('Choose an archive file');
     let laterJournal: Row | undefined;
     if (journal) { const reader = archiveFile(journal); try { const first = await reader.next(); if (first.value?.kind !== 'manifest') throw new Error('Choose a complete newer archive'); const m = first.value; laterJournal = { sourceIdentity: m.sourceIdentity, epoch: m.epoch, journal: m.journal }; } finally { await reader.return(undefined); } }
+    if (!journal && !acknowledged) throw new Error('Choose the newer archive carrying your latest erasure journal, or acknowledge that the erasure history is unverified');
     let transfer = list.find(t => t.kind === 'import' && t.phase !== 'complete'), seen = 0, complete = false;
     for await (const part of archiveFile(file)) {
       if (part.kind === 'manifest') {
@@ -23,7 +26,7 @@ export function ArchiveTransfers({ run, tick }: { run: Run; tick: number }) {
         setProgress(`Restore: ${++seen} parts read · ${status.completed} confirmed`);
       } else if (part.kind === 'closing') {
         if (!transfer) throw new Error('Archive manifest missing');
-        const status = await api(`/portability/imports/${transfer.id}/finalize`, { archiveHash: part.archiveHash, contentHash: part.contentHash, laterJournal });
+        const status = await api(`/portability/imports/${transfer.id}/finalize`, { archiveHash: part.archiveHash, contentHash: part.contentHash, laterJournal, acknowledge: laterJournal ? undefined : UNVERIFIED });
         complete = status.phase === 'complete';
         setProgress(`Restore ${status.phase}. Review recurring rules before resuming them; re-enter private configuration and issue fresh client links.`);
       }
@@ -45,6 +48,7 @@ export function ArchiveTransfers({ run, tick }: { run: Run; tick: number }) {
     <details><summary>Restore or resume into this empty installation</summary>
       <label>Complete archive file<input type="file" accept=".rer" onChange={e => setFile(e.target.files?.[0])} /></label>
       <label>Newer archive carrying the latest erasure journal (when restoring an older archive)<input type="file" accept=".rer" onChange={e => setJournal(e.target.files?.[0])} /></label>
+      {!journal && <label><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} /> I acknowledge: erasure history unverified. I have not supplied my latest erasure journal, so Blotter cannot check that nothing was erased after this archive was made.</label>}
       <Form danger disabled={busy} label="Restore or resume" submit={async data => work(() => restore(data.confirm))}><Field label="Type RESTORE" name="confirm" /></Form>
     </details>
   </section>;
