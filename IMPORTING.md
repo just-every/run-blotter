@@ -54,3 +54,22 @@ an extra `practice_notes` column.
 Only the principal can import. Imported clients behave like any other client.
 
 The mapped import journal retains the original UTF-8 bytes, selected mapping, duplicate decisions and stable source identities. Only the principal can read it. Practice archives carry the journal, original and relationships; source matches never make private originals public. Resume uses the retained reviewed plan, including after archive restore. Undo removes untouched newly created contacts/entities and source-only matches, preserving every matched native entity and all conflicting/native work.
+
+## Explicit email marketing consent (MSG-002)
+
+Marketing columns are never mapped automatically. Select the source columns explicitly:
+
+| Field | Meaning |
+| --- | --- |
+| `marketing_opt_in` | Literal `true` records an evidenced opt-in; false/blank grants nothing. |
+| `marketing_status` | `subscribed` alone grants nothing. `unsubscribed`, `bounced` and `complained` always record withdrawals, overriding an opt-in on the same row. |
+| `marketing_captured_at` | ISO date/time with `Z` or an explicit offset; required for grants. A withdrawal without a capture date takes effect at import recording time. |
+| `marketing_wording`, `marketing_wording_version` | Exact consent text and its version, required for grants. |
+| `marketing_language` | Language label, default `en`. |
+| `marketing_evidence` | Source evidence, required for grants; withdrawals otherwise retain their source status as evidence. |
+
+Review the separate Imported marketing consent list. The principal must check the attestation before committing any grants; the API requires `marketingAttested: true` on `/api/blotter/import/commit`. Preview never writes. Editing the mapping clears the preview and attestation. Source file, mapping and decisions are bound to the exact fingerprint. A missing capture date, wording/version or evidence on an explicit opt-in blocks commit.
+
+Grants belong to their contact relationship; withdrawals apply to that address across the firm. Neither grants nor withdrawals change ordinary email consent or portal access. A provenance-only match cannot add marketing grants: record the contact's evidence through the existing native consent door instead. Source withdrawals may apply to an exactly matched native contact without changing its permissions.
+
+Consent and attributed client history share the import's atomic owner-guarded commit. Replay and resume add no duplicate consent. Undo retains append-only consent and the contact/entity it depends on, with a retained disposition in the journal. Practice archives retain consent and originals, exclude unsubscribe tokens, and hold marketing until the principal confirms the log—even when an import is resumed after restoring an empty log. Client-wide erasure, hashed suppression on erasure and incumbent-specific migration remain unfinished carriers; this is a native CSV import.

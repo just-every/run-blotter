@@ -9,7 +9,7 @@ export function ImportMapping({ columns, mapping, change }: { columns: ImportCol
     <summary>Map CSV columns</summary>
     <p className="muted">Choose the source column for each client or contact field. Repeated client IDs group contacts into one entity. Unmapped columns remain in the protected original file.</p>
     <div className="grid">{columns.fields.map(field => <label key={field}>{field}{field === 'client_name' ? ' (required)' : ''}
-      <select value={mapping[field] ?? ''} onChange={event => change(field, event.target.value)}>
+      <select aria-label={field} value={mapping[field] ?? ''} onChange={event => change(field, event.target.value)}>
         <option value="">Ignore / not supplied</option>
         {columns.headers.map(header => <option key={header} value={header}>{header}</option>)}
       </select>

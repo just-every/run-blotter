@@ -8,6 +8,7 @@ export function MoveIn({ run, tick }: { run: Run; tick: number }) {
   const [columnError, setColumnError] = useState(''), [mappedCsv, setMappedCsv] = useState('');
   const [mapping, setMapping] = useState<Record<string, string>>({}), [decisions, setDecisions] = useState<ImportDecisions>({});
   const revision = useRef(0);
+  const [marketingAttested, setMarketingAttested] = useState(false);
   const [jobs, setJobs] = useState<Row[]>([]), [journal, setJournal] = useState<Row>();
   useEffect(() => { api('/import').then(s => setJobs(s.jobs)).catch(e => run(async () => { throw e; })); }, [tick]);
   useEffect(() => {
@@ -22,7 +23,7 @@ export function MoveIn({ run, tick }: { run: Run; tick: number }) {
     }, 250);
     return () => { active = false; clearTimeout(timer); };
   }, [csv]);
-  const invalidate = () => { revision.current++; setPreview(undefined); };
+  const invalidate = () => { revision.current++; setPreview(undefined); setMarketingAttested(false); };
   const changeCsv = (value: string) => {
     invalidate(); setReview(undefined); setDecisions({}); if (value !== csv) setMapping({}); setCsv(value);
   };
@@ -58,7 +59,13 @@ export function MoveIn({ run, tick }: { run: Run; tick: number }) {
             invalidate(); setDecisions(previous => ({ ...previous, [c.sourceId]: decision }));
           }} />
         </li>)}</ul>
-        <button disabled={!preview || review.summary.errors.length > 0 || unresolved} onClick={() => run(() => api('/import/commit', { csv, filename, mapping, decisions, fingerprint: preview!.fingerprint }), 'Import committed. The journal below shows its progress.')}>Import these clients</button>
+        {!!review.marketing?.length && <section aria-label="Imported marketing consent">
+          <h3>Imported marketing consent</h3>
+          <p className="muted">Email permission does not grant marketing consent. A subscribed label alone imports as not granted. Withdrawals apply across the firm; without a capture date they take effect when imported.</p>
+          <ul className="list">{review.marketing.map((m: Row, i: number) => <li key={i}><strong>{m.client} · {m.contact}</strong><p>{m.address}</p><p>{m.kind === 'grant' ? 'Explicit opt-in' : m.kind === 'withdraw' ? `Withdrawal (${m.status})` : 'Not granted'}{m.actedAt && ` · ${m.actedAt}`}</p>{m.wording && <p>{m.wording} · {m.version} · {m.language}</p>}{m.evidence && <p>Evidence: {m.evidence}</p>}{m.reason && <p>{m.reason}</p>}</li>)}</ul>
+          {review.marketing.some((m: Row) => m.kind === 'grant') && <label><input type="checkbox" checked={marketingAttested} onChange={e => setMarketingAttested(e.target.checked)} />{review.marketingAttestation}</label>}
+        </section>}
+        <button disabled={!preview || (review.marketing?.some((m: Row) => m.kind === 'grant') && !marketingAttested) || review.summary.errors.length > 0 || unresolved} onClick={() => run(() => api('/import/commit', { csv, filename, mapping, decisions, fingerprint: preview!.fingerprint, marketingAttested }), 'Import committed. The journal below shows its progress.')}>Import these clients</button>
       </div>}
     </section></Blotter>
     <section className="panel">

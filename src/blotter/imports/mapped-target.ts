@@ -1,5 +1,6 @@
 // Source associations own their import evidence; native work is never overwritten.
 import { canonicalJson, type D1TargetAdapter, type D1Sql, type TargetRow, type D1UndoDependency } from '../../modules/import-kit/src/d1/index';
+import { importedMarketing } from './marketing';
 import type { Data } from '../model';
 const sql=(sql:string,...params:unknown[]):D1Sql=>({sql,params});
 const scope=(destination:string,kind='client-bundle')=>{if(destination!=='main'||kind!=='client-bundle')throw Error('Invalid mapped import target');};
@@ -20,10 +21,10 @@ export const mappedTargets:D1TargetAdapter={
  matchesMany(current,destination){return [this.matchesCount!(current.length,destination),...current.map(r=>this.matches(r,destination,r.targetKind,r.targetId))];},
  write(r){
   scope(r.destination,r.targetKind);const v=r.value as Data,at=new Date().toISOString(),c=v.client;
-  if(v.mode==='match')return [sql(`INSERT INTO b_client_import_bindings(id,client_id,value,revision,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM b_clients WHERE id=? AND merged_into IS NULL AND lifecycle='active' AND revision=?)`,r.targetId,v.clientId,canonicalJson(v),r.revision,at,v.clientId,v.matchRevision)];
+  if(v.mode==='match')return [sql(`INSERT INTO b_client_import_bindings(id,client_id,value,revision,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM b_clients WHERE id=? AND merged_into IS NULL AND lifecycle='active' AND revision=?)`,r.targetId,v.clientId,canonicalJson(v),r.revision,at,v.clientId,v.matchRevision),...importedMarketing(v,r.targetId,at)];
   return [sql(`INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,fields,tags,entity_type,revision,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,v.clientId,c.name,c.abn,c.contact_name,c.contact_email,c.source,c.fields,c.tags,c.entity_type,r.revision,at),
    ...v.contacts.map((x:Data)=>sql(`INSERT INTO b_client_contacts(id,client_id,${CONTACT_KEYS.join(',')},revision,created_by,created_at,updated_by,updated_at) VALUES(${Array(20).fill('?').join(',')})`,x.id,v.clientId,...CONTACT_KEYS.map(k=>x[k]),r.revision,'client-list import',at,'client-list import',at)),
-   sql('INSERT INTO b_client_import_bindings(id,client_id,value,revision,created_at) VALUES(?,?,?,?,?)',r.targetId,v.clientId,canonicalJson(v),r.revision,at)];
+   sql('INSERT INTO b_client_import_bindings(id,client_id,value,revision,created_at) VALUES(?,?,?,?,?)',r.targetId,v.clientId,canonicalJson(v),r.revision,at),...importedMarketing(v,r.targetId,at)];
  },
  async preparePreservedUndo(db,destination,effects){
   scope(destination);const observations=[],dependencies:D1UndoDependency[]=[],guards:D1Sql[]=[];

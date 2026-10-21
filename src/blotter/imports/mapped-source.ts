@@ -4,16 +4,17 @@ import { canonicalJson, sha256, type Diagnostic, type SourceBundle, type ImportM
 import { contactValues } from '../client-contacts';
 import { fieldValue, type FieldDef } from '../profiles';
 import { insist, type Data } from '../model';
+import { MARKETING_FIELDS, sourceMarketing } from './marketing';
 import { parseCsv } from './csv';
 import { importTargetId, NAMESPACE } from './client-list';
 
 export const MAPPED_VERSION = 'client-list-v2';
-export const MAPPED_FIELDS = ['client_name','client_id','entity_type','ein','abn','contact_id','contact_name','contact_email','contact_phone','contact_roles','authorized','signer','portal','request_consent','email_consent','consent_note','tags'];
+export const MAPPED_FIELDS = ['client_name','client_id','entity_type','ein','abn','contact_id','contact_name','contact_email','contact_phone','contact_roles','authorized','signer','portal','request_consent','email_consent','consent_note','tags',...MARKETING_FIELDS];
 export const bindingId = (sourceId: string) => 'csv:' + sha256(sourceId);
 export function importColumns(csv: unknown, defs: FieldDef[]) {
   insist(typeof csv === 'string' && Buffer.byteLength(csv) <= 1_000_000, 'Choose a CSV of at most 1 MB');
   const { headers } = parseCsv(csv), fields = [...MAPPED_FIELDS,...defs.map(d=>'field:'+d.key)];
-  return { headers, fields, defaults:Object.fromEntries(fields.filter(f=>headers.includes(f)).map(f=>[f,f])) };
+  return { headers, fields, defaults:Object.fromEntries(fields.filter(f=>!MARKETING_FIELDS.includes(f) && headers.includes(f)).map(f=>[f,f])) };
 }
 export function mappedSource(raw: unknown, filename: unknown, defs: FieldDef[], choices: unknown) {
   const { headers, fields } = importColumns(raw, defs), csv = raw as string;
@@ -57,8 +58,15 @@ export function mappedSource(raw: unknown, filename: unknown, defs: FieldDef[], 
         const previous=group.contacts.find((x:Data)=>x.sourceId===contactSource || c.email&&x.email===c.email);
         if(previous){insist(canonicalJson(previous)===canonicalJson(contact),'Repeated contact identity has conflicting values');}
         else group.contacts.push(contact);
+        if (MARKETING_FIELDS.some(k => columns[k])) {
+          const marketing = { sourceId: contactSource, ...sourceMarketing(v, c) };
+          group.marketing ??= [];
+          const prior = group.marketing.find((m:Data) => m.sourceId === contactSource);
+          insist(!prior || canonicalJson(prior) === canonicalJson(marketing), 'Repeated contact has conflicting marketing consent');
+          if (!prior) group.marketing.push(marketing);
+        }
       }catch(error){fail(line,error instanceof Error?error.message:'Invalid contact');}
-    }else if(Object.keys(v).some(k=>['contact_id','contact_roles','authorized','signer','portal','request_consent','email_consent','consent_note'].includes(k)&&v[k]))fail(line,'Contact flags require a contact name or email');
+    }else if(Object.keys(v).some(k=>['contact_id','contact_roles','authorized','signer','portal','request_consent','email_consent','consent_note',...MARKETING_FIELDS].includes(k)&&v[k]))fail(line,'Contact flags require a contact name or email');
   }
   for(const g of groups.values())if(g.contacts.length>30)fail(g.line,'At most thirty contacts per entity');
   return {csv,name,columns,diagnostics,groups:[...groups.values()],ignoredColumns};

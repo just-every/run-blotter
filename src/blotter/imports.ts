@@ -8,6 +8,7 @@ import { clientTargets } from './imports/target';
 import { fieldDefs } from './profiles';
 import { importColumns, MAPPED_VERSION } from './imports/mapped-source';
 import { prepareMapped } from './imports/mapped-matching';
+import { MARKETING_ATTESTATION } from './imports/marketing';
 import { mappedTargets } from './imports/mapped-target';
 
 function authority(actor: Actor) {
@@ -44,14 +45,15 @@ async function action(db: D1Database, actor: Actor, op: string, body: Data) {
   if (op === 'columns') return importColumns(body.csv, await fieldDefs(db));
   if (op === 'preview' || op === 'commit') {
     const mapped = body.mapping !== undefined, ctx = context(db,actor,mapped ? MAPPED_VERSION : MAPPING_VERSION);
-    const { source, mapping, summary, clients } = mapped ? await prepareMapped(db,body,await fieldDefs(db)) : clientListSource(body.csv, body.filename, await fieldDefs(db));
+    const { source, mapping, summary, clients, ...extra } = mapped ? await prepareMapped(db,body,await fieldDefs(db),actor.email) : clientListSource(body.csv, body.filename, await fieldDefs(db));
     const plan = await planD1Import(source, mapping, ctx);
     // Each row shows the client it already matches: the one it created, or that client's merge survivor.
     const matched = body.mapping !== undefined ? clients : await Promise.all(clients.map(async c => ({ ...c, matches: await survivorOf(db, importTargetId(c.sourceId)) ?? null })));
-    const review = { fingerprint: plan.fingerprint, mappingVersion: mapping.version, counts: plan.counts, summary, clients: matched, diagnostics: plan.diagnostics };
+    const review = { fingerprint: plan.fingerprint, mappingVersion: mapping.version, counts: plan.counts, summary, clients: matched, diagnostics: plan.diagnostics, marketing: 'marketing' in extra ? extra.marketing : [], marketingAttestation: MARKETING_ATTESTATION };
     if (op === 'preview') return review;
     insist(summary.errors.length === 0 && plan.counts.rejected === 0, 'Resolve the CSV errors before importing', 409);
     insist(body.fingerprint === plan.fingerprint, 'The file changed since preview; preview it again before committing', 409);
+    insist(!('marketing' in extra && (extra.marketing as Data[]).some(e => e.kind === 'grant')) || body.marketingAttested === true, 'The principal must attest to the separately previewed marketing opt-ins at commit', 409);
     // Keep an undone job and its evidence; a deliberate later re-import is a
     // new operation. Concurrent identical commits share the same operation key.
     const undone = await stmt(db, "SELECT COUNT(*) AS n FROM ik_jobs WHERE destination='main' AND namespace=? AND fingerprint=? AND state='undone'", NAMESPACE, plan.fingerprint).first<{ n: number }>();

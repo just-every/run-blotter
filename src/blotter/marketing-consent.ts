@@ -45,7 +45,7 @@ function instant(value: unknown, label: string) {
 
 /** Marketing stays off after a restore until the principal confirms the consent log is current. */
 export async function marketingHold(db: D1Database) {
-  const restored = await stmt(db, 'SELECT 1 FROM b_marketing_consents WHERE restored=1 LIMIT 1').first();
+  const restored = await stmt(db, 'SELECT 1 FROM b_meta WHERE marketing_restore_review=1 UNION ALL SELECT 1 FROM b_marketing_consents WHERE restored=1 LIMIT 1').first();
   const confirmed = await stmt(db, 'SELECT 1 FROM b_marketing_confirmations LIMIT 1').first();
   return restored && !confirmed ? 'Marketing is off after a restore until the principal confirms the consent log is current' : '';
 }
