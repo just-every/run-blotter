@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as InvoiceTokenRouteImport } from './routes/invoice.$token'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvoiceTokenRoute = InvoiceTokenRouteImport.update({
+  id: '/invoice/$token',
+  path: '/invoice/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalTokenRoute = PortalTokenRouteImport.update({
@@ -25,27 +31,31 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/app': typeof AppRoute
+  '/invoice/$token': typeof InvoiceTokenRoute
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRoutesByTo {
   '/app': typeof AppRoute
+  '/invoice/$token': typeof InvoiceTokenRoute
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRoute
+  '/invoice/$token': typeof InvoiceTokenRoute
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/app' | '/portal/$token'
+  fullPaths: '/app' | '/invoice/$token' | '/portal/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/app' | '/portal/$token'
-  id: '__root__' | '/app' | '/portal/$token'
+  to: '/app' | '/invoice/$token' | '/portal/$token'
+  id: '__root__' | '/app' | '/invoice/$token' | '/portal/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRoute
+  InvoiceTokenRoute: typeof InvoiceTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invoice/$token': {
+      id: '/invoice/$token'
+      path: '/invoice/$token'
+      fullPath: '/invoice/$token'
+      preLoaderRoute: typeof InvoiceTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portal/$token': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
+  InvoiceTokenRoute: InvoiceTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
 }
 export const routeTree = rootRouteImport
