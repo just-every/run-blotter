@@ -71,7 +71,7 @@ export async function unclassified(db: D1Database) {
     if (BASE_PREFIX.test(name)) continue;
     if (!REGISTRY.has(name)) { found.push(`table ${name}`); continue; }
     const declared = new Set(BYTES[name] ?? []);
-    for (const c of await rows(db, `SELECT name FROM pragma_table_info('${name}')`) as Data[]) if (BYTE_LIKE.test(String(c.name)) && !DIGEST.test(String(c.name)) && !declared.has(String(c.name))) found.push(`column ${name}.${c.name}`);
+    for (const c of await rows(db, `SELECT name,type FROM pragma_table_info('${name}')`) as Data[]) if (/text|blob|^$/i.test(String(c.type)) && BYTE_LIKE.test(String(c.name)) && !DIGEST.test(String(c.name)) && !declared.has(String(c.name))) found.push(`column ${name}.${c.name}`);
   }
   return found;
 }

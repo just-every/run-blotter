@@ -47,6 +47,6 @@ export async function harness({bindings={},mailResponse}={}){
   const owner=vars.RER_DEMO?boot.headers.getSetCookie().map(s=>s.split(';')[0]).join('; '):await login(vars.OWNER_EMAIL);
   // The Worker's Cron Trigger door, fired as of a chosen time.
   const scheduled=async at=>(await mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'17 * * * *'});
-  return {origin,owner,request,json,login,mails,scheduled,restart:async()=>{await mf.dispose();mf=new Miniflare(options);await mf.ready;},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
+  return {origin,owner,request,json,login,mails,scheduled,db,restart:async()=>{await mf.dispose();mf=new Miniflare(options);await mf.ready;},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
  }catch(e){await mf.dispose();await rm(directory,{recursive:true,force:true});throw e;}
 }

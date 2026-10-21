@@ -44,6 +44,8 @@ export async function restore(db: D1Database, actor: Actor, body: Data) {
 /** Erase an uploaded file's bytes. Its name, hash and history remain; older archives are fenced. */
 export async function eraseFile(db: D1Database, actor: Actor, fileId: string, body: Data) {
   human(actor); need(actor, 'owner');
+  const letter = await stmt(db, 'SELECT * FROM b_engagements WHERE id=?', fileId).first<Data>();
+  if (letter) return eraseLetter(db, actor, letter, body);
   const intake = await stmt(db, 'SELECT * FROM b_prospect_files WHERE id=?', fileId).first<Data>();
   const regular = await stmt(db, 'SELECT * FROM b_files WHERE id=?', intake?.job_file_id ?? fileId).first<Data>();
   const file = regular ?? intake;
@@ -66,4 +68,17 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
     audit(db, actor, 'file.erased', file.id, reason),
   ]);
   return { id: file.id, erased: true };
+}
+
+/** A practitioner-recorded signed letter's bytes (ERASURE-002): refused inside a hold; the record, signers, date and SHA-256 stay. */
+async function eraseLetter(db: D1Database, actor: Actor, letter: Data, body: Data) {
+  insist(!letter.erased_at, 'This file was already erased', 409);
+  await refuseHeld(db, { clientIds: [letter.client_id], engagementId: letter.id, cls: 'engagement' }, 'Erasing this engagement letter');
+  insist(body.confirm === letter.name, 'Type the file name to confirm erasing its bytes');
+  const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
+  await atomic(db, actor, [
+    stmt(db, 'UPDATE b_engagements SET content_base64=NULL,erased_at=? WHERE id=? AND erased_at IS NULL', now(), letter.id),
+    ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
+    audit(db, actor, 'file.erased', letter.id, reason)]);
+  return { id: letter.id, erased: true };
 }
