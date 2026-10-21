@@ -32,7 +32,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('engagement', 'b_engagements'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),
   ...by('contact', 'b_client_contacts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
-  ...by('link', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
+  ...by('link', 'b_access_grants','b_access_team_clients','b_sensitive_documents','b_sensitive_grants', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
   ...by('message', 'b_portal_items', 'b_reminders', 'b_threads', 'b_thread_messages', 'b_thread_reads', 'b_notices', 'b_notice_events', 'b_bulk_batches', 'b_bulk_recipients', 'b_bulk_exclusions', 'b_bulk_events', 'b_unsubscribe_tokens', 'b_organizer_deliveries'),
   ...by('notification', 'b_notifications', 'b_notification_digests'),
   ...by('organizer', 'b_job_organizers', 'b_organizer_answers', 'b_organizer_submissions', 'b_organizer_requests'),
@@ -47,7 +47,7 @@ const REGISTRY = new Map<string, TableClass>([
     'b_deadline_rules', 'b_deadline_revisions', 'b_deadline_relief', 'b_work_types', 'b_sub_statuses', 'b_saved_views', 'b_view_filters', 'b_rates', 'b_rate_cards', 'b_rate_cards_next', 'b_mileage_rates', 'b_periods', 'b_capacity', 'b_capacity_blocks',
     'b_capacity_scenarios', 'b_coverage_plans', 'b_automation_rules', 'b_report_views', 'b_report_schedules', 'b_report_runs', 'b_scheduler_runs', 'b_notification_settings', 'b_notification_defaults', 'b_notification_task_owners',
     'b_notification_job_owners', 'b_notification_events', 'b_intake_limits', 'b_intake_tokens', 'b_prospect_stages', 'b_vault_keys', 'b_vault_stepups', 'b_agent_keys'),
-  ...by('staff', 'b_members', 'b_activity_consent', 'b_session_activity', 'b_mfa_policy', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures'),
+  ...by('staff', 'b_access_policy','b_access_members','b_access_teams','b_access_team_members','b_access_stepups', 'b_members', 'b_activity_consent', 'b_session_activity', 'b_mfa_policy', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures'),
   ...by('audit', 'b_audit'),
   ...by('policy', 'b_retention_marks', 'b_retention_periods', 'b_external_copies', 'b_deletion_requests', 'b_client_erasures', 'b_client_erasure_steps', 'b_retained_identity', 'b_retained_reads', 'b_expiry_erasures'),
 ]);

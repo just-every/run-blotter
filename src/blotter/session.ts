@@ -1,3 +1,4 @@
+import { accessActor } from './permissions';
 // Who is calling: a signed-in person (native session) or an agent key.
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server';
 import { agentGate, mfaGate } from './mfa';
@@ -18,7 +19,7 @@ export async function person(request: Request, original: Bindings, open = false)
   insist(role, 'Ask the principal to add you to the practice', 403);
   const actor: Actor = { id: o.id, email: o.email, name: o.displayName, role, channel: 'person', sessionId: session.id, sessionStartedAt: Number(session.createdAt) };
   await mfaGate(env.DB, actor, open);
-  return actor;
+  return accessActor(env.DB, actor);
 }
 
 export async function agent(request: Request, env: Bindings): Promise<Actor> {
@@ -31,5 +32,5 @@ export async function agent(request: Request, env: Bindings): Promise<Actor> {
   const role = record.role === 'owner' ? 'owner' : record.member_role;
   insist(role, 'This agent no longer has practice access', 403);
   await agentGate(env.DB, record.email);
-  return { id: record.id, email: record.email, name: record.display_name, role, channel: 'agent', label: record.label };
+  return accessActor(env.DB, { id: record.id, email: record.email, name: record.display_name, role, channel: 'agent', label: record.label });
 }

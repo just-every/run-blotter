@@ -1,3 +1,4 @@
+import { accessActor } from './permissions';
 // ERASURE-002 restore fence, destination side (ct 22 Oct 2026). A destination that knows no later
 // erasure can still be handed an archive made before one. Without the newer erasure journal the
 // principal must acknowledge that the erasure history is unverified; the acknowledgment is
@@ -17,4 +18,4 @@ export const withReport = (result: Data, actor: Actor, acknowledged: string | nu
   ? { ...result, erasureHistory: { status: 'unverified', acknowledgment: acknowledged, acknowledgedBy: actor.email, acknowledgedAt: now() } } : { ...result, erasureHistory: { status: 'journal supplied' } };
 export const acknowledgementAudit = (db: D1Database, actor: Actor, acknowledged: string | null, importId: string) =>
   acknowledged ? [audit(db, actor, 'archive.restore_unverified', 'archive:' + importId, acknowledged)] : [];
-export const recordAcknowledgement = async (db: D1Database, actor: Actor, acknowledged: string | null, importId: string) => { if (acknowledged) await atomic(db, actor, acknowledgementAudit(db, actor, acknowledged, importId)); };
+export const recordAcknowledgement = async (db: D1Database, actor: Actor, acknowledged: string | null, importId: string) => { if (acknowledged) await atomic(db, await accessActor(db,actor), acknowledgementAudit(db, actor, acknowledged, importId)); };

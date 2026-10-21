@@ -55,6 +55,10 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
   const all: Step[] = [
+    {cls:'link',table:'b_access_grants',action:'delete',label:'Staff client grants',where:`client_id=${s.c}`},
+    {cls:'link',table:'b_access_team_clients',action:'delete',label:'Team client grants',where:`client_id=${s.c}`},
+    {cls:'link',table:'b_sensitive_grants',action:'delete',label:'Sensitive-document staff grants',where:`file_key IN (SELECT file_key FROM b_document_sources WHERE client_id=${s.c})`},
+    {cls:'link',table:'b_sensitive_documents',action:'redact',label:'Sensitive-document classification reasons',where:`file_key IN (SELECT file_key FROM b_document_sources WHERE client_id=${s.c})`,set:`reason='[erased]'`},
     { cls: 'contact', table: 'b_marketing_consents', action: 'redact', label: 'Marketing consent events: address, wording and evidence (actor, time and kind stay)', where: `contact_id IN ${s.K} OR client_id=${s.c}`,
       set: `address='erased+'||substr(id,1,8)||'@erased.invalid',${text('wording')},${text('evidence')},${text('reason')}` },
     { cls: 'message', table: 'b_bulk_events', action: 'redact', label: 'Bulk message provider events', where: `recipient_id IN ${s.BR}`, set: `detail='${MARK}'` },

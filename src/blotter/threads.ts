@@ -1,3 +1,4 @@
+import { canAccessClient } from './permissions';
 // Internal discussions (COLLAB-001): threads on a client, or on a job and one of
 // its steps, document requests or its review. Staff mention colleagues who can
 // see the work, own follow-ups, and resolve a thread with a retained decision.
@@ -9,6 +10,7 @@ import { atomic, audit, date, email, human, id, insist, job, need, now, rows, st
 
 /** Whether this person may read threads on the client or job: the principal and reviewers, or the preparer of that work. */
 async function readable(db: D1Database, address: string, role: string, t: { client_id: string; job_id: string | null }) {
+  if(!await canAccessClient(db,address,t.client_id))return false;
   if (role === 'owner' || role === 'reviewer') return true;
   return t.job_id
     ? !!await stmt(db, 'SELECT 1 FROM b_jobs WHERE id=? AND preparer_email=?', t.job_id, address).first()

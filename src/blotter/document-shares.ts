@@ -42,6 +42,7 @@ export async function staffAccess(db: D1Database, actor: Actor, fileId: string) 
 export async function saveAccess(db: D1Database, actor: Actor, fileId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const file = await staffFile(db, actor, fileId), access = await accessRow(db, file.file_key);
+  insist(body.visibility!=='contacts' || !await stmt(db,'SELECT 1 FROM b_sensitive_documents WHERE file_key=?',file.file_key).first(),'Restricted documents cannot be exposed to contacts',403);
   checkedRevision(body, access);
   insist(body.visibility === 'internal' || body.visibility === 'contacts', 'Choose internal or explicit contact access');
   insist(Array.isArray(body.contactIds) && body.contactIds.length <= 100, 'Choose up to 100 contacts');

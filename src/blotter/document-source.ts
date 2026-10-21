@@ -1,3 +1,4 @@
+import { requireClient, requireDocument, documentAuthority } from './permissions';
 // Current document stores and the shared source/authority fences.
 import { guard, insist, need, readableJob, readableJobParams, readableJobSql, stmt, text, type Actor, type Data } from './model';
 
@@ -20,6 +21,8 @@ export async function source(db: D1Database, ref: string) {
 
 export async function staffFile(db: D1Database, actor: Actor, ref: string) {
   const file = await source(db, ref);
+  if(file.client_id)await requireClient(db,actor,file.client_id);
+  await requireDocument(db,actor,file.file_key);
   if (file.kind === 'notice') {
     insist(await stmt(db, `SELECT 1 WHERE ${noticeScopeSql}`, ...noticeScopeParams(actor, file)).first(), 'Notice not found', 404);
   } else if (file.job_id) await readableJob(db, actor, file.job_id);
@@ -34,7 +37,7 @@ export const revisionSql = '((? IS NULL AND NOT EXISTS(SELECT 1 FROM b_document_
 export const revisionParams = (file: Data, access: Data | null) => [access?.revision ?? null, file.file_key, file.file_key, access?.revision ?? null];
 
 export function scopeGuard(db: D1Database, actor: Actor, file: Data) {
-  if (file.kind === 'notice') return guard(db, `${sameFileSql} AND ${noticeScopeSql}`, ...sameFileParams(file), ...noticeScopeParams(actor, file));
+  if (file.kind === 'notice') return guard(db, `${sameFileSql} AND ${documentAuthority(actor, "'"+String(file.file_key).replaceAll("'","''")+"'")} AND ${noticeScopeSql}`, ...sameFileParams(file), ...noticeScopeParams(actor, file));
   return guard(db, `${sameFileSql} AND (? IS NULL OR EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND ${readableJobSql}))`,
     ...sameFileParams(file), file.job_id, file.job_id, ...readableJobParams(actor));
 }

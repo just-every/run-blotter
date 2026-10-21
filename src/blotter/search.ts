@@ -1,3 +1,4 @@
+import { clientAuthority, documentAuthority } from './permissions';
 import { documentBytes } from './document-packets';
 // Firm-wide search (SEARCH-001). One query covers the clients, contacts, jobs,
 // tasks, client portal messages, discussion notes and documents (by name and
@@ -52,7 +53,7 @@ type Hit = { type: string; id: string; title: string; detail: string; body: stri
 /** Extracts and keeps the text of readable documents that have none yet, so later searches match inside them. */
 async function indexDocuments(db: D1Database, actor: Actor) {
   const pending = await rows(db, `SELECT f.id,f.name,f.mime,f.content_base64,f.storage FROM b_files f JOIN b_jobs ON b_jobs.id=f.job_id
-    WHERE f.erased_at IS NULL AND f.content_base64 IS NOT NULL AND NOT EXISTS(SELECT 1 FROM b_file_text x WHERE x.file_id=f.id) AND ${readableJobSql} LIMIT ?`, ...readableJobParams(actor), INDEX_PER_SEARCH);
+    WHERE f.erased_at IS NULL AND f.content_base64 IS NOT NULL AND NOT EXISTS(SELECT 1 FROM b_file_text x WHERE x.file_id=f.id) AND ${readableJobSql} AND ${documentAuthority(actor,'f.id')} LIMIT ?`, ...readableJobParams(actor), INDEX_PER_SEARCH);
   for (const f of pending) {
     const bytes = await documentBytes(db,f);
     await stmt(db, 'INSERT OR IGNORE INTO b_file_text(file_id,text,extracted_at) VALUES(?,?,?)', f.id, (await documentText(f.mime, f.name, bytes)).slice(0, 200_000), now()).run();
@@ -61,8 +62,8 @@ async function indexDocuments(db: D1Database, actor: Actor) {
 
 async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
   const job = readableJobParams(actor), lead = actor.role !== 'preparer';
-  const clientSql = lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql})`;
-  const threadSql = lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.preparer_email=? AND (b_jobs.id=t.job_id OR (t.job_id IS NULL AND b_jobs.client_id=t.client_id)))`;
+  const clientSql = `(${clientAuthority(actor,'c.id')}) AND (${lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql})`})`;
+  const threadSql = `(${clientAuthority(actor,'t.client_id')}) AND (${lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.preparer_email=? AND (b_jobs.id=t.job_id OR (t.job_id IS NULL AND b_jobs.client_id=t.client_id)))`})`;
   const [clients, contacts, jobs, tasks, portal, notes, files] = await Promise.all([
     rows(db, `SELECT c.* FROM b_clients c WHERE c.merged_into IS NULL AND ${clientSql}`, ...(lead ? [] : job)),
     rows(db, `SELECT p.*,c.name entity FROM b_client_contacts p JOIN b_clients c ON c.id=p.client_id WHERE c.merged_into IS NULL AND p.active=1 AND ${clientSql}`, ...(lead ? [] : job)),
@@ -71,7 +72,7 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
     rows(db, `SELECT p.*,b_jobs.title,b_jobs.client_id,c.name client FROM b_portal_items p JOIN b_jobs ON b_jobs.id=p.job_id JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${readableJobSql}`, ...job),
     rows(db, `SELECT m.id,m.body,m.created_at,t.id thread_id,t.title,t.job_id,t.client_id,c.name client FROM b_thread_messages m JOIN b_threads t ON t.id=m.thread_id JOIN b_clients c ON c.id=t.client_id WHERE ${threadSql}`, ...(lead ? [] : [actor.email])),
     rows(db, `SELECT f.id,f.name,f.job_id,f.uploaded_at,x.text,b_jobs.title,b_jobs.client_id,c.name client FROM b_files f JOIN b_jobs ON b_jobs.id=f.job_id JOIN b_clients c ON c.id=b_jobs.client_id
-      LEFT JOIN b_file_text x ON x.file_id=f.id WHERE f.erased_at IS NULL AND ${readableJobSql}`, ...job),
+      LEFT JOIN b_file_text x ON x.file_id=f.id WHERE f.erased_at IS NULL AND ${readableJobSql} AND ${documentAuthority(actor,'f.id')}`, ...job),
   ]);
   return [
     ...clients.map(c => ({ type: 'client', id: c.id, title: c.name, detail: c.contact_name, body: '', at: c.created_at ?? '', open: { kind: 'client', clientId: c.id }, clientId: c.id, taxId: c.abn, ssn: c.ssn_last4 })),

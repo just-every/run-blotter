@@ -1,3 +1,4 @@
+import { requireClient } from './permissions';
 // Contact records are entity relationships; a matching email never grants access.
 import { atomic, audit, email, guard, human, id, insist, need, now, optional, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -36,6 +37,7 @@ export function contactInsert(db: D1Database, actor: Actor, clientId: string, va
     contactId, clientId, value.name, value.first_name, value.last_name, value.email, value.phone, value.roles, value.authorized, value.signer, value.portal, value.request_consent, value.email_consent, value.active, value.consent_note, id(), actor.email, at, actor.email, at);
 }
 export async function readableClient(db: D1Database, actor: Actor, clientId: string) {
+  await requireClient(db,actor,clientId);
   const c = await stmt(db, `SELECT c.* FROM b_clients c WHERE c.id=? AND c.merged_into IS NULL AND (?<>'preparer' OR EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql}))`, clientId, actor.role, ...readableJobParams(actor)).first<Data>();
   insist(c, 'Client not found', 404);
   return c;

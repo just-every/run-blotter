@@ -1,9 +1,10 @@
+import { clientScopeSql, clientScopeParams } from './access-sql';
 // Shared server rules: validation, roles, guarded atomic writes and audit.
 // Adapted from just-every/run-satchel src/satchel/model.ts (MIT).
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number;
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string;
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -51,8 +52,8 @@ export const stmt = (db: D1Database, sql: string, ...values: unknown[]) => db.pr
 export async function rows(db: D1Database, sql: string, ...values: unknown[]) { return (await stmt(db, sql, ...values).all<Data>()).results; }
 
 /** Jobs a person may see: the principal and reviewers see all; preparers see their own. */
-export const visibleJobSql = `(?='owner' OR ?='reviewer' OR b_jobs.preparer_email=?)`;
-export const visibleJobParams = (actor: Actor) => [actor.role, actor.role, actor.email];
+export const visibleJobSql = `((?='owner' OR ?='reviewer' OR b_jobs.preparer_email=?) AND ${clientScopeSql('b_jobs.client_id')})`;
+export const visibleJobParams = (actor: Actor) => [actor.role, actor.role, actor.email, ...clientScopeParams(actor)];
 export async function job(db: D1Database, actor: Actor, jobId: string) {
   const j = await stmt(db, `SELECT * FROM b_jobs WHERE id=? AND ${visibleJobSql}`, jobId, ...visibleJobParams(actor)).first<Data>();
   insist(j, 'Job not found', 404);
@@ -65,8 +66,8 @@ export async function job(db: D1Database, actor: Actor, jobId: string) {
  * reads the job and acts only on their own tasks; access ends when no task on
  * the job is assigned to them.
  */
-const readableJobSql = `(${visibleJobSql} OR EXISTS(SELECT 1 FROM b_job_steps t WHERE t.job_id=b_jobs.id AND t.assignee_email=?))`;
-export const readableJobParams = (actor: Actor) => [...visibleJobParams(actor), actor.email];
+const readableJobSql = `(${visibleJobSql} OR (EXISTS(SELECT 1 FROM b_job_steps t WHERE t.job_id=b_jobs.id AND t.assignee_email=?) AND ${clientScopeSql('b_jobs.client_id')}))`;
+export const readableJobParams = (actor: Actor) => [...visibleJobParams(actor), actor.email, ...clientScopeParams(actor)];
 export { readableJobSql };
 /** A job the actor may read; `access` is 'full', or 'task' when only a named task grants it. */
 export async function readableJob(db: D1Database, actor: Actor, jobId: string) {
@@ -79,8 +80,8 @@ export async function readableJob(db: D1Database, actor: Actor, jobId: string) {
 /** The actor's role is re-checked inside the same D1 batch as the write. */
 function authority(actor: Actor) {
   return {
-    sql: `EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ((o.role='owner' AND ?='owner') OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=o.email AND m.active=1 AND m.role=?)))`,
-    params: [actor.id, actor.role, actor.role],
+    sql: `(? IS NULL OR COALESCE((SELECT revision FROM b_access_policy WHERE id=1),'')=?) AND EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ((o.role='owner' AND ?='owner') OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=o.email AND m.active=1 AND m.role=?)))`,
+    params: [actor.accessRevision ?? null, actor.accessRevision ?? null, actor.id, actor.role, actor.role],
   };
 }
 export function audit(db: D1Database, actor: Actor, action: string, objectId: string, detail = '') {

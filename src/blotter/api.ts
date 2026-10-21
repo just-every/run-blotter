@@ -1,3 +1,5 @@
+import { accessGate, redactAccess } from './access-gate';
+import { permissions, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
 import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
 import { billingExportPage } from './billing-read';
 import { createClientOnce } from './client-writes';
@@ -102,14 +104,19 @@ async function body(c: C, maxCharacters = 24_000_000): Promise<Data> {
 }
 const db = (c: C) => runtimeBindings(c.env).DB;
 const param = (c: C, key = 'id') => c.req.param(key)!;
-const as = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const result = await fn(await person(c.req.raw, c.env), c); return result instanceof Response ? result : c.json(result); };
+const as = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await person(c.req.raw,c.env); await accessGate(db(c),actor,c.req.raw); const result=await fn(actor,c); return result instanceof Response ? result : c.json(await redactAccess(db(c),actor,result)); };
 // Second-factor enrollment and verification: open to a signed-in person who still owes a factor.
 const asOpen = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await person(c.req.raw, c.env, true), c));
 const sealer = (c: C) => runtimeBindings(c.env).SESSION_SECRET;
 const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH_ORIGIN });
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
-const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.json(await fn(await agent(c.req.raw, c.env), c));
+const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
+api.get(`${P}/access`,as((a,c)=>permissions(db(c),a)));
+api.post(`${P}/access/step-up`,as(async(a,c)=>stepUp(db(c),a,site(c),await body(c))));
+api.post(`${P}/access/teams`,as(async(a,c)=>saveTeamAccess(db(c),a,await body(c))));
+api.post(`${P}/access/people`,as(async(a,c)=>savePersonAccess(db(c),a,await body(c))));
+api.post(`${P}/access/documents/:ref`,as(async(a,c)=>saveSensitiveAccess(db(c),a,param(c,'ref'),await body(c))));
 api.get(`${P}/reports/performance`,as((a,c)=>performanceReport(db(c),a,c.req.query())));
 api.get(`${P}/reports/performance/csv`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'csv',new URL(c.req.url).origin)));
 api.get(`${P}/reports/performance/pdf`,as((a,c)=>downloadReport(db(c),a,c.req.query(),'pdf',new URL(c.req.url).origin)));

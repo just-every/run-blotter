@@ -1,3 +1,4 @@
+import { canAccessClient } from './permissions';
 // Reassignment and dependency-aware scheduling (CAPACITY-002). When a person
 // is on leave or over capacity, a manager (a reviewer or the principal) previews
 // a coverage plan for the open jobs they prepare or review that fall due from
@@ -81,12 +82,14 @@ async function coveragePlan(db: D1Database, actor: Actor, body: Data) {
       const roles = role === 'preparer' ? ['preparer', 'reviewer'] : ['reviewer'];
       if (wanted) {
         if (wanted === person || !await eligible(db, wanted, roles)) reasons.push(`${wanted} is not an active ${role} who can cover`);
+        else if (!await canAccessClient(db,wanted,j.client_id) || await stmt(db,'SELECT 1 FROM b_access_members WHERE email=? AND read_only=1',wanted).first()) reasons.push(`${wanted} lacks the client grant or has read-only access`);
         else if (avoid.includes(wanted)) reasons.push(role === 'reviewer' ? `${wanted} cannot review their own work` : wanted === j.partner_email ? `${wanted} is the partner and cannot prepare this job` : `${wanted} would review their own work`);
         else if (free(wanted, minutes) < 0) reasons.push(`${wanted} is on leave on ${dueDate} or lacks ${hours(minutes)} of capacity that week`);
         return wanted;
       }
       const prior = (waitsFor.get(j.id) ?? []).map(p => coverer.get(`${p}|${role}`)).find(Boolean);
-      const options = people.filter(p => p.email !== person && !avoid.includes(p.email) && (role === 'preparer' || p.role !== 'preparer') && free(p.email, minutes) >= 0)
+      const allowed=await Promise.all(people.map(async p=>await canAccessClient(db,p.email,j.client_id) && !await stmt(db,'SELECT 1 FROM b_access_members WHERE email=? AND read_only=1',p.email).first()));
+      const options = people.filter((p,n)=>allowed[n]).filter(p => p.email !== person && !avoid.includes(p.email) && (role === 'preparer' || p.role !== 'preparer') && free(p.email, minutes) >= 0)
         .sort((a, b) => Number(b.email === prior) - Number(a.email === prior) || Number(skilled(b.email)) - Number(skilled(a.email)) || free(b.email, minutes) - free(a.email, minutes) || a.email.localeCompare(b.email));
       if (!options.length) unresolved.push(`No eligible ${role} is free on ${dueDate} with ${hours(minutes)} of capacity in the week of ${key}`);
       return options[0]?.email ?? person;

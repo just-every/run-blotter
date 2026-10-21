@@ -14,7 +14,7 @@ export async function saveReportView(db:D1Database,actor:Actor,body:Data) {
   await atomic(db,actor,[stmt(db,'INSERT INTO b_report_views(id,name,filters,created_by,created_at) VALUES(?,?,?,?,?)',viewId,name,JSON.stringify(filters),actor.email,now()),audit(db,actor,'report.view_saved',viewId,name)]);
   return {id:viewId,name,filters};
 }
-const leadSql = `EXISTS(SELECT 1 FROM oa_operators WHERE email=? AND status='active' AND role='owner') OR EXISTS(SELECT 1 FROM b_members WHERE email=? AND active=1 AND role='reviewer')`;
+const leadSql = `EXISTS(SELECT 1 FROM oa_operators WHERE email=? AND status='active' AND role='owner') OR EXISTS(SELECT 1 FROM b_members WHERE email=? AND active=1 AND role='reviewer' AND NOT EXISTS(SELECT 1 FROM b_access_members am WHERE am.email=b_members.email))`;
 export async function scheduleReport(db:D1Database,actor:Actor,body:Data) {
   human(actor);need(actor,'owner');
   const viewId=text(body.viewId,'View',100),recipient=email(body.recipient,'Partner email'),nextDate=date(body.nextDate,'First date'),everyDays=integer(body.everyDays,'Interval days',1,366),scheduleId=id();

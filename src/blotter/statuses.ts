@@ -189,7 +189,7 @@ export async function queue(db: D1Database, actor: Actor, query: Data) {
 export async function statusReport(db: D1Database, actor: Actor, query: Data) {
   const type = optional(query.workType, 'Work type', 100), at = now();
   const history = await rows(db, `SELECT h.job_id,h.to_stage,h.to_sub_status_id,h.at,${subName('s', 'h.to_sub_status_id')} sub FROM b_job_status_history h JOIN b_jobs ON b_jobs.id=h.job_id LEFT JOIN b_sub_statuses s ON s.id=h.to_sub_status_id
-    WHERE ${readableJobSql} AND (?5='' OR b_jobs.work_type_id=?5) ORDER BY h.job_id,h.at,h.id`, ...readableJobParams(actor), type);
+    WHERE ${readableJobSql} AND (?11='' OR b_jobs.work_type_id=?11) ORDER BY h.job_id,h.at,h.id`, ...readableJobParams(actor), type);
   const report = new Map<string, Data>();
   history.forEach((h, n) => {
     const next = history[n + 1]?.job_id === h.job_id ? history[n + 1] : null, key = `${h.to_stage}|${h.to_sub_status_id ?? ''}`;

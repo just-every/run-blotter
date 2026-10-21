@@ -20,7 +20,7 @@ const inactive = (table, row) => {
 };
 export default {
   product: 'accounting/blotter',
-  excludeTables: ['b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
+  excludeTables: ['b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
   // Retained rules and unsent staff alerts are history until explicitly reviewed.
   exportRow: inactive,
   importSafety: { b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },

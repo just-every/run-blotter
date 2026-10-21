@@ -38,7 +38,7 @@ export function Workspace() {
   const [state, setState] = useState<Row>(), [tab, setTab] = useState<Tab>('Inbox'), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false), [tick, setTick] = useState(0), [jobId, setJobId] = useState(''), [gate, setGate] = useState<'enroll' | 'verify'>();
   // A session that still owes a second factor (ACCESS-004) sees only the factor screen.
-  const owed = (e: unknown) => { const need = (e as { mfa?: 'enroll' | 'verify' }).mfa; if (need) setGate(need); return !!need; };
+  const owed = (e: unknown) => { const need = (e as { mfa?: 'enroll' | 'verify' }).mfa; if (need==='enroll'||need==='verify') setGate(need); return need==='enroll'||need==='verify'; };
   const reload = async () => { setState(await api('/state')); setTick(t => t + 1); };
   useEffect(() => { const destination=new URLSearchParams(window.location.search); if(destination.has('report'))setTab('Time & billing'); if(destination.has('job')||destination.has('notice')){setTab('Jobs');setJobId(destination.get('job')??'');} reload().catch(e => owed(e) || setError(e.message)); }, []);
   const run: Run = async (job, message = 'Saved') => {
@@ -52,7 +52,7 @@ export function Workspace() {
     <header className="topbar">
       <a className="brand" href="/app"><img src="/brand/mark-32.svg" alt="" width="30" height="30" /><span data-rer-name>Blotter</span></a>
       <nav aria-label="Workspace" className="tabs">
-        {(actor && !gate ? visible(actor.role) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => go(t)}>{t}</button>)}
+        {(actor && !gate ? (actor.readOnly || actor.accessScoped ? ['Inbox','Jobs','Team & safety'] as Tab[] : visible(actor.role)) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => go(t)}>{t}</button>)}
       </nav>
       {state && !gate && <Search state={state} run={run} open={open} />}
       {actor && <Account actor={actor} />}
@@ -60,6 +60,7 @@ export function Workspace() {
     <main className={`screen screen-${tab === 'Inbox' ? 'inbox' : 'page'}`}>
       <div id="search-slot" />
       {error && <p className="error" role="alert">{error}{/Sign in/.test(error) && <> <a href="/signin">Open sign in</a></>}</p>}
+      {actor?.readOnly && <p className="notice">Read-only access. You can inspect granted client work; changes require a working role.</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
       {gate ? <MfaGate need={gate} done={() => { setGate(undefined); reload().catch(e => owed(e) || setError(e.message)); }} />
         : !state ? (!error && <p className="opening">Opening your workspace…</p>) : <fieldset disabled={busy} className="content">

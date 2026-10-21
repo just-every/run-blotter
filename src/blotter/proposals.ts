@@ -1,3 +1,4 @@
+import { clientAuthority } from './permissions';
 // Agent preparations: an agent key prepares a roll-forward, a client reminder
 // or a billing export; a person approves or declines, and the decision is
 // recorded atomically with its effect. Adapted from run-satchel (MIT).
@@ -61,7 +62,7 @@ export async function decideProposal(env: Bindings, actor: Actor, proposalId: st
 }
 
 export async function agentContext(db: D1Database, actor: Actor) {
-  const visible = `(?='owner' OR ?='reviewer' OR j.preparer_email=?)`, params = [actor.role, actor.role, actor.email];
+  const visible = `((?='owner' OR ?='reviewer' OR j.preparer_email=?) AND ${clientAuthority(actor,'j.client_id')})`, params = [actor.role, actor.role, actor.email];
   // ERASURE-002 names what a key read as an outside copy: the clients in the jobs it was shown.
   await audit(db, actor, 'agent.read', 'agent-context', JSON.stringify((await db.prepare(`SELECT DISTINCT j.client_id FROM b_jobs j WHERE ${visible}`).bind(...params).all<Data>()).results.map(r => r.client_id))).run();
   return {
@@ -70,7 +71,7 @@ export async function agentContext(db: D1Database, actor: Actor) {
         (SELECT id FROM b_jobs n WHERE n.rolled_from=j.id) next_job_id
       FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE ${visible} ORDER BY j.due_date`).bind(...params).all<Data>()).results
       .map(j => ({ ...j, outstanding: JSON.parse(j.outstanding) })),
-    unbilled: actor.role === 'preparer' ? [] : await unbilled(db),
+    unbilled: actor.role === 'preparer' || actor.accessScoped ? [] : await unbilled(db),
     commands: [...(actor.role === 'owner' ? ['POST /api/blotter/agent/learning/evidence', 'POST /api/blotter/agent/prepare-learning'] : []), 'POST /api/blotter/agent/prepare-rollforward', 'POST /api/blotter/agent/prepare-reminder', 'POST /api/blotter/agent/prepare-export'],
   };
 }
