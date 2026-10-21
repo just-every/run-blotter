@@ -31,8 +31,7 @@ export function contactValues(body: Data, previous: Data = {}): Data {
 export function legacyContactValues(name: string, address: string): Data {
   return contactValues({ name, firstName:name.trim().split(/\s+/)[0] ?? '', email:address, roles:['primary'], authorized:true, portal:!!address, requestConsent:!!address, emailConsent:!!address });
 }
-export function contactInsert(db: D1Database, actor: Actor, clientId: string, value: Data, contactId: string = id()) {
-  const at = now();
+export function contactInsert(db: D1Database, actor: Actor, clientId: string, value: Data, contactId: string = id(), at = now()) {
   return stmt(db, `INSERT INTO b_client_contacts(id,client_id,name,first_name,last_name,email,phone,roles,authorized,signer,portal,request_consent,email_consent,active,consent_note,revision,created_by,created_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     contactId, clientId, value.name, value.first_name, value.last_name, value.email, value.phone, value.roles, value.authorized, value.signer, value.portal, value.request_consent, value.email_consent, value.active, value.consent_note, id(), actor.email, at, actor.email, at);
 }

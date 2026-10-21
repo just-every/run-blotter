@@ -320,7 +320,7 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
     if (!Number(left?.n)) await stmt(db, "UPDATE b_bulk_batches SET status='sent' WHERE id=? AND status='sending'", b.id).run();
     results.push({ id: b.id, sent, held, remaining: Number(left?.n ?? 0) });
   }
-  await deliverAlerts(env);
+  await deliverAlerts(env, at);
   return { batches: results };
 }
 

@@ -40,11 +40,13 @@ export async function prepareClient(db: D1Database, actor: Actor, body: Data) {
   insist(body.contacts === undefined || (Array.isArray(body.contacts) && body.contacts.length <= 50), 'Record at most 50 contacts');
   const contacts = (body.contacts ?? []).map((c: Data) => contactValues(c));
   insist(!contacts.length || (!client.contactName && !client.contactEmail), 'Use contacts or the legacy single contact fields, not both');
+  // An atomic client creation and its initial contacts share one recorded instant.
+  const at = now();
   const statements = [
-    stmt(db, 'INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,?,?,?,?,?,?,?,?)', client.id, client.name, client.abn, client.contactName, client.contactEmail, 'native', id(), now(), JSON.stringify(client.fields), JSON.stringify(client.tags)),
+    stmt(db, 'INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,?,?,?,?,?,?,?,?)', client.id, client.name, client.abn, client.contactName, client.contactEmail, 'native', id(), at, JSON.stringify(client.fields), JSON.stringify(client.tags)),
     stmt(db, 'UPDATE b_clients SET entity_type=?,partner_email=?,team=?,services=?,owner_client_id=?,ssn_last4=? WHERE id=?', entity.entity_type,entity.partner_email,entity.team,entity.services,entity.owner_client_id,entity.ssn_last4,client.id),
-    ...(client.contactName || client.contactEmail ? [contactInsert(db,actor,client.id,legacyContactValues(client.contactName,client.contactEmail),'legacy:'+client.id)] : []),
-    ...contacts.map((c: Data) => contactInsert(db, actor, client.id, c)),
+    ...(client.contactName || client.contactEmail ? [contactInsert(db,actor,client.id,legacyContactValues(client.contactName,client.contactEmail),'legacy:'+client.id,at)] : []),
+    ...contacts.map((c: Data) => contactInsert(db, actor, client.id, c, undefined, at)),
     audit(db, actor, 'client.added', client.id, client.name),
   ];
   return { client, statements };
