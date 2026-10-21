@@ -36,3 +36,8 @@ CREATE TABLE b_client_erasures(
  reason TEXT NOT NULL, plan_hash TEXT NOT NULL, requested_by TEXT NOT NULL, approved_by TEXT NOT NULL, approved_at TEXT NOT NULL,
  counts TEXT NOT NULL CHECK(json_valid(counts)), retained TEXT NOT NULL CHECK(json_valid(retained)), journal_epoch INTEGER NOT NULL
 );
+-- What each step matched when it ran, counted by its own predicate inside the erasure batch.
+CREATE TABLE b_client_erasure_steps(
+ erasure_id TEXT NOT NULL REFERENCES b_client_erasures(id), ordinal INTEGER NOT NULL, table_name TEXT NOT NULL,
+ action TEXT NOT NULL CHECK(action IN ('redact','delete','cascade')), label TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(erasure_id,ordinal)
+);

@@ -88,7 +88,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { table: 'b_timers', action: 'delete', label: 'Running timers', where: `job_id IN ${s.JA}` },
     { table: 'b_time_suggestions', action: 'delete', label: 'Time suggestions', where: `job_id IN ${s.JA}` },
     { table: 'b_plan_items', action: 'delete', label: 'Daily plan items', where: `job_id IN ${s.JA}` },
-    { table: 'b_notifications', action: 'redact', label: 'Staff notification text', where: `job_id IN ${s.JA}`, set: `summary='${MARK}'` },
+    { table: 'b_notifications', action: 'redact', label: 'Staff notification text (alerts, not evidence; held jobs too)', where: `job_id IN ${s.JALL}`, set: `summary='${MARK}'` },
     { table: 'b_proposals', action: 'redact', label: 'Agent proposals for this work (derived drafts)', where: `kind IN ('rollforward','reminder') AND json_extract(payload,'$.jobId') IN ${s.JA} AND payload<>'{}'`, set: `payload='{}'` },
     { table: 'b_deliverable_versions', action: 'redact', label: 'Deliverable versions not approved by the client', where: `job_id IN ${s.JA} AND status<>'approved'`, set: `content_base64='',note='${MARK}',${text('comment')}` },
     { table: 'b_vault_credentials', action: 'redact', label: 'Stored credentials (ciphertext erased)', where: `client_id=${s.c} AND erased_at IS NULL`, set: `sealed=NULL,erased_at=${at},erased_by=${who},erase_reason=${why},revision=revision+1` },

@@ -94,28 +94,27 @@ export async function eraseClient(db: D1Database, actor: Actor, clientId: string
   for (const a of p.addresses.withdrawn) digests.set(await suppressionDigest(a), 'withdrawn marketing consent');
   for (const a of p.addresses.bounced) if (!digests.has(await suppressionDigest(a))) digests.set(await suppressionDigest(a), 'hard bounce');
   for (const [d, why] of digests) batch.push(stmt(db, 'INSERT OR IGNORE INTO b_erased_suppressions(digest,reason,erasure_id,at) VALUES(?,?,?,?)', d, why, erasureId, x.at));
-  const stepAt = batch.length;
-  for (const step of list) if (step.action !== 'cascade') batch.push(stmt(db, step.action === 'delete' ? `DELETE FROM ${step.table} WHERE ${step.where}` : `UPDATE ${step.table} SET ${step.set} WHERE ${step.where}`));
+  for (const [n, step] of list.entries()) {
+    batch.push(stmt(db, `INSERT INTO b_client_erasure_steps(erasure_id,ordinal,table_name,action,label,count) SELECT ?,?,?,?,?,count(*) FROM ${step.table} WHERE ${step.where}`, erasureId, n, step.table, step.action, step.label));
+    if (step.action !== 'cascade') batch.push(stmt(db, step.action === 'delete' ? `DELETE FROM ${step.table} WHERE ${step.where}` : `UPDATE ${step.table} SET ${step.set} WHERE ${step.where}`));
+  }
   batch.push(...triggers.map(t => stmt(db, String(t.sql))), ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
     audit(db, actor, 'client.erased', clientId, `${p.client.id.slice(0, 8)}; ${reason}`), release);
-  const results = await atomic(db, actor, batch);
-  const actual = list.filter(s => s.action !== 'cascade').map((s, n) => ({ table: s.table, action: s.action, label: s.label, count: Number(results[stepAt + n]?.meta?.changes ?? 0) }));
-  const planned = Object.fromEntries(p.counts.map(c => [c.table, c.count]));
-  const counts = [...actual, ...p.counts.filter(c => c.action === 'cascade')].filter(c => c.count > 0 || planned[c.table] > 0);
+  await atomic(db, actor, batch);
   const epoch = Number((await stmt(db, 'SELECT epoch FROM rer_portability_state WHERE id=1').first<Data>())?.epoch ?? 0);
   const retainedRecord = { exceptions: p.retained, holds: p.marks, externalCopies: p.copies.map(c => ({ kind: c.kind, system: c.system, holder: c.holder, status: c.closed_at ? 'closed' : 'open' })), suppressionDigests: digests.size };
-  await stmt(db, 'UPDATE b_client_erasures SET counts=?,retained=?,journal_epoch=? WHERE id=?', JSON.stringify({ steps: counts, withdrawalsCarried: p.carry, planned: p.totals }), JSON.stringify(retainedRecord), epoch, erasureId).run();
+  await stmt(db, 'UPDATE b_client_erasures SET counts=?,retained=?,journal_epoch=? WHERE id=?', JSON.stringify({ withdrawalsCarried: p.carry }), JSON.stringify(retainedRecord), epoch, erasureId).run();
   return erasureReceipt(db, actor, erasureId);
 }
 
-const receiptOf = (r: Data) => ({ id: r.id, clientRef: r.client_ref, clientId: r.client_id, reason: r.reason, approvedBy: r.approved_by, approvedAt: r.approved_at, planHash: r.plan_hash, journalEpoch: r.journal_epoch,
-  ...JSON.parse(r.counts), retained: JSON.parse(r.retained) });
+const receiptOf = async (db: D1Database, r: Data) => ({ id: r.id, clientRef: r.client_ref, clientId: r.client_id, reason: r.reason, approvedBy: r.approved_by, approvedAt: r.approved_at, planHash: r.plan_hash, journalEpoch: r.journal_epoch,
+  steps: (await rows(db, 'SELECT table_name "table",action,label,count FROM b_client_erasure_steps WHERE erasure_id=? ORDER BY ordinal', r.id)).filter(x => x.count > 0), ...JSON.parse(r.counts), retained: JSON.parse(r.retained) });
 
 export async function erasureReceipt(db: D1Database, actor: Actor, erasureId: string) {
   human(actor); need(actor, 'owner');
   const r = await stmt(db, 'SELECT * FROM b_client_erasures WHERE id=?', erasureId).first<Data>();
   insist(r, 'Erasure receipt not found', 404);
-  return receiptOf(r);
+  return receiptOf(db, r);
 }
 
 /** The latest erasure journal: every receipt plus the portability checkpoint that fences older archives. */
@@ -124,6 +123,6 @@ export async function erasureJournal(db: D1Database, actor: Actor) {
   const state = await stmt(db, 'SELECT source_identity,epoch FROM rer_portability_state WHERE id=1').first<Data>();
   const hashes = (await rows(db, 'SELECT tombstone FROM rer_portability_journal WHERE source=? ORDER BY tombstone', state?.source_identity)).map(r => String(r.tombstone));
   return { exportedAt: now(), sourceIdentity: state?.source_identity, epoch: Number(state?.epoch ?? 0), tombstones: hashes,
-    receipts: (await rows(db, 'SELECT * FROM b_client_erasures ORDER BY approved_at,id')).map(receiptOf),
+    receipts: await Promise.all((await rows(db, 'SELECT * FROM b_client_erasures ORDER BY approved_at,id')).map(r => receiptOf(db, r))),
     note: 'Restore an older archive only together with an archive made after the newest erasure; older archives are refused.' };
 }

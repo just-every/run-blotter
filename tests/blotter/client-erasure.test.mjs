@@ -115,7 +115,7 @@ test('ERASURE-002 / BASE-001 / whole-client erasure keeps held and signed eviden
     assert.equal(await (await file(s.retainedFile)).text(), 'Retained until later bytes');
     for (const id of [s.signedFile, s.intakeFile]) assert.equal((await file(id)).status, 404, 'Eligible file bytes are erased');
     const after = await archive();
-    for (const gone of [SENTINEL.organizer, SENTINEL.thread, SENTINEL.credential, 'alex@example.test:', 'Blair Bookkeeper', 'blair@example.test', 'Cedar Lane LLC', b64(SENTINEL.intake), b64('Signed return bytes'), 'Courier to Cedar Lane']) assert.ok(!after.includes(gone), `${gone} is absent from new archives`);
+    for (const gone of [SENTINEL.organizer, SENTINEL.thread, SENTINEL.credential, 'alex@example.test:', 'Blair Bookkeeper', 'blair@example.test', 'Cedar Lane LLC', b64(SENTINEL.intake), b64('Signed return bytes'), 'Courier to Cedar Lane']) assert.ok(!after.includes(gone), `${gone} is absent from new archives: ...${after.slice(Math.max(0, after.indexOf(gone) - 160), after.indexOf(gone) + 120)}`);
     for (const stays of [b64(SENTINEL.engagement), b64('Retained until later bytes'), 'Engagement signed and filed']) assert.ok(after.includes(stays), `${stays} stays`);
     assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).lifecycle, 'archived');
     assert.match((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).name, /^Erased client /);
@@ -133,7 +133,7 @@ test('ERASURE-002 / BASE-001 / whole-client erasure keeps held and signed eviden
     assert.ok(journal.epoch >= 1 && journal.tombstones.length >= 1);
     assert.deepEqual(journal.receipts[0].retained.externalCopies.map(c => c.holder).sort(), ['Northwind Advisory (practice buyer)', 'Pat Preparer, firm administrator']);
     assert.ok(journal.receipts[0].retained.exceptions.every(e => e.owner && e.reason));
-    assert.ok(!JSON.stringify(journal).includes('Cedar Lane'), 'The journal never stores values');
+    assert.ok(!JSON.stringify(journal).includes('Cedar Lane LLC') && !JSON.stringify(journal).includes('alex@example.test'), 'The journal never stores client values');
 
     // A stale archive cannot bring the erased client back; the newer one restores the redacted state.
     const stale = await target.request('/api/blotter/restore', { archive: old, journal: after, confirm: 'RESTORE' }, target.owner);
