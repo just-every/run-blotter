@@ -21,7 +21,10 @@ export async function reportAppJourney(h,s){
   const financialEvidence=process.env.BLOTTER_REPORT_EVIDENCE;if(financialEvidence)await mkdir(financialEvidence,{recursive:true});
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await financial.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(financialEvidence)await financial.screenshot({path:`${financialEvidence}/financial-groups-${width}.png`});}
   await panel.getByLabel('Report view name',{exact:true}).fill('Partner tax-season report');await panel.getByRole('button',{name:'Save report view',exact:true}).click();
-  await panel.getByText('Schedule an internal report',{exact:true}).click();await panel.getByLabel('Report partner',{exact:true}).selectOption('reviewer@example.test');
+  await panel.getByText('Schedule an internal report',{exact:true}).click();
+  // Saving refreshes the view list asynchronously; choose the exact saved view before submitting its required select.
+  await panel.getByLabel('Saved report',{exact:true}).selectOption({label:'Partner tax-season report'});
+  await panel.getByLabel('Report partner',{exact:true}).selectOption('reviewer@example.test');
   await panel.getByRole('button',{name:'Schedule report',exact:true}).click();await panel.getByRole('button',{name:'Pause report',exact:true}).waitFor();
   const evidence=process.env.BLOTTER_REPORT_EVIDENCE;if(evidence)await mkdir(evidence,{recursive:true});
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(evidence)await page.screenshot({path:`${evidence}/reports-${width}.png`,fullPage:true});}
