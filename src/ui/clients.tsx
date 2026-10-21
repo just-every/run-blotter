@@ -91,7 +91,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
     {lead && <section className="panel wide">
       <h2>Schedule work in bulk</h2>
       <p className="muted">Start one period's jobs for several clients. People come from an override, else the client's last period, else the default. Existing jobs are kept.</p>
-      <ScheduleBulk state={state} run={run} segment={segment} />
+      <ScheduleBulk key={`${segment ? 'segment' : 'all'}:${(segment ?? state.clients).map((c: Row) => c.id).join(',')}`} state={state} run={run} segment={segment} />
     </section>}
     {lead && <StatusSettings state={state} run={run} tick={tick} />}
   </div>;
