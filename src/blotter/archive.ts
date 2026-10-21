@@ -1,6 +1,7 @@
 // Whole-practice archive and restore on Base portability, and file erasure that
 // fences older archives. Adapted from just-every/run-satchel src/satchel/archive.ts (MIT).
 import { ensureLegacyContacts } from './client-contacts';
+import { refuseHeld } from './client-retention';
 import { createPortability, readArchive } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
 import { atomic, audit, human, insist, job, need, now, stmt, text, type Actor, type Data } from './model';
@@ -12,6 +13,7 @@ export async function backup(db: D1Database, actor: Actor) {
     let status = await service.exports.advance(exportId);
     while (status.phase !== 'complete') status = await service.exports.advance(exportId);
     const bytes = await new Response(await service.exports.download(exportId)).arrayBuffer();
+    await atomic(db, actor, [audit(db, actor, 'archive.downloaded', 'archive', `${bytes.byteLength} bytes`)]);
     return new Response(bytes, { headers: { 'content-type': 'application/x-ndjson', 'content-disposition': 'attachment; filename="blotter.rer"', 'cache-control': 'no-store' } });
   } finally { await service.exports.abort(exportId); }
 }
@@ -48,6 +50,12 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
   insist(file, 'File not found', 404);
   if (regular) await job(db, actor, file.job_id);
   insist(!file.erased_at, 'This file was already erased', 409);
+  // ERASURE-002: inside a hold this door is refused, naming the hold.
+  if (regular) await refuseHeld(db, { clientIds: [String((await stmt(db, 'SELECT client_id FROM b_jobs WHERE id=?', file.job_id).first<Data>())?.client_id)], jobId: file.job_id, fileId: file.id, cls: 'signed_work' }, 'Erasing this file');
+  else {
+    const owner = await stmt(db, 'SELECT client_id FROM b_prospects WHERE id=?', intake!.prospect_id).first<Data>();
+    if (owner?.client_id) await refuseHeld(db, { clientIds: [String(owner.client_id)], cls: 'prospect' }, 'Erasing this intake file');
+  }
   insist(body.confirm === file.name, 'Type the file name to confirm erasing its bytes');
   const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
   await atomic(db, actor, [

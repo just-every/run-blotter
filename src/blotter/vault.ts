@@ -9,6 +9,7 @@
 // carry the ciphertext or drop it, at the principal's choice.
 import { createPortability } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
+import { refuseHeld } from './client-retention';
 import { contactGuard } from './client-recipients';
 import { portalJob } from './documents';
 import { checkFactor, type Site } from './mfa';
@@ -30,17 +31,21 @@ async function vaultKey(site: VaultSite, salt: string) {
     base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 /** The credential id is bound as additional data, so ciphertext cannot be moved to another record. */
-async function seal(site: VaultSite, salt: string, credentialId: string, value: Secret) {
+async function seal(site: VaultSite, salt: string, credentialId: string, value: unknown) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(credentialId) }, await vaultKey(site, salt), new TextEncoder().encode(JSON.stringify(value))));
   return btoa(String.fromCharCode(...iv, ...sealed));
 }
-async function unseal(site: VaultSite, salt: string, credentialId: string, value: string): Promise<Secret> {
+async function unseal<T = Secret>(site: VaultSite, salt: string, credentialId: string, value: string): Promise<T> {
   const bytes = Uint8Array.from(atob(value), c => c.charCodeAt(0)), key = await vaultKey(site, salt);
   try {
     return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12), additionalData: new TextEncoder().encode(credentialId) }, key, bytes.slice(12))));
   } catch { throw new Fault("This credential was sealed under another installation's vault key and cannot be opened here. Ask the client to enter it again.", 409); }
 }
+
+/** ERASURE-002's retained remainder is sealed under the same firm key, bound to its own id, and opened only through the audited retained-records door. */
+export async function sealRemainder(db: D1Database, site: VaultSite, aad: string, value: unknown) { return seal(site, (await firmKey(db)).salt, aad, value); }
+export async function openRemainder<T>(db: D1Database, site: VaultSite, aad: string, sealed: string) { return unseal<T>(site, (await firmKey(db)).salt, aad, sealed); }
 
 /** The client a credential belongs to today: a merged client's credentials follow its survivor. */
 const currentClient = (alias: string) => `(SELECT COALESCE(merged_into,id) FROM b_clients WHERE id=${alias}.client_id)`;
@@ -146,6 +151,7 @@ export async function eraseCredential(db: D1Database, actor: Actor, credentialId
   const credential = await stmt(db, `SELECT v.*,${currentClient('v')} owner_client FROM b_vault_credentials v WHERE v.id=?`, credentialId).first<Data>();
   insist(credential, 'Credential not found', 404);
   insist(!credential.erased_at, 'This credential was already erased', 409);
+  await refuseHeld(db, { clientIds: [String(credential.owner_client)], cls: 'vault' }, 'Erasing this credential');
   insist(body.confirm === credential.label, 'Type the credential name to confirm erasing it');
   const reason = text(body.reason, 'Erasure reason', 1000), at = now(), service = await createPortability({ db, policy });
   await atomic(db, actor, [

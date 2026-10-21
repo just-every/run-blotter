@@ -2,6 +2,7 @@
 // content redaction fences all older exports through native portability.
 import { createPortability } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
+import { refuseHeld } from './client-retention';
 import { storedOrganizer } from './organizers-store';
 import { atomic, audit, guard, human, id, insist, job, need, now, stmt, text, type Actor, type Data } from './model';
 
@@ -9,6 +10,7 @@ export async function eraseOrganizer(db: D1Database, actor: Actor, organizerId: 
   human(actor); need(actor, 'owner');
   const organizer = await storedOrganizer(db, organizerId), j = await job(db, actor, organizer.job_id);
   insist(!organizer.erased_at, 'This organizer was already erased', 409);
+  await refuseHeld(db, { clientIds: [String(j.client_id)], jobId: j.id, cls: 'organizer' }, 'Erasing these answers');
   insist(body.revision === organizer.revision, 'Organizer changed; refresh before erasing', 409);
   insist(body.confirm === organizer.definition.name, 'Type the organizer name to confirm erasing its answers');
   const reason = text(body.reason, 'Erasure reason', 1000), at = now(), service = await createPortability({ db, policy });

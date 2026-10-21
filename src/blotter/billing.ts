@@ -183,5 +183,6 @@ export async function downloadExport(db: D1Database, actor: Actor, exportId: str
   const e = await stmt(db, 'SELECT * FROM b_exports WHERE id=?', exportId).first<Data>();
   insist(e, 'Export not found', 404);
   insist(e.status === 'approved', 'Approve the export before downloading it', 409);
+  await atomic(db, actor, [audit(db, actor, 'export.downloaded', e.id, e.csv_sha256)]);
   return new Response(e.csv, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="blotter-export-${e.id.slice(0, 8)}.csv"`, 'cache-control': 'no-store' } });
 }
