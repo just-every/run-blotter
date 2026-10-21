@@ -99,7 +99,7 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
 
 /** Everything the workspace lists, filtered to what this person may see. */
 export async function workspace(db: D1Database, actor: Actor) {
-  const wide = actor.role !== 'preparer', firm = await firmSettings(db);
+  const wide = actor.role !== 'preparer' && !actor.accessScoped, firm = await firmSettings(db);
   const jobs = await rows(db, `SELECT b_jobs.*,c.name client_name,
       (SELECT COUNT(*) FROM b_requests r WHERE r.job_id=b_jobs.id AND r.organizer_active=1 AND r.status<>'accepted') open_requests,
       (SELECT COUNT(*) FROM b_job_steps s WHERE s.job_id=b_jobs.id AND ${pendingStep('s')}) open_steps,
@@ -118,6 +118,6 @@ export async function workspace(db: D1Database, actor: Actor) {
     fields: await fieldDefs(db),
     groups: wide ? await groups(db) : [],
     people: wide ? await rows(db, `SELECT email,name,role FROM b_members WHERE active=1 UNION ALL SELECT email,display_name,'owner' FROM oa_operators WHERE role='owner' AND status='active' ORDER BY 2`) : [],
-    proposals: await rows(db, 'SELECT * FROM b_proposals WHERE for_email=? ORDER BY created_at DESC LIMIT 100', actor.email),
+    proposals: actor.accessScoped ? [] : await rows(db, 'SELECT * FROM b_proposals WHERE for_email=? ORDER BY created_at DESC LIMIT 100', actor.email),
   };
 }

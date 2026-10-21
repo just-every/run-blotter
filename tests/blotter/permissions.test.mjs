@@ -90,6 +90,6 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   assert.ok(!(await h.json('/access',undefined,h.owner)).grants.some(g=>g.client_id===spare.id));
   const newer=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
-  if(process.env.BLOTTER_PERMISSION_EVIDENCE)await permissionsJourney(h,clients[0].name,read);
+  if(process.env.BLOTTER_PERMISSION_EVIDENCE)await permissionsJourney(h,clients[0].name,read,codes[3]);
  }finally{await stale?.close();await destination?.close();await h.close();}
 });
