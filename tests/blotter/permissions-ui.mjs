@@ -23,6 +23,7 @@ export async function permissionsJourney(h,clientName,readerCookie,recoveryCode)
     for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await panel.screenshot({path:`${evidence}/permissions-${width}.png`});}
    }else{
     await page.getByText('Read-only access.',{exact:false}).waitFor();await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();await page.getByText(clientName,{exact:false}).first().waitFor();
+    assert.equal(await page.getByRole('alert').count(),0,'Read-only work opens without requests for forbidden global data');
     for(const width of [1440,390]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`${evidence}/read-only-${width}.png`,fullPage:true});}
    }
    await context.close();

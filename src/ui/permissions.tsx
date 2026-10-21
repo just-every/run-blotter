@@ -8,6 +8,7 @@ export function Permissions({state,run,tick}:{state:Row;run:Run;tick:number}) {
   useEffect(()=>{api('/access').then(setPolicy).catch(e=>run(async()=>{throw e;}));},[tick]);
   if(!policy)return null;
   const clientNames=(ids:string[])=>ids.map(id=>state.clients.find((c:Row)=>c.id===id)?.name??id).join(', ')||'No clients';
+  const grantable=state.clients.filter((c:Row)=>!c.erased_at);
   const staff=state.people.filter((p:Row)=>p.role!=='owner');
   const selectedTeam=policy.teams.find((t:Row)=>t.id===teamId);
   return <section className="panel wide" aria-label="Client and document permissions">
@@ -25,16 +26,16 @@ export function Permissions({state,run,tick}:{state:Row;run:Run;tick:number}) {
       <Form key={teamId} label="Save access team" submit={async(data,form)=>run(()=>api('/access/teams',{...data,id:teamId||undefined,emails:values(form,'emails'),clientIds:values(form,'clientIds')}),'Team grants saved')}>
         <Field label="Team name" name="name" value={selectedTeam?.name}/>
         <Field label="Team staff (select all who belong)" name="emails"><select multiple name="emails" defaultValue={policy.teamMembers.filter((m:Row)=>m.team_id===teamId).map((m:Row)=>m.email)}>{staff.map((m:Row)=><option key={m.email} value={m.email}>{m.name} · {m.email}</option>)}</select></Field>
-        <Field label="Team clients (select all grants)" name="clientIds"><select multiple name="clientIds" defaultValue={policy.teamClients.filter((c:Row)=>c.team_id===teamId).map((c:Row)=>c.client_id)}>{state.clients.map((c:Row)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+        <Field label="Team clients (select all grants)" name="clientIds"><select multiple name="clientIds" defaultValue={policy.teamClients.filter((c:Row)=>c.team_id===teamId).map((c:Row)=>c.client_id)}>{grantable.map((c:Row)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
       </Form>
     </details>
     <h3>Individual access</h3>
     <ul className="list">{policy.members.map((m:Row)=><li key={m.email}><strong>{m.email}</strong> · {m.read_only?'Read-only':'Existing work role'} · {clientNames(policy.grants.filter((g:Row)=>g.email===m.email).map((g:Row)=>g.client_id))} (plus team grants)</li>)}</ul>
     <Form label="Save individual access" submit={async(data,form)=>run(()=>api('/access/people',{email:data.email,readOnly:data.readOnly==='true',clientIds:values(form,'clientIds')}),'Individual grants saved')}>
       <Field label="Staff member" name="email"><select name="email">{staff.map((m:Row)=><option key={m.email} value={m.email}>{m.name} · {m.email}</option>)}</select></Field><Field label="Permission" name="readOnly"><select name="readOnly"><option value="false">Existing work role</option><option value="true">Read-only</option></select></Field>
-      <Field label="Direct client grants (select none to revoke)" name="clientIds"><select multiple name="clientIds">{state.clients.map((c:Row)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+      <Field label="Direct client grants (select none to revoke)" name="clientIds"><select multiple name="clientIds">{grantable.map((c:Row)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
     </Form>
-    <details><summary>Client references</summary><ul className="list">{state.clients.map((c:Row)=><li key={c.id}>{c.name}: <code>{c.id}</code></li>)}</ul></details>
+    <details><summary>Client references</summary><ul className="list">{grantable.map((c:Row)=><li key={c.id}>{c.name}: <code>{c.id}</code></li>)}</ul></details>
     <h3>Sensitive workpapers</h3>
     <p>Restricted documents are internal. Only the principal and the named staff who also hold client and job access can read them. Restricting revokes existing contact grants and share links.</p>
     <ul className="list">{policy.sensitive.map((d:Row)=><li key={d.file_key}>{d.classification} · {d.file_key} · {policy.documentGrants.filter((g:Row)=>g.file_key===d.file_key).map((g:Row)=>g.email).join(', ')||'Principal only'}</li>)}</ul>
