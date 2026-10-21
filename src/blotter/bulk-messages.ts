@@ -283,10 +283,11 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
         await stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", `held: not sent (unresolved placeholder: ${rendered.missing.map(m => m.label).join(', ')})`, r.id, attemptId).run();
         continue;
       }
+      const storedSubject = link ? rendered.subject.replaceAll(link.url, `${origin}/portal/…`) : rendered.subject;
       let message = rendered.body, unsubscribe: string | undefined, stored = link ? rendered.body.replaceAll(link.url, `${origin}/portal/…`) : rendered.body;
       if (link) {
         try {
-          if (r.organizer_id) await issueBulkOrganizer(db, sender, b, { ...r, attempt_id: attemptId }, link.statements, rendered.subject, stored);
+          if (r.organizer_id) await issueBulkOrganizer(db, sender, b, { ...r, attempt_id: attemptId }, link.statements, storedSubject, stored);
           else await db.batch(link.statements);
         } catch (error) {
           if (!(error instanceof Fault)) throw error;
@@ -306,8 +307,8 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
       const outcome = await deliver(env, r.id, r.address, rendered.subject, message, unsubscribe);
       if (r.organizer_id) await stmt(db, 'UPDATE b_organizer_deliveries SET delivery=? WHERE id=?', outcome.delivery, 'bulk:' + r.id).run();
       sent++;
-      await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status=?,subject=?,body=?,delivery=?,provider_message_id=? WHERE id=? AND attempt_id=? AND status='claimed'", outcome.status, rendered.subject, stored, outcome.delivery, outcome.providerMessageId, r.id, attemptId),
-        stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), b.owner_email, outcome.status === 'accepted' ? 'bulk.sent' : 'bulk.failed', historyObject(r), `${b.class}: "${rendered.subject}" to ${r.address}: ${outcome.delivery}`, now())]);
+      await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status=?,subject=?,body=?,delivery=?,provider_message_id=? WHERE id=? AND attempt_id=? AND status='claimed'", outcome.status, storedSubject, stored, outcome.delivery, outcome.providerMessageId, r.id, attemptId),
+        stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), b.owner_email, outcome.status === 'accepted' ? 'bulk.sent' : 'bulk.failed', historyObject(r), `${b.class}: "${storedSubject}" to ${r.address}: ${outcome.delivery}`, now())]);
     }
     const left = await stmt(db, "SELECT count(*) n FROM b_bulk_recipients WHERE batch_id=? AND status IN ('pending','claimed')", b.id).first<Data>();
     if (!Number(left?.n)) await stmt(db, "UPDATE b_bulk_batches SET status='sent' WHERE id=? AND status='sending'", b.id).run();

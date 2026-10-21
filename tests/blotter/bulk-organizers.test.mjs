@@ -37,7 +37,7 @@ async function clientWork(h, label, { organizer = true, assign = true } = {}) {
 async function setup(h) {
   await h.json('/team', { email: 'reviewer@example.test', name: 'Rae Reviewer', role: 'reviewer' }, h.owner);
   const a = await clientWork(h, 'Cedar'), b = await clientWork(h, 'River');
-  const message = await h.json('/messages/templates', { scope: 'firm', name: 'Assigned organizer kickoff', subject: '{{work_type}} organizer for {{client_name}}',
+  const message = await h.json('/messages/templates', { scope: 'firm', name: 'Assigned organizer kickoff', subject: '{{work_type}} organizer for {{client_name}}: {{portal_link}}',
     body: 'Your {{work_type}} engagement needs your assigned organizer answers.\nHello {{contact_first_name}}, open {{portal_link}}.' }, h.owner);
   const body = { class: 'engagement', templateId: message.id, entityType: 'business', reason: 'Collect assigned engagement organizer answers', attachOrganizer: true };
   return { a, b, message, body };
@@ -87,7 +87,10 @@ test('MSG-002 / PORTAL-004 / BASE-001 bulk organizer invitations preserve contac
       assert.equal(added.length, 1);
       assert.equal(added[0].contact_id, c.primary.id);
       assert.equal(added[0].to_email, c.primary.email);
-      assert.equal(added[0].subject, mail.subject);
+      const storedSubject = mail.subject.replaceAll(`${h.origin}/portal/${token}`, `${h.origin}/portal/…`);
+      assert.ok(mail.subject.includes(token), 'The recipient receives the rendered subject link');
+      assert.equal(added[0].subject, storedSubject);
+      assert.equal(recipient.subject, storedSubject);
       assert.equal(added[0].message, mail.text.replaceAll(`${h.origin}/portal/${token}`, `${h.origin}/portal/…`));
       assert.equal(added[0].delivery, recipient.delivery);
       assert.ok(!JSON.stringify(current.deliveries).includes(token));
