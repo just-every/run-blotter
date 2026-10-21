@@ -91,6 +91,7 @@ test('SIGN-002 / ERASURE-002: record/class/job holds, clocks, pending refusal, p
   preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.classes.find(c=>c.class==='signed_documents').held>0);assert.ok(preview.classes.find(c=>c.class==='signed_documents').retained>=1);assert.ok(preview.externalCopies.some(c=>c.source==='signature-invitations'));assert.deepEqual(preview.blockers,[]);
   await h.json(`/retention/${classHold.id}/release`,{reason:'Review complete'},h.owner);preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.erase.some(s=>s.table==='b_signatures'&&s.count>0));
   const stale=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);
   const receipt=await h.json(`/clients/${f.client.id}/erasure`,{planHash:preview.planHash,confirm:f.client.name,reason:'Client requested erasure'},h.owner);assert.ok(receipt.steps.some(s=>s.table==='b_signatures'&&s.count>0));assert.ok(receipt.retained.records.some(x=>x.kind==='signature'));assert.ok(receipt.retained.externalCopies.some(x=>x.source==='signature-invitations'));
   assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).status,200);assert.equal((await h.request(`/api/blotter/signatures/${pending.id}/files/original`,undefined,h.owner)).status,404);
   await h.json('/retention/ready/confirm',{kind:'signature',id:r.id,reason:'Retention period ended'},f.prep,403);
