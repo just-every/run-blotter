@@ -121,10 +121,10 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
 export function InvoicePortal({ token }: { token: string }) {
   const [invoice, setInvoice] = useState<Row>(), [error, setError] = useState('');
   useEffect(() => { api(`/invoice-portal/${encodeURIComponent(token)}`).then(setInvoice).catch(e => setError(e.message)); }, [token]);
-  return <main className="portal"><section className="panel stack">{error ? <p role="alert">{error}</p> : !invoice ? <p>Opening invoice…</p> : <>
+  return <div className="portal"><main><section className="panel stack">{error ? <p role="alert">{error}</p> : !invoice ? <p>Opening invoice…</p> : <>
     <p className="eyebrow">{invoice.firm}</p><h1>{invoice.number}</h1><h2>{invoice.title}</h2><p>{invoice.client} · for {invoice.recipient}</p><Status value={invoice.status} />
     <p>Issued {day(invoice.issueDate)} · due {day(invoice.dueDate)}</p><p>Amount at issue {money(invoice.totalCents)} · <strong>Current balance {money(invoice.balanceCents)}</strong></p>
     <p>{invoice.terms}</p><p>Supplied tax {money(invoice.taxCents)} · {invoice.taxTreatment}</p><a className="button" href={`/api/blotter/invoice-portal/${encodeURIComponent(token)}/pdf`}>Download invoice PDF</a>
-    <small className="muted">Private invoice link; expires {day(invoice.expiresAt)}. SHA-256 {invoice.sha256}</small>
-  </>}</section></main>;
+    <small className="muted" style={{overflowWrap:'anywhere'}}>Private invoice link; expires {day(invoice.expiresAt)}. SHA-256 {invoice.sha256}</small>
+  </>}</section></main></div>;
 }
