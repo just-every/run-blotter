@@ -309,3 +309,22 @@ MIGRATE-001–005 and MIGRATE-006 retain those full source-specific destinations
 ## Retention and whole-client erasure (ERASURE-002)
 
 Owner, person session only. `GET /clients/:id/retention` lists marks and recorded external copies; `POST /clients/:id/retention` with `{scope:'client'|'job'|'file',targetId,kind:'hold'|'retain',until,reason}` places a mark and `POST /retention/:id/release` with `{reason}` releases it. `POST /clients/:id/external-copies` records `{kind:'document'|'provider'|'buyer',system,holder,note}`; `POST /external-copies/:id/close` with `{note}` records the principal's confirmation that the holder deleted it. `GET /clients/:id/erasure/preview` (archived clients only) returns blockers, per-table counts, named retained exceptions with owners, active marks, external copies and a `planHash`. `POST /clients/:id/erasure` with `{planHash,confirm:<client name>,reason}` erases exactly that plan (409 when it changed) and returns the receipt; `GET /erasures/:id` rereads it and `GET /erasure-journal` exports every receipt with the portability epoch and tombstones. Receipts hold counts and named exceptions, never values. Restore an older archive only with `journal` set to a newer archive.
+
+### Native USD invoicing (BILL-002)
+
+The principal explicitly selects `POST /invoices/authority` (`authority: blotter`, reason).
+QBO/Xero authority refuses until INTEGRATE-001 is available. Authorize fixed/milestone/proration
+sources at `/invoice-entitlements`, record supplied deposit/credit references at `/invoice-credits`,
+and inspect `/invoices`. `/invoices/preview` returns the exact recipient, USD lines, supplied tax,
+terms, credits and `previewHash`; `POST /invoices` reserves that preview. Issue the current draft
+at `/invoices/:id/issue` with its revision, snapshotHash and reviewNote, then separately preview
+and approve delivery at `/invoices/:id/delivery-preview` and `/send`. The PDF is immutable.
+No charge, tax calculation or provider settlement is inferred. An unresolved delivery needs
+provider evidence at `/invoice-deliveries/:id/reconcile` before another send. Recipient-specific
+invoice links recheck the billing contact and its permission on every view and download.
+
+Monthly rules at `/invoice-retainers` create drafts only, once per rule and month. Generate with
+`/:id/generate`, preview/approve future fee amendments with `/:id/amendment-preview` and `/amend`,
+and pause or explicitly review activation at `/:id/status`. Issued amounts and prior entitlements
+retain their sources. Later credit allocations use `/invoices/:id/credits`. Whole-client erasure
+and billing expiry refuse named open invoices and unapplied deposit/credit liabilities.

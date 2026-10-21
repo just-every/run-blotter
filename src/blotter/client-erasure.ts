@@ -1,3 +1,4 @@
+import { noInvoiceOpenBalanceSql } from './invoices-sources';
 // ERASURE-002 whole-client erasure (ct 22 Oct 2026): preview the classes, holds and named
 // exceptions; erase only what the principal approves by digest, reason and the client's name;
 // record the receipt (counts, no values); fence every older archive through native portability.
@@ -28,7 +29,7 @@ export async function eraseClient(db: D1Database, actor: Actor, site: VaultSite,
   if (body.requestId) insist(await stmt(db, "SELECT 1 FROM b_deletion_requests WHERE id=? AND client_id=? AND subject_kind='client' AND erasure_id IS NULL", body.requestId, clientId).first(), 'Deletion request not found for this client', 404);
   const x = { ...p.x, reason }, list = steps(x, p.audited), service = await createPortability({ db, policy });
   const triggers = await rows(db, `SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name IN (${GUARDS.map(() => '?').join(',')})`, ...GUARDS);
-  const fp = p.fingerprint, [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND erased_at IS NULL) AND ${fingerprintSql}`, clientId, p.client.revision, fp.marks, fp.periods);
+  const fp = p.fingerprint, [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND erased_at IS NULL) AND ${fingerprintSql} AND ${noInvoiceOpenBalanceSql}`, clientId, p.client.revision, fp.marks, fp.periods,clientId,clientId);
   const batch: D1PreparedStatement[] = [check,
     stmt(db, `INSERT INTO b_client_erasures(id,client_id,client_ref,subject_kind,subject_id,request_id,reason,plan_hash,requested_by,approved_by,approved_at,counts,retained,journal_epoch) VALUES(?,?,?,'client',?,?,?,?,?,?,?,'{}','[]',0)`,
       erasureId, clientId, clientId.slice(0, 8), clientId, body.requestId ?? null, reason, p.planHash, actor.email, actor.email, x.at),

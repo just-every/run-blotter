@@ -18,7 +18,7 @@ import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, t
 
 const UNDO_MS = 30 * 24 * 60 * 60 * 1000;
 /** What a client has linked, by the table that links it. Groups are memberships, merged separately. */
-const TABLES: Record<string, string> = { jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', obligations: 'b_client_obligations', learning: 'b_learning_clients', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
+const TABLES: Record<string, string> = { invoices:'b_invoices',invoiceEntitlements:'b_invoice_entitlements',invoiceRetainers:'b_invoice_retainers',invoiceCredits:'b_invoice_credits', jobs: 'b_jobs', threads: 'b_threads', notices: 'b_notices', expenses: 'b_expenses', rules: 'b_recurrence_rules', rates: 'b_rate_cards', obligations: 'b_client_obligations', learning: 'b_learning_clients', groups: 'b_client_group_members', contacts: 'b_client_contacts', relationships: 'b_clients' };
 const COUNTED = Object.keys(TABLES);
 const ROW = ['name', 'abn', 'contact_name', 'contact_email', 'source', 'fields', 'tags', 'revision', 'entity_type', 'partner_email', 'team', 'services', 'owner_client_id', 'ssn_last4', 'lifecycle', 'archived_at', 'archived_by'];
 const pick = (c: Data) => Object.fromEntries(ROW.map(k => [k, c[k]]));
@@ -177,7 +177,7 @@ export async function undoMerge(db: D1Database, actor: Actor, mergeId: string) {
     stmt(db, 'DELETE FROM b_marketing_merge_holds WHERE merge_id=?', m.id),
     ...(moved.relationships ?? []).map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=? AND owner_client_id=?',m.merged_id,id(),c.id,m.survivor_id)),
     // Records move back while the merge is still active; the triggers allow only that.
-    ...MOVED.map(([key, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=? AND id IN (SELECT value FROM json_each(?))`, m.merged_id, m.survivor_id, JSON.stringify(moved[key]))),
+    ...MOVED.map(([key, table]) => stmt(db, `UPDATE ${table} SET client_id=? WHERE client_id=? AND id IN (SELECT value FROM json_each(?))`, m.merged_id, m.survivor_id, JSON.stringify(moved[key] ?? []))),
     stmt(db,'UPDATE b_document_shares SET revoked_at=? WHERE revoked_at IS NULL AND file_key IN (SELECT file_key FROM b_document_access WHERE client_id=?)',at,m.survivor_id),
     stmt(db,'UPDATE b_document_access SET client_id=? WHERE client_id=? AND job_id IN (SELECT value FROM json_each(?))',m.merged_id,m.survivor_id,JSON.stringify(moved.jobs)),
     ...moved.groups.map((g: Data) => g.dropped

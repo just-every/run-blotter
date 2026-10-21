@@ -18,7 +18,7 @@ const KINDS: Record<string, string> = {
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
   deadlines: "a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
   messages: "a.action LIKE 'thread.%' OR a.action LIKE 'portal.%' OR a.action='reminder.sent' OR a.action LIKE 'bulk.%' OR a.action LIKE 'consent.%'",
-  billing: "a.action LIKE 'time.%' OR a.action LIKE 'expense.%' OR a.action LIKE 'timer.%' OR a.action LIKE 'export.%'",
+  billing: "a.action LIKE 'time.%' OR a.action LIKE 'expense.%' OR a.action LIKE 'timer.%' OR a.action LIKE 'export.%' OR a.action LIKE 'invoice.%'",
 };
 
 export async function clientHistory(db: D1Database, actor: Actor, clientId: string, query: Data = {}) {
@@ -37,13 +37,13 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
     OR a.object_id IN (SELECT id FROM b_threads WHERE job_id IN (${jobIds}) OR (?3 AND client_id=?2 AND job_id IS NULL))
     OR a.object_id IN (SELECT id FROM b_portal_items WHERE job_id IN (${jobIds}))
     OR a.object_id IN (SELECT id FROM b_notices WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_expenses WHERE job_id IN (${jobIds}))
-    OR a.object_id IN (SELECT id FROM b_time WHERE job_id IN (${jobIds})) OR (?3 AND a.object_id IN (SELECT id FROM b_recurrence_rules WHERE client_id=?2)) OR (?3 AND a.object_id=?2)
+    OR a.object_id IN (SELECT id FROM b_time WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_invoices WHERE job_id IN (${jobIds})) OR (?3 AND a.object_id IN (SELECT id FROM b_recurrence_rules WHERE client_id=?2)) OR (?3 AND a.object_id=?2)
     OR (?3 AND a.object_id IN (SELECT s.export_id FROM b_export_sources s WHERE s.source_key IN (SELECT 'fee:'||value FROM json_each(?1))
       OR s.source_key IN (SELECT 'time:'||id FROM b_time WHERE job_id IN (${jobIds})) OR s.source_key IN (SELECT 'exp:'||id FROM b_expenses WHERE job_id IN (${jobIds}))
       OR s.source_key IN (SELECT 'adj:'||d.id FROM b_time_adjustments d JOIN b_time t ON t.id=d.entry_id WHERE t.job_id IN (${jobIds})))))`;
   const history = await rows(db, `SELECT a.id,a.actor,a.action,a.object_id,a.detail,a.at,
       COALESCE((SELECT id FROM b_jobs WHERE id=a.object_id),(SELECT job_id FROM b_requests WHERE id=a.object_id),(SELECT job_id FROM b_files WHERE id=a.object_id),
-        (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id)) job_id
+        (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id),(SELECT job_id FROM b_invoices WHERE id=a.object_id)) job_id
     FROM b_audit a WHERE ${objects} AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
     ORDER BY a.at DESC,a.id LIMIT 500`, ids, clientId, lead ? 1 : 0, kind, q);
   const owner = optional(query.owner, 'Owner', 254).toLowerCase();
@@ -54,7 +54,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
 /** Open items of these jobs (and, for leads, client-wide discussions), each with its owner, next action and due condition. */
 async function openItems(db: D1Database, ids: string, clientId: string | null) {
   const open = `SELECT value FROM json_each(?1)`;
-  const [requests, tasks, reviews, threads, notices, portal, coverage] = await Promise.all([
+  const [requests, tasks, reviews, threads, notices, portal, coverage,invoices] = await Promise.all([
     rows(db, `SELECT r.id,r.label,r.status,j.id job_id,j.title,j.period_label,j.preparer_email,j.due_date FROM b_requests r JOIN b_jobs j ON j.id=r.job_id
       WHERE j.id IN (${open}) AND j.status='open' AND r.organizer_active=1 AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
     rows(db, `SELECT s.ordinal,s.label,s.assignee_email,s.assignee_role,j.id job_id,j.title,j.period_label,j.preparer_email,j.reviewer_email,j.manager_email,j.due_date FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
@@ -66,9 +66,11 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
       WHERE j.id IN (${open}) AND j.status<>'signed_off' AND p.status='open' ORDER BY p.created_at`, ids),
     rows(db, `SELECT k.id,k.reason,k.owner_email,j.id job_id,j.title,j.period_label,j.due_date FROM b_coverage_conflicts k JOIN b_jobs j ON j.id=k.job_id
       WHERE j.id IN (${open}) AND k.resolved_at IS NULL ORDER BY k.created_at`, ids),
+    rows(db,`SELECT i.id,i.title,i.job_id,i.owner_email,i.due_date FROM b_invoices i WHERE i.job_id IN (${open}) AND i.status='issued' AND i.subtotal_cents+i.tax_cents>COALESCE((SELECT sum(amount_cents) FROM b_invoice_credit_uses WHERE invoice_id=i.id),0)`,ids),
   ]);
   const work = (j: Data) => `${j.title} · ${j.period_label}`;
   return [
+    ...invoices.map(i=>({kind:'invoice',id:i.id,jobId:i.job_id,work:i.title,owner:i.owner_email,nextAction:'Resolve the open invoice balance',due:`invoice due ${i.due_date}`})),
     ...requests.map(r => ({ kind: 'request', id: r.id, jobId: r.job_id, work: work(r), owner: r.preparer_email, nextAction: r.status === 'requested' ? `Collect “${r.label}” from the client` : `Accept or return “${r.label}”`, due: `job due ${r.due_date}` })),
     ...tasks.map(t => {
       const role = t.assignee_role === 'reviewer' ? t.reviewer_email : t.assignee_role === 'manager' ? t.manager_email || t.reviewer_email : t.preparer_email;
@@ -125,6 +127,9 @@ export async function changeOwner(db: D1Database, actor: Actor, clientId: string
   } else if (item.kind === 'discussion') {
     insist(await can(['reviewer']) || (j && j.preparer_email === to), `${to} cannot read this discussion`);
     change = [stmt(db, "UPDATE b_threads SET owner_email=? WHERE id=? AND status='open'", to, itemId)];
+  } else if(item.kind==='invoice'){
+    insist(await can(['reviewer']),`${to} must be an active reviewer or the principal`);
+    change=[stmt(db,"UPDATE b_invoices SET owner_email=? WHERE id=? AND status='issued'",to,itemId)];
   } else if (item.kind === 'coverage') {
     insist(await can(['reviewer']), `${to} must be an active reviewer or the principal`);
     change = [stmt(db, 'UPDATE b_coverage_conflicts SET owner_email=? WHERE id=? AND resolved_at IS NULL', to, itemId)];

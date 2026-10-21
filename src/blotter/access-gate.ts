@@ -19,10 +19,10 @@ const resources:Record<string,string>={
   notices:'SELECT client_id FROM b_notices WHERE id=?',
   credentials:'SELECT client_id FROM b_vault_credentials WHERE id=?',
   rules:'SELECT client_id FROM b_recurrence_rules WHERE id=?',
-  signatures:'SELECT client_id FROM b_signatures WHERE id=?',
+  signatures:'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   invoices:'SELECT client_id FROM b_invoices WHERE id=?',
 };
-const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/))/.test(path);
+const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority)/.test(path);
 const exporting = (path:string) => /^\/(backup|portability($|\/)|erasure-journal|exports($|\/)|reports\/.*\/(csv|pdf)$|team\/mfa-report|invoices\/[^/]+\/pdf$)/.test(path);
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');

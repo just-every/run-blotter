@@ -51,6 +51,7 @@ export const linked = async (db: D1Database, id: string) => stmt(db, `SELECT
   (SELECT COUNT(*) FROM b_jobs WHERE client_id=?1) jobs, (SELECT COUNT(*) FROM b_jobs WHERE client_id=?1 AND status<>'signed_off') open_jobs,
   (SELECT COUNT(*) FROM b_threads WHERE client_id=?1) threads, (SELECT COUNT(*) FROM b_notices WHERE client_id=?1) notices,
   (SELECT COUNT(*) FROM b_expenses WHERE client_id=?1) expenses, (SELECT COUNT(*) FROM b_recurrence_rules WHERE client_id=?1) rules,
+  (SELECT COUNT(*) FROM b_invoices WHERE client_id=?1) invoices,(SELECT COUNT(*) FROM b_invoice_entitlements WHERE client_id=?1) invoiceEntitlements,(SELECT COUNT(*) FROM b_invoice_retainers WHERE client_id=?1) invoiceRetainers,(SELECT COUNT(*) FROM b_invoice_credits WHERE client_id=?1) invoiceCredits,
   (SELECT COUNT(*) FROM b_client_contacts WHERE client_id=?1) contacts,(SELECT COUNT(*) FROM b_clients WHERE owner_client_id=?1 AND merged_into IS NULL) relationships,
   (SELECT COUNT(*) FROM b_client_group_members WHERE client_id=?1) groups, (SELECT COUNT(*) FROM b_rate_cards WHERE client_id=?1) rates, (SELECT COUNT(*) FROM b_client_obligations WHERE client_id=?1) obligations, (SELECT COUNT(*) FROM b_learning_clients WHERE client_id=?1) learning`, id).first<Data>() as Promise<Data>;
 /** Every field a merge chooses between, with both values; `source` is shown but each record keeps its own source IDs. */

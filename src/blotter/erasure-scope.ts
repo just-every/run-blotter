@@ -1,3 +1,4 @@
+import { invoiceErasureSteps,invoiceRetainedRows,invoiceSnapshotIdsSql } from './invoices-erasure';
 // ERASURE-002 scope (ct 22 Oct 2026): every client-linked table, with the one SQL predicate that
 // both counts a step in the preview and applies it on approval. Signed-off work, signed
 // engagements and billing evidence are retained whole until their clocks expire; everything else
@@ -30,7 +31,7 @@ export function selectors(x: Context) {
   const CONSUMED = `(SELECT s.id FROM b_organizer_submissions s JOIN b_job_organizers o ON o.id=s.organizer_id JOIN b_jobs j ON j.id=o.job_id WHERE j.status='signed_off' AND s.submitted_at<=j.signed_off_at)`;
   // Readiness decisions a signed-off job consumed.
   const RQR = `(SELECT q.id FROM b_readiness_questions q JOIN b_jobs j ON j.id=q.job_id WHERE q.status IN ('declined','resolved') AND j.status='signed_off')`;
-  const snapshot = (prefix: string) => `(SELECT substr(s.source_key,${prefix.length + 1}) FROM b_export_sources s JOIN b_exports e ON e.id=s.export_id WHERE e.status='approved' AND substr(s.source_key,1,${prefix.length})='${prefix}')`;
+  const snapshot = (prefix: string) => `(SELECT substr(s.source_key,${prefix.length + 1}) FROM b_export_sources s JOIN b_exports e ON e.id=s.export_id WHERE e.status='approved' AND substr(s.source_key,1,${prefix.length})='${prefix}' UNION SELECT * FROM ${invoiceSnapshotIdsSql(prefix)})`;
   return {
     c, HJ, HF, JALL, JE, FR, ORG, CONSUMED, RQR,
     K: `(SELECT id FROM b_client_contacts WHERE client_id=${c})`,
@@ -54,7 +55,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const s = selectors(x), at = lit(x.at), who = lit(x.who), why = lit(x.reason);
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
-  const all: Step[] = [
+  const all: Step[] = [...invoiceErasureSteps(x),
     {cls:'link',table:'b_access_grants',action:'delete',label:'Staff client grants',where:`client_id=${s.c}`},
     {cls:'link',table:'b_access_team_clients',action:'delete',label:'Team client grants',where:`client_id=${s.c}`},
     {cls:'link',table:'b_sensitive_grants',action:'delete',label:'Sensitive-document staff grants',where:`file_key IN (SELECT file_key FROM b_document_sources WHERE client_id=${s.c})`},
@@ -100,7 +101,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { cls: 'message', table: 'b_threads', action: 'redact', label: 'Discussion titles and resolutions', where: `id IN ${s.TH}`, set: `title='${MARK}',${text('resolution')}` },
     { cls: 'message', table: 'b_notice_events', action: 'redact', label: 'Notice notes and attachments', where: `notice_id IN ${s.NT}`, set: `note='${MARK}',file_base64=NULL` },
     { cls: 'message', table: 'b_notices', action: 'redact', label: 'Notice plans and outcome notes', where: `id IN ${s.NT}`, set: `plan='',authorization='',${text('outcome_note')}` },
-    { cls: 'billing', table: 'b_time_adjustments', action: 'redact', label: 'Adjustment reasons on unbilled time (amounts stay)', where: `entry_id IN ${s.TIME}`, set: `reason='${MARK}'` },
+    { cls: 'billing', table: 'b_time_adjustments', action: 'redact', label: 'Adjustment reasons on unbilled time (amounts stay)', where: `entry_id IN ${s.TIME} AND id NOT IN ${invoiceSnapshotIdsSql('adj:')}`, set: `reason='${MARK}'` },
     { cls: 'billing', table: 'b_time', action: 'redact', label: 'Unbilled time descriptions (minutes, rates and amounts stay)', where: `id IN ${s.TIME}`, set: `description='${MARK}'` },
     { cls: 'billing', table: 'b_expenses', action: 'redact', label: 'Unbilled expense descriptions and receipts (amounts stay)', where: `id IN ${s.EXPENSE}`,
       set: `description='${MARK}',receipt_name=NULL,receipt_mime=NULL,receipt_size=NULL,receipt_base64=NULL` },
@@ -138,7 +139,7 @@ export const unheld = (x: Context, audited: { where: string; set: string } | nul
 export function retained(x: Context): { key: string; cls: ClientClass; label: string; reason: string; owner: string; sql: string }[] {
   const s = selectors(x), keep = x.held.client ? '0' : '1';
   const principal = 'Principal';
-  return [
+  return [...invoiceRetainedRows(x.client,principal),
     { key: 'signed_off_jobs', cls: 'signed_work', label: 'Signed-off jobs (status history, checklist outcomes, reviewer and partner notes, sign-off)', reason: 'Signed-off work is kept whole until its clock expires.', owner: principal, sql: `SELECT count(*) n FROM b_jobs WHERE client_id=${s.c} AND status='signed_off' AND ${keep} AND id IN ${s.JE}` },
     { key: 'accepted_documents', cls: 'signed_work', label: 'Accepted documents on signed-off jobs', reason: 'Accepted documents are part of signed-off work.', owner: principal, sql: `SELECT count(*) n FROM b_files WHERE id IN ${s.FR} AND job_id IN ${s.JE} AND ${keep}` },
     { key: 'consumed_originals', cls: 'signed_work', label: 'Submitted organizer originals a signed-off job consumed', reason: 'Consumed originals are part of signed-off work.', owner: principal, sql: `SELECT count(*) n FROM b_organizer_submissions WHERE id IN ${s.CONSUMED} AND organizer_id IN ${s.ORG} AND ${keep}` },

@@ -1,3 +1,4 @@
+import { invoiceRoutes } from './invoice-routes';
 import { accessGate, redactAccess } from './access-gate';
 import { permissions, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
 import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
@@ -112,6 +113,7 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
+invoiceRoutes(api,{as,body,db,param});
 api.get(`${P}/access`,as((a,c)=>permissions(db(c),a)));
 api.post(`${P}/access/step-up`,as(async(a,c)=>stepUp(db(c),a,site(c),await body(c))));
 api.post(`${P}/access/teams`,as(async(a,c)=>saveTeamAccess(db(c),a,await body(c))));

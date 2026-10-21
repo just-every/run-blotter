@@ -1,3 +1,5 @@
+import { invoiceExpiryEffects } from './invoices-erasure';
+import { invoiceOpenBalances,noInvoiceOpenBalanceSql } from './invoices-sources';
 // ERASURE-002 Ready to erase (ct 22 Oct 2026). Nothing expires or is purged automatically:
 // a retained record whose period (or later retain-until date) has passed is listed here and is
 // erased only when the principal confirms it. Confirmation removes the record's bytes and
@@ -16,6 +18,7 @@ const MARK = '[erased]';
 
 /** What confirming one record removes: bytes and personal fields only; ids, kinds, totals, revisions, attribution and hashes stay. */
 function effects(record: Clocked, at: string): Effect[] {
+  if(record.kind==='invoice')return invoiceExpiryEffects(record.id,at);
   const r = lit(record.id);
   if (record.kind === 'job') return [
     { table: 'b_files', label: 'Accepted document bytes (name, size and SHA-256 stay)', where: `job_id=${r} AND erased_at IS NULL`, set: `content_base64=NULL,erased_at=${lit(at)},erased_by='retention expiry',erase_reason='retention period ended'`, action: 'redact' },
@@ -46,13 +49,14 @@ export async function readyToErase(db: D1Database, actor: Actor) {
   const today = await firmToday(db), done = await confirmed(db), ready: Data[] = [], skipped: Data[] = [];
   for (const c of await clocks(db)) {
     if (done.has(`${c.kind}:${c.id}`)) continue;
-    const target = { clientIds: c.clientIds, ...(c.kind === 'job' ? { jobId: c.id } : c.kind === 'engagement' ? { engagementId: c.id } : { exportId: c.id }), cls: c.cls };
+    const target = { clientIds: c.clientIds,...(c.jobId?{jobId:c.jobId}:{}), ...(c.kind === 'job' ? { jobId: c.id } : c.kind === 'engagement' ? { engagementId: c.id } : { exportId: c.id }), cls: c.cls };
     const marks = await marksCovering(db, target), files = c.kind === 'job' ? await rows(db, 'SELECT id FROM b_files WHERE job_id=?', c.id) : [];
     const fileHolds = (await marksCovering(db, { ...target, fileId: undefined }, ['hold'])).length ? [] : (await rows(db, "SELECT id,target_id,reason,owner FROM b_retention_marks WHERE scope='file' AND kind='hold' AND released_at IS NULL")).filter(m => files.some(f => f.id === m.target_id));
     const until = marks.filter(m => m.kind === 'retain').map(m => String(m.until)).sort().at(-1) ?? null, effective = [c.expiry, until].filter(Boolean).sort().at(-1)!;
     const holds = [...marks.filter(m => m.kind === 'hold'), ...fileHolds];
     const row = { kind: c.kind, id: c.id, class: c.cls, clientIds: c.clientIds, client: (await rows(db, 'SELECT name FROM b_clients WHERE id=?', c.clientIds[0]))[0]?.name ?? null, label: c.label, clock: c.clock, years: c.years, expiry: c.expiry, retainedUntil: until, effective };
     if (effective >= today) continue;
+    if(c.kind==='invoice' && (await invoiceOpenBalances(db,c.clientIds[0])).length){skipped.push({...row,heldBy:[{id:'open-balance',reason:'Open invoice balance or unapplied credit/deposit',owner:'Principal'}]});continue;}
     if (holds.length) { skipped.push({ ...row, heldBy: holds.map(h => ({ id: h.id, reason: h.reason, owner: h.owner })) }); continue; }
     const counts = [];
     for (const e of effects(c, now())) counts.push({ table: e.table, label: e.label, count: Number((await stmt(db, `SELECT count(*) n FROM ${e.table} WHERE ${e.where}`).first<Data>())?.n ?? 0) });
@@ -70,10 +74,10 @@ export async function confirmExpiry(db: D1Database, actor: Actor, body: Data) {
   insist(!held, `This record is preserved by hold ${String(held?.heldBy?.[0]?.id ?? '').slice(0, 8)} (${held?.heldBy?.[0]?.reason}). Release the hold first.`, 409);
   insist(item, 'This record is not past its retention date, was already erased, or is not retained', 409);
   const record = (await clocks(db)).find(c => c.kind === item.kind && c.id === item.id)!, at = now(), list2 = effects(record, at);
-  const triggers = await rows(db, `SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name IN (${[...GUARDS, 'b_exports_transition'].map(() => '?').join(',')})`, ...GUARDS, 'b_exports_transition');
+  const triggers = await rows(db, `SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name IN (${[...GUARDS, 'b_exports_transition','b_invoice_document_immutable'].map(() => '?').join(',')})`, ...GUARDS, 'b_exports_transition','b_invoice_document_immutable');
   const service = await createPortability({ db, policy }), expiryId = id();
   const [check, release] = guard(db, 'NOT EXISTS(SELECT 1 FROM b_expiry_erasures WHERE kind=? AND record_id=?)', item.kind, item.id);
-  const batch: D1PreparedStatement[] = [check, ...triggers.map(t => stmt(db, `DROP TRIGGER ${t.name}`)),
+  const batch: D1PreparedStatement[] = [check,...(record.kind==='invoice'?guard(db,noInvoiceOpenBalanceSql,record.clientIds[0],record.clientIds[0]):[]), ...triggers.map(t => stmt(db, `DROP TRIGGER ${t.name}`)),
     stmt(db, 'INSERT INTO b_expiry_erasures(id,kind,record_id,client_id,reason,confirmed_by,confirmed_at,counts,journal_epoch) VALUES(?,?,?,?,?,?,?,?,0)', expiryId, item.kind, item.id, item.clientIds[0] ?? null, reason, actor.email, at, JSON.stringify(item.effects))];
   for (const e of list2) batch.push(stmt(db, e.action === 'delete' ? `DELETE FROM ${e.table} WHERE ${e.where}` : `UPDATE ${e.table} SET ${e.set} WHERE ${e.where}`));
   batch.push(...triggers.map(t => stmt(db, String(t.sql))), ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(), audit(db, actor, 'retention.expired', item.id, `${item.kind}; ${item.class}; ${reason}`), release);

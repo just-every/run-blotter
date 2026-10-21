@@ -1,3 +1,4 @@
+import { INVOICE_BILLING_TABLES, INVOICE_LINK_TABLES, INVOICE_FIRM_TABLES, INVOICE_BYTE_COLUMNS } from './invoices-registry';
 // ERASURE-002 typed class registry (ct 22 Oct 2026). Every table in this installation belongs
 // to exactly one record class; preview, erasure, export and restore share it. A table or a byte
 // column holding client data without a class stops the preview: the registry fails closed.
@@ -28,6 +29,7 @@ type TableClass = ClientClass | typeof OTHER[number];
 
 const by = (cls: TableClass, ...tables: string[]) => tables.map(t => [t, cls] as const);
 const REGISTRY = new Map<string, TableClass>([
+  ...by('billing',...INVOICE_BILLING_TABLES),...by('link',...INVOICE_LINK_TABLES),...by('firm',...INVOICE_FIRM_TABLES),
   ...by('signed_work', 'b_files', 'b_document_chunks', 'b_document_packets', 'b_document_annotations', 'b_deliverables', 'b_deliverable_versions', 'b_job_answers', 'b_job_steps'),
   ...by('engagement', 'b_engagements'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),
@@ -52,7 +54,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('policy', 'b_retention_marks', 'b_retention_periods', 'b_external_copies', 'b_deletion_requests', 'b_client_erasures', 'b_client_erasure_steps', 'b_retained_identity', 'b_retained_reads', 'b_expiry_erasures'),
 ]);
 /** Columns that hold bytes or ciphertext, per table. A column of that kind not named here stops the preview. */
-const BYTES: Record<string, string[]> = {
+const BYTES: Record<string, string[]> = {...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
   b_msg_template_files: ['content_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],

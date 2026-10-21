@@ -1,3 +1,4 @@
+import { invoiceOpenBalances } from './invoices-sources';
 // ERASURE-002 dry run (ct 22 Oct 2026): every record class with its action (removed; payload
 // replaced by the erasure marker; retained with class, clock and expiry; held with the hold; or
 // an outside copy with its owner) and its count, the refusals while work is open, and the digest
@@ -55,6 +56,8 @@ async function openWork(db: D1Database, clientId: string) {
   if (organizers) out.push(`${organizers} open organizer request(s) the client has not answered. Wait for the answer or take the organizer back first.`);
   const proposals = await count(db, 'b_proposals', `status='pending' AND json_extract(payload,'$.jobId') IN ${jobs}`) + await count(db, 'b_automation_attempts', `job_id IN ${jobs} AND status IN ('pending','running','dispatching')`);
   if (proposals) out.push(`${proposals} pending agent run(s) for this client. Decide or let them finish first.`);
+  for(const item of await invoiceOpenBalances(db,clientId))out.push(`Open balance: ${item.title} (${item.balance_cents} USD cents). Resolve it before erasure.`);
+  for(const r of await rows(db,"SELECT title FROM b_invoice_retainers WHERE client_id=? AND status='active'",clientId))out.push(`Active invoice retainer: ${r.title}. Pause or cancel it first.`);
   return out;
 }
 

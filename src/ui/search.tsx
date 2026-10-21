@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { api, Empty, prose, type Row, type Run } from './common';
 import { ClientHistory } from './history';
 
-const TYPES = ['client', 'contact', 'job', 'task', 'portal message', 'note', 'document'];
+const TYPES = ['client', 'contact', 'job', 'task', 'portal message', 'note', 'document','invoice'];
 
 /**
  * Firm-wide search (SEARCH-001): "/" focuses the box, arrow keys move through
@@ -40,6 +40,7 @@ export function Search({ state, run, open }: { state: Row; run: Run; open: (id: 
       </div>
       {found && (!results.length ? <Empty>Nothing you can see matches “{found.q}”.</Empty> : <ul className="list" id="search-results" role="listbox" aria-label="Search results">{results.map((r, n) => <li key={r.type + r.id} role="option" aria-selected={n === at}>
         <button className={`quiet text-action${n === at ? ' selected' : ''}`} onClick={() => choose(r)}>{prose(r.title)}</button> <small className="muted">{r.type}{r.detail && ` · ${prose(r.detail)}`}{r.taxId && ` · ${r.taxIdType || 'tax id'} ${r.taxId}`}{r.snippet && ` · ${prose(r.snippet)}`}</small>
+        {r.open.kind==='invoice' && <a href={`/api/blotter/invoices/${r.open.invoiceId}/pdf`}>Open invoice PDF</a>}
         {r.open.kind === 'file' && <> <a href={`/api/blotter/files/${r.open.fileId}`}>Download</a></>}</li>)}</ul>)}
       {client && <ClientHistory clientId={client} people={state.people} run={run} open={open} />}
     </section>, document.getElementById('search-slot')!)}

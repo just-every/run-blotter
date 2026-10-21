@@ -1,3 +1,4 @@
+import { Invoices } from './invoices';
 import { Reports } from './reports';
 import { useEffect, useState } from 'react';
 import { api, day, PageHead, type Row, type Run } from './common';
@@ -68,7 +69,7 @@ export function Workspace() {
         {tab === 'Jobs' && <Jobs state={state} jobId={jobId} open={setJobId} run={run} tick={tick} />}
         {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
         {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
-        {tab === 'Time & billing' && <><Reports state={state} run={run} tick={tick} open={open}/><Billing actor={state.actor} people={state.people} run={run} tick={tick} /></>}
+        {tab === 'Time & billing' && <><Invoices actor={state.actor} jobs={state.jobs} clients={state.clients} run={run} tick={tick}/><Reports state={state} run={run} tick={tick} open={open}/><Billing actor={state.actor} people={state.people} run={run} tick={tick} /></>}
         {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
         {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
         {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}

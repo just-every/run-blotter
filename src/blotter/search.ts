@@ -12,7 +12,7 @@ import { documentBytes } from './document-packets';
 import { documentText } from './pdf-text';
 import { insist, now, optional, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 
-export const TYPES = ['client', 'contact', 'job', 'task', 'portal message', 'note', 'document'] as const;
+export const TYPES = ['client', 'contact', 'job', 'task', 'portal message', 'note', 'document','invoice'] as const;
 const LIMIT = 50, INDEX_PER_SEARCH = 40;
 
 const words = (value: string) => value.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -64,7 +64,7 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
   const job = readableJobParams(actor), lead = actor.role !== 'preparer';
   const clientSql = `(${clientAuthority(actor,'c.id')}) AND (${lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.client_id=c.id AND ${readableJobSql})`})`;
   const threadSql = `(${clientAuthority(actor,'t.client_id')}) AND (${lead ? '1=1' : `EXISTS(SELECT 1 FROM b_jobs WHERE b_jobs.preparer_email=? AND (b_jobs.id=t.job_id OR (t.job_id IS NULL AND b_jobs.client_id=t.client_id)))`})`;
-  const [clients, contacts, jobs, tasks, portal, notes, files] = await Promise.all([
+  const [clients, contacts, jobs, tasks, portal, notes, files, invoices] = await Promise.all([
     rows(db, `SELECT c.* FROM b_clients c WHERE c.merged_into IS NULL AND ${clientSql}`, ...(lead ? [] : job)),
     rows(db, `SELECT p.*,c.name entity FROM b_client_contacts p JOIN b_clients c ON c.id=p.client_id WHERE c.merged_into IS NULL AND p.active=1 AND ${clientSql}`, ...(lead ? [] : job)),
     rows(db, `SELECT b_jobs.*,c.name client FROM b_jobs JOIN b_clients c ON c.id=b_jobs.client_id WHERE ${readableJobSql}`, ...job),
@@ -73,6 +73,7 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
     rows(db, `SELECT m.id,m.body,m.created_at,t.id thread_id,t.title,t.job_id,t.client_id,c.name client FROM b_thread_messages m JOIN b_threads t ON t.id=m.thread_id JOIN b_clients c ON c.id=t.client_id WHERE ${threadSql}`, ...(lead ? [] : [actor.email])),
     rows(db, `SELECT f.id,f.name,f.job_id,f.uploaded_at,x.text,b_jobs.title,b_jobs.client_id,c.name client FROM b_files f JOIN b_jobs ON b_jobs.id=f.job_id JOIN b_clients c ON c.id=b_jobs.client_id
       LEFT JOIN b_file_text x ON x.file_id=f.id WHERE f.erased_at IS NULL AND ${readableJobSql} AND ${documentAuthority(actor,'f.id')}`, ...job),
+    rows(db,`SELECT i.id,i.number,i.title,i.job_id,i.issued_at,i.prepared_at,b_jobs.client_id,c.name client FROM b_invoices i JOIN b_jobs ON b_jobs.id=i.job_id JOIN b_clients c ON c.id=b_jobs.client_id WHERE i.erased_at IS NULL AND ${readableJobSql}`,...job),
   ]);
   return [
     ...clients.map(c => ({ type: 'client', id: c.id, title: c.name, detail: c.contact_name, body: '', at: c.created_at ?? '', open: { kind: 'client', clientId: c.id }, clientId: c.id, taxId: c.abn, ssn: c.ssn_last4 })),
@@ -81,6 +82,7 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
     ...tasks.map(t => ({ type: 'task', id: `${t.job_id}:${t.ordinal}`, title: t.label, detail: `${t.client} · ${t.title} · ${t.period_label}`, body: t.instructions ?? '', at: t.done_at ?? t.created_at, open: { kind: 'job', jobId: t.job_id, ordinal: t.ordinal }, clientId: t.client_id })),
     ...portal.map(p => ({ type: 'portal message', id: p.id, title: p.body.slice(0, 120), detail: `${p.client} · ${p.title} · ${p.kind}`, body: `${p.body} ${p.response ?? ''}`, at: p.closed_at ?? p.created_at, open: { kind: 'job', jobId: p.job_id }, clientId: p.client_id })),
     ...notes.map(n => ({ type: 'note', id: n.id, title: n.title, detail: `${n.client} · ${n.body.slice(0, 120)}`, body: n.body, at: n.created_at, open: { kind: 'thread', threadId: n.thread_id, jobId: n.job_id }, clientId: n.client_id })),
+    ...invoices.map(i=>({type:'invoice',id:i.id,title:`${i.number?'INV-'+String(i.number).padStart(6,'0'):'Draft'} ${i.title}`,detail:`${i.client} · USD`,body:'',at:i.issued_at??i.prepared_at,open:{kind:'invoice',invoiceId:i.id,jobId:i.job_id},clientId:i.client_id})),
     ...files.map(f => ({ type: 'document', id: f.id, title: f.name, detail: `${f.client} · ${f.title}`, body: f.text ?? '', at: f.uploaded_at, open: { kind: 'file', fileId: f.id, jobId: f.job_id }, clientId: f.client_id })),
   ];
 }
