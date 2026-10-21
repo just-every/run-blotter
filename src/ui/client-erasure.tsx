@@ -43,16 +43,25 @@ function Copies({ clientId, retention, run }: { clientId: string; retention: Row
   </section>;
 }
 
-function Preview({ clientId, client, run }: { clientId: string; client: Row; run: Run }) {
-  const [preview, setPreview] = useState<Row>(), [receipt, setReceipt] = useState<Row>();
-  if (receipt) return <section aria-label="Erasure receipt">
+function Receipt({ clientId, erasedAt }: { clientId: string; erasedAt: string }) {
+  const [receipt, setReceipt] = useState<Row>();
+  useEffect(() => { api('/erasure-journal').then(j => setReceipt(j.receipts.find((r: Row) => r.clientId === clientId))); }, [clientId]);
+  return <section aria-label="Erasure receipt">
     <h3>Erasure receipt</h3>
-    <p>Erased by {receipt.approvedBy} · {when(receipt.approvedAt)} · journal epoch {receipt.journalEpoch}</p>
-    <ul className="list">{receipt.steps.map((s: Row) => <li key={s.table}>{s.label}: {s.count} {s.action === 'delete' ? 'deleted' : s.action === 'cascade' ? 'removed with files' : 'erased or redacted'}</li>)}</ul>
-    <h4>Kept, with owner</h4>
-    <ul className="list">{receipt.retained.exceptions.map((e: Row) => <li key={e.key}>{e.label}: {e.count} · {e.reason} · owner {e.owner}</li>)}</ul>
-    <a href="/api/blotter/erasure-journal" download="erasure-journal.json">Download the erasure journal</a>
+    <p>This client was erased {when(erasedAt)}.</p>
+    {receipt && <>
+      <p>Approved by {receipt.approvedBy} · {when(receipt.approvedAt)} · journal epoch {receipt.journalEpoch}</p>
+      <ul className="list">{receipt.steps.map((s: Row) => <li key={s.table}>{s.label}: {s.count} {s.action === 'delete' ? 'deleted' : s.action === 'cascade' ? 'removed with files' : 'erased or redacted'}</li>)}</ul>
+      <h4>Kept, with owner</h4>
+      <ul className="list">{receipt.retained.exceptions.map((e: Row) => <li key={e.key}>{e.label}: {e.count} · {e.reason} · owner {e.owner}</li>)}
+        {receipt.retained.externalCopies.map((c: Row) => <li key={c.system}>{KINDS[c.kind]} · {c.system} · holder {c.holder} · {c.status}</li>)}</ul>
+      <a href="/api/blotter/erasure-journal" download="erasure-journal.json">Download the erasure journal</a>
+    </>}
   </section>;
+}
+
+function Preview({ clientId, client, run }: { clientId: string; client: Row; run: Run }) {
+  const [preview, setPreview] = useState<Row>();
   return <section aria-label="Erase this client">
     <h3>Erase this client</h3>
     <p className="muted">Preview first. Erasure removes eligible personal data and payloads, keeps held and signed evidence, and refuses to restore any older archive without the newer journal.</p>
@@ -65,7 +74,7 @@ function Preview({ clientId, client, run }: { clientId: string; client: Row; run
       <ul className="list">{preview.retained.map((e: Row) => <li key={e.key}>{e.label}: {e.count} · {e.reason} · owner {e.owner}</li>)}
         {preview.holds.map((h: Row) => <li key={h.id}>{h.kind === 'hold' ? 'Hold' : `Retain until ${day(h.until)}`} on {h.scope}: {h.reason} · {h.placed_by}</li>)}
         {preview.externalCopies.map((c: Row) => <li key={c.id}>{KINDS[c.kind]} · {c.system} · {c.action}</li>)}</ul>
-      {preview.eligible && <Form danger label="Erase this client" submit={async data => run(async () => setReceipt(await api(`/clients/${clientId}/erasure`, { planHash: preview.planHash, confirm: data.confirm, reason: data.reason })), 'Client erased')}>
+      {preview.eligible && <Form danger label="Erase this client" submit={async data => run(() => api(`/clients/${clientId}/erasure`, { planHash: preview.planHash, confirm: data.confirm, reason: data.reason }), 'Client erased')}>
         <Field label={`Type the client name (${client.name}) to confirm`} name="confirm" />
         <Field label="Reason" name="reason" />
       </Form>}
@@ -76,7 +85,7 @@ function Preview({ clientId, client, run }: { clientId: string; client: Row; run
 export function ClientErasure({ clientId, client, jobs, run, tick }: { clientId: string; client: Row; jobs: Row[]; run: Run; tick: number }) {
   const [retention, setRetention] = useState<Row>();
   useEffect(() => { api(`/clients/${clientId}/retention`).then(setRetention).catch(e => run(async () => { throw e; })); }, [clientId, tick]);
-  if (client.erased_at) return <p>This client was erased {when(client.erased_at)}. Its receipt is in the erasure journal.</p>;
+  if (client.erased_at) return <Receipt clientId={clientId} erasedAt={client.erased_at} />;
   return retention ? <div className="stack"><Marks clientId={clientId} jobs={jobs} retention={retention} run={run} /><Copies clientId={clientId} retention={retention} run={run} />
     {client.lifecycle === 'archived' ? <Preview clientId={clientId} client={client} run={run} /> : <p className="muted">Archive this client to request erasure.</p>}</div> : null;
 }

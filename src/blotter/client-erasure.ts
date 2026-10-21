@@ -59,7 +59,7 @@ async function plan(db: D1Database, actor: Actor, clientId: string) {
   if (client.merged_into || await stmt(db, 'SELECT 1 FROM b_client_merges WHERE survivor_id=? OR merged_id=?', clientId, clientId).first()) blockers.push('This client is part of a merge; its history cannot be erased until ct rules on merge history (ERASURE-002)');
   for (const m of marks.filter(m => m.scope === 'client')) blockers.push(`Client ${m.kind === 'hold' ? 'hold' : `retention until ${m.until}`} placed by ${m.placed_by}: ${m.reason}`);
   const retainedAll = [...keep.filter(k => k.count > 0), { key: 'audit_history', label: 'Audit history rows about this client (actor, action, object, time; names replaced)', reason: 'Durable attribution (AUDIT-001).', owner: 'Principal', count: auditRows },
-    { key: 'suppression_digests', label: 'One-way digests of withdrawn or bounced addresses', reason: 'Prevents re-contact after the address is erased (MSG-002).', owner: 'Principal', count: digests.length }];
+    { key: 'suppression_digests', label: 'One-way digests of withdrawn or bounced addresses', reason: 'Prevents re-contact after the address is erased (MSG-002).', owner: 'Principal', count: digests.length }].filter(k => k.key !== 'suppression_digests' || k.count > 0);
   const totals = { redacted: 0, deleted: 0, cascade: 0 };
   for (const c of counts) totals[c.action === 'redact' ? 'redacted' : c.action === 'delete' ? 'deleted' : 'cascade'] += c.count;
   const body = { client: { ref: clientId.slice(0, 8), revision: client.revision }, counts, carried: carry, retained: retainedAll, marks, copies, totals };
