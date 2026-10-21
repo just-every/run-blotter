@@ -11,11 +11,12 @@ const totp=(secret,offset=0)=>{
 async function enroll(h,cookie){const x=await h.json('/mfa/totp/start',{},cookie);return (await h.json('/mfa/totp/confirm',{id:x.id,code:totp(x.secret,-1)},cookie)).recoveryCodes;}
 
 test('Client teams overlap; read-only and sensitive workpaper authority, revocation, exports, background delivery and coverage use live grants',async()=>{
- const h=await harness();let destination;
+ const h=await harness();let destination,stale;
  try{
   for(const [email,role] of [['a@example.test','reviewer'],['b@example.test','reviewer'],['read@example.test','reviewer'],['prep@example.test','preparer'],['outside@example.test','reviewer']]){await h.json('/team',{email,name:email,role},h.owner);await h.json('/team/invite',{email},h.owner);}
   const a=await h.login('a@example.test'),b=await h.login('b@example.test'),read=await h.login('read@example.test');
   const clients=[];for(const name of ['Cedar Lane LLC','Harbor Studio LLC','Maple Partners LLC'])clients.push(await h.json('/clients',{name,ein:'123456789',contacts:[{name:'Alex Client',email:`client${clients.length}@example.test`,authorized:true,portal:true,requestConsent:true,emailConsent:true,roles:['primary']}]},h.owner));
+  const spare=await h.json('/clients',{name:'Juniper Archive LLC'},h.owner);
   const t=await h.json('/templates',{name:'Monthly close',recurrence:'monthly',steps:'Review ledger',requests:'Workpaper',feeCents:12000},h.owner);
   const jobs=[];for(const client of clients)jobs.push(await h.json('/jobs',{clientId:client.id,templateId:t.id,periodStart:'2026-10-01',dueDate:'2026-10-28',dueNote:'Client schedule',preparerEmail:'prep@example.test',reviewerEmail:'a@example.test'},h.owner));
   const detail=await h.json('/jobs/'+jobs[0].id,undefined,h.owner),request=detail.requests[0];
@@ -31,7 +32,7 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   await h.json('/access/step-up',{recoveryCode:codes[0]},h.owner);
   const tax=await h.json('/access/teams',{name:'Tax team',emails:['a@example.test'],clientIds:[clients[0].id,clients[1].id]},h.owner);
   await h.json('/access/teams',{name:'Bookkeeping team',emails:['b@example.test'],clientIds:[clients[1].id,clients[2].id]},h.owner);
-  await h.json('/access/people',{email:'read@example.test',readOnly:true,clientIds:[clients[0].id]},h.owner);
+  await h.json('/access/people',{email:'read@example.test',readOnly:true,clientIds:[clients[0].id,spare.id]},h.owner);
   await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:clients.map(c=>c.id)},h.owner);
   assert.deepEqual((await h.json('/state',undefined,a)).clients.map(c=>c.name).sort(),[clients[0].name,clients[1].name].sort());
   assert.deepEqual((await h.json('/v1/clients',undefined,b)).items.map(c=>c.id).sort(),[clients[1].id,clients[2].id].sort());
@@ -81,6 +82,14 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   destination=await harness();await destination.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},destination.owner);
   const restored=await destination.json('/access',undefined,destination.owner);
   assert.equal(restored.teams.length,2);assert.ok(restored.members.find(m=>m.email==='read@example.test').read_only);
+  await h.json(`/clients/${spare.id}/lifecycle`,{lifecycle:'archived',reason:'Client requested erasure'},h.owner);
+  const scope=await h.json(`/clients/${spare.id}/erasure/preview`,undefined,h.owner);
+  assert.equal(scope.eligible,true,JSON.stringify(scope.blockers));
+  const erased=await h.json(`/clients/${spare.id}/erasure`,{planHash:scope.planHash,confirm:spare.name,reason:'Client request'},h.owner);
+  assert.ok(erased.steps.some(s=>s.table==='b_access_grants'&&s.count===1));
+  assert.ok(!(await h.json('/access',undefined,h.owner)).grants.some(g=>g.client_id===spare.id));
+  const newer=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
   if(process.env.BLOTTER_PERMISSION_EVIDENCE)await permissionsJourney(h,clients[0].name,read);
- }finally{await destination?.close();await h.close();}
+ }finally{await stale?.close();await destination?.close();await h.close();}
 });
