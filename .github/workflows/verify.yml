@@ -1,8 +1,9 @@
 name: Verify
 
-# One run per commit on main and per pull request. Two parallel shards:
-# structural checks (fast), and the full rer verify (build, typecheck, the
-# integration flows, email-link sign-in and Base's hosted-output checks).
+# One run per main commit, pull request or candidate dispatch. Structural
+# checks run once. Two file shards each run Base verification, build,
+# typecheck, email-link and hosted-output checks; together they run every
+# Blotter journey within the unchanged 15-minute job limit.
 on:
   push:
     branches: [main]
@@ -38,9 +39,14 @@ jobs:
       - run: pnpm exec rer build --site
 
   verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      BLOTTER_TEST_SHARD: ${{ matrix.shard }}/2
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
     steps:
