@@ -27,7 +27,7 @@ export async function portalAccountJourney(h, { clientCookie, clientId }) {
     const [name, value] = clientCookie.split('='); await client.addCookies([{ name, value, url: h.origin, httpOnly: true, secure: true, sameSite: 'Strict' }]);
     const page = await client.newPage(); await page.goto(`${h.origin}/client`);
     await page.getByRole('heading', { name: 'Shared documents' }).waitFor();
-    await page.getByLabel('Showing').selectOption(clientId); await page.getByRole('link', { name: /^Download cedar\.pdf$/ }).waitFor();
+    await page.getByRole('combobox', { name: 'Showing' }).selectOption(clientId); await page.getByRole('link', { name: /^Download cedar\.pdf$/ }).waitFor();
     await capture(page, page.locator('main'), 'client-entity'); await client.close();
     const staff = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     await h.stepUp(h.owner);

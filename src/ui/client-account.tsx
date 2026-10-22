@@ -84,7 +84,7 @@ function Home(p: PageProps & { me: Row }) {
   const signOut = () => p.act(async () => { await call('/sign-out', {}); p.setMe(null); p.setEntity(undefined); return t('account.signedOut'); });
   if (!p.me.entities.length || !e) return <section className="panel"><p>{t('account.noEntities')}</p><button className="quiet" onClick={signOut}>{t('account.signOut')}</button></section>;
   return <>
-    <section className="panel split" aria-label={t('account.switch')}>
+    <section className="panel split">
       {p.me.entities.length > 1 ? <Field label={t('account.switch')} name="entity"><select name="entity" value={p.chosen} onChange={event => p.choose(event.target.value)}>{p.me.entities.map((x: Row) => <option key={x.clientId} value={x.clientId}>{x.name}</option>)}</select></Field>
         : <p><strong>{e.name}</strong></p>}
       <button className="quiet" onClick={signOut}>{t('account.signOut')}</button>
