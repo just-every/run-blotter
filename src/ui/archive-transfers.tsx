@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Field, Form, type Row, type Run } from './common';
+import { api, Field, Form, type Row, type Run, ExportLink } from './common';
 import { archiveFile } from './archive-transfer-file';
 
 const UNVERIFIED = 'erasure history unverified: supply your latest erasure journal';
@@ -41,7 +41,7 @@ export function ArchiveTransfers({ run, tick }: { run: Run; tick: number }) {
     {progress && <p className="notice" role="status">{progress}</p>}
     {list.map(t => <article className="record" key={t.id}><strong>{t.kind === 'export' ? 'Export' : 'Restore'} · {t.phase}</strong><p className="muted">{t.completed}{t.total !== null && ` of ${t.total}`} confirmed parts{t.bytes !== undefined && ` · ${t.bytes.toLocaleString()} bytes`}</p>
       {t.kind === 'export' && t.phase === 'building' && <button disabled={busy} onClick={() => work(() => advance(t.id))}>Resume export</button>}
-      {t.kind === 'export' && t.phase === 'complete' && <><p><a className="button" href={`/api/blotter/portability/exports/${t.id}/download`}>Download complete archive</a></p><SelectiveArchive id={t.id} /></>}
+      {t.kind === 'export' && t.phase === 'complete' && <><p><ExportLink className="button" href={`/api/blotter/portability/exports/${t.id}/download`}>Download complete archive</ExportLink></p><SelectiveArchive id={t.id} /></>}
       {t.kind === 'import' && t.phase !== 'complete' && <p>Choose the same original archive below and type RESTORE to resume. Already confirmed parts are checked and retained.</p>}
       {(t.kind === 'export' || t.phase !== 'complete') && <button className="quiet" disabled={busy} onClick={() => work(async () => { await api(`/portability/${t.kind === 'export' ? 'exports' : 'imports'}/${t.id}/abort`, {}); })}>Remove transfer staging</button>}
     </article>)}

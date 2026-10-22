@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Blotter, api, day, money, moneyTotals, moneyTotalsText, Empty, Field, Form, prose, Status, today, when, who, type Row, type Run } from './common';
+import { Blotter, api, day, money, moneyTotals, moneyTotalsText, Empty, Field, Form, prose, Status, today, when, who, type Row, type Run, ExportLink } from './common';
 import { ExpenseSettings } from './expenses';
 import { TimeApprovals } from './timesheet';
 
@@ -36,7 +36,7 @@ export function Billing({ actor, people, run, tick }: { actor: Row; people: Row[
         <div className="split"><strong>{e.title} · {money(e.total_cents, JSON.parse(e.snapshot).currency ?? 'AUD')}</strong><Status value={e.status} /></div>
         <small className="muted">Prepared by {who(people, e.prepared_by)}{e.prepared_channel === 'agent' ? ' (agent)' : ''} {when(e.prepared_at)}{e.approved_by && ` · approved by ${who(people, e.approved_by)} ${when(e.approved_at)}: ${prose(e.review_note)}`}{e.void_reason && ` · void: ${e.void_reason}`}</small>
         <details><summary>{JSON.parse(e.snapshot).lines.length} lines</summary><ul>{JSON.parse(e.snapshot).lines.map((l: Row) => <li key={l.line}>{l.client} · {l.job} · {prose(l.description)} · {money(l.amount_cents, l.currency ?? JSON.parse(e.snapshot).currency ?? 'AUD')}</li>)}</ul></details>
-        {e.status === 'approved' && <p><a className="button" href={`/api/blotter/exports/${e.id}/csv`}>Download CSV</a> <small className="muted">SHA-256 {e.csv_sha256.slice(0, 12)}…</small></p>}
+        {e.status === 'approved' && <p><ExportLink className="button" href={`/api/blotter/exports/${e.id}/csv`}>Download CSV</ExportLink> <small className="muted">SHA-256 {e.csv_sha256.slice(0, 12)}…</small></p>}
         {e.status === 'draft' && <div className="actions">
           <details><summary>Approve</summary><Form label="Approve export" submit={async data => run(() => api(`/exports/${e.id}/approve`, { revision: e.revision, reviewNote: data.reviewNote }), 'Export approved; the CSV is now fixed')}><Field label="Review note" name="reviewNote" /></Form></details>
           <details><summary>Void</summary><Form danger label="Void draft" submit={async data => run(() => api(`/exports/${e.id}/void`, { reason: data.reason }), 'Draft voided; its items are ready to bill again')}><Field label="Reason" name="reason" /></Form></details>

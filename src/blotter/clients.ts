@@ -109,7 +109,7 @@ export async function workspace(db: D1Database, actor: Actor) {
     WHERE ${readableJobSql}
     ORDER BY b_jobs.status='signed_off',CASE WHEN b_jobs.status<>'signed_off' THEN b_jobs.due_date END,b_jobs.signed_off_at DESC,c.name`, ...readableJobParams(actor));
   return {
-    actor: { email: actor.email, name: actor.name, role: actor.role, readOnly: !!actor.readOnly, accessScoped: !!actor.accessScoped },
+    actor: { email: actor.email, name: actor.name, role: actor.role, readOnly: !!actor.readOnly, accessScoped: !!actor.accessScoped, manageAccess: !!actor.manageAccess, financial: !!actor.financial },
     jobs,
     clients: await readClients(db, actor),
     templates: await rows(db, 'SELECT * FROM b_templates ORDER BY name'),

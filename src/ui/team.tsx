@@ -16,7 +16,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
   if (!team) return <p>Opening team…</p>;
   const ownRate = team.ownRateCents;
   return <div className="grid">
-    {owner && <Permissions state={state} run={run} tick={tick} />}
+    {(owner || state.actor.manageAccess) && <Permissions state={state} run={run} tick={tick} />}
     {owner && <FirmSettings run={run} tick={tick} />}
     {owner && <DeadlineRules run={run} tick={tick} />}
     {owner && <Blotter className="wide"><section className="panel">

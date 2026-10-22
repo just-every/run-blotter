@@ -4,7 +4,7 @@ import { clientScopeSql, clientScopeParams } from './access-sql';
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string;
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -46,6 +46,9 @@ export function lines(value: unknown, label: string, max = 30) {
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export function need(actor: Actor, ...roles: Role[]) { insist(roles.includes(actor.role), 'Your role cannot perform this action', 403); }
+/** The principal, or a member the principal granted financial authority (ACCESS-002). */
+export const canBill = (actor: Actor) => actor.role === 'owner' || !!actor.financial;
+export const canReadBilling = (actor: Actor) => actor.role !== 'preparer' || !!actor.financial;
 export function human(actor: Actor) { insist(actor.channel === 'person' || !!actor.automation, 'A person must approve this action', 403); }
 
 export const stmt = (db: D1Database, sql: string, ...values: unknown[]) => db.prepare(sql).bind(...values);

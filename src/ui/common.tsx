@@ -10,6 +10,23 @@ export async function api(path: string, body?: unknown) {
   if (path === '/state' && result.firm) displayZone = result.firm.timeZone;
   return result;
 }
+/** Exports need a fresh second-factor confirmation: ask once for a code, confirm it, then repeat the same download. */
+export async function download(href: string, filename?: string) {
+  const get = () => fetch(href, { credentials: 'same-origin' });
+  let response = await get();
+  if (response.status === 403 && ((await response.clone().json().catch(() => ({}))) as Row).mfa === 'step-up') {
+    const entered = window.prompt('Confirm this export with a code from your authenticator app, or one unused recovery code. The confirmation lasts five minutes in this session.')?.trim();
+    if (!entered) return;
+    await api('/access/step-up', /^\d{3}\s?\d{3}$/.test(entered) ? { code: entered } : { recoveryCode: entered });
+    response = await get();
+  }
+  if (!response.ok) throw new Error(((await response.json().catch(() => ({}))) as Row).error ?? 'The download could not be completed');
+  const url = URL.createObjectURL(await response.blob()), link = Object.assign(document.createElement('a'), { href: url, download: filename ?? /filename="?([^";]+)"?/.exec(response.headers.get('content-disposition') ?? '')?.[1] ?? 'download' });
+  link.click(); setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+export function ExportLink({ href, className, filename, children }: { href: string; className?: string; filename?: string; children: ReactNode }) {
+  return <a className={className} href={href} onClick={event => { event.preventDefault(); download(href, filename).catch(error => window.alert(error.message)); }}>{children}</a>;
+}
 /** Where a time entry's rate came from (TIME-003 rate cards). */
 export const SOURCE: Record<string, string> = { client_service: 'client and service', client: 'client', service: 'service', staff: 'staff member', role: 'role' };
 /** "USD 1,234.50" as plain text, for labels and options. */

@@ -667,6 +667,7 @@ test('BASE-001 / restore needs an empty installation, an intact archive and the 
     assert.match((await stale.json()).error, /erasure/);
     assert.equal((await target.json('/restore', { archive: newArchive, confirm:'RESTORE',acknowledge: 'erasure history unverified: supply your latest erasure journal' }, target.owner)).phase, 'complete');
     const rowsOf = archive => archive.trim().split('\n').map(line => JSON.parse(line)).filter(r => r.kind === 'part').flatMap(p => p.items).filter(i => i.kind === 'row').map(i => JSON.stringify({ table: i.table, row: i.row })).sort();
+    await target.stepUp(target.owner);
     const roundtrip = await (await target.request('/api/blotter/backup', undefined, target.owner)).text();
     assert.deepEqual(rowsOf(roundtrip), rowsOf(newArchive), 'Every archived row survives export, restore and export');
     const exportId = csv.split('\r\n')[1].split(',')[0];

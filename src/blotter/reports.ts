@@ -6,7 +6,7 @@ import { listJobs, parseFilters } from './filters';
 import { capacity, shift } from './capacity';
 import { unbilled } from './billing';
 import { STAGE_LABELS } from './statuses';
-import { date, human, insist, need, now, optional, rows, type Actor, type Data } from './model';
+import { canReadBilling, date, human, insist, now, optional, rows, type Actor, type Data } from './model';
 
 export function reportFilters(q: Data) {
   const from = date(q.from, 'Period from'), to = date(q.to, 'Period to');
@@ -17,7 +17,7 @@ const minutes = (a: string, b: string) => Math.max(0, Math.floor((Date.parse(b) 
 const mean = (values: number[]) => values.length ? Math.floor(values.reduce((a,b) => a+b,0) / values.length) : null;
 
 export async function performanceReport(db: D1Database, actor: Actor, query: Data) {
-  human(actor); need(actor, 'owner', 'reviewer');
+  human(actor); insist(canReadBilling(actor), 'Your role cannot perform this action', 403);
   const filters = reportFilters(query), generatedAt = now(), clock = localClock(await firmSettings(db), new Date(generatedAt));
   const selected = (await listJobs(db, actor, parseFilters(filters))).filter(j => j.period_start >= filters.from && j.period_start <= filters.to);
   const keys = new Set(selected.map(j => j.id));

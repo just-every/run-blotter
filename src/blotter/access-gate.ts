@@ -22,13 +22,15 @@ const resources:Record<string,string>={
   signatures:'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   invoices:'SELECT client_id FROM b_invoices WHERE id=?',
 };
-const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority)/.test(path);
-const exporting = (path:string) => /^\/(backup|portability($|\/)|erasure-journal|exports($|\/)|reports\/.*\/(csv|pdf)$|team\/mfa-report|invoices\/[^/]+\/pdf$)/.test(path);
+// Financial authority opens the firm financial report to a scoped holder; it covers only the clients the holder holds.
+const financialReads = new Set(['/reports/performance','/reports/performance/csv','/reports/performance/pdf']);
+const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents|delegations)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority)/.test(path);
+const exporting = (path:string) => /^\/(backup|portability\/exports|erasure-journal|exports($|\/)|reports\/.*\/(csv|pdf)$|team\/mfa-report|invoices\/[^/]+\/pdf$)/.test(path);
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');
   const write=!['GET','HEAD'].includes(request.method),factor=/^\/mfa($|\/)/.test(path)||path==='/access/step-up';
   if(actor.readOnly && write && !factor) insist(false,'Read-only staff cannot change practice records',403);
-  if((write && sensitiveAdmin(path)) || exporting(path)) await freshAccess(db,actor,path.startsWith('/access/'));
+  if((write && sensitiveAdmin(path)) || exporting(path)) await freshAccess(db,actor);
   const parts=path.split('/');
   let fileKey=['documents','files','document-packets'].includes(parts[1])&&parts[2]?decodeURIComponent(parts[2]):'';
   if(parts[1]==='deliverables' && parts[2]==='versions')fileKey='deliverable:'+parts[3];
@@ -37,8 +39,16 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   if(parts[1]==='notices' && parts[3]==='events' && parts[5]==='file')fileKey='notice:'+parts[4];
   if(fileKey)await requireDocument(db,actor,fileKey);
   if(!actor.accessScoped || factor)return;
-  if(path==='/access')insist(false,'Only the principal manages access',403);
+  if(/^\/access($|\/)/.test(path)) {
+    insist(actor.manageAccess && !path.startsWith('/access/delegations'),'Only the principal or a manage-access holder manages access',403);
+    if(parts[2]==='documents' && parts[3]) {
+      const value=await stmt(db,'SELECT client_id FROM b_document_sources WHERE file_key=?',decodeURIComponent(parts[3])).first<Data>();
+      insist(value,'Not found',404);await requireClient(db,actor,value.client_id);
+    }
+    return;
+  }
   if(!write && lists.has(path))return;
+  if(actor.financial && !write && financialReads.has(path))return;
   const [,kind,key]=path.split('/');
   if(kind==='clients' && key && !['fields'].includes(key)) {await requireClient(db,actor,decodeURIComponent(key));return;}
   if(kind==='deliverables' && key==='versions') {
@@ -51,7 +61,7 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   }
   // New writes often carry their target in the body. Only these established
   // resource-creation doors accept that authority; unknown doors fail closed.
-  if(write && ['/jobs','/plan','/notices','/rules','/prepare-reminder','/prepare-rollforward'].includes(path)) {
+  if(write && (['/jobs','/plan','/notices','/rules','/prepare-reminder','/prepare-rollforward'].includes(path))) {
     const body=await request.clone().json() as Data;
     if(body.clientId) {await requireClient(db,actor,String(body.clientId));return;}
     if(body.jobId) {const j=await stmt(db,'SELECT client_id FROM b_jobs WHERE id=?',String(body.jobId)).first<Data>();insist(j,'Not found',404);await requireClient(db,actor,j.client_id);return;}

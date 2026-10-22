@@ -15,6 +15,13 @@ export async function permissionsJourney(h,clientName,readerCookie,recoveryCode)
     await panel.getByLabel('Or one unused recovery code').fill(recoveryCode);
     await panel.getByRole('button',{name:'Confirm sensitive access',exact:true}).click();
     await page.getByRole('status').getByText('Sensitive access confirmed for five minutes').waitFor();
+    const delegation=panel.locator('form').filter({hasText:'Permissions (select none to revoke both)'});
+    await delegation.getByLabel('Staff member',{exact:true}).selectOption({index:0});
+    await delegation.getByLabel('Permissions (select none to revoke both)',{exact:true}).selectOption('financial_authority');
+    await delegation.getByLabel('Reason recorded in audit',{exact:true}).fill('Billing partner for the tax team');
+    await delegation.getByRole('button',{name:'Save delegated permissions',exact:true}).click();
+    await page.getByRole('status').getByText('Delegated permissions saved').waitFor();
+    await panel.getByText('Financial authority',{exact:false}).first().waitFor();
     await panel.locator('summary',{hasText:"Add or replace a team's grants"}).click();
     await panel.getByLabel('Team to change').selectOption({label:'Tax team'});
     await panel.getByLabel('Team clients (select all grants)').selectOption({label:clientName});

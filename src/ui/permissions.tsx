@@ -10,6 +10,7 @@ export function Permissions({state,run,tick}:{state:Row;run:Run;tick:number}) {
   const clientNames=(ids:string[])=>ids.map(id=>state.clients.find((c:Row)=>c.id===id)?.name??id).join(', ')||'No clients';
   const grantable=state.clients.filter((c:Row)=>!c.erased_at);
   const staff=state.people.filter((p:Row)=>p.role!=='owner');
+  const principal=state.actor.role==='owner',named=(address:string)=>state.people.find((p:Row)=>p.email===address)?.name??address;
   const selectedTeam=policy.teams.find((t:Row)=>t.id===teamId);
   return <section className="panel wide" aria-label="Client and document permissions">
     <h2>Client and document permissions</h2>
@@ -19,6 +20,14 @@ export function Permissions({state,run,tick}:{state:Row;run:Run;tick:number}) {
     <Form label="Confirm sensitive access" submit={async data=>run(()=>api('/access/step-up',data),'Sensitive access confirmed for five minutes')}>
       <Field label="Authenticator code" name="code" required={false}/><Field label="Or one unused recovery code" name="recoveryCode" required={false}/>
     </Form>
+    <h3>Delegated permissions</h3>
+    <p>The principal may grant a named member <strong>manage access</strong> (teams, individual grants and restricted documents for clients the holder also holds, never for itself or the principal) and <strong>financial authority</strong> (firm financial reports and invoices for the clients the holder holds). Each grant is audited, needs confirmation and can be revoked at any time; revoking applies to the holder's next request.</p>
+    {!policy.delegations.length?<Empty>No delegated permissions.</Empty>:<ul className="list">{policy.delegations.map((d:Row)=><li key={d.email+d.permission}><strong>{named(d.email)}</strong> · {d.permission==='manage_access'?'Manage access':'Financial authority'} · {d.reason}</li>)}</ul>}
+    {principal&&<Form label="Save delegated permissions" submit={async(data,form)=>run(()=>api('/access/delegations',{email:data.email,permissions:values(form,'permissions'),reason:data.reason}),'Delegated permissions saved')}>
+      <Field label="Staff member" name="email"><select name="email">{staff.map((m:Row)=><option key={m.email} value={m.email}>{m.name} · {m.email}</option>)}</select></Field>
+      <Field label="Permissions (select none to revoke both)" name="permissions"><select multiple name="permissions"><option value="manage_access">Manage access</option><option value="financial_authority">Financial authority</option></select></Field>
+      <Field label="Reason recorded in audit" name="reason"/>
+    </Form>}
     <h3>Teams</h3>
     {!policy.teams.length?<Empty>No access teams configured.</Empty>:<ul className="list">{policy.teams.map((t:Row)=><li key={t.id}><strong>{t.name}</strong><p>{policy.teamMembers.filter((m:Row)=>m.team_id===t.id).map((m:Row)=>m.email).join(', ')||'No staff'} · {clientNames(policy.teamClients.filter((c:Row)=>c.team_id===t.id).map((c:Row)=>c.client_id))}</p><small>Team reference: {t.id}</small></li>)}</ul>}
     <details><summary>Add or replace a team's grants</summary>

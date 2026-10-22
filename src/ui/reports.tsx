@@ -2,7 +2,7 @@ import {ReportInvoices} from './report-invoices';
 import { ReportFinancialGroups } from './report-financials';
 import { ReportSources, ReportCapacitySources } from './report-sources';
 import { useEffect, useState } from 'react';
-import { api, Field, Form, money, type Row, type Run, today, when } from './common';
+import { api, Field, Form, money, type Row, type Run, today, when, ExportLink } from './common';
 
 export function Reports({state,run,tick,open}:{state:Row;run:Run;tick:number;open:(id:string)=>void}) {
   const year=today().slice(0,4),[filters,setFilters]=useState<Row>({from:year+'-01-01',to:year+'-12-31',client:'',workType:'',assignee:''}),[report,setReport]=useState<Row>(),[saved,setSaved]=useState<Row>({views:[],schedules:[],runs:[]}),[loaded,setLoaded]=useState(false),[types,setTypes]=useState<Row[]>([]);
@@ -18,7 +18,7 @@ export function Reports({state,run,tick,open}:{state:Row;run:Run;tick:number;ope
     {report&&<><p className="muted">Fresh at {when(report.generatedAt)} · {report.timeZone}. {report.basis}</p>
       <p role="status">{report.totals.jobs} jobs · {report.totals.completed} completed · {report.totals.overdue} overdue · {report.totals.blocked} blocked · {report.totals.reviewReturns} review returns</p>
       <p>Average turnaround: {report.totals.averageTurnaroundMinutes??'—'} min. Average client document response/wait: {report.totals.averageClientDelayMinutes??'—'} min.</p>
-      <div className="actions">{['csv','pdf'].map(f=><a key={f} className="button" href={'/api/blotter/reports/performance/'+f+'?'+new URLSearchParams(filters)}>Download report {f.toUpperCase()}</a>)}</div>
+      <div className="actions">{['csv','pdf'].map(f=><ExportLink key={f} className="button" href={'/api/blotter/reports/performance/'+f+'?'+new URLSearchParams(filters)}>Download report {f.toUpperCase()}</ExportLink>)}</div>
       <h3>Work and source records</h3><div className="stack">{report.jobs.map((j:Row)=><details className="record" key={j.id}><summary>{j.client_name} · {j.title} · {j.period_label} · {j.overdue?'overdue':j.stage}{j.blocked?' · blocked':''}</summary>
         <p><button onClick={()=>open(j.id)}>Open source job</button> Due {j.due_date}: {j.dueSource}. Turnaround {j.turnaroundMinutes??'pending'} min.</p>
         <p>Margin before staff cost {money(j.financial.marginBeforeStaffCostCents,j.financial.currency)} · unbilled {money(j.financial.unbilledCents,j.financial.currency)} · approved exports {money(j.financial.approvedExportCents,j.financial.currency)}</p>

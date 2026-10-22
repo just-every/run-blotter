@@ -2,7 +2,7 @@
 // cohort. Immutable issue amounts and today's credit allocations stay distinct.
 import { firmSettings, localClock } from './firm';
 import { invoiceNumber } from './invoices-pdf';
-import { insist, need, rows, type Actor, type Data } from './model';
+import { canReadBilling, insist, rows, type Actor, type Data } from './model';
 
 const jobUrl = (id: string) => `/app?job=${encodeURIComponent(id)}`;
 const selectedSql = 'IN (SELECT value FROM json_each(?))';
@@ -10,7 +10,7 @@ const sum = (items: Data[], key: string) => items.reduce((n, item) => n + Number
 
 /** selectedJobs has already passed the report's live visibility and filter checks. */
 export async function invoiceReport(db: D1Database, actor: Actor, selectedJobs: Data[], generatedAt: string) {
-  need(actor, 'owner', 'reviewer');
+  insist(canReadBilling(actor), 'Your role cannot perform this action', 403);
   insist(actor.channel === 'person' && !actor.automation, 'A native staff session is required', 403);
   const jobIds = [...new Set(selectedJobs.map(j => j.id))].sort();
   const clientIds = [...new Set(selectedJobs.map(j => j.client_id))].sort();

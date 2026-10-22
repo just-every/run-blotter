@@ -1,7 +1,7 @@
 // ERASURE-002 (owner only): the retention screens for one client, the preview-then-approve
 // whole-client erasure with its receipt and journal, and the audited retained-records door.
 import { useEffect, useState } from 'react';
-import { api, day, Field, Form, when, type Row, type Run } from './common';
+import { api, day, Field, Form, when, type Row, type Run, ExportLink } from './common';
 import { Copies, COPY_KINDS, Engagements, Marks, Requests } from './client-retention';
 
 const ACTIONS = (c: Row) => [c.removed && `${c.removed} removed`, c.marker && `${c.marker} replaced by the erasure marker`, c.retained && `${c.retained} retained`, c.held && `${c.held} held`].filter(Boolean).join(' · ') || 'nothing to change';
@@ -20,7 +20,7 @@ function Receipt({ clientId, erasedAt, run }: { clientId: string; erasedAt: stri
         {receipt.retained.records.map((r: Row, n: number) => <li key={n}>{r.kind} · {r.class.replaceAll('_', ' ')} · clock {day(r.clock)} + {r.years} years = expires {day(r.expiry)}</li>)}</ul>
       <h4>Copies outside Blotter (never erased by Blotter)</h4>
       <ul className="list">{receipt.retained.externalCopies.map((c: Row, n: number) => <li key={n}>{c.kind === 'observed' ? 'Observed' : COPY_KINDS[c.kind]} · {c.system} · owner {c.holder} · {c.source}</li>)}</ul>
-      <a href="/api/blotter/erasure-journal" download="erasure-journal.json">Download the erasure journal</a>
+      <ExportLink href="/api/blotter/erasure-journal" filename="erasure-journal.json">Download the erasure journal</ExportLink>
     </>}
     {receipt?.retained.restrictedRemainder && <Form label="Read retained records" submit={async data => run(async () => setRemainder(await api(`/clients/${clientId}/retained-records`, { reason: data.reason, action: 'read' })), 'Retained records read and logged')}>
       <p className="muted">The legal name, taxpayer identifier and address a retained record needs are sealed. Reading them is logged with your reason.</p>

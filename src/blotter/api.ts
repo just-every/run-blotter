@@ -1,7 +1,7 @@
 import { signatureRoutes } from './signature-routes';
 import { invoiceRoutes } from './invoice-routes';
 import { accessGate, redactAccess } from './access-gate';
-import { permissions, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
+import { permissions, saveDelegations, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
 import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
 import { billingExportPage } from './billing-read';
 import { createClientOnce } from './client-writes';
@@ -119,6 +119,7 @@ signatureRoutes(api,{as,body,db,param,sameOrigin});
 api.get(`${P}/access`,as((a,c)=>permissions(db(c),a)));
 api.post(`${P}/access/step-up`,as(async(a,c)=>stepUp(db(c),a,site(c),await body(c))));
 api.post(`${P}/access/teams`,as(async(a,c)=>saveTeamAccess(db(c),a,await body(c))));
+api.post(`${P}/access/delegations`,as(async(a,c)=>saveDelegations(db(c),a,await body(c))));
 api.post(`${P}/access/people`,as(async(a,c)=>savePersonAccess(db(c),a,await body(c))));
 api.post(`${P}/access/documents/:ref`,as(async(a,c)=>saveSensitiveAccess(db(c),a,param(c,'ref'),await body(c))));
 api.get(`${P}/reports/performance`,as((a,c)=>performanceReport(db(c),a,c.req.query())));

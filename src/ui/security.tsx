@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run } from './common';
+import { api, Empty, Field, Form, when, type Row, type Run, ExportLink } from './common';
 
 function Codes({ codes }: { codes: string[] }) {
   if (!codes.length) return null;
@@ -87,7 +87,7 @@ export function Security({ actor, run, tick }: { actor: Row; run: Run; tick: num
       <table className="table"><thead><tr><th>Person</th><th>Second factor</th><th>Last verified</th></tr></thead>
         <tbody>{firm.people.map((p: Row) => <tr key={p.email}><td data-label="Person">{p.name} <small className="muted">{p.email} · {p.role}{p.active ? '' : ' · deactivated'}</small></td>
           <td data-label="Second factor">{p.totp_factors + p.passkey_factors > 0 ? `enrolled ${when(p.enrolled_at)}` : 'not enrolled'}</td><td data-label="Last verified">{when(p.last_verified_at) || '—'}</td></tr>)}</tbody></table>
-      <p><a className="button" href="/api/blotter/team/mfa-report">Download enrollment report (CSV)</a> <small className="muted">Evidence for your WISP and the FTC Safeguards Rule MFA control; it records who is enrolled and does not certify compliance.</small></p>
+      <p><ExportLink className="button" href="/api/blotter/team/mfa-report">Download enrollment report (CSV)</ExportLink> <small className="muted">Evidence for your WISP and the FTC Safeguards Rule MFA control; it records who is enrolled and does not certify compliance.</small></p>
       <details><summary>Session lifetime and idle timeout</summary>
         <Form label="Save session limits" submit={async data => run(() => api('/team/session-limits', { sessionMinutes: data.sessionMinutes, idleMinutes: data.idleMinutes }), 'Session limits saved')}>
           <div className="row">

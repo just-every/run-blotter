@@ -28,8 +28,10 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   const share=await h.json(`/documents/${fileId}/shares`,{revision:access.revision,contactId:contact.id},h.owner);
   assert.equal((await h.request('/api/blotter/shared-files/'+share.token)).status,200);
   const codes=await enroll(h,h.owner);
-  await h.json('/access/teams',{name:'Tax team',emails:['a@example.test'],clientIds:[clients[0].id,clients[1].id]},h.owner,403);
-  await h.json('/access/step-up',{recoveryCode:codes[0]},h.owner);
+  // A new session owes its own confirmation, through the real factor doors, before the first permission change.
+  const fresh=await h.login('owner@example.test');await h.json('/mfa/verify',{recoveryCode:codes[4]},fresh);
+  await h.json('/access/teams',{name:'Tax team',emails:['a@example.test'],clientIds:[clients[0].id,clients[1].id]},fresh,403);
+  await h.json('/access/step-up',{recoveryCode:codes[5]},fresh);
   const tax=await h.json('/access/teams',{name:'Tax team',emails:['a@example.test'],clientIds:[clients[0].id,clients[1].id]},h.owner);
   await h.json('/access/teams',{name:'Bookkeeping team',emails:['b@example.test'],clientIds:[clients[1].id,clients[2].id]},h.owner);
   await h.json('/access/people',{email:'read@example.test',readOnly:true,clientIds:[clients[0].id,spare.id]},h.owner);
@@ -94,4 +96,45 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
   stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
   if(process.env.BLOTTER_PERMISSION_EVIDENCE)await permissionsJourney(h,clients[0].name,read,codes[3]);
  }finally{await stale?.close();await destination?.close();await h.close();}
+});
+
+test('Delegated manage-access and financial-authority grants are bounded and live, and export step-up applies from installation',async()=>{
+ const h=await harness();
+ try{
+  // No scope is configured yet: the step-up already guards exports and sensitive administration.
+  const exportDenied=await h.send('/api/blotter/backup',undefined,h.owner);
+  assert.equal(exportDenied.status,403);assert.equal((await exportDenied.json()).mfa,'step-up');
+  assert.equal((await h.send('/api/blotter/team',{email:'fin@example.test',name:'Fin',role:'reviewer'},h.owner)).status,403);
+  await h.stepUp(h.owner);
+  assert.equal((await h.send('/api/blotter/backup',undefined,h.owner)).status,200);
+  for(const email of ['fin@example.test','plain@example.test','mgr@example.test']){await h.json('/team',{email,name:email,role:'reviewer'},h.owner);await h.json('/team/invite',{email},h.owner);}
+  const fin=await h.login('fin@example.test'),plain=await h.login('plain@example.test'),mgr=await h.login('mgr@example.test');
+  const clients=[];for(const name of ['Cedar Lane LLC','Harbor Studio LLC','Maple Partners LLC'])clients.push(await h.json('/clients',{name},h.owner));
+  const t=await h.json('/templates',{name:'Monthly close',recurrence:'monthly',steps:'Review ledger',requests:'Workpaper',feeCents:12000},h.owner);
+  const jobs=[];for(const client of clients)jobs.push(await h.json('/jobs',{clientId:client.id,templateId:t.id,periodStart:'2026-10-01',dueDate:'2026-10-28',dueNote:'Client schedule',preparerEmail:'plain@example.test',reviewerEmail:'fin@example.test'},h.owner));
+  const grant=(email,permissions)=>h.json('/access/delegations',{email,permissions,reason:'Partner billing and staffing duties'},h.owner);
+  await grant('fin@example.test',['financial_authority']);await grant('mgr@example.test',['manage_access']);
+  for(const [email,ids] of [['fin@example.test',[clients[0].id]],['plain@example.test',[clients[0].id]],['mgr@example.test',[clients[0].id,clients[1].id]]])await h.json('/access/people',{email,readOnly:false,clientIds:ids},h.owner);
+  const report='/reports/performance?from=2026-10-01&to=2026-10-31',csvPath='/api/blotter'+report.replace('performance','performance/csv');
+  assert.deepEqual((await h.json(report,undefined,fin)).jobs.map(j=>j.id),[jobs[0].id],'Financial authority opens the firm report for held clients only');
+  await h.json(report,undefined,plain,403);await h.json(report,undefined,mgr,403);
+  const csv=await h.send(csvPath,undefined,fin);
+  assert.equal(csv.status,403);assert.equal((await csv.json()).mfa,'step-up');
+  await h.stepUp(fin);assert.equal((await h.send(csvPath,undefined,fin)).status,200);
+  // A manage-access holder works only inside its own holdings and never on itself, the principal or the delegations.
+  await h.json('/access/people',{email:'plain@example.test',readOnly:true,clientIds:[clients[0].id]},mgr);
+  const refusal=async(path,body,pattern)=>assert.match((await h.json(path,body,mgr,403)).error,pattern);
+  await refusal('/access/people',{email:'mgr@example.test',readOnly:false,clientIds:[clients[0].id,clients[1].id]},/cannot grant itself/);
+  await refusal('/access/teams',{name:'Own team',emails:['mgr@example.test'],clientIds:[clients[0].id]},/cannot grant itself/);
+  await refusal('/access/people',{email:'plain@example.test',readOnly:false,clientIds:[clients[2].id]},/clients you hold/);
+  await refusal('/access/people',{email:'owner@example.test',readOnly:false,clientIds:[clients[0].id]},/principal is never/);
+  await refusal('/access/delegations',{email:'plain@example.test',permissions:['financial_authority'],reason:'Self-service'},/principal or a manage-access holder/);
+  // Revocation reaches the holders' open sessions on their next request.
+  await h.json('/access/delegations',{email:'fin@example.test',permissions:[],reason:'Duties moved'},h.owner);
+  await h.json('/access/delegations',{email:'mgr@example.test',permissions:[],reason:'Duties moved'},h.owner);
+  await h.json(report,undefined,fin,403);
+  await h.json('/access/people',{email:'plain@example.test',readOnly:false,clientIds:[clients[0].id]},mgr,403);
+  const audit=(await h.json('/team',undefined,h.owner)).audit;
+  assert.equal(audit.filter(e=>e.action==='access.delegation_granted').length,2);assert.equal(audit.filter(e=>e.action==='access.delegation_revoked').length,2);
+ }finally{await h.close();}
 });
