@@ -41,6 +41,11 @@ export async function languageJourney(h, { job, requestJob, client, maria, engli
     await page.goto(`${h.origin}/portal/${kbToken}`);
     await page.getByRole('heading', { level: 1, name: /^Documentos para / }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'es');
+    await page.getByRole('button', { name: 'Carta de firma por teclado' }).waitFor();
+    for (const value of ['Pendiente', 'Completado', 'Enviado']) await page.locator('.status').filter({ hasText: new RegExp(`^${value}$`) }).first().waitFor();
+    const badges = await page.locator('.status').allTextContents();
+    for (const value of ['Pendiente', 'Completado', 'Enviado']) assert.ok(badges.includes(value), `Spanish client status ${value} is shown`);
+    assert.equal(badges.some(value => /^(Pending|Completed|Sent|Signed)$/.test(value)), false, 'Asynchronously loaded badges retain Spanish after the language changes');
     const checks = {};
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
@@ -71,6 +76,7 @@ export async function languageJourney(h, { job, requestJob, client, maria, engli
     // Keyboard only: open the signature request, enter each field, consent and sign.
     await tabTo(page, page.getByRole('button', { name: 'Carta de firma por teclado' }), 'The signature request'); await page.keyboard.press('Enter');
     await page.getByRole('heading', { level: 3, name: 'Carta de firma por teclado' }).waitFor();
+    await page.getByText('en cualquier orden · intento 1 · pendiente', { exact: true }).waitFor();
     const fields = [['signature (página 1)', 'María Gómez'], ['initials (página 1)', 'MG'], ['date (página 1)', '2026-10-10'], ['text (página 1)', 'Revisado']];
     for (const [label, value] of fields) {
       const control = page.getByLabel(label); await tabTo(page, control, label);

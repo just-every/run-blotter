@@ -26,6 +26,7 @@ const C = {
   'status.sent': { en: 'sent', es: 'enviado' }, 'status.approved': { en: 'approved', es: 'aprobado' }, 'status.changes_requested': { en: 'changes requested', es: 'cambios solicitados' },
   'status.pending': { en: 'pending', es: 'pendiente' }, 'status.completed': { en: 'completed', es: 'completado' }, 'status.signed': { en: 'signed', es: 'firmado' },
   'status.declined': { en: 'declined', es: 'rechazado' }, 'status.issued': { en: 'issued', es: 'emitida' }, 'status.void': { en: 'void', es: 'anulada' },
+  'status.expired': { en: 'expired', es: 'vencido' }, 'status.voided': { en: 'voided', es: 'anulado' }, 'status.retained': { en: 'retained', es: 'conservado' }, 'status.not_required': { en: 'not required', es: 'no se requiere' },
   'status.open': { en: 'open', es: 'abierto' }, 'status.done': { en: 'done', es: 'hecho' },
   // Progress (server-written for the contact's language)
   'progress.title': { en: 'Where things stand', es: 'Cómo va su trabajo' },

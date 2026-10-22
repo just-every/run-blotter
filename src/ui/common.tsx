@@ -90,9 +90,10 @@ export function Field({ label, name, type = 'text', required = true, value, hint
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty"><p>{children}</p></div>;
 }
+// Client screens translate built-in statuses; staff screens keep their recorded English names.
+export const statusText = (value: string) => uiLanguage !== 'en' && hasKey(`status.${value}`) ? tr(uiLanguage, `status.${value}` as Key) : value.replaceAll('_', ' ');
 export function Status({ value }: { value: string }) {
-  // Client screens translate the built-in statuses; staff screens (English) keep the raw name.
-  const label = uiLanguage !== 'en' && hasKey(`status.${value}`) ? tr(uiLanguage, `status.${value}` as Key) : value.replaceAll('_', ' ');
+  const label = statusText(value);
   return <span className={`status status-${value}`}>{label.charAt(0).toUpperCase() + label.slice(1)}</span>;
 }
 
