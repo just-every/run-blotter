@@ -22,7 +22,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
   try {
     for (const [email, role] of [['reviewer@example.test', 'reviewer'], ['prep@example.test', 'preparer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }
     const prep = await h.login('prep@example.test'), reviewer = await h.login('reviewer@example.test');
-    const client = await h.json('/clients', { name: 'Cedar Lane LLC', contacts: [person('María Gómez', 'maria@example.test', 'es'), person('Tom Baker', 'tom@example.test', 'en')] }, h.owner);
+    const client = await h.json('/clients', { name: 'Cedar Lane LLC', contacts: [person('María Gómez', 'maria@example.test', 'es', { roles: ['primary', 'tax'] }), person('Tom Baker', 'tom@example.test', 'en')] }, h.owner);
     const maria = client.contacts.find(c => c.email === 'maria@example.test'), tom = client.contacts.find(c => c.email === 'tom@example.test');
     assert.deepEqual([maria.language, tom.language], ['es', 'en']);
     const template = await h.json('/templates', { name: 'Monthly close', recurrence: 'monthly', tasks: [{ label: 'Prepare close' }, { label: 'Inspect changed ownership', when: { question: 'ownership', equals: ['Yes'] } }], requests: ['Bank statement'], questions: [{ key: 'ownership', label: 'Did ownership change?', options: ['Yes', 'No'] }], organizer }, h.owner);
@@ -64,7 +64,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     assert.deepEqual((await h.json(`/jobs/${job.id}/portal/messages/preview`, { templateId: englishOnly.id, contactId: maria.id }, h.owner)).warnings.map(w => w.kind), ['no_translation']);
     assert.deepEqual((await h.json(`/jobs/${job.id}/portal/messages/preview`, { templateId: withSpanish.id, contactId: maria.id }, h.owner)).warnings, []);
     const kickoff = await h.json('/messages/templates', { scope: 'firm', name: 'Kickoff', subject: '{{work_item}} kickoff for {{client_name}}', body: '{{work_item}}: hello {{contact_first_name}}.' }, h.owner);
-    const batch = key => h.json('/bulk-messages/preview', { class: 'engagement', templateId: kickoff.id, entityType: 'business', reason: 'Season kickoff for open engagements', idempotencyKey: key }, h.owner);
+    const batch = key => h.json('/bulk-messages/preview', { class: 'engagement', templateId: kickoff.id, entityType: 'business', role: 'tax', reason: 'Season kickoff for open engagements', idempotencyKey: key }, h.owner);
     assert.deepEqual((await batch('kickoff-1')).untranslated.map(u => [u.address, u.language]), [['maria@example.test', 'es']]);
     await h.json(`/messages/templates/${kickoff.id}/translations`, { language: 'es', subject: '{{work_item}}: inicio para {{client_name}}', body: '{{work_item}}: hola {{contact_first_name}}.' }, h.owner);
     const kicked = await batch('kickoff-2');
