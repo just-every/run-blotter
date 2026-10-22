@@ -87,7 +87,10 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.deepEqual(Object.keys(byClass).sort(), ['api', 'billing', 'contact', 'derived_ai', 'efile_auth', 'engagement', 'link', 'message', 'notification', 'organizer', 'prospect', 'readiness', 'signed_documents', 'signed_work', 'vault']);
     assert.ok(byClass.signed_work.retained >= 4 && byClass.billing.retained >= 2 && byClass.engagement.retained === 1 && byClass.vault.marker >= 1 && byClass.message.marker > 0 && byClass.readiness.removed === 1 && byClass.derived_ai.removed + byClass.derived_ai.marker >= 1);
     assert.ok(preview.records.length >= 4 && preview.records.every(r => /^\d{4}-\d{2}-\d{2}$/.test(r.clock) && r.expiry > r.clock && r.years === 7));
-    assert.deepEqual(preview.records.filter(r => r.kind === 'engagement').map(r => r.clock), [new Date().toISOString().slice(0, 10)], 'The engagement clock is the later of its signed date and the latest sign-off');
+    const signedJob=(await h.json(`/jobs/${s.open.id}`,undefined,h.owner)).job,{timeZone}=await h.json('/firm/settings',undefined,h.owner);
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(signedJob.signed_off_at)).map(p=>[p.type,p.value]));
+    const expectedClock=[letter.signed_date,`${parts.year}-${parts.month}-${parts.day}`].sort().at(-1);
+    assert.deepEqual(preview.records.filter(r => r.kind === 'engagement').map(r => r.clock), [expectedClock], 'The engagement clock is the later of its signed date and latest sign-off in the firm timezone');
     const copies = preview.externalCopies.map(c => `${c.source}|${c.holder}`);
     for (const wanted of ['principal-recorded|Pat Preparer, firm administrator', 'principal-recorded|Northwind Advisory (practice buyer)']) assert.ok(copies.includes(wanted), wanted);
     for (const source of ['relay-mail', 'relay-mail-recipients', 'file-downloads', 'billing-downloads']) assert.ok(preview.externalCopies.some(c => c.source === source), `observed copy ${source}`);
