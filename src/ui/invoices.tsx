@@ -99,6 +99,7 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
     <p>Native USD invoices separate fee entitlement from work completion. The principal, or a member with financial authority, approves supplied tax treatment, sources, credits and recipients before issuing a numbered PDF.</p>
     <p>Invoice authority: <strong>{state.settings ? 'Blotter' : 'Not selected'}</strong></p>
     {principal && !state.settings && <Form label="Select Blotter invoice authority" submit={data => run(() => api('/invoices/authority', { ...data, authority: 'blotter' }), 'Blotter selected as the invoice authority')}><Field label="Authority decision" name="reason" /></Form>}
+    {principal && state.settings && <PaymentPolicy run={run} />}
     {owner && state.settings && <>
       <Field label="Invoice work item" name="invoiceJob"><select name="invoiceJob" value={jobId} onChange={e => { setJobId(e.target.value); setChosen([]); setPreview(undefined); }}><option value="">Choose work</option>{jobs.filter(j => j.currency === 'USD').map(j => <option key={j.id} value={j.id}>{clients.find(c => c.id === j.client_id)?.name} · {j.title} · {j.period_label}</option>)}</select></Field>
       {job && <>
@@ -108,9 +109,10 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
         </Form></details>
         <details><summary>Record a deposit or credit</summary><p>Record a supplied receipt or credit reference. This does not initiate a payment or establish provider settlement.</p>
           <Form label="Record deposit or credit" submit={data => run(() => api('/invoice-credits', { ...data, clientId }), 'Deposit or credit recorded')}>
-            <Field label="Credit kind" name="kind"><select name="kind"><option value="deposit">Deposit</option><option value="credit">Credit</option></select></Field><Field label="External receipt or credit reference" name="reference" /><Field label="USD cents" name="amountCents" type="number" /><Field label="Authority and reason" name="reason" />
+            <Field label="Credit kind" name="kind"><select name="kind"><option value="deposit">Deposit</option><option value="credit">Credit</option></select></Field><Field label="External receipt or credit reference" name="reference" /><Field label="USD cents" name="amountCents" type="number" /><Field label="Paid by" name="method"><select name="method"><option value="other">Check, cash or other</option><option value="card">Card</option><option value="ach">ACH</option></select></Field><Field label="ACH settlement" name="settlement" required={false}><select name="settlement"><option value="settled">Settled</option><option value="pending">Pending (ACH deposit)</option></select></Field><Field label="Authority and reason" name="reason" />
           </Form>
         </details>
+        {state.credits.filter((c: Row) => c.client_id === clientId && c.settlement === 'pending').map((c: Row) => <Form key={c.id} label={`Mark ${c.reference} settled`} submit={data => run(() => api(`/invoice-credits/${c.id}/settle`, data), 'ACH deposit settled')}><p>Pending ACH deposit {c.reference} · {money(c.amount_cents)}</p><Field label={`Bank settlement evidence for ${c.reference}`} name="evidence" /></Form>)}
         <details><summary>Prepare an invoice</summary><Form label="Preview invoice" disabled={chosen.length === 0} submit={data => run(async () => { const credits = data.creditId ? [{ creditId: data.creditId, amountCents: data.creditCents }] : []; const value = { ...data, jobId, sourceKeys: chosen, credits }; setInput(value); setPreview(await api('/invoices/preview', value)); })}>
           <fieldset><legend>Approved sources</legend>{state.sources.filter((s: Row) => s.job_id === jobId).map((s: Row) => <label key={s.source_key}><input type="checkbox" checked={chosen.includes(s.source_key)} onChange={event => setChosen(previous => event.target.checked ? [...previous, s.source_key] : previous.filter(k => k !== s.source_key))} /> {s.description} · {money(s.amount_cents)}</label>)}</fieldset>
           <Field label="Invoice title" name="title" /><Field label="Billing recipient" name="contactId"><select name="contactId">{contacts.map((c: Row) => <option key={c.id} value={c.id}>{c.name} · {c.email}</option>)}</select></Field>
@@ -140,4 +142,19 @@ export function InvoicePortal({ token }: { token: string }) {
     <p>{invoice.terms}</p><p>Supplied tax {money(invoice.taxCents)} · {invoice.taxTreatment}</p><a className="button" href={`/api/blotter/invoice-portal/${encodeURIComponent(token)}/pdf`}>Download invoice PDF</a>
     <small className="muted" style={{overflowWrap:'anywhere'}}>Private invoice link; expires {day(invoice.expiresAt)}. SHA-256 {invoice.sha256}</small>
   </>}</section></main></div>;
+}
+
+/** BILL-005: the firm's payment policy (principal only): when a pending ACH payment releases a gated file, and the credit-hold threshold. */
+function PaymentPolicy({ run }: { run: Run }) {
+  const [policy, setPolicy] = useState<Row>();
+  useEffect(() => { api('/payment-policy').then(setPolicy).catch(() => undefined); }, []);
+  return <details><summary>Payment policy: gated files and credit hold</summary>
+    <p>{policy ? <>A pending ACH payment {policy.achUnlock === 'pending' ? 'releases' : 'does not release'} a gated file. {policy.holdThresholdCents === null ? 'No credit hold is set.' : <>Clients with {money(policy.holdThresholdCents)} or more overdue for more than {policy.holdGraceDays} days are on credit hold.</>}</> : 'Loading the payment policy.'}</p>
+    <Form label="Save payment policy" submit={data => run(async () => setPolicy(await api('/payment-policy', { achUnlock: data.achUnlock, holdThresholdCents: data.holdThresholdCents ? Number(data.holdThresholdCents) : null, holdGraceDays: Number(data.holdGraceDays || 0), reason: data.reason })), 'Payment policy saved')}>
+      <Field label="ACH payments release a gated file when" name="achUnlock"><select name="achUnlock" defaultValue={policy?.achUnlock ?? 'settled'}><option value="settled">Settled</option><option value="pending">Pending</option></select></Field>
+      <Field label="Credit hold threshold in USD cents (blank for none)" name="holdThresholdCents" type="number" required={false} />
+      <Field label="Days past due before an invoice counts toward the hold" name="holdGraceDays" type="number" required={false} value={0} />
+      <Field label="Reason for this policy" name="reason" />
+    </Form>
+  </details>;
 }

@@ -1,4 +1,5 @@
 import { eligible } from './jobs';
+import { creditHold } from './payment-policy';
 import { clientContacts, readableClient } from './client-contacts';
 import { atomic, audit, email, guard, human, id, insist, need, now, optional, stmt, text, type Actor, type Data } from './model';
 
@@ -26,7 +27,7 @@ export async function entityValues(db: D1Database, body: Data, previous: Data = 
 }
 export async function clientDetail(db: D1Database, actor: Actor, clientId: string) {
   const c = await readableClient(db,actor,clientId), contacts = await clientContacts(db,actor,clientId);
-  return { ...c, ssn_last4: c.ssn_last4 ? '•••••' + c.ssn_last4 : '', team:JSON.parse(c.team), services:JSON.parse(c.services), contacts };
+  return { ...c, ssn_last4: c.ssn_last4 ? '•••••' + c.ssn_last4 : '', team:JSON.parse(c.team), services:JSON.parse(c.services), contacts, creditHold: await creditHold(db, actor, clientId) };
 }
 export async function setClientLifecycle(db: D1Database, actor: Actor, clientId: string, body: Data) {
   human(actor); need(actor,'owner','reviewer');

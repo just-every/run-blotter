@@ -1,3 +1,4 @@
+import { creditHoldWarnings } from './payment-policy';
 import { learningJobStatements, learningTemplate } from './learning';
 import { organizerJobStatements } from './organizers-store';
 // Recurring client jobs: start from a template, roll forward, work the
@@ -108,7 +109,7 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? type.budget_minutes : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
   await atomic(db, actor, [...await createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : []), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
   await advance(env, [values.id], actor.email);
-  return job(db, actor, values.id);
+  return { ...await job(db, actor, values.id), warnings: await creditHoldWarnings(db, actor, values.clientId) };
 }
 
 /** The next period's job: same client, template and people; a person records the due date. */
@@ -137,7 +138,7 @@ export async function rollForward(env: Bindings, actor: Actor, jobId: string, bo
   insist(!exists, `The ${periodLabel(periodStart, template.recurrence)} job already exists`, 409);
   await atomic(db, actor, [...await createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : [])]);
   await advance(env, [values.id], actor.email);
-  return job(db, actor, values.id);
+  return { ...await job(db, actor, values.id), warnings: await creditHoldWarnings(db, actor, values.clientId) };
 }
 
 export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {

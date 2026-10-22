@@ -7,6 +7,7 @@ import { atomic, audit, date, digest, guard, human, id, insist, need, optional, 
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { createStatements, eligible, periodLabel } from './jobs';
+import { creditHoldWarnings } from './payment-policy';
 
 const MAX = 50;
 const PREPARERS = ['preparer', 'reviewer'], REVIEWERS = ['reviewer'];
@@ -53,7 +54,7 @@ async function schedulePlan(db: D1Database, actor: Actor, body: Data) {
     const p = await resolve(db, address(choice.preparerEmail, 'Preparer'), last?.preparer_email, preparer, PREPARERS);
     const r = await resolve(db, address(choice.reviewerEmail, 'Reviewer'), last?.reviewer_email, reviewer, REVIEWERS);
     const reasons = await conflicts(db, p.email, r.email);
-    lines.push({ ...line, preparer: p.email, preparerFrom: p.from, reviewer: r.email, reviewerFrom: r.from, action: reasons.length ? 'conflict' : 'create', reasons });
+    lines.push({ ...line, preparer: p.email, preparerFrom: p.from, reviewer: r.email, reviewerFrom: r.from, action: reasons.length ? 'conflict' : 'create', reasons, warnings: await creditHoldWarnings(db, actor, clientId) });
   }
   const plan = { templateId: template.id, template: template.name, periodStart, periodLabel: periodLabel(periodStart, template.recurrence), dueDate, dueNote, lines };
   return { template, plan: { ...plan, fingerprint: await fingerprint(plan) } };

@@ -18,7 +18,7 @@ const KINDS: Record<string, string> = {
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
   deadlines: "a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
   messages: "a.action LIKE 'thread.%' OR a.action LIKE 'portal.%' OR a.action='reminder.sent' OR a.action LIKE 'bulk.%' OR a.action LIKE 'consent.%'",
-  billing: "a.action LIKE 'time.%' OR a.action LIKE 'expense.%' OR a.action LIKE 'timer.%' OR a.action LIKE 'export.%' OR a.action LIKE 'invoice.%'",
+  billing: "a.action LIKE 'time.%' OR a.action LIKE 'expense.%' OR a.action LIKE 'timer.%' OR a.action LIKE 'export.%' OR a.action LIKE 'invoice.%' OR a.action LIKE 'payment.%'",
 };
 
 export async function clientHistory(db: D1Database, actor: Actor, clientId: string, query: Data = {}) {
@@ -37,13 +37,13 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
     OR a.object_id IN (SELECT id FROM b_threads WHERE job_id IN (${jobIds}) OR (?3 AND client_id=?2 AND job_id IS NULL))
     OR a.object_id IN (SELECT id FROM b_portal_items WHERE job_id IN (${jobIds}))
     OR a.object_id IN (SELECT id FROM b_notices WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_expenses WHERE job_id IN (${jobIds}))
-    OR a.object_id IN (SELECT id FROM b_time WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_invoices WHERE job_id IN (${jobIds})) OR (?3 AND a.object_id IN (SELECT id FROM b_recurrence_rules WHERE client_id=?2)) OR (?3 AND a.object_id=?2)
+    OR a.object_id IN (SELECT id FROM b_time WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_invoices WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT g.id FROM b_payment_gates g JOIN b_deliverables d ON d.id=g.deliverable_id WHERE d.job_id IN (${jobIds})) OR (?3 AND a.object_id IN (SELECT id FROM b_recurrence_rules WHERE client_id=?2)) OR (?3 AND a.object_id=?2)
     OR (?3 AND a.object_id IN (SELECT s.export_id FROM b_export_sources s WHERE s.source_key IN (SELECT 'fee:'||value FROM json_each(?1))
       OR s.source_key IN (SELECT 'time:'||id FROM b_time WHERE job_id IN (${jobIds})) OR s.source_key IN (SELECT 'exp:'||id FROM b_expenses WHERE job_id IN (${jobIds}))
       OR s.source_key IN (SELECT 'adj:'||d.id FROM b_time_adjustments d JOIN b_time t ON t.id=d.entry_id WHERE t.job_id IN (${jobIds})))))`;
   const history = await rows(db, `SELECT a.id,a.actor,a.action,a.object_id,a.detail,a.at,
       COALESCE((SELECT id FROM b_jobs WHERE id=a.object_id),(SELECT job_id FROM b_requests WHERE id=a.object_id),(SELECT job_id FROM b_files WHERE id=a.object_id),
-        (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id),(SELECT job_id FROM b_invoices WHERE id=a.object_id)) job_id
+        (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id),(SELECT job_id FROM b_invoices WHERE id=a.object_id),(SELECT d.job_id FROM b_payment_gates g JOIN b_deliverables d ON d.id=g.deliverable_id WHERE g.id=a.object_id)) job_id
     FROM b_audit a WHERE ${objects} AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
     ORDER BY a.at DESC,a.id LIMIT 500`, ids, clientId, lead ? 1 : 0, kind, q);
   const owner = optional(query.owner, 'Owner', 254).toLowerCase();

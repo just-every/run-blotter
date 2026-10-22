@@ -13,11 +13,25 @@ export async function recordInvoiceCredit(db: D1Database, actor: Actor, body: Da
   insist(body.kind === 'deposit' || body.kind === 'credit', 'Choose deposit or credit');
   insist(body.currency === undefined || body.currency === 'USD', 'Credits must be recorded in USD');
   const amountCents = integer(body.amountCents, 'USD cents', 1), reference = text(body.reference, 'External receipt or credit reference', 200), reason = text(body.reason, 'Authority and reason', 2000);
+  const method = body.method === undefined ? 'other' : body.method, settlement = body.settlement === undefined ? 'settled' : body.settlement;
+  insist(['card', 'ach', 'other'].includes(method), 'Choose card, ACH or another way it was paid');
+  insist(settlement === 'settled' || (settlement === 'pending' && method === 'ach' && body.kind === 'deposit'), 'Only an ACH deposit can be recorded as pending until the bank settles it');
   const [check, release] = guard(db, activeInvoiceClientSql, clientId), [authorized, done] = invoiceAuthorityGuard(db, authority.revision);
   await atomic(db, actor, billed(db, actor, [check, authorized,
-    stmt(db, 'INSERT INTO b_invoice_credits(id,client_id,kind,reference,amount_cents,reason,recorded_by,recorded_at) VALUES(?,?,?,?,?,?,?,?)', creditId, clientId, body.kind, reference, amountCents, reason, actor.email, now()),
-    done, release, audit(db, actor, 'invoice.credit_recorded', creditId, `${body.kind}; ${reference}; ${amountCents} USD cents; ${reason}`)]));
-  return { id: creditId, amountCents, currency: 'USD' };
+    stmt(db, 'INSERT INTO b_invoice_credits(id,client_id,kind,reference,amount_cents,reason,recorded_by,recorded_at,method,settlement,settled_by,settled_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', creditId, clientId, body.kind, reference, amountCents, reason, actor.email, now(), method, settlement, settlement === 'settled' ? actor.email : null, settlement === 'settled' ? now() : null),
+    done, release, audit(db, actor, 'invoice.credit_recorded', creditId, `${body.kind}; ${method}${settlement === 'pending' ? ' pending settlement' : ''}; ${reference}; ${amountCents} USD cents; ${reason}`)]));
+  return { id: creditId, amountCents, currency: 'USD', method, settlement };
+}
+
+/** The bank has settled a pending ACH deposit. Returns and reversals belong to PAY-001's provider events. */
+export async function settleInvoiceCredit(db: D1Database, actor: Actor, creditId: string, body: Data) {
+  invoiceHuman(actor);
+  const credit = await stmt(db, "SELECT id,client_id,reference FROM b_invoice_credits WHERE id=? AND settlement='pending'", creditId).first<Data>();
+  insist(credit, 'Pending ACH deposit not found', 404);
+  const evidence = text(body.evidence, 'Bank settlement evidence', 1000), [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_invoice_credits WHERE id=? AND settlement='pending')", credit.id);
+  await atomic(db, actor, billed(db, actor, [check, stmt(db, "UPDATE b_invoice_credits SET settlement='settled',settled_by=?,settled_at=? WHERE id=? AND settlement='pending'", actor.email, now(), credit.id),
+    release, audit(db, actor, 'invoice.credit_settled', credit.id, `${credit.reference}; ${evidence}`)]));
+  return { id: credit.id, settlement: 'settled' };
 }
 
 export async function previewInvoiceCredits(db: D1Database, clientId: string, input: unknown, gross: number) {

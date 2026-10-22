@@ -44,7 +44,7 @@ export function Workspace() {
   useEffect(() => { const destination=new URLSearchParams(window.location.search); if(destination.has('report'))setTab('Time & billing'); if(destination.has('job')||destination.has('notice')){setTab('Jobs');setJobId(destination.get('job')??'');} reload().catch(e => owed(e) || setError(e.message)); }, []);
   const run: Run = async (job, message = 'Saved') => {
     setError(''); setNotice(''); setBusy(true);
-    try { await job(); await reload(); setNotice(message); } catch (e) { if (!owed(e)) setError((e as Error).message); } finally { setBusy(false); }
+    try { const result = await job(); await reload(); setNotice(typeof result === 'string' ? result : message); } catch (e) { if (!owed(e)) setError((e as Error).message); } finally { setBusy(false); }
   };
   const actor = state?.actor;
   const go = (t: Tab) => { setTab(t); setNotice(''); setError(''); if (t === 'Jobs') setJobId(''); };

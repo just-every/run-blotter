@@ -2,6 +2,7 @@ import { documentBytes } from './document-packets';
 // Audited staff, contact-portal and bearer download transports.
 import { atomic, audit, digest, Fault, guard, id, insist, now, stmt, type Actor, type Data } from './model';
 import { source, staffFile, scopeGuard, CONTACT_OK } from './document-source';
+import { gateLockedSql, gateRefusal } from './payment-gates';
 
 /** No documents import: these headers also avoid a documents/share circular dependency. */
 async function downloadResponse(db: D1Database, file: Data) {
@@ -32,7 +33,9 @@ const sharedSql = `SELECT f.* FROM b_document_shares s JOIN b_document_access a 
 /** A bearer has one recipient-scoped file, never an entity/job listing or identity claim. */
 export async function sharedDownload(db: D1Database, token: string) {
   insist(/^ds_[0-9a-f]{64}$/.test(token), 'This file link is unavailable', 404);
-  const hashed = await digest(token), at = now(), [check, release] = guard(db, `EXISTS(${sharedSql})`, hashed, at);
+  const hashed = await digest(token), at = now(), shared = await stmt(db, 'SELECT file_key FROM b_document_shares WHERE digest=?', hashed).first<Data>();
+  const locked = shared ? await gateRefusal(db, shared.file_key) : null; insist(!locked, locked ?? '', 402);
+  const [check, release] = guard(db, `EXISTS(${sharedSql}) AND NOT ${gateLockedSql}`, hashed, at, shared?.file_key ?? '');
   let result: D1Result<Data>[];
   try {
     result = await db.batch<Data>([check, stmt(db, sharedSql, hashed, at),
@@ -68,7 +71,9 @@ export async function contactCanRead(db: D1Database, fileRef: string, contactId:
 
 /** The caller supplies a contact from a validated entity-scoped portal link. */
 export async function contactDownload(db: D1Database, fileRef: string, contactId: string, portalLinkId?: string) {
-  const file = await source(db, fileRef), at = now(), [check, release] = guard(db, `EXISTS(${contactSql}) AND (? IS NULL OR EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.contact_id=? AND l.job_id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off'))`, file.file_key, contactId,portalLinkId??null,portalLinkId??null,contactId,file.job_id,at);
+  const file = await source(db, fileRef), at = now();
+  const locked = await gateRefusal(db, file.file_key); insist(!locked, locked ?? '', 402);
+  const [check, release] = guard(db, `EXISTS(${contactSql}) AND NOT ${gateLockedSql} AND (? IS NULL OR EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.contact_id=? AND l.job_id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off'))`, file.file_key, contactId,file.file_key,portalLinkId??null,portalLinkId??null,contactId,file.job_id,at);
   let result: D1Result<Data>[];
   try {
     result = await db.batch<Data>([check, stmt(db, contactSql, file.file_key, contactId),

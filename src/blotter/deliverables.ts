@@ -9,6 +9,7 @@ import { runtimeBindings, type Bindings } from '../auth.server';
 import { reviewRequested } from './notifications';
 import { decodeFile, issueLink, sendMail, portalJob } from './documents';
 import { historyWhen } from './statuses';
+import { gatesForJob } from './payment-gates';
 import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 const COLUMNS = `id,deliverable_id,version,name,mime,size,sha256,note,submit_on_approval,sent_by,sent_at,delivery,status,
@@ -21,9 +22,10 @@ export async function deliverablesFor(db: D1Database, jobId: string) {
     rows(db, 'SELECT * FROM b_deliverables WHERE job_id=? ORDER BY created_at', jobId),
     rows(db, `SELECT ${COLUMNS} FROM b_deliverable_versions WHERE job_id=? ORDER BY version DESC`, jobId),
   ]);
+  const gates = await gatesForJob(db, jobId);
   return series.map((d): Data => {
     const list = versions.filter(v => v.deliverable_id === d.id);
-    return { ...d, status: list[0]?.status, currentVersionId: list[0]?.id, versions: list };
+    return { ...d, status: list[0]?.status, currentVersionId: list[0]?.id, versions: list, paymentGate: gates.get(d.id) ?? null };
   });
 }
 
@@ -74,8 +76,8 @@ export async function portalDeliverables(db: D1Database, token: string) {
   for (const d of await deliverablesFor(db,j.id)) {
     const visible = (await Promise.all(d.versions.map(async(v:Data)=>await contactCanRead(db,'deliverable:'+v.id,contact.id) ? v : null))).filter(Boolean) as Data[];
     if(!visible.length)continue;
-    const current = visible.find(v=>v.id===d.currentVersionId);
-    result.push({id:d.id,title:d.title,status:current?.status??'retained',currentVersionId:current?.id??null,
+    const current = visible.find(v=>v.id===d.currentVersionId), gate = d.paymentGate?.locked ? d.paymentGate : null;
+    result.push({id:d.id,title:d.title,locked:gate ? { invoiceNumber: gate.invoiceNumber, remainingCents: gate.remainingCents, pendingCents: gate.pendingCents } : null,status:current?.status??'retained',currentVersionId:current?.id??null,
       versions:visible.map(v=>({id:v.id,version:v.version,name:v.name,size:v.size,sha256:v.sha256,note:v.note,sentAt:v.sent_at,status:v.status,approverName:v.approver_name,decidedAt:v.decided_at,comment:v.comment}))});
   }
   return result;

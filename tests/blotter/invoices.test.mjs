@@ -174,6 +174,9 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     await source.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority' }, source.owner);
     const e = await authorize(source, s), invoice = await draft(source, { ...terms, title:s.client.name+' November scope', issueDate: '2015-01-02', dueDate: '2015-01-16', jobId: s.job.id, sourceKeys: [e.sourceKey], contactId: s.billing.id });
     const issued = await issue(source, invoice), bytes = await pdf(source, invoice.id);
+    const shipped = await source.json(`/jobs/${s.job.id}/deliverables`, { title: 'Final return copy', name: 'Return.pdf', mime: 'application/pdf', contentBase64: Buffer.from('Return').toString('base64'), contactId: s.billing.id }, s.preparer);
+    const gate = await source.json(`/jobs/${s.job.id}/payment-gates`, { deliverableId: shipped.deliverableId, invoiceId: invoice.id, reason: `Release ${s.client.name} return on payment` }, source.owner);
+    await source.json(`/payment-gates/${gate.id}/override`, { reason: `Partner released the file for ${s.client.name}` }, source.owner);
     let detail = await source.json(`/jobs/${s.job.id}`, undefined, s.preparer);
     for (const request of detail.requests) {
       await source.json(`/requests/${request.id}/files`, { name: 'close.txt', mime: 'text/plain', contentBase64: Buffer.from('Verified close evidence').toString('base64') }, s.preparer);
@@ -209,7 +212,7 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     assert.equal(preview.eligible, true); assert.ok(preview.records.some(r => r.kind === 'invoice' && r.clock === '2015-01-02'));
     assert.ok(preview.classes.find(c => c.class === 'billing').retained > 0);
     const receipt = await h.json(`/clients/${s.client.id}/erasure`, { planHash: preview.planHash, confirm: s.client.name, reason: 'Client requested deletion with billing evidence retained' }, h.owner);
-    assert.ok(JSON.stringify(receipt).includes('billing_invoices')); assert.ok(JSON.stringify(receipt).includes('billing_invoice_writeoffs')); assert.deepEqual(await pdf(h, invoice.id), bytes);
+    assert.ok(JSON.stringify(receipt).includes('billing_invoices')); assert.ok(JSON.stringify(receipt).includes('billing_invoice_writeoffs')); assert.ok(JSON.stringify(receipt).includes('b_payment_gates') && JSON.stringify(receipt).includes('b_payment_overrides'), 'Payment gate reasons are redacted by the erasure receipt'); assert.deepEqual(await pdf(h, invoice.id), bytes);
     assert.ok(!JSON.stringify(await h.json('/invoices',undefined,h.owner)).includes(s.client.name),'Normal billing lists exclude retained identity payloads');
     const explicitRetained=await h.json(`/invoices/${invoice.id}`,undefined,h.owner);assert.equal(explicitRetained.snapshot.client.name,s.client.name);
     const retainedHistory=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);
@@ -402,6 +405,133 @@ test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile t
     assert.ok((await h.json(`/clients/${s.client.id}/history?kind=billing`, undefined, h.owner)).history.some(e => e.action === 'invoice.written_off' && e.object_id === earned.id && e.actor === 'reviewer@example.test'));
     await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: [], reason: 'Duties moved' }, h.owner);
     await h.json(`/invoices/${earned.id}/write-off`, { amountCents: 100, reason: 'After the grant was revoked' }, s.reviewer, 403);
+  } finally { await restored?.close(); await h.close(); }
+});
+
+test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until its invoice is paid (a card receipt at once, ACH by the firm policy), the client\'s own records stay open, partner overrides are recorded and an overdue client shows the credit hold', async () => {
+  const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-13' } }); let restored;
+  const day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10), b64 = x => Buffer.from(x).toString('base64');
+  try {
+    const s = await fixture(h);
+    await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
+    const owe = async (reference, amountCents, dueDate) => {
+      const e = await h.json('/invoice-entitlements', { jobId: s.job.id, kind: 'milestone', reference, description: `Milestone ${reference}`, amountCents, authorization: `Client accepted ${reference}` }, h.owner);
+      const d = await draft(h, { ...terms, title: `Invoice ${reference}`, issueDate: day(-60), dueDate, jobId: s.job.id, sourceKeys: [e.sourceKey], contactId: s.billing.id });
+      await issue(h, d); return d;
+    };
+    const a = await owe('GATE-A', 30000, day(-40)), b = await owe('GATE-B', 10000, day(-30)), c = await owe('GATE-C', 40000, day(-20));
+    const ship = async (title, contentBase64 = b64(title)) => h.json(`/jobs/${s.job.id}/deliverables`, { title, name: `${title}.pdf`, mime: 'application/pdf', contentBase64, contactId: s.billing.id }, s.preparer);
+    const final = await ship('Final return copy'), second = await ship('Second final copy'), third = await ship('Third final copy');
+    const token = new URL(third.portalUrl).pathname.split('/').at(-1), portal = path => h.request(`/api/blotter/portal/${token}${path}`);
+    const file = async v => portal(`/deliverables/${v.id}/file`), listed = async () => (await (await portal('/deliverables')).json());
+    // The client's own upload, shared back with them, is never gated.
+    const request = (await h.json(`/jobs/${s.job.id}`, undefined, h.owner)).requests[0];
+    await h.json(`/portal/${token}/requests/${request.id}`, { name: 'W-2.txt', mime: 'text/plain', contentBase64: b64('Client supplied record') });
+    const own = (await h.json(`/jobs/${s.job.id}/documents`, undefined, h.owner)).find(f => f.name === 'W-2.txt');
+    const ownAccess = await h.json(`/documents/${encodeURIComponent(own.id ?? own.file_key)}/access`, undefined, h.owner);
+    await h.json(`/documents/${encodeURIComponent(own.id ?? own.file_key)}/access`, { revision: ownAccess.revision, visibility: 'contacts', contactIds: [s.billing.id] }, h.owner);
+    const ownCopy = async () => (await portal(`/files/${encodeURIComponent(own.id ?? own.file_key)}`)).text();
+    assert.equal(await (await file(final)).text(), 'Final return copy', 'Before a gate the client can open the file');
+    // Only the principal or a financial-authority holder gates, and only the firm's own deliverables.
+    const gate = { deliverableId: final.deliverableId, invoiceId: a.id, reason: 'Final return is released on payment of the engagement invoice' };
+    for (const who of [s.preparer, s.reviewer]) await h.json(`/jobs/${s.job.id}/payment-gates`, gate, who, 403);
+    await h.json(`/jobs/${s.job.id}/payment-gates`, { ...gate, deliverableId: own.id ?? own.file_key }, h.owner, 404);
+    await h.json(`/jobs/${s.job.id}/payment-gates`, { ...gate, invoiceId: 'absent' }, h.owner, 409);
+    await h.json(`/jobs/${s.job.id}/payment-gates`, { ...gate, reason: '' }, h.owner, 400);
+    const made = await h.json(`/jobs/${s.job.id}/payment-gates`, gate, h.owner);
+    await h.json(`/jobs/${s.job.id}/payment-gates`, gate, h.owner, 409);
+    assert.deepEqual([made.locked, made.remainingCents, made.invoiceNumber], [true, 30000, `INV-${String((await h.json(`/invoices/${a.id}`, undefined, h.owner)).number).padStart(6, '0')}`]);
+    // Locked: the listing says so, the file door and a bearer share both refuse, and the client's own record stays open.
+    const lockedList = (await listed())[0]; assert.deepEqual([lockedList.locked.invoiceNumber, lockedList.locked.remainingCents], [made.invoiceNumber, 30000]);
+    const refused = await file(final); assert.equal(refused.status, 402); assert.match((await refused.json()).error, /locked until invoice INV-\d+ is paid/);
+    const versionRef = encodeURIComponent('deliverable:' + final.id), access = await h.json(`/documents/${versionRef}/access`, undefined, h.owner), share = await h.json(`/documents/${versionRef}/shares`, { revision: access.revision, contactId: s.billing.id, days: 1 }, h.owner);
+    assert.equal((await h.request('/api/blotter/shared-files/' + share.token)).status, 402);
+    assert.equal(await ownCopy(), 'Client supplied record');
+    assert.equal((await h.request(`/api/blotter/deliverables/versions/${final.id}/file`, undefined, h.owner)).status, 200, 'Staff always read their own work');
+    assert.equal((await h.json(`/jobs/${s.job.id}`, undefined, h.owner)).deliverables.find(d => d.id === final.deliverableId).paymentGate.locked, true);
+    // A card receipt for part of the invoice does not release it; a pending ACH deposit does not release it while settlement is required.
+    const card = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', method: 'card', reference: 'CARD-CONFIRM-1', amountCents: 10000, reason: 'Card payment confirmed' }, h.owner);
+    await h.json(`/invoices/${a.id}/credits`, { creditId: card.id, amountCents: 10000, reason: 'Apply the card receipt' }, h.owner);
+    assert.equal((await file(final)).status, 402);
+    await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', method: 'card', settlement: 'pending', reference: 'BAD', amountCents: 100, reason: 'A card is never pending' }, h.owner, 400);
+    const ach = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', method: 'ach', settlement: 'pending', reference: 'ACH-PENDING-1', amountCents: 20000, reason: 'ACH initiated; bank has not settled' }, h.owner);
+    await h.json(`/invoices/${a.id}/credits`, { creditId: ach.id, amountCents: 20000, reason: 'Apply the pending ACH deposit' }, h.owner);
+    let state = (await h.json(`/jobs/${s.job.id}`, undefined, h.owner)).deliverables.find(d => d.id === final.deliverableId).paymentGate;
+    assert.deepEqual([state.locked, state.remainingCents, state.pendingCents, state.achUnlock], [true, 20000, 20000, 'settled']);
+    assert.match((await (await file(final)).json()).error, /pending ACH payment is not yet settled/);
+    // The firm policy is the principal's alone; a pending ACH payment then releases the file.
+    const policy = { achUnlock: 'pending', holdThresholdCents: null, reason: 'The firm accepts pending ACH for returns' };
+    for (const who of [s.preparer, s.reviewer]) await h.json('/payment-policy', policy, who, 403);
+    await h.json('/payment-policy', undefined, s.preparer, 403);
+    await h.json('/payment-policy', { ...policy, achUnlock: 'maybe' }, h.owner, 400);
+    await h.json('/payment-policy', policy, h.owner);
+    assert.equal(await (await file(final)).text(), 'Final return copy'); assert.equal((await listed())[0].locked, null);
+    await h.json('/payment-policy', { ...policy, achUnlock: 'settled', reason: 'Wait for settlement again' }, h.owner);
+    assert.equal((await file(final)).status, 402);
+    await h.json(`/invoice-credits/${card.id}/settle`, { evidence: 'Not pending' }, h.owner, 404);
+    await h.json(`/invoice-credits/${ach.id}/settle`, { evidence: 'Bank settled the transfer' }, s.preparer, 403);
+    await h.json(`/invoice-credits/${ach.id}/settle`, { evidence: 'Bank settled the transfer' }, h.owner);
+    assert.equal(await (await file(final)).text(), 'Final return copy', 'The settled ACH payment pays the invoice and releases the file');
+    assert.equal(await ownCopy(), 'Client supplied record');
+    // A card receipt that covers the whole invoice releases a second file at once.
+    await h.json(`/jobs/${s.job.id}/payment-gates`, { deliverableId: second.deliverableId, invoiceId: b.id, reason: 'Second copy is released on payment' }, h.owner);
+    assert.equal((await file(second)).status, 402);
+    const paid = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', method: 'card', reference: 'CARD-CONFIRM-2', amountCents: 10000, reason: 'Card payment confirmed' }, h.owner);
+    await h.json(`/invoices/${b.id}/credits`, { creditId: paid.id, amountCents: 10000, reason: 'Apply the card receipt' }, h.owner);
+    assert.equal(await (await file(second)).text(), 'Second final copy');
+    // A partner override is recorded with its reason and can be taken back; a write-off alone does not release a gate.
+    const third_gate = await h.json(`/jobs/${s.job.id}/payment-gates`, { deliverableId: third.deliverableId, invoiceId: c.id, reason: 'Third copy is released on payment' }, h.owner);
+    await h.json(`/invoices/${c.id}/write-off`, { amountCents: 1000, reason: 'Small write-off' }, h.owner);
+    assert.equal((await file(third)).status, 402);
+    for (const who of [s.preparer, s.reviewer]) await h.json(`/payment-gates/${third_gate.id}/override`, { reason: 'Partner approved release' }, who, 403);
+    await h.json(`/payment-gates/${third_gate.id}/override`, { reason: '' }, h.owner, 400);
+    await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: ['financial_authority'], reason: 'Billing partner' }, h.owner);
+    const overridden = await h.json(`/payment-gates/${third_gate.id}/override`, { reason: 'Partner approved release: payment arrangement agreed by phone' }, s.reviewer);
+    assert.deepEqual([overridden.locked, overridden.releasedBy, overridden.override.approved_by, overridden.override.reason], [false, 'override', 'reviewer@example.test', 'Partner approved release: payment arrangement agreed by phone']);
+    await h.json(`/payment-gates/${third_gate.id}/override`, { reason: 'Again' }, h.owner, 409);
+    assert.equal(await (await file(third)).text(), 'Third final copy');
+    assert.ok((await h.json(`/clients/${s.client.id}/history?kind=billing`, undefined, h.owner)).history.some(e => e.action === 'payment.gate_overridden' && e.actor === 'reviewer@example.test' && e.detail.includes('payment arrangement')));
+    await h.json(`/payment-gates/${third_gate.id}/override`, { reason: 'Arrangement fell through', revoke: true }, h.owner);
+    assert.equal((await file(third)).status, 402);
+    await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: [], reason: 'Duties moved' }, h.owner);
+    await h.json(`/payment-gates/${third_gate.id}/override`, { reason: 'After the grant was revoked' }, s.reviewer, 403);
+
+    // Credit hold: staff see it on the client, new work warns, and a partner can override it with a reason.
+    assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.configured, false);
+    const hold = { achUnlock: 'settled', holdThresholdCents: 25000, holdGraceDays: 0, reason: 'Clients owing USD 250 past due go on hold' };
+    await h.json('/payment-policy', hold, h.owner);
+    const owner = (await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold, staff = (await h.json(`/clients/${s.client.id}/detail`, undefined, s.preparer)).creditHold;
+    assert.deepEqual([owner.onHold, owner.overdueCents, owner.thresholdCents], [true, 39000, 25000]);
+    assert.deepEqual([staff.onHold, staff.overdueCents, staff.thresholdCents], [true, null, null], 'Staff who cannot read billing see the hold, not the amounts');
+    const newJob = { clientId: s.client.id, templateId: s.template.id, periodStart: '2026-12-01', dueDate: '2027-01-15', dueNote: 'Recorded engagement date', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
+    const warned = await h.json('/jobs', newJob, h.owner); assert.equal(warned.warnings[0].kind, 'credit_hold'); assert.match(warned.warnings[0].message, /USD 390\.00 is overdue/);
+    const plan = await h.json('/bulk/schedule/preview', { templateId: s.template.id, periodStart: '2027-01-01', dueDate: '2027-02-15', dueNote: 'Recorded date', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', clients: [{ clientId: s.client.id }] }, h.owner);
+    assert.equal(plan.lines[0].warnings[0].kind, 'credit_hold');
+    const clean = await h.json('/clients', { name: 'Paid Up LLC', contacts: [contact('Pat Paid', 'pat-paid@example.test')] }, h.owner);
+    assert.deepEqual((await h.json('/jobs', { ...newJob, clientId: clean.id }, h.owner)).warnings, []);
+    await h.json(`/clients/${s.client.id}/credit-hold/override`, { reason: 'Partner approved new work' }, s.preparer, 403);
+    await h.json(`/clients/${s.client.id}/credit-hold/override`, { reason: '' }, h.owner, 400);
+    await h.json(`/clients/${clean.id}/credit-hold/override`, { reason: 'Not on hold' }, h.owner, 409);
+    const released = await h.json(`/clients/${s.client.id}/credit-hold/override`, { reason: 'Partner approved new work while the client pays on a plan' }, h.owner);
+    assert.deepEqual([released.onHold, released.overridden, released.override.reason], [false, true, 'Partner approved new work while the client pays on a plan']);
+    assert.deepEqual((await h.json('/jobs', { ...newJob, periodStart: '2027-01-01', dueDate: '2027-02-15' }, h.owner)).warnings, []);
+    assert.ok((await h.json(`/clients/${s.client.id}/history?kind=billing`, undefined, h.owner)).history.some(e => e.action === 'payment.hold_overridden' && e.detail.includes('pays on a plan')));
+    await h.json(`/clients/${s.client.id}/credit-hold/override`, { reason: 'Plan lapsed', revoke: true }, h.owner);
+    assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.onHold, true);
+    // Paying the overdue invoices down below the threshold ends the hold.
+    const settle = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', method: 'card', reference: 'CARD-CONFIRM-3', amountCents: 20000, reason: 'Card payment confirmed' }, h.owner);
+    await h.json(`/invoices/${c.id}/credits`, { creditId: settle.id, amountCents: 20000, reason: 'Apply the card receipt' }, h.owner);
+    assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.onHold, false);
+    // A restore carries the gates, the overrides, the policy and each receipt's method and settlement.
+    await h.json('/payment-policy', { ...hold, holdThresholdCents: 25000 }, h.owner);
+    await h.stepUp(h.owner);
+    const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    restored = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-14' } });
+    await restored.json('/restore', { archive, confirm: 'RESTORE', acknowledge }, restored.owner);
+    const back = (await restored.json(`/jobs/${s.job.id}`, undefined, restored.owner)).deliverables;
+    assert.deepEqual(back.map(d => [d.title, d.paymentGate.locked, d.paymentGate.releasedBy]).sort(), [['Final return copy', false, 'payment'], ['Second final copy', false, 'payment'], ['Third final copy', true, null]]);
+    assert.deepEqual((await restored.json('/payment-policy', undefined, restored.owner)).holdThresholdCents, 25000);
+    assert.deepEqual((await restored.json('/invoices', undefined, restored.owner)).credits.filter(x => x.id === ach.id).map(x => [x.method, x.settlement]), [['ach', 'settled']]);
   } finally { await restored?.close(); await h.close(); }
 });
 

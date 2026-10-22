@@ -43,7 +43,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>
         : <details><summary>Roll forward to the next period</summary>
-          <Form label="Create next period's job" submit={async data => run(async () => { const next = await api(`/jobs/${job.id}/roll-forward`, data); open(next.id); }, 'Next period created from the template')}>
+          <Form label="Create next period's job" submit={async data => run(async () => { const next = await api(`/jobs/${job.id}/roll-forward`, data); open(next.id); return next.warnings?.length ? `Next period created. Warning: ${next.warnings.map((w: Row) => w.message).join(' ')}` : undefined; }, 'Next period created from the template')}>
             <Field label="Due date (record it; roll forward does not compute it)" name="dueDate" type="date" />
             <Field label="Where the due date comes from" name="dueNote" value={job.due_note} />
           </Form>

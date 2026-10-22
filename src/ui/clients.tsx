@@ -66,7 +66,7 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
     {lead && <section className="panel wide">
       <h2>Start a job</h2>
       {!state.clients.length || !state.templates.length ? <Empty>Add a client and a template first.</Empty> :
-        <Form label="Start job" submit={async data => run(async () => { const j = await api('/jobs', data); open(j.id); }, 'Job started from the template')}>
+        <Form label="Start job" submit={async data => run(async () => { const j = await api('/jobs', data); open(j.id); return j.warnings?.length ? `Job started. Warning: ${j.warnings.map((w: Row) => w.message).join(' ')}` : undefined; }, 'Job started from the template')}>
           <div className="row">
             <Field label="Client" name="clientId"><select name="clientId" required>{state.clients.map((c: Row) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
             <Field label="Template" name="templateId"><select name="templateId" required>{state.templates.map((t: Row) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>

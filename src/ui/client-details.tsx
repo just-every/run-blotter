@@ -4,7 +4,7 @@ import { ClientErasure } from './client-erasure';
 import { ClientObligations } from './deadlines';
 import { DocumentPackets } from './document-packets';
 import { useEffect, useState } from 'react';
-import { api, Field, Form, type Row, type Run } from './common';
+import { api, Field, Form, money, when, type Row, type Run } from './common';
 
 const list = (value: string) => value.split(',').map(s => s.trim()).filter(Boolean);
 const FLAGS = [['authorized','Authorized for this entity'],['signer','Authorized signer'],['portal','Portal access'],['requestConsent','Document requests allowed'],['emailConsent','Email allowed'],['active','Active contact']] as const;
@@ -27,6 +27,7 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
   useEffect(() => { if (opened) api(`/clients/${clientId}/detail`).then(setDetail).catch(e => run(async () => { throw e; })); }, [clientId,tick,opened]);
   return <details onToggle={e => setOpened(e.currentTarget.open)}><summary>Client details and contacts</summary>
     {detail && <div className="stack" key={detail.revision}>
+      <CreditHold clientId={clientId} hold={detail.creditHold} partner={state.actor.role === 'owner' || Boolean(state.actor.financial)} run={run} />
       <details><summary>Client document folders</summary><SignatureRequests clientId={clientId} run={run} tick={tick}/><DocumentPackets clientId={clientId} run={run} tick={tick} /></details>
       {state.actor.role === 'owner' && <details open={detail.erased_at ? true : undefined}><summary>Retention, holds and erasure</summary><ClientErasure clientId={clientId} client={detail} jobs={state.jobs.filter((j: Row) => j.client_id === clientId)} run={run} tick={tick} /></details>}
       <details><summary>Taxpayer authorizations</summary><Authorizations clientId={clientId} client={detail} jobs={state.jobs.filter((j: Row) => j.client_id === clientId)} lead={state.actor.role !== 'preparer'} run={run} tick={tick} /></details>
@@ -49,4 +50,15 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
       <details><summary>Add another contact</summary><ContactForm clientId={clientId} run={run} /></details>
     </div>}
   </details>;
+}
+
+/** BILL-005: staff see a credit hold on the client; a partner can override it with a recorded reason. New work still proceeds with a warning. */
+function CreditHold({ clientId, hold, partner, run }: { clientId: string; hold: Row; partner: boolean; run: Run }) {
+  if (!hold?.onHold && !hold?.overridden) return null;
+  return <section className="notice" aria-label="Credit hold" role="status">
+    <p><strong>{hold.onHold ? 'Credit hold' : 'Credit hold overridden'}</strong>{hold.overdueCents !== null && <> · overdue balance {money(hold.overdueCents)} against the firm threshold of {money(hold.thresholdCents)}</>}. New work for this client shows this warning.</p>
+    {hold.override && <p>Overridden by {hold.override.approved_by} {when(hold.override.approved_at)}: {hold.override.reason}</p>}
+    {!partner ? null : hold.onHold ? <details><summary>Override the credit hold</summary><Form label="Override credit hold" submit={data => run(() => api(`/clients/${clientId}/credit-hold/override`, data), 'Credit hold overridden; reason recorded')}><Field label="Override reason" name="reason" /></Form></details>
+      : <Form danger label="Restore credit hold" submit={data => run(() => api(`/clients/${clientId}/credit-hold/override`, { ...data, revoke: true }), 'Credit hold restored')}><Field label="Reason to restore" name="reason" /></Form>}
+  </section>;
 }

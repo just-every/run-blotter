@@ -21,6 +21,7 @@ export function Deliverables({ job, deliverables, run, contacts = [] }: { job: R
         {v.status === 'approved' && <p className="notice">Approved by {v.approver_name}{v.approver_email && ` <${v.approver_email}>`} on {when(v.decided_at)} for SHA-256 {short(v.decided_sha256)}{v.comment && `: ${v.comment}`}.{v.moved_job === 1 ? ' The approval submitted the job for review.' : v.submit_on_approval === 1 ? ' The job stayed open: finish the checklist and accept every document, then submit it.' : ''}</p>}
         {v.status === 'changes_requested' && <p className="notice">Changes requested by {v.approver_name} on {when(v.decided_at)}: {v.comment}</p>}
       </li>)}</ul>
+      <PaymentGate deliverable={d} job={job} run={run} />
       {isOpen && <details><summary>Send a new version</summary>
         <Form label="Send version for approval" submit={async data => send(data, { deliverableId: d.id })}><VersionFields contacts={contacts} /></Form>
       </details>}
@@ -63,8 +64,10 @@ export function PortalDeliverables({ path, busy, act }: { path: string; busy: bo
     <h2>For your approval</h2>
     {list.map(d => <section key={d.id} className="panel">
       <div className="split"><h3>{d.title}</h3><Status value={d.status} /></div>
+      {d.locked && <p className="notice" role="status">This file is locked until invoice {d.locked.invoiceNumber} is paid. {d.locked.remainingCents > 0 ? `USD ${(d.locked.remainingCents / 100).toFixed(2)} is still due.` : ''}{d.locked.pendingCents > 0 ? ' Your ACH payment is pending and has not settled yet.' : ''} Documents you gave us stay available.</p>}
       {d.versions.map((v: Row) => <div key={v.id} className="record">
-        <p><a href={`${path}/deliverables/${v.id}/file`}>Version {v.version}: {v.name}</a> <small className="muted">sent {when(v.sentAt)} · SHA-256 {v.sha256.slice(0, 12)}</small></p>
+        {d.locked ? <p><strong>Version {v.version}: {v.name}</strong> <small className="muted">sent {when(v.sentAt)} · locked</small></p>
+          : <p><a href={`${path}/deliverables/${v.id}/file`}>Version {v.version}: {v.name}</a> <small className="muted">sent {when(v.sentAt)} · SHA-256 {v.sha256.slice(0, 12)}</small></p>}
         {v.note && <p className="muted">{v.note}</p>}
         {v.status === 'approved' && <p className="notice">Approved by {v.approverName} on {when(v.decidedAt)}.</p>}
         {v.status === 'changes_requested' && <p className="notice">{v.approverName} asked for changes on {when(v.decidedAt)}: {v.comment}</p>}
@@ -76,4 +79,26 @@ export function PortalDeliverables({ path, busy, act }: { path: string; busy: bo
       </div>)}
     </section>)}
   </>;
+}
+
+/** BILL-005 staff side: require payment of an issued invoice before the client can open this firm-prepared file. */
+function PaymentGate({ deliverable, job, run }: { deliverable: Row; job: Row; run: Run }) {
+  const [invoices, setInvoices] = useState<Row[]>([]), gate = deliverable.paymentGate;
+  useEffect(() => { api('/invoices').then(r => setInvoices(r.invoices.filter((i: Row) => i.client_id === job.client_id && i.status === 'issued' && !i.erased_at))).catch(() => setInvoices([])); }, [job.client_id, deliverable.id]);
+  if (!gate && !invoices.length) return null;
+  if (!gate) return <details><summary>Require payment before release</summary>
+    <p className="muted">The client sees this file as locked until the invoice is paid. Only the firm's own work product can be gated; records the client supplied are never withheld.</p>
+    <Form label="Require payment" submit={data => run(() => api(`/jobs/${job.id}/payment-gates`, { ...data, deliverableId: deliverable.id }), 'Payment now required before release')}>
+      <Field label="Invoice that must be paid" name="invoiceId"><select name="invoiceId">{invoices.map(i => <option key={i.id} value={i.id}>INV-{String(i.number).padStart(6, '0')} · {i.title}</option>)}</select></Field>
+      <Field label="Reason for the payment gate" name="reason" />
+    </Form></details>;
+  return <div className="notice" role="status">
+    <p><strong>{gate.locked ? 'Locked for the client' : gate.releasedBy === 'override' ? 'Released by partner override' : 'Released: paid'}</strong> · until {gate.invoiceNumber} is paid ({gate.remainingCents > 0 ? `USD ${(gate.remainingCents / 100).toFixed(2)} still counts as owed` : 'fully covered'}{gate.pendingCents > 0 && `; USD ${(gate.pendingCents / 100).toFixed(2)} in pending ACH`}) · {gate.reason}</p>
+    {gate.override && <p>Override by {gate.override.approved_by} {when(gate.override.approved_at)}: {gate.override.reason}</p>}
+    <details><summary>Partner controls</summary>
+      {gate.override ? <Form danger label="Relock the file" submit={data => run(() => api(`/payment-gates/${gate.id}/override`, { ...data, revoke: true }), 'File relocked')}><Field label="Reason to relock" name="reason" /></Form>
+        : <Form label="Release this file" submit={data => run(() => api(`/payment-gates/${gate.id}/override`, data), 'Partner override recorded')}><Field label="Override reason" name="reason" /></Form>}
+      <Form danger label="Remove the payment gate" submit={data => run(() => api(`/payment-gates/${gate.id}/remove`, data), 'Payment gate removed')}><Field label="Reason to remove" name="reason" /></Form>
+    </details>
+  </div>;
 }
