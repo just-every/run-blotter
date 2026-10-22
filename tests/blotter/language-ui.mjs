@@ -116,7 +116,7 @@ export async function languageJourney(h, { job, client, maria, englishOnly, kbTo
     await untranslated.getByLabel(`Spanish message for ${englishOnly.name}`, { exact: true }).fill('Hola {{contact_first_name}}, cargue {{outstanding_requests}} en {{portal_link}}.');
     await capture(messages, 'message-translation');
     const organizers = operator.locator('section.panel').filter({ has: operator.getByRole('heading', { name: 'Organizer versions', exact: true }) });
-    await organizers.getByLabel('Work template', { exact: true }).selectOption(job.template_id);
+    await organizers.locator('select').first().selectOption(job.template_id);
     await organizers.getByLabel('Spanish organizer name (optional)', { exact: true }).waitFor();
     await capture(organizers, 'organizer-translation');
     await operator.goto(`${h.origin}/app?job=${job.id}`);

@@ -102,6 +102,8 @@ export async function collectionsJourney(h, fixture) {
     await panel.getByText('Reminders are', { exact: false }).waitFor();
     const capture = async name => { for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await panel.scrollIntoViewIfNeeded(); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name} ${width} overflows`); await panel.screenshot({ path: `${directory}/${name}-${width}.png` }); } await page.setViewportSize({ width: 1440, height: 1000 }); };
     await capture('collections-schedule');
+    const warnings = await h.json('/invoices/reminders', undefined, h.owner);
+    if (warnings.warnings.length) await panel.getByRole('alert').filter({ hasText: 'has no Spanish version' }).waitFor();
     await panel.getByText('Client statement', { exact: true }).click();
     await panel.getByLabel('Statement client', { exact: true }).selectOption(fixture.client.id);
     await panel.getByLabel('Statement date', { exact: true }).fill('2026-12-27');

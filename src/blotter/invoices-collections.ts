@@ -6,7 +6,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { sendMail } from './documents';
 import { firmSettings, localClock } from './firm';
-import { engagementOnly, localize, render, usable } from './messages';
+import { engagementOnly, localize, render, translationWarning, usable } from './messages';
 import { atomic, audit, canReadBilling, date, digest, id, insist, integer, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 import { AGING_BUCKETS, agingBucket } from './invoice-aging';
 import { invoiceNumber } from './invoices-pdf';
@@ -32,7 +32,17 @@ export async function reminderState(db: D1Database, actor: Actor) {
   const clients = await rows(db, 'SELECT r.* FROM b_invoice_reminder_clients r JOIN b_clients c ON c.id=r.client_id WHERE c.erased_at IS NULL ORDER BY r.set_at');
   const mine: Data[] = [];
   for (const c of clients) if (await canAccessClient(db, actor.email, c.client_id)) mine.push({ ...c, offsets: c.offsets ? JSON.parse(c.offsets) : null });
-  return { policy: policy ? { ...policy, offsets: JSON.parse(policy.offsets) } : null, clients: mine };
+  const warnings: Data[] = [];
+  if (policy) {
+    const template = await stmt(db, 'SELECT t.id,t.name,? version FROM b_msg_templates t WHERE t.id=?', policy.template_version, policy.template_id).first<Data>();
+    if (template && (await localize(db, template, 'es')).missing) {
+      for (const contact of await rows(db, `SELECT c.id,c.client_id,c.name,c.email FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id
+        WHERE c.language='es' AND c.active=1 AND c.authorized=1 AND c.email_consent=1 AND e.lifecycle='active' AND e.erased_at IS NULL AND e.merged_into IS NULL AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing')`)) {
+        if (await canAccessClient(db, actor.email, contact.client_id)) warnings.push({ ...translationWarning(template, 'es'), contactId: contact.id, contactName: contact.name, address: contact.email });
+      }
+    }
+  }
+  return { policy: policy ? { ...policy, offsets: JSON.parse(policy.offsets) } : null, clients: mine, warnings };
 }
 
 /** Enabling the schedule is the consent: who, which template version, which steps and why, audited and step-up confirmed. */

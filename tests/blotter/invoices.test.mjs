@@ -624,5 +624,18 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     const carried = (await restored.json('/invoices/reminders', undefined, restored.owner)).policy;
     assert.equal(carried.status, 'paused'); assert.equal(carried.consenter_id, null);
     const quiet = restored.mails.length; await restored.scheduled('2027-01-05T15:00:00Z'); assert.equal(restored.mails.length, quiet);
+    // Staff see the missing Spanish version before scheduled sends; the fallback stays honest and later steps use the supplied translation.
+    await h.json(`/clients/${s.client.id}/contacts`, { id: s.billing.id, revision: s.billing.revision, language: 'es' }, h.owner);
+    const localizedSchedule = await h.json('/invoices/reminders', { ...schedule, offsets: [-3, 0, 7, 30, 31] }, h.owner);
+    assert.ok(localizedSchedule.warnings.some(w => w.contactId === s.billing.id && w.kind === 'no_translation' && /English text/.test(w.message)));
+    await collectionsJourney(h, s);
+    let translatedMailCount = h.mails.length;
+    await h.scheduled('2027-01-09T15:00:00Z');
+    assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Reminder: USD 200.00 due 2026-12-10');
+    await h.json(`/messages/templates/${template.id}/translations`, { language: 'es', subject: 'Recordatorio: {{invoice_amount}} vence {{invoice_due_date}}', body: 'Hola {{contact_first_name}}, {{client_name}} debe {{invoice_amount}} antes del {{invoice_due_date}}.' }, h.owner);
+    assert.deepEqual((await h.json('/invoices/reminders', undefined, h.owner)).warnings, []);
+    translatedMailCount = h.mails.length; await h.scheduled('2027-01-10T15:00:00Z');
+    assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Recordatorio: USD 200.00 vence 2026-12-10');
+
   } finally { await restored?.close(); await h.close(); }
 });

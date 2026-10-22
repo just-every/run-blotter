@@ -149,16 +149,16 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
     const loc = await localize(db, t, c.contact.language ?? 'en'), r = render(loc.subject, loc.body, await values(db, sender, body.class, c, linked ? LINK_PREVIEW : '', organizer?.id), undefined);
     if (loc.missing) untranslated.push({ client: c.client.name, address: c.contact.email, language: loc.language });
     if (r.missing.length) excluded.push({ client_id: c.client.id, client: c.client.name, contact_id: c.contact.id, address: c.contact.email, reason: `unresolved placeholder: ${r.missing.map(m => m.label).join(', ')}` });
-    else recipients.push({ c, r, organizer });
+    else recipients.push({ c, r, organizer, language: loc.language, wordingHash: await digest(JSON.stringify([loc.subject, loc.body])) });
   }
   if (!recipients.length) throw new Fault('No recipient in this segment can receive this message', 409, { exclusions: excluded.map(e => ({ client: e.client, address: e.address ?? '', reason: e.reason })) });
   const batchId = id(), at = now(), chunk = body.chunkSize === undefined ? 50 : integer(body.chunkSize, 'Chunk size', 1, 500);
-  const fingerprint = await digest(JSON.stringify([body.class, t.id, t.version, filter, role, reason, topic, attachOrganizer, recipients.map(({ c, organizer }) => [c.client.id, c.contact.id, c.contact.email, c.basis, organizer]), excluded.map(e => [e.client_id, e.contact_id ?? '', e.reason])]));
+  const fingerprint = await digest(JSON.stringify([body.class, t.id, t.version, filter, role, reason, topic, attachOrganizer, recipients.map(({ c, organizer, language, wordingHash }) => [c.client.id, c.contact.id, c.contact.email, c.basis, organizer, language, wordingHash]), excluded.map(e => [e.client_id, e.contact_id ?? '', e.reason])]));
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_bulk_batches(id,idempotency_key,class,template_id,template_version,reason,topic,role,filter,fingerprint,status,chunk_size,owner_email,created_by,created_at,attach_organizer) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       batchId, key, body.class, t.id, t.version, reason, topic, role, JSON.stringify(filter), fingerprint, 'previewed', chunk, actor.email, actor.email, at, attachOrganizer ? 1 : 0),
-    ...recipients.map(({ c, organizer }, n) => stmt(db, "INSERT INTO b_bulk_recipients(id,batch_id,ordinal,client_id,contact_id,address,dedupe_key,basis,job_id,status,organizer_id,organizer_revision) VALUES(?,?,?,?,?,?,?,?,?,'pending',?,?)",
-      id(), batchId, n + 1, c.client.id, c.contact.id, c.contact.email, body.class === 'marketing' ? c.contact.email : c.client.id, c.basis, c.jobId, organizer?.id ?? null, organizer?.revision ?? null)),
+    ...recipients.map(({ c, organizer, language, wordingHash }, n) => stmt(db, "INSERT INTO b_bulk_recipients(id,batch_id,ordinal,client_id,contact_id,address,dedupe_key,basis,job_id,status,organizer_id,organizer_revision,preview_language,template_wording_hash) VALUES(?,?,?,?,?,?,?,?,?,'pending',?,?,?,?)",
+      id(), batchId, n + 1, c.client.id, c.contact.id, c.contact.email, body.class === 'marketing' ? c.contact.email : c.client.id, c.basis, c.jobId, organizer?.id ?? null, organizer?.revision ?? null, language, wordingHash)),
     ...excluded.map(e => stmt(db, 'INSERT INTO b_bulk_exclusions(id,batch_id,client_id,contact_id,address,reason) VALUES(?,?,?,?,?,?)', id(), batchId, e.client_id, e.contact_id ?? null, e.address ?? '', e.reason)),
     audit(db, actor, 'bulk.previewed', batchId, `${body.class}: ${recipients.length} recipients, ${excluded.length} excluded`)]);
   return { ...await batchDetail(db, actor, batchId), untranslated, samples: recipients.slice(0, 3).map(({ c, r }) => ({ client: c.client.name, to: c.contact.email, subject: r.subject, body: r.body })), notice: topic === 'other' ? NOTICE_7216 : null };
@@ -215,6 +215,11 @@ async function recheck(db: D1Database, b: Data, r: Data, linked: boolean) {
   if (!c.active || c.email !== r.address) return 'contact inactive or address changed';
   if (!c.email_consent) return 'email consent withdrawn';
   if (c.invalid) return 'address invalid after a hard bounce';
+  if ((c.language ?? 'en') !== r.preview_language) return 'contact language changed; preview again';
+  const version = await stmt(db, 'SELECT subject,body FROM b_msg_template_versions WHERE template_id=? AND version=?', b.template_id, b.template_version).first<Data>();
+  if (!version) return 'template version unavailable';
+  const localized = await localize(db, { id: b.template_id, version: b.template_version, ...version }, c.language ?? 'en');
+  if (r.template_wording_hash ? r.template_wording_hash !== await digest(JSON.stringify([localized.subject, localized.body])) : c.language === 'es') return 'template translation changed; preview again';
   if (b.class === 'engagement') {
     if (!c.authorized || !c.has_role) return 'contact no longer authorized for this role';
     if (!await basisFor(db, r.client_id, JSON.parse(b.filter).workTypeId)) return 'engagement basis ended';
