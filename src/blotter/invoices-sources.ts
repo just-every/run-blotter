@@ -63,9 +63,9 @@ export async function invoiceOpenBalances(db: D1Database, clientId: string) {
     i.subtotal_cents+i.tax_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0) balance_cents
     FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.subtotal_cents+i.tax_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0) ORDER BY i.due_date,i.id`, clientId);
   const liabilities = await rows(db, `SELECT c.id,NULL number,'Unapplied '||c.kind||': '||c.reference title,c.recorded_by owner_email,NULL due_date,c.kind,
-    c.amount_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status<>'void'),0) balance_cents
-    FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status<>'void'),0) ORDER BY c.recorded_at,c.id`, clientId);
+    c.amount_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) balance_cents
+    FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) ORDER BY c.recorded_at,c.id`, clientId);
   return [...invoices, ...liabilities];
 }
 export const noInvoiceOpenBalanceSql = `NOT EXISTS(SELECT 1 FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.subtotal_cents+i.tax_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0))
- AND NOT EXISTS(SELECT 1 FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status<>'void'),0))`;
+ AND NOT EXISTS(SELECT 1 FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0))`;

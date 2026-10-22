@@ -71,6 +71,7 @@ test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and 
     await h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Review' }, s.reviewer, 403);
     await h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: 'stale', reviewNote: 'Review' }, h.owner, 409);
     const issued = await issue(h, invoice);
+    assert.ok(!(await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner)).blockers.some(b=>/unapplied deposit/i.test(b)),'Issuing applies the reserved deposit; any unpaid invoice remains a separate refusal');
     await h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Duplicate event' }, h.owner, 409);
     await assertInvoiceReport(h,s,invoice.id);
     const document = await pdf(h, invoice.id), again = await pdf(h, invoice.id);

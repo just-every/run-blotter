@@ -67,7 +67,7 @@ export async function invoiceJourney(h, fixture, rule) {
     const reports=page.getByRole('region',{name:'Performance reports',exact:true});
     await reports.getByLabel('Period from',{exact:true}).fill('2026-11-01');await reports.getByLabel('Period to',{exact:true}).fill('2026-11-30');
     await reports.getByLabel('Report client',{exact:true}).selectOption(fixture.client.id);await reports.getByRole('button',{name:'Run report',exact:true}).click();
-    const native=reports.locator('section').filter({has:reports.getByRole('heading',{name:'Native invoices and receivables',exact:true})});await native.waitFor();
+    const native=reports.getByRole('region',{name:'Native invoice reporting',exact:true});await native.waitFor();
     for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await native.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await native.screenshot({path:`${directory}/invoice-report-${width}.png`});}
     for(const format of ['CSV','PDF']){const [file]=await Promise.all([page.waitForEvent('download'),reports.getByRole('link',{name:'Download report '+format,exact:true}).click()]);assert.equal(await file.failure(),null);}
     await client.close();await context.close();
