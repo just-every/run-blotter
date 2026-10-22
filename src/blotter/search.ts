@@ -73,7 +73,7 @@ async function candidates(db: D1Database, actor: Actor): Promise<Hit[]> {
     rows(db, `SELECT m.id,m.body,m.created_at,t.id thread_id,t.title,t.job_id,t.client_id,c.name client FROM b_thread_messages m JOIN b_threads t ON t.id=m.thread_id JOIN b_clients c ON c.id=t.client_id WHERE ${threadSql}`, ...(lead ? [] : [actor.email])),
     rows(db, `SELECT f.id,f.name,f.job_id,f.uploaded_at,x.text,b_jobs.title,b_jobs.client_id,c.name client FROM b_files f JOIN b_jobs ON b_jobs.id=f.job_id JOIN b_clients c ON c.id=b_jobs.client_id
       LEFT JOIN b_file_text x ON x.file_id=f.id WHERE f.erased_at IS NULL AND ${readableJobSql} AND ${documentAuthority(actor,'f.id')}`, ...job),
-    rows(db,`SELECT i.id,i.number,i.title,i.job_id,i.issued_at,i.prepared_at,b_jobs.client_id,c.name client FROM b_invoices i JOIN b_jobs ON b_jobs.id=i.job_id JOIN b_clients c ON c.id=b_jobs.client_id WHERE i.erased_at IS NULL AND ${readableJobSql}`,...job),
+    rows(db,`SELECT i.id,i.number,i.title,i.job_id,i.issued_at,i.prepared_at,b_jobs.client_id,c.name client FROM b_invoices i JOIN b_jobs ON b_jobs.id=i.job_id JOIN b_clients c ON c.id=b_jobs.client_id WHERE i.erased_at IS NULL AND c.erased_at IS NULL AND ${readableJobSql}`,...job),
   ]);
   return [
     ...clients.map(c => ({ type: 'client', id: c.id, title: c.name, detail: c.contact_name, body: '', at: c.created_at ?? '', open: { kind: 'client', clientId: c.id }, clientId: c.id, taxId: c.abn, ssn: c.ssn_last4 })),
