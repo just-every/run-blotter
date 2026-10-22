@@ -3,7 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import {SignaturePdfPreview} from './signature-pdf-preview';
 import { api, Field, Form, readFile, Status, when, type Row, type Run } from './common';
 import { useT } from './i18n';
-import type { Key } from '../i18n/catalog';
+import { hasKey, type Key } from '../i18n/catalog';
 
 /** Reuses the existing job/client panels and forms. Frozen requests are never edited. */
 export function SignatureRequests({detail,clientId,people=[],run,tick=0,readOnly=false}:{detail?:Row;clientId?:string;people?:Row[];run:Run;tick?:number;readOnly?:boolean}) {
@@ -76,7 +76,7 @@ export function PortalSignatures({path,busy,act}:{path:string;busy:boolean;act:(
   if(!items.length&&!failure)return null;
   return <section className="panel" aria-labelledby="signatures-title" style={{minWidth:0,overflowWrap:'anywhere'}}><h2 id="signatures-title">{t('sig.title')}</h2>{failure&&<p role="alert">{failure}</p>}
     <ul>{items.map(r=><li key={r.id}><button className="quiet" disabled={busy} onClick={()=>open(r.id)}>{r.title}</button> · <Status value={r.status}/></li>)}</ul>
-    {selected&&<article className="record" aria-labelledby="signature-selected"><h3 id="signature-selected">{selected.title}</h3><p>{t('sig.mode',{mode:mode(selected.mode),attempt:selected.attempt,status:selected.status})}</p><p><a href={`${path}/signatures/${selected.id}/files/original`} target="_blank" rel="noreferrer">{t('sig.read')}</a></p>
+    {selected&&<article className="record" aria-labelledby="signature-selected"><h3 id="signature-selected">{selected.title}</h3><p>{t('sig.mode',{mode:mode(selected.mode),attempt:selected.attempt,status:hasKey(`status.${selected.status}`)?t(`status.${selected.status}` as Key):selected.status})}</p><p><a href={`${path}/signatures/${selected.id}/files/original`} target="_blank" rel="noreferrer">{t('sig.read')}</a></p>
       <ol>{selected.signers.map((s:Row)=><li key={s.ordinal}>{s.name} · <Status value={s.status}/>{s.signedAt&&<> · {when(s.signedAt)}</>}</li>)}</ol>
       {selected.attestationRequired&&!selected.attested&&selected.status==='pending'&&<p>{t('sig.attest')}</p>}
       {!selected.canSign&&selected.attested!==false&&selected.status==='pending'&&selected.signerStatus==='pending'&&<p>{t('sig.waiting')}</p>}

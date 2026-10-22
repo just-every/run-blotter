@@ -41,6 +41,11 @@ export async function languageJourney(h, { job, kbToken, kbId }) {
     await page.goto(`${h.origin}/portal/${kbToken}`);
     await page.getByRole('heading', { level: 1, name: /^Documentos para / }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'es');
+    // Panels that load after the page (signatures, deliverables) keep the contact's language too.
+    const signatures = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Sus solicitudes de firma' }) });
+    await signatures.getByText('Pendiente', { exact: true }).first().waitFor();
+    assert.deepEqual([await signatures.getByText('Completado', { exact: true }).count() > 0, await signatures.getByText(/^(Pending|Completed)$/).count()], [true, 0], 'Signature statuses read in Spanish');
+    await page.getByText('Enviado', { exact: true }).first().waitFor();
     const checks = {};
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
