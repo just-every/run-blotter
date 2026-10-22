@@ -45,7 +45,7 @@ export async function fieldValues(fields:Data[],input:Data) {
     return [f.id,value];
   }));
 }
-export async function finishPdf(request:Data,signers:Data[]) {
+export async function finishPdf(request:Data,signers:Data[],attestations:Data[]=[]) {
   const pdf=await openPdf(unbase64(request.source_base64)),font=await pdf.embedFont(StandardFonts.Helvetica),fields:Data[]=JSON.parse(request.fields);
   for(const f of fields){const s=signers.find(s=>s.contact_id===f.contactId)!,value=JSON.parse(s.values_json)[f.id],page=pdf.getPage(f.page-1);
     const size=Math.min(f.type==='signature'?16:11,(f.width-8)/Math.max(font.widthOfTextAtSize(value,1),1),f.height-6);
@@ -56,7 +56,12 @@ export async function finishPdf(request:Data,signers:Data[]) {
   const signed=await pdf.save(),signedHash=await digest(signed),certificate=await PDFDocument.create(),cf=await certificate.embedFont(StandardFonts.Helvetica);
   let page=certificate.addPage([612,792]),y=750;
   const line=(value:string)=>{const printable=value.replace(/[^\x20-\x7e\xa0-\xff]/g,'?');for(let start=0;start<printable.length;start+=87){if(y<45){page=certificate.addPage([612,792]);y=750;}page.drawText(printable.slice(start,start+87),{x:38,y,size:10,font:cf});y-=15;}};
-  for(const value of ['Blotter electronic signature completion certificate',`Request: ${request.id}; attempt ${request.attempt}`,`Document: ${request.title}`,`Work: ${request.job_id}`,`Order: ${request.mode}`,`Requested by: ${request.original_requester}`,`Completed: ${request.completed_at}`,`Original SHA-256: ${request.source_sha256}`,`Signed PDF SHA-256: ${signedHash}`,'Authentication: entity/contact-scoped portal link possession. Personal identity not verified.','Signature method: typed electronic signature; no KBA or cryptographic digital signature.','Consent: '+CONSENT_VERSION,SIGNING_CONSENT])line(value);
-  for(const s of signers){line('');for(const v of [`Signer ${s.ordinal}: ${s.name} <${s.email}>`,`Contact: ${s.contact_id}; authorized entity signer at execution`,`Signed: ${s.signed_at}; portal login/link ID: ${s.portal_link_id}`,'Connection IP and browser details are not collected.',`Consent version: ${s.consent_version}`,`Entered fields: ${s.values_json}`])line(v);}
+  for(const value of ['Blotter electronic signature completion certificate',`Request: ${request.id}; attempt ${request.attempt}`,`Document: ${request.title}`,`Work: ${request.job_id}`,`Order: ${request.mode}`,`Requested by: ${request.original_requester}`,`Completed: ${request.completed_at}`,`Original SHA-256: ${request.source_sha256}`,`Signed PDF SHA-256: ${signedHash}`,'Authentication: entity/contact-scoped portal link possession or an authenticated staff session. Blotter did not itself verify personal identity (identity not verified).','Signature method: typed electronic signature; no KBA or cryptographic digital signature.','Consent: '+CONSENT_VERSION,SIGNING_CONSENT])line(value);
+  if(request.attestation_required)for(const v of ['Form status: this form is electronically signed and may be submitted only online at IRS.gov/Submit2848.','Remote authentication: a staff member recorded the attestation below for each remote signer before that signer could sign.'])line(v);
+  for(const s of signers){line('');const a=attestations.find(a=>a.contact_id===s.contact_id);
+    for(const v of [`Signer ${s.ordinal}: ${s.name} <${s.email}>`,s.signer_kind==='staff'?`Staff signer: ${s.email}; signed in their own authenticated staff session`:`Contact: ${s.contact_id}; authorized entity signer at execution`,`Signed: ${s.signed_at}; ${s.signer_kind==='staff'?'session':'portal login/link'} ID: ${s.portal_link_id}`,
+      `Consent and signature from connection IP: ${s.connection_ip}`,`Consent and signature from user agent: ${s.connection_user_agent}`,`Consent version: ${s.consent_version}`,
+      ...(a?[`Remote-authentication attestation: ${String(a.method).replaceAll('_',' ')}; verified by ${a.verifier} on ${a.verified_on}; recorded by ${a.recorded_by} at ${a.recorded_at}`,`Items checked: ${JSON.parse(a.items).join(', ')||'none (personal knowledge)'}${a.secondary_document?`; secondary document: ${a.secondary_document}`:''}${a.note?`; note: ${a.note}`:''}`]:[]),
+      `Entered fields: ${s.values_json}`])line(v);}
   const cert=await certificate.save();return {signed:base64(signed),signedHash,certificate:base64(cert),certificateHash:await digest(cert)};
 }

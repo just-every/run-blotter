@@ -12,7 +12,8 @@ export async function signatureClocks(db:D1Database,timeZone:string,years:number
 export function signatureExpiryEffects(requestId:string,at:string) {
   const r=lit(requestId);
   return [
-    {table:'b_signature_signers',label:'Signer personal fields, entered text, connection evidence and decline reasons',where:`request_id=${r}`,set:"name='[erased]',email='[erased]',values_json=NULL,portal_link_id=NULL,decline_reason=NULL",action:'redact' as const},
+    {table:'b_signature_signers',label:'Signer personal fields, entered text, connection evidence and decline reasons',where:`request_id=${r}`,set:"name='[erased]',email='[erased]',values_json=NULL,portal_link_id=NULL,decline_reason=NULL,connection_ip=NULL,connection_user_agent=NULL",action:'redact' as const},
+    {table:'b_signature_attestations',label:'Remote-authentication attestations: verifier, items checked and notes (method, dates and recorder stay)',where:`request_id=${r}`,set:"verifier='[erased]',items='[]',secondary_document=NULL,note=NULL",action:'redact' as const},
     {table:'b_signature_events',label:'Signature event detail (action, author and time stay)',where:`request_id=${r}`,set:"detail='[erased]'",action:'redact' as const},
     {table:'b_signatures',label:'Original, signed PDF, certificate and field labels (ids, authors, dates and SHA-256 stay)',where:`id=${r} AND erased_at IS NULL`,set:`title='[erased]',source_name='[erased]',source_base64=NULL,signed_base64=NULL,certificate_base64=NULL,fields='[]',void_reason=NULL,erased_at=${lit(at)}`,action:'redact' as const},
   ];
@@ -22,7 +23,8 @@ export function signatureErasureSteps(x:Context):Step[] {
   const requests=`(SELECT s.id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE j.client_id=${lit(x.client)} AND s.status<>'completed' AND j.id NOT IN (${heldJobs}) AND s.id NOT IN (${heldRequests}))`;
   const own=`id IN ${requests}`,child=`request_id IN ${requests}`;
   const list:Step[]=[
-    {cls:'signed_documents',table:'b_signature_signers',action:'redact',label:'Uncompleted signature attempts: signer personal fields and entered values',where:child,set:"name='[erased]',email='[erased]',values_json=NULL,portal_link_id=NULL,decline_reason=NULL"},
+    {cls:'signed_documents',table:'b_signature_signers',action:'redact',label:'Uncompleted signature attempts: signer personal fields and entered values',where:child,set:"name='[erased]',email='[erased]',values_json=NULL,portal_link_id=NULL,decline_reason=NULL,connection_ip=NULL,connection_user_agent=NULL"},
+    {cls:'signed_documents',table:'b_signature_attestations',action:'redact',label:'Uncompleted signature attestations: verifier, items checked and notes',where:child,set:"verifier='[erased]',items='[]',secondary_document=NULL,note=NULL"},
     {cls:'signed_documents',table:'b_signature_events',action:'redact',label:'Uncompleted signature timeline details',where:child,set:"detail='[erased]'"},
     {cls:'signed_documents',table:'b_signature_deliveries',action:'redact',label:'Signature invitation provider details',where:child,set:"delivery='[erased]'"},
     {cls:'signed_documents',table:'b_signatures',action:'redact',label:'Uncompleted signature request PDFs and fields',where:own,set:`title='[erased]',source_name='[erased]',source_base64=NULL,signed_base64=NULL,certificate_base64=NULL,fields='[]',void_reason=NULL,erased_at=${lit(x.at)}`},

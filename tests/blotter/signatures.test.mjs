@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {inflateSync} from 'node:zlib';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
-import {signatureAppJourney,signatureOwnerJourney} from './signatures-ui.mjs';
+import {signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
@@ -22,7 +22,8 @@ const draft=(h,f,extra={},who=f.prep)=>h.json(`/jobs/${f.job.id}/signatures`,{ti
 const token=i=>new URL(i.portalUrl).pathname.split('/').at(-1);
 const open=(h,t,id)=>h.json(`/portal/${t}/signatures/${id}`);
 const signBody=v=>({revision:v.revision,attempt:v.attempt,consent:true,intent:true,consentVersion:v.consentVersion,values:Object.fromEntries(v.fields.map(f=>[f.id,f.type==='date'?'2026-10-22':f.type==='initials'?'SB':f.type==='signature'?v.signerName:'Reviewed']))});
-const sign=(h,t,id,v,expected=200,extra={})=>h.json(`/portal/${t}/signatures/${id}/sign`,{...signBody(v),...extra},'',expected);
+const browser={'user-agent':'synthetic-blotter-browser/1'};
+const sign=(h,t,id,v,expected=200,extra={},headers=browser)=>h.json(`/portal/${t}/signatures/${id}/sign`,{...signBody(v),...extra},'',expected,headers);
 async function sent(h,f,extra={}){const d=await draft(h,f,extra);return h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep);}
 async function complete(h,r){for(const i of r.invitations){const t=token(i),v=await open(h,t,r.id);await sign(h,t,r.id,v);}return h.json(`/signatures/${r.id}`,undefined,h.owner);}
 function pdfText(bytes){let text='';const raw=Buffer.from(bytes).toString('latin1');for(const m of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)){let content;try{content=inflateSync(Buffer.from(m[1],'latin1')).toString('latin1');}catch{content=m[1];}for(const t of content.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g))text+=Buffer.from(t[1],'hex').toString('latin1');}return text;}
@@ -51,10 +52,10 @@ test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized seq
   const before=h.mails.length,a=await open(h,t1,r.id);await sign(h,t1,r.id,a);await sign(h,t1,r.id,a,409);
   let notices=(await h.json('/notifications',undefined,f.prep)).filter(n=>n.kind==='signature');assert.equal(notices.length,2);assert.equal(notices.filter(n=>n.delivery.startsWith('deferred:')).length,1);assert.equal(notices.filter(n=>n.delivery.startsWith('not enabled')).length,1);assert.equal(h.mails.length,before);
   const b=await open(h,t2,r.id);assert.equal(b.canSign,true);await sign(h,t2,r.id,b);await sign(h,t2,r.id,b,409);
-  const done=await h.json(`/signatures/${r.id}`,undefined,f.prep);assert.equal(done.status,'completed');assert.ok(done.hasSigned&&done.hasCertificate);assert.deepEqual(done.signers.map(s=>s.status),['signed','signed']);assert.ok(done.signers.every(s=>s.consent_text&&s.consent_version&&!Object.hasOwn(s,'ip')&&s.portal_link_id));
+  const done=await h.json(`/signatures/${r.id}`,undefined,f.prep);assert.equal(done.status,'completed');assert.ok(done.hasSigned&&done.hasCertificate);assert.deepEqual(done.signers.map(s=>s.status),['signed','signed']);assert.ok(done.signers.every(s=>s.consent_text&&s.consent_version&&s.connection_ip==='192.0.2.1'&&s.connection_user_agent==='synthetic-blotter-browser/1'&&s.portal_link_id));
   const signedBytes=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,f.prep)).arrayBuffer()),certBytes=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/certificate`,undefined,f.prep)).arrayBuffer());
   assert.equal((await PDFDocument.load(signedBytes)).getPageCount(),1);assert.equal(sha(signedBytes),done.signed_sha256);assert.equal(sha(certBytes),done.certificate_sha256);assert.notDeepEqual(signedBytes,f.bytes);for(const value of [...f.client.contacts.slice(0,2).map(c=>c.name),'SB','2026-10-22','Reviewed'])assert.ok(pdfText(signedBytes).includes(value));
-  const certificate=pdfText(certBytes);assert.ok(certificate.includes(done.signed_sha256)&&!certificate.includes('192.0.2.1')&&certificate.includes('identity not verified'));
+  const certificate=pdfText(certBytes);assert.ok(certificate.includes(done.signed_sha256)&&certificate.includes('192.0.2.1')&&certificate.includes('synthetic-blotter-browser/1')&&certificate.includes('identity not verified'));
   assert.equal((await h.json(`/clients/${f.client.id}/signatures`,undefined,f.prep)).filter(x=>x.id===r.id).length,1);
   assert.ok((await h.json(`/clients/${f.client.id}/history`,undefined,f.prep)).history.some(e=>e.action==='signature.completed'&&e.object_id===f.job.id));assert.ok(done.events.some(e=>e.action==='declined')&&done.events.some(e=>e.action==='resent'));
   assert.equal((await h.request(`/api/blotter/portal/${t1}/signatures/${r.id}/files/certificate`)).status,200);
@@ -106,8 +107,50 @@ test('SIGN-002 / ERASURE-002: record/class/job holds, clocks, pending refusal, p
   const retainedHistory=await h.json(`/clients/${f.client.id}/history`,undefined,h.owner);
   assert.ok(retainedHistory.history.some(e=>e.action==='signature.retained_read'),'Principal retained-document reads are attributed');
   assert.ok(!JSON.stringify(retainedHistory.history).includes(f.client.name),'Normal client history excludes retained signed identity');assert.equal((await h.request(`/api/blotter/signatures/${pending.id}/files/original`,undefined,h.owner)).status,404);
+  assert.ok((await h.json(`/signatures/${r.id}`,undefined,h.owner)).signers.every(s=>s.connection_ip&&s.connection_user_agent),'Connection evidence is retained with the signed record');
   await h.json('/retention/ready/confirm',{kind:'signature',id:r.id,reason:'Retention period ended'},f.prep,403);
-  const expiry=await h.json('/retention/ready/confirm',{kind:'signature',id:r.id,reason:'Retention period ended'},h.owner);assert.ok(expiry.effects.some(e=>e.table==='b_signatures'&&e.count>0));const erased=await h.json(`/signatures/${r.id}`,undefined,h.owner);assert.equal(erased.signed_sha256,done.signed_sha256);assert.equal(erased.hasSigned,false);assert.equal(erased.hasCertificate,false);assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).status,404);assert.ok(!(await h.json('/retention/ready',undefined,h.owner)).ready.some(x=>x.kind==='signature'&&x.id===r.id));
+  const expiry=await h.json('/retention/ready/confirm',{kind:'signature',id:r.id,reason:'Retention period ended'},h.owner);assert.ok(expiry.effects.some(e=>e.table==='b_signatures'&&e.count>0));const erased=await h.json(`/signatures/${r.id}`,undefined,h.owner);assert.equal(erased.signed_sha256,done.signed_sha256);assert.ok(erased.signers.every(s=>s.connection_ip===null&&s.connection_user_agent===null),'Expiry erases connection evidence with the signed record');assert.equal(erased.hasSigned,false);assert.equal(erased.hasCertificate,false);assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).status,404);assert.ok(!(await h.json('/retention/ready',undefined,h.owner)).ready.some(x=>x.kind==='signature'&&x.id===r.id));
   const latest=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();copy=await harness();await copy.json('/restore',{archive:stale,journal:latest,confirm:'RESTORE'},copy.owner,409);const journal=await h.json('/erasure-journal',undefined,h.owner);assert.ok(journal.epoch>0&&journal.receipts.some(x=>x.id===receipt.id));
  }finally{await copy?.close();await h.close();}
+});
+
+test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the representative signs in their own session, connection evidence is certified, and IRS e-file forms are refused by their PDF text',async()=>{
+ const h=await harness();try{
+  const f=await fixture(h),rep='staff:'+prepEmail;
+  const pdfWith=async lines=>{const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),page=pdf.addPage([612,792]);lines.forEach((line,i)=>page.drawText(line,{x:40,y:740-i*20,font,size:12}));return Buffer.from(await pdf.save()).toString('base64');};
+  // An e-file authorization named only inside the PDF is refused for SIGN-001, whatever its title and file name.
+  const plain=(contentBase64,extra={})=>({title:'Engagement',formKind:'general',requiresKba:false,mode:'sequential',contactIds:[f.client.contacts[0].id],fields:fields(f).slice(0,4),file:{name:'engagement.pdf',mime:'application/pdf',contentBase64},...extra});
+  for(const form of ['Form 8879 IRS e-file Signature Authorization','Form 8879-S IRS e-file Signature Authorization for Form 1120-S','Form 8878 IRS e-file Signature Authorization for Form 4868'])
+   assert.match((await h.json(`/jobs/${f.job.id}/signatures`,plain(await pdfWith([form])),f.prep,409)).error,/SIGN-001/);
+  // A Form 2848 named only in its text: the client signs after a staff attestation, then the representative in session.
+  const repFields=[{type:'signature',contactId:rep,page:1,x:40,y:400,width:240,height:28,label:'Representative signature'},{type:'date',contactId:rep,page:1,x:320,y:400,width:240,height:28,label:'Representative date'}];
+  const poa={...plain(await pdfWith(['Form 2848 Power of Attorney and Declaration of Representative','Taxpayer: Mia Chen'])),title:'Power of attorney',contactIds:[f.client.contacts[0].id,rep],fields:[...fields(f).slice(0,4),...repFields]};
+  const d=await h.json(`/jobs/${f.job.id}/signatures`,poa,f.prep);assert.equal(d.attestation_required,1);
+  const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep);assert.equal(r.invitations.length,1,'The staff representative gets no portal invitation');
+  const t=token(r.invitations[0]);let v=await open(h,t,r.id);assert.equal(v.attestationRequired,true);assert.equal(v.canSign,false);
+  assert.match((await sign(h,t,r.id,v,409)).error,/remote-authentication attestation/);
+  const attest={contactId:f.client.contacts[0].id,method:'photo_id_video',verifier:'Pat Harper',verifiedOn:'2026-10-21',items:['name','ssn_or_itin','address','date_of_birth'],secondaryDocument:'Utility bill matching name and address'};
+  await h.json(`/signatures/${r.id}/attestations`,{...attest,items:['name']},f.prep,400);
+  await h.json(`/signatures/${r.id}/attestations`,attest,f.outside,404);
+  await h.json(`/signatures/${r.id}/attestations`,attest,f.prep);await h.json(`/signatures/${r.id}/attestations`,attest,f.prep,409);
+  let mine=await h.json(`/signatures/${r.id}/signing`,undefined,f.prep);assert.equal(mine.canSign,false,'Sequential: the client signs first');
+  await h.json(`/signatures/${r.id}/staff-sign`,signBody(mine),f.prep,409);
+  v=await open(h,t,r.id);assert.equal(v.canSign,true);await sign(h,t,r.id,v,200,{},{'user-agent':'synthetic-blotter-browser/2','CF-Connecting-IP':'198.51.100.7'});
+  await h.json(`/signatures/${r.id}/signing`,undefined,f.outside,404);await h.json(`/signatures/${r.id}/staff-sign`,signBody(mine),f.outside,404);
+  assert.deepEqual((await h.json('/signatures/awaiting',undefined,f.prep)).map(x=>[x.id,x.canSign]),[[r.id,true]]);
+  mine=await h.json(`/signatures/${r.id}/signing`,undefined,f.prep);
+  await h.json(`/signatures/${r.id}/staff-sign`,{...signBody(mine),consent:false},f.prep,400);
+  await h.json(`/signatures/${r.id}/staff-sign`,signBody(mine),f.prep,200,{'user-agent':'synthetic-blotter-staff/3'});
+  const done=await h.json(`/signatures/${r.id}`,undefined,f.prep);assert.equal(done.status,'completed');
+  assert.deepEqual(done.signers.map(s=>[s.signer_kind,s.connection_ip,s.connection_user_agent]),[['contact','198.51.100.7','synthetic-blotter-browser/2'],['staff','192.0.2.1','synthetic-blotter-staff/3']]);
+  const certificate=pdfText(Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/certificate`,undefined,f.prep)).arrayBuffer()));
+  for(const value of ['IRS.gov/Submit2848','198.51.100.7','synthetic-blotter-browser/2','synthetic-blotter-staff/3','photo id video','Pat Harper','Utility bill matching name and address','identity not verified'])assert.ok(certificate.includes(value),value);
+  // Non-signer and void denials still hold for these forms.
+  const nonSigner=await h.json(`/jobs/${f.job.id}/reminders`,{contactId:f.client.contacts[2].id},h.owner);await h.json(`/portal/${token(nonSigner)}/signatures/${r.id}`,undefined,'',404);
+  const second=await h.json(`/jobs/${f.job.id}/signatures`,{...poa,title:'Replacement power of attorney'},f.prep),out=await h.json(`/signatures/${second.id}/send`,{revision:second.revision},f.prep);
+  await h.json(`/signatures/${second.id}/attestations`,attest,f.prep);const t2=token(out.invitations[0]),v2=await open(h,t2,second.id);
+  await h.json(`/signatures/${second.id}/void`,{revision:(await h.json(`/signatures/${second.id}`,undefined,f.prep)).revision,reason:'Superseded'},f.prep);
+  await sign(h,t2,second.id,v2,409);await h.json(`/signatures/${second.id}/staff-sign`,signBody(await h.json(`/signatures/${second.id}/signing`,undefined,f.prep)),f.prep,409);
+  await signatureAuthorityJourney(h,f,poa);
+ }finally{await h.close();}
 });

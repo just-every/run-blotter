@@ -4,7 +4,7 @@ import {SignaturePdfPreview} from './signature-pdf-preview';
 import { api, Field, Form, readFile, Status, when, type Row, type Run } from './common';
 
 /** Reuses the existing job/client panels and forms. Frozen requests are never edited. */
-export function SignatureRequests({detail,clientId,run,tick=0,readOnly=false}:{detail?:Row;clientId?:string;run:Run;tick?:number;readOnly?:boolean}) {
+export function SignatureRequests({detail,clientId,people=[],run,tick=0,readOnly=false}:{detail?:Row;clientId?:string;people?:Row[];run:Run;tick?:number;readOnly?:boolean}) {
   const job=detail?.job,client=job?.client_id??clientId,[items,setItems]=useState<Row[]>([]),[selected,setSelected]=useState<Row>(),[contacts,setContacts]=useState<Row[]>([]);
   const [chosen,setChosen]=useState<string[]>([]),[fields,setFields]=useState<Row[]>([]),[pdf,setPdf]=useState<Row>();
   const scope=job?`/jobs/${job.id}`:`/clients/${client}`;
@@ -12,7 +12,7 @@ export function SignatureRequests({detail,clientId,run,tick=0,readOnly=false}:{d
   useEffect(()=>{load().catch(error=>run(async()=>{throw error}))},[scope,tick]);
   useEffect(()=>()=>{if(pdf?.url)URL.revokeObjectURL(pdf.url)},[pdf?.url]);
   const signerContacts=contacts.filter(c=>c.active&&c.authorized&&c.signer&&c.portal&&c.request_consent&&c.email_consent&&c.email);
-  const name=(contactId:string)=>contacts.find(c=>c.id===contactId)?.name??contactId;
+  const name=(contactId:string)=>contactId.startsWith('staff:')?`${people.find(p=>p.email===contactId.slice(6))?.name??contactId.slice(6)} (staff)`:contacts.find(c=>c.id===contactId)?.name??contactId;
   const open=(id:string)=>run(async()=>setSelected(await api(`/signatures/${id}`)));
   const refreshSelected=async()=>{await load();if(selected)setSelected(await api(`/signatures/${selected.id}`));};
   return <section className="panel" style={{minWidth:0,overflowWrap:'anywhere'}}><h2>Document signatures</h2>
@@ -22,7 +22,14 @@ export function SignatureRequests({detail,clientId,run,tick=0,readOnly=false}:{d
     {selected&&<article className="record"><div className="split"><strong>{selected.title}</strong><Status value={selected.status}/></div>
       <p>Attempt {selected.attempt} · {selected.mode} signing · requested by {selected.original_requester}{selected.requester_email!==selected.original_requester&&<> · now owned by {selected.requester_email}</>}</p>
       <p><a href={`/api/blotter/signatures/${selected.id}/files/original`}>Original PDF</a>{selected.hasSigned&&<> · <a href={`/api/blotter/signatures/${selected.id}/files/signed`}>Signed PDF</a> · <a href={`/api/blotter/signatures/${selected.id}/files/certificate`}>Completion certificate</a></>}</p>
-      <ol>{selected.signers.map((s:Row)=><li key={s.contact_id}>{s.name} · {s.status}{s.signed_at&&<> · {when(s.signed_at)}</>}{s.decline_reason&&<p>Declined: {s.decline_reason}</p>}</li>)}</ol>
+      {selected.attestation_required===1&&<p>Form 2848 or 8821: each remote (contact) signer can sign only after a staff member records how they were authenticated. The certificate states the form is electronically signed and may be submitted only online at IRS.gov/Submit2848.</p>}
+      <ol>{selected.signers.map((s:Row)=><li key={s.contact_id}>{s.name}{s.signer_kind==='staff'&&' (staff, signs in their own session)'} · {s.status}{s.signed_at&&<> · {when(s.signed_at)}</>}{s.connection_ip&&<> · from {s.connection_ip}<small className="muted"> · {s.connection_user_agent}</small></>}{s.decline_reason&&<p>Declined: {s.decline_reason}</p>}
+        {selected.attestation_required===1&&s.signer_kind==='contact'&&(()=>{const a=selected.attestations.find((x:Row)=>x.attempt===selected.attempt&&x.contact_id===s.contact_id);return a?<p>Remote authentication attested: {String(a.method).replaceAll('_',' ')} by {a.verifier} on {a.verified_on}</p>:!readOnly&&['draft','pending'].includes(selected.status)&&<Form label={`Record remote authentication for ${s.name}`} submit={async data=>run(async()=>{await api(`/signatures/${selected.id}/attestations`,{contactId:s.contact_id,method:data.method,verifier:data.verifier,verifiedOn:data.verifiedOn,items:['name','ssn_or_itin','address','date_of_birth'].filter(i=>data[i]==='on'),secondaryDocument:data.secondaryDocument||undefined,note:data.note||undefined});await refreshSelected()},'Remote-authentication attestation recorded')}>
+          <Field label="Authentication method" name="method"><select name="method"><option value="photo_id_selfie">Government photo ID checked by selfie</option><option value="photo_id_video">Government photo ID checked by video</option><option value="personal_knowledge">Personal knowledge of the signer</option></select></Field>
+          <Field label="Verified by" name="verifier"/><Field label="Verification date" name="verifiedOn" type="date"/>
+          <fieldset><legend>Items checked against a secondary document</legend>{[['name','Name'],['ssn_or_itin','SSN or ITIN'],['address','Address'],['date_of_birth','Date of birth']].map(([key,label])=><label className="check" key={key}><input type="checkbox" name={key}/>{label}</label>)}</fieldset>
+          <Field label="Secondary document checked" name="secondaryDocument" required={false}/><Field label="How you know the signer (personal knowledge)" name="note" required={false}/>
+        </Form>;})()}</li>)}</ol>
       {!readOnly&&['draft','declined','held'].includes(selected.status)&&<button onClick={()=>run(async()=>{await api(`/signatures/${selected.id}/send`,{revision:selected.revision});await refreshSelected()},'Signature invitations sent')}>{selected.status==='draft'?'Send signature request':'Resend as a fresh signing attempt'}</button>}
       {['declined','held'].includes(selected.status)&&<p className="muted">Resending keeps the same document and fields, creates a new attempt and asks every signer to consent and sign again. Earlier attempts remain in the timeline.</p>}
       {!readOnly&&!['completed','voided'].includes(selected.status)&&<Form label="Void signature request" danger submit={async data=>run(async()=>{await api(`/signatures/${selected.id}/void`,{reason:data.reason,revision:selected.revision});await refreshSelected()},'Request voided; further signing refused')}><Field label="Reason for voiding" name="reason"/></Form>}
@@ -35,6 +42,7 @@ export function SignatureRequests({detail,clientId,run,tick=0,readOnly=false}:{d
       <p>Choose a PDF up to 1 MiB and 200 pages. Place all fields before sending; a sent document cannot be changed. PDF positions use points (72 points per inch), measured from the page's upper-left corner.</p>
       <Field label="PDF to sign" name="signaturePdf"><input type="file" name="signaturePdf" accept="application/pdf" onChange={e=>{const file=e.target.files?.[0];if(file)run(async()=>{if(file.size>1048576)throw new Error('Signature PDFs must be at most 1 MiB');const doc=await PDFDocument.load(await file.arrayBuffer());setPdf({file:await readFile(file),url:URL.createObjectURL(file),pages:doc.getPages().map(p=>({width:p.getWidth(),height:p.getHeight()}))});setFields([])})}}/></Field>
       {pdf&&<><p>{pdf.file.name} · {pdf.pages.length} pages. <a href={pdf.url} target="_blank" rel="noreferrer">Open PDF to inspect placement</a></p><SignaturePdfPreview file={pdf.file} pages={pdf.pages} fields={fields}/></>}
+      {people.length>0&&<fieldset><legend>Staff representatives (sign in their own session)</legend>{people.map(p=>{const ref='staff:'+p.email;return <label className="check" key={ref}><input type="checkbox" checked={chosen.includes(ref)} onChange={e=>{setChosen(e.target.checked?[...chosen,ref]:chosen.filter(id=>id!==ref));if(!e.target.checked)setFields(fields.filter(f=>f.contactId!==ref))}}/>{p.name} &lt;{p.email}&gt;</label>;})}</fieldset>}
       <fieldset><legend>Authorized signers in signing order</legend>{signerContacts.length===0&&<p>Add contacts with signer authority, portal permission and request/email consent first.</p>}
         {signerContacts.map(c=><label className="check" key={c.id}><input type="checkbox" checked={chosen.includes(c.id)} onChange={e=>{setChosen(e.target.checked?[...chosen,c.id]:chosen.filter(id=>id!==c.id));if(!e.target.checked)setFields(fields.filter(f=>f.contactId!==c.id))}}/>{c.name} &lt;{c.email}&gt;</label>)}
         <ol>{chosen.map((id,index)=><li key={id}>{name(id)} {index>0&&<button type="button" className="quiet" onClick={()=>setChosen(chosen.map((v,i)=>i===index-1?id:i===index?chosen[index-1]:v))}>Move earlier</button>}</li>)}</ol>
@@ -67,7 +75,8 @@ export function PortalSignatures({path,busy,act}:{path:string;busy:boolean;act:(
     <ul>{items.map(r=><li key={r.id}><button className="quiet" disabled={busy} onClick={()=>open(r.id)}>{r.title}</button> · {r.status}</li>)}</ul>
     {selected&&<article className="record"><h3>{selected.title}</h3><p>{selected.mode} · attempt {selected.attempt} · {selected.status}</p><p><a href={`${path}/signatures/${selected.id}/files/original`} target="_blank" rel="noreferrer">Read and download the document</a></p>
       <ol>{selected.signers.map((s:Row)=><li key={s.ordinal}>{s.name} · {s.status}{s.signedAt&&<> · {when(s.signedAt)}</>}</li>)}</ol>
-      {!selected.canSign&&selected.status==='pending'&&selected.signerStatus==='pending'&&<p>Waiting for earlier signers. Reopen this request after they finish.</p>}
+      {selected.attestationRequired&&!selected.attested&&selected.status==='pending'&&<p>Before you can sign this IRS authorization form, the practice must confirm your identity (photo ID by selfie or video, or personal knowledge). Contact them if you have not been asked.</p>}
+      {!selected.canSign&&selected.attested!==false&&selected.status==='pending'&&selected.signerStatus==='pending'&&<p>Waiting for earlier signers. Reopen this request after they finish.</p>}
       {selected.canSign&&<Form label="Consent and sign document" disabled={busy} submit={async data=>post('sign',{revision:selected.revision,attempt:selected.attempt,consentVersion:selected.consentVersion,consent:data.consent==='on',intent:data.intent==='on',values:Object.fromEntries(selected.fields.map((f:Row)=>[f.id,data[f.id]]))})}>
         <p>Signing as {selected.signerName}. Review the complete PDF before signing.</p>
         {selected.fields.map((f:Row)=><Field key={f.id} label={`${f.label} (page ${f.page})`} name={f.id} type={f.type==='date'?'date':'text'}/>)}
@@ -76,6 +85,26 @@ export function PortalSignatures({path,busy,act}:{path:string;busy:boolean;act:(
       </Form>}
       {selected.status==='pending'&&selected.signerStatus==='pending'&&<Form label="Decline electronic signing" disabled={busy} submit={async data=>post('decline',{revision:selected.revision,reason:data.reason})}><Field label="Reason for declining" name="reason"/><p className="muted">You can ask the practice for a paper copy or another way to sign. Declining does not withdraw any marketing consent.</p></Form>}
       {selected.hasSigned&&<p><a href={`${path}/signatures/${selected.id}/files/signed`}>Download signed PDF</a> · <a href={`${path}/signatures/${selected.id}/files/certificate`}>Download certificate</a></p>}
+    </article>}
+  </section>;
+}
+
+/** Requests where this staff member is a named signer, signed in their own session with the same consent and intent. */
+export function StaffSignatures({run,tick}:{run:Run;tick:number}) {
+  const [items,setItems]=useState<Row[]>([]),[selected,setSelected]=useState<Row>();
+  useEffect(()=>{api('/signatures/awaiting').then(setItems).catch(e=>run(async()=>{throw e}))},[tick]);
+  if(!items.length)return null;
+  const open=(id:string)=>run(async()=>setSelected(await api(`/signatures/${id}/signing`)));
+  return <section className="panel" style={{minWidth:0,overflowWrap:'anywhere'}} aria-label="Documents for you to sign"><h2>Documents for you to sign</h2>
+    <ul className="list">{items.map(r=><li key={r.id}><button className="quiet" onClick={()=>open(r.id)}>{r.title}</button> · {r.mode}{!r.canSign&&' · waiting for earlier signers'}</li>)}</ul>
+    {selected&&<article className="record"><h3>{selected.title}</h3><p><a href={`/api/blotter/signatures/${selected.id}/files/original`} target="_blank" rel="noreferrer">Read and download the document</a></p>
+      <ol>{selected.signers.map((s:Row)=><li key={s.ordinal}>{s.name} · {s.status}{s.signedAt&&<> · {when(s.signedAt)}</>}</li>)}</ol>
+      {selected.canSign?<Form label="Consent and sign as representative" submit={async data=>run(async()=>{await api(`/signatures/${selected.id}/staff-sign`,{revision:selected.revision,attempt:selected.attempt,consentVersion:selected.consentVersion,consent:data.consent==='on',intent:data.intent==='on',values:Object.fromEntries(selected.fields.map((f:Row)=>[f.id,data[f.id]]))});setSelected(undefined);setItems(await api('/signatures/awaiting'))},'Signature recorded')}>
+        <p>Signing as {selected.signerName}, in your own session.</p>
+        {selected.fields.map((f:Row)=><Field key={f.id} label={`${f.label} (page ${f.page})`} name={f.id} type={f.type==='date'?'date':'text'}/>)}
+        <p>{selected.consentText}</p><label className="check"><input name="consent" type="checkbox" required/>I consent to electronic records and signatures for this document.</label>
+        <label className="check"><input name="intent" type="checkbox" required/>I am authorized and intend to sign this document.</label>
+      </Form>:<p>Waiting for earlier signers. Reopen this request after they finish.</p>}
     </article>}
   </section>;
 }

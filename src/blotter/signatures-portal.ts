@@ -3,6 +3,7 @@
 import { portalJob } from './documents';
 import { CONSENT_VERSION, SIGNING_CONSENT, fieldValues, finishPdf, unbase64 } from './signatures-pdf';
 import { sameRequest, signatureEvent, signatureRecord, signerRows, staffSignature } from './signatures-store';
+import { isStaffSigner } from './signatures-staff';
 import { atomic, audit, Fault, guard, id, insist, now, rows, stmt, text, type Actor, type Data } from './model';
 
 async function portalSignature(db:D1Database,token:string,requestId:string) {
@@ -21,7 +22,7 @@ function portalFence(db:D1Database,p:Awaited<ReturnType<typeof portalSignature>>
     AND k.active=1 AND k.authorized=1 AND k.signer=1 AND k.portal=1 AND k.request_consent=1
     AND k.revision=s.contact_revision AND r.id=? AND r.revision=? AND r.erased_at IS NULL)`,p.link.id,p.link.digest,now(),p.r.id,p.r.revision);
 }
-async function portalBatch(db:D1Database,statements:D1PreparedStatement[]) {
+export async function guardedBatch(db:D1Database,statements:D1PreparedStatement[]) {
   try {await db.batch(statements);}catch(error){if(/b_guard|constraint/i.test(String(error)))throw new Fault('This request or your authority changed. Reload before continuing.',409);throw error;}
 }
 export async function portalSignatures(db:D1Database,token:string) {
@@ -32,40 +33,53 @@ export async function portalSignatures(db:D1Database,token:string) {
 }
 export async function portalSignatureDetail(db:D1Database,token:string,requestId:string) {
   const p=await portalSignature(db,token,requestId),[check,done]=portalFence(db,p);
-  await portalBatch(db,[check,...signatureEvent(db,p.r,'opened','contact portal bearer (identity not verified)','Signer reviewed request',p.contact.id),done]);
+  await guardedBatch(db,[check,...signatureEvent(db,p.r,'opened','contact portal bearer (identity not verified)','Signer reviewed request',p.contact.id),done]);
   const fields:Data[]=JSON.parse(p.r.fields),earlier=p.signers.some(s=>s.ordinal<p.s.ordinal&&s.status!=='signed');
+  const attested=!p.r.attestation_required||!!await stmt(db,'SELECT 1 FROM b_signature_attestations WHERE request_id=? AND attempt=? AND contact_id=?',p.r.id,p.r.attempt,p.contact.id).first();
   return {id:p.r.id,title:p.r.title,status:p.r.status,mode:p.r.mode,attempt:p.r.attempt,revision:p.r.revision,contactId:p.contact.id,signerName:p.s.name,
     pages:JSON.parse(p.r.pages),fields:fields.filter(f=>f.contactId===p.contact.id),signerStatus:p.s.status,
-    signers:p.signers.map(s=>({ordinal:s.ordinal,name:s.name,status:s.status,signedAt:s.signed_at})),canSign:p.r.status==='pending'&&p.s.status==='pending'&&(p.r.mode==='parallel'||!earlier),
+    signers:p.signers.map(s=>({ordinal:s.ordinal,name:s.name,status:s.status,signedAt:s.signed_at})),attestationRequired:!!p.r.attestation_required,attested,canSign:p.r.status==='pending'&&p.s.status==='pending'&&attested&&(p.r.mode==='parallel'||!earlier),
     consentText:SIGNING_CONSENT,consentVersion:CONSENT_VERSION,hasSigned:p.r.status==='completed',
     events:(await rows(db,'SELECT action,contact_id,at FROM b_signature_events WHERE request_id=? ORDER BY at,id',p.r.id))};
 }
-export async function signSignature(db:D1Database,token:string,requestId:string,body:Data) {
-  const p=await portalSignature(db,token,requestId),{r,s,signers}=p;
+/** The connection a person consents and signs from: recorded at that moment, shown on the certificate, erased with the signed record. */
+export type Connection={ip:string;userAgent:string};
+export const connectionOf=(headers:Headers):Connection=>({ip:(headers.get('cf-connecting-ip')??'').trim().slice(0,64)||'not provided',userAgent:(headers.get('user-agent')??'').trim().slice(0,400)||'not provided'});
+/** One signing act, whichever door it arrives through: the contact portal or a staff signer's own session. */
+export async function recordSignature(db:D1Database,x:{r:Data;s:Data;signers:Data[];body:Data;fence:readonly [D1PreparedStatement,D1PreparedStatement];evidence:string;actor:string;connection:Connection}) {
+  const {r,s,signers,body,connection}=x;
   insist(r.status==='pending'&&s.status==='pending','This request is not accepting this signature',409);
   insist(body.revision===r.revision&&body.attempt===r.attempt,'The request changed; review it again',409);
   insist(body.consent===true&&body.intent===true&&body.consentVersion===CONSENT_VERSION,'Explicit ESIGN/UETA consent and intent to sign are required');
-  insist(r.mode==='parallel'||!signers.some(x=>x.ordinal<s.ordinal&&x.status!=='signed'),'Wait for earlier signers to finish',409);
-  const values=await fieldValues(JSON.parse(r.fields).filter((f:Data)=>f.contactId===p.contact.id),body.values),at=now();
-  const signed={...s,status:'signed',values_json:JSON.stringify(values),consent_text:SIGNING_CONSENT,consent_version:CONSENT_VERSION,signed_at:at,portal_link_id:p.link.id};
-  const after=signers.map(x=>x.contact_id===s.contact_id?signed:x),complete=after.every(x=>x.status==='signed');
+  insist(r.mode==='parallel'||!signers.some(y=>y.ordinal<s.ordinal&&y.status!=='signed'),'Wait for earlier signers to finish',409);
+  const attestations=await rows(db,'SELECT * FROM b_signature_attestations WHERE request_id=? AND attempt=?',r.id,r.attempt),remote=r.attestation_required&&s.signer_kind==='contact';
+  insist(!remote||attestations.some(a=>a.contact_id===s.contact_id),'A staff member must record the remote-authentication attestation before this signer can sign',409);
+  const values=await fieldValues(JSON.parse(r.fields).filter((f:Data)=>f.contactId===s.contact_id),body.values),at=now();
+  const signed={...s,status:'signed',values_json:JSON.stringify(values),consent_text:SIGNING_CONSENT,consent_version:CONSENT_VERSION,signed_at:at,portal_link_id:x.evidence,connection_ip:connection.ip,connection_user_agent:connection.userAgent};
+  const after=signers.map(y=>y.contact_id===s.contact_id?signed:y),complete=after.every(y=>y.status==='signed');
   // Rendering occurs before the guarded transaction; a parallel signer that
   // changed the revision makes this write fail instead of losing their data.
-  const output=complete?await finishPdf({...r,completed_at:at},after):null,[check,done]=portalFence(db,p);
-  const authorities=guard(db,`NOT EXISTS(SELECT 1 FROM b_signature_signers s LEFT JOIN b_client_contacts c ON c.id=s.contact_id AND c.client_id=? WHERE s.request_id=? AND s.attempt=? AND (c.id IS NULL OR c.revision<>s.contact_revision OR c.active<>1 OR c.authorized<>1 OR c.signer<>1 OR c.portal<>1 OR c.request_consent<>1))`,r.client_id,r.id,r.attempt);
-  const current=guard(db,`EXISTS(SELECT 1 FROM b_signatures WHERE id=? AND revision=? AND status='pending' AND attempt=?) AND EXISTS(SELECT 1 FROM b_signature_signers WHERE request_id=? AND attempt=? AND contact_id=? AND status='pending')`,r.id,r.revision,r.attempt,r.id,r.attempt,p.contact.id);
-  await portalBatch(db,[check,current[0],authorities[0],stmt(db,`UPDATE b_signature_signers SET status='signed',values_json=?,consent_text=?,consent_version=?,signed_at=?,portal_link_id=? WHERE request_id=? AND attempt=? AND contact_id=?`,signed.values_json,SIGNING_CONSENT,CONSENT_VERSION,at,p.link.id,r.id,r.attempt,p.contact.id),
+  const output=complete?await finishPdf({...r,completed_at:at},after,attestations):null,[check,done]=x.fence;
+  const authorities=guard(db,`NOT EXISTS(SELECT 1 FROM b_signature_signers s LEFT JOIN b_client_contacts c ON c.id=s.contact_id AND c.client_id=? WHERE s.request_id=? AND s.attempt=? AND s.signer_kind='contact' AND (c.id IS NULL OR c.revision<>s.contact_revision OR c.active<>1 OR c.authorized<>1 OR c.signer<>1 OR c.portal<>1 OR c.request_consent<>1))`,r.client_id,r.id,r.attempt);
+  const staff=guard(db,`NOT EXISTS(SELECT 1 FROM b_signature_signers s WHERE s.request_id=? AND s.attempt=? AND s.signer_kind='staff' AND NOT EXISTS(SELECT 1 FROM b_members m WHERE m.email=s.email AND m.active=1 AND m.role IN('owner','reviewer','preparer')) AND NOT EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=s.email AND o.role='owner' AND o.status='active'))`,r.id,r.attempt);
+  const attested=guard(db,`(?=0 OR EXISTS(SELECT 1 FROM b_signature_attestations WHERE request_id=? AND attempt=? AND contact_id=?))`,remote?1:0,r.id,r.attempt,s.contact_id);
+  const current=guard(db,`EXISTS(SELECT 1 FROM b_signatures WHERE id=? AND revision=? AND status='pending' AND attempt=?) AND EXISTS(SELECT 1 FROM b_signature_signers WHERE request_id=? AND attempt=? AND contact_id=? AND status='pending')`,r.id,r.revision,r.attempt,r.id,r.attempt,s.contact_id);
+  await guardedBatch(db,[check,current[0],authorities[0],staff[0],attested[0],stmt(db,`UPDATE b_signature_signers SET status='signed',values_json=?,consent_text=?,consent_version=?,signed_at=?,portal_link_id=?,connection_ip=?,connection_user_agent=? WHERE request_id=? AND attempt=? AND contact_id=?`,signed.values_json,SIGNING_CONSENT,CONSENT_VERSION,at,x.evidence,connection.ip,connection.userAgent,r.id,r.attempt,s.contact_id),
     stmt(db,'UPDATE b_signatures SET status=?,revision=?,completed_at=?,signed_base64=?,signed_sha256=?,certificate_base64=?,certificate_sha256=? WHERE id=?',complete?'completed':'pending',id(),complete?at:null,output?.signed??null,output?.signedHash??null,output?.certificate??null,output?.certificateHash??null,r.id),
-    ...signatureEvent(db,r,'signed','contact portal bearer (identity not verified)',`${s.name} signed with explicit ${CONSENT_VERSION} consent`,p.contact.id,at),
-    ...(complete?[...signatureEvent(db,r,'completed','contact portal bearer (identity not verified)','Signed PDF and certificate filed to client and work',null,at),stmt(db,"INSERT INTO b_automation_events(source,job_id,kind,at) VALUES(?,?,'signature_complete',?)",'signature:'+r.id+':'+r.attempt,r.job_id,at)]:[]),authorities[1],current[1],done]);
+    ...signatureEvent(db,r,'signed',x.actor,`${s.name} signed with explicit ${CONSENT_VERSION} consent`,s.contact_id,at),
+    ...(complete?[...signatureEvent(db,r,'completed',x.actor,'Signed PDF and certificate filed to client and work',null,at),stmt(db,"INSERT INTO b_automation_events(source,job_id,kind,at) VALUES(?,?,'signature_complete',?)",'signature:'+r.id+':'+r.attempt,r.job_id,at)]:[]),attested[1],staff[1],authorities[1],current[1],done]);
   return {id:r.id,status:complete?'completed':'pending'};
+}
+export async function signSignature(db:D1Database,token:string,requestId:string,body:Data,connection:Connection) {
+  const p=await portalSignature(db,token,requestId);
+  return recordSignature(db,{r:p.r,s:p.s,signers:p.signers,body,fence:portalFence(db,p),evidence:p.link.id,actor:'contact portal bearer (identity not verified)',connection});
 }
 export async function declineSignature(db:D1Database,token:string,requestId:string,body:Data) {
   const p=await portalSignature(db,token,requestId),{r}=p;
   insist(r.status==='pending'&&p.s.status==='pending','This request is not accepting a decline',409);
   insist(body.revision===r.revision,'Request changed; reload',409);
   const reason=text(body.reason,'Decline reason',1000),[check,done]=portalFence(db,p);
-  await portalBatch(db,[check,stmt(db,"UPDATE b_signature_signers SET status='declined',decline_reason=? WHERE request_id=? AND attempt=? AND contact_id=?",reason,r.id,r.attempt,p.contact.id),
+  await guardedBatch(db,[check,stmt(db,"UPDATE b_signature_signers SET status='declined',decline_reason=? WHERE request_id=? AND attempt=? AND contact_id=?",reason,r.id,r.attempt,p.contact.id),
     stmt(db,"UPDATE b_signatures SET status='declined',revision=? WHERE id=?",id(),r.id),...signatureEvent(db,r,'declined','contact portal bearer (identity not verified)',reason,p.contact.id),done]);return {id:r.id,status:'declined'};
 }
 function pdfResponse(r:Data,kind:string) {
@@ -75,10 +89,12 @@ function pdfResponse(r:Data,kind:string) {
   return new Response(unbase64(encoded),{headers:{'content-type':'application/pdf','content-disposition':`attachment; filename="${String(r.title).replace(/[^A-Za-z0-9._ -]/g,'_')}-${kind}.pdf"`,'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
 }
 export async function signatureDownload(db:D1Database,actor:Actor,requestId:string,kind:string) {
-  const r=await staffSignature(db,actor,requestId),[check,done]=sameRequest(db,r,actor),response=pdfResponse(r,kind);
+  // A named staff signer reads the request they must sign even when the job is not theirs.
+  const base=await signatureRecord(db,requestId),signer=!base.client_erased_at&&base.status!=='draft'&&await isStaffSigner(db,actor,base);
+  const r=signer?base:await staffSignature(db,actor,requestId),[check,done]=sameRequest(db,r,signer?undefined:actor),response=pdfResponse(r,kind);
   await atomic(db,actor,[check,audit(db,actor,'signature.downloaded',r.job_id,JSON.stringify({requestId:r.id,kind,channel:'staff'})),done]);return response;
 }
 export async function portalSignatureDownload(db:D1Database,token:string,requestId:string,kind:string) {
   const p=await portalSignature(db,token,requestId),[check,done]=portalFence(db,p),response=pdfResponse(p.r,kind);
-  await portalBatch(db,[check,...signatureEvent(db,p.r,'downloaded','contact portal bearer (identity not verified)',JSON.stringify({kind,channel:'portal'}),p.contact.id),done]);return response;
+  await guardedBatch(db,[check,...signatureEvent(db,p.r,'downloaded','contact portal bearer (identity not verified)',JSON.stringify({kind,channel:'portal'}),p.contact.id),done]);return response;
 }

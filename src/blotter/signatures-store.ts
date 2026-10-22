@@ -31,7 +31,7 @@ export async function signatureDetail(db:D1Database,actor:Actor,requestId:string
   const r=await staffSignature(db,actor,requestId);
   if(r.client_erased_at)await audit(db,actor,'signature.retained_read',r.job_id,JSON.stringify({requestId:r.id,note:'Principal read retained signed document'})).run();
   const {source_base64,signed_base64,certificate_base64,...safe}=r;
-  return {...safe,fields:JSON.parse(r.fields),pages:JSON.parse(r.pages),signers:await signerRows(db,r),events:await rows(db,'SELECT * FROM b_signature_events WHERE request_id=? ORDER BY at,id',r.id),deliveries:await rows(db,'SELECT * FROM b_signature_deliveries WHERE request_id=? ORDER BY sent_at,id',r.id),hasSigned:!!signed_base64,hasCertificate:!!certificate_base64};
+  return {...safe,fields:JSON.parse(r.fields),pages:JSON.parse(r.pages),signers:await signerRows(db,r),events:await rows(db,'SELECT * FROM b_signature_events WHERE request_id=? ORDER BY at,id',r.id),deliveries:await rows(db,'SELECT * FROM b_signature_deliveries WHERE request_id=? ORDER BY sent_at,id',r.id),attestations:await rows(db,'SELECT * FROM b_signature_attestations WHERE request_id=? ORDER BY attempt,contact_id',r.id),hasSigned:!!signed_base64,hasCertificate:!!certificate_base64};
 }
 export async function pendingSignatures(db:D1Database,email:string) {
   return rows(db,`SELECT s.id,s.title,s.job_id,s.status,s.revision,s.attempt FROM b_signatures s WHERE s.requester_email=? AND s.status IN ('draft','pending','declined','held') ORDER BY s.created_at,s.id`,email);

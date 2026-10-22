@@ -67,3 +67,41 @@ export async function signatureOwnerJourney(h,f,pending,transfer){
   await context.close();
  }finally{await browser.close()}
 }
+
+/** Form 2848 screens: the client waits for the attestation, staff record it, the client signs, the representative signs in session. */
+export async function signatureAuthorityJourney(h,f,poa){
+ const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
+ const d=await h.json(`/jobs/${f.job.id}/signatures`,{...poa,title:'Browser power of attorney'},f.prep),sent=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep);
+ const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const cookies=cookie=>cookie.split('; ').map(c=>{const at=c.indexOf('=');return {name:c.slice(0,at),value:c.slice(at+1),url:h.origin};});
+ try{
+  const capture=async(page,target,name)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await target.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name} ${width} overflows`);await target.screenshot({path:`${evidence}/${name}-${width}.png`});}await page.setViewportSize({width:1440,height:1000});};
+  const signerContext=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),signer=await signerContext.newPage();
+  const clientPanel=signer.locator('section.panel').filter({has:signer.getByRole('heading',{name:'Your signature requests',exact:true})});
+  await signer.goto(sent.invitations[0].portalUrl);await clientPanel.getByRole('button',{name:'Browser power of attorney',exact:true}).click();
+  await clientPanel.getByText('Before you can sign this IRS authorization form',{exact:false}).waitFor();await capture(signer,clientPanel,'signer-2848-awaiting-attestation');
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});await context.addCookies(cookies(f.prep));
+  const staff=await context.newPage();await staff.goto(h.origin+'/app?job='+f.job.id);
+  const panel=staff.locator('section.panel').filter({has:staff.getByRole('heading',{name:'Document signatures',exact:true})});await panel.waitFor();
+  await panel.getByRole('button',{name:'Browser power of attorney',exact:true}).click();
+  const form=panel.locator('form').filter({hasText:'Items checked against a secondary document'});
+  await form.getByLabel('Verified by',{exact:true}).fill('Pat Harper');await form.getByLabel('Verification date',{exact:true}).fill('2026-10-21');
+  for(const item of ['Name','SSN or ITIN','Address','Date of birth'])await form.getByLabel(item,{exact:true}).check();
+  await form.getByLabel('Secondary document checked',{exact:true}).fill('Utility bill matching name and address');await capture(staff,panel,'staff-2848-attestation');
+  await form.getByRole('button',{name:`Record remote authentication for ${f.client.contacts[0].name}`,exact:true}).click();
+  await staff.getByRole('status').getByText('Remote-authentication attestation recorded').waitFor();await panel.getByText('Remote authentication attested',{exact:false}).waitFor();
+  await signer.reload();await clientPanel.getByRole('button',{name:'Browser power of attorney',exact:true}).click();
+  for(const [label,value] of [['signature 1 (page 1)',f.client.contacts[0].name],['initials 1 (page 1)','MC'],['date 1 (page 1)','2026-10-22'],['text 1 (page 1)','Reviewed']])await clientPanel.getByLabel(label,{exact:true}).fill(value);
+  await clientPanel.getByLabel('I consent to electronic records and signatures for this document.',{exact:true}).check();await clientPanel.getByLabel('I am authorized for this client and intend to sign this document.',{exact:true}).check();
+  await clientPanel.getByRole('button',{name:'Consent and sign document',exact:true}).click();await signer.getByText('Signature recorded.',{exact:false}).first().waitFor();
+  await staff.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();
+  const mine=staff.getByRole('region',{name:'Documents for you to sign',exact:true});await mine.getByRole('button',{name:'Browser power of attorney',exact:true}).click();
+  await mine.getByLabel('Representative signature (page 1)',{exact:true}).fill('Pat Harper');await mine.getByLabel('Representative date (page 1)',{exact:true}).fill('2026-10-22');
+  await mine.getByLabel('I consent to electronic records and signatures for this document.',{exact:true}).check();await mine.getByLabel('I am authorized and intend to sign this document.',{exact:true}).check();
+  await capture(staff,mine,'staff-representative-signing');
+  await mine.getByRole('button',{name:'Consent and sign as representative',exact:true}).click();await staff.getByRole('status').getByText('Signature recorded').waitFor();
+  assert.equal((await h.json(`/signatures/${d.id}`,undefined,f.prep)).status,'completed');
+  await staff.goto(h.origin+'/app?job='+f.job.id);await panel.getByRole('button',{name:'Browser power of attorney',exact:true}).click();await panel.getByRole('link',{name:'Completion certificate',exact:true}).waitFor();await capture(staff,panel,'staff-2848-completed');
+  await signerContext.close();await context.close();
+ }finally{await browser.close();}
+}

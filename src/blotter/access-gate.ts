@@ -4,7 +4,7 @@
 import { documentAuthority, freshAccess, requireClient, requireDocument } from './permissions';
 import { insist, rows, stmt, type Actor, type Data } from './model';
 
-const lists = new Set(['/state','/inbox','/search','/board','/calendar','/queue','/plan','/v1/work','/v1/clients','/context','/views','/work-types','/messages/templates','/team','/notifications','/notifications/settings']);
+const lists = new Set(['/state','/inbox','/search','/board','/calendar','/queue','/plan','/v1/work','/v1/clients','/context','/views','/work-types','/messages/templates','/team','/notifications','/notifications/settings','/signatures/awaiting']);
 const resources:Record<string,string>={
   jobs:'SELECT client_id FROM b_jobs WHERE id=?',
   requests:'SELECT j.client_id FROM b_requests r JOIN b_jobs j ON j.id=r.job_id WHERE r.id=?',
