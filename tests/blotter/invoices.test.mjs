@@ -169,7 +169,7 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
   try {
     const s = await fixture(source);
     await source.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority' }, source.owner);
-    const e = await authorize(source, s), invoice = await draft(source, { ...terms, issueDate: '2015-01-02', dueDate: '2015-01-16', jobId: s.job.id, sourceKeys: [e.sourceKey], contactId: s.billing.id });
+    const e = await authorize(source, s), invoice = await draft(source, { ...terms, title:s.client.name+' November scope', issueDate: '2015-01-02', dueDate: '2015-01-16', jobId: s.job.id, sourceKeys: [e.sourceKey], contactId: s.billing.id });
     const issued = await issue(source, invoice), bytes = await pdf(source, invoice.id);
     let detail = await source.json(`/jobs/${s.job.id}`, undefined, s.preparer);
     for (const request of detail.requests) {
@@ -205,6 +205,9 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     assert.ok(preview.classes.find(c => c.class === 'billing').retained > 0);
     const receipt = await h.json(`/clients/${s.client.id}/erasure`, { planHash: preview.planHash, confirm: s.client.name, reason: 'Client requested deletion with billing evidence retained' }, h.owner);
     assert.ok(JSON.stringify(receipt).includes('billing_invoices')); assert.deepEqual(await pdf(h, invoice.id), bytes);
+    assert.ok(!JSON.stringify(await h.json('/invoices',undefined,h.owner)).includes(s.client.name),'Normal billing lists exclude retained identity payloads');
+    const retainedReviewer=await h.login('reviewer@example.test');await h.json(`/invoices/${invoice.id}`,undefined,retainedReviewer,403);assert.equal((await h.request(`/api/blotter/invoices/${invoice.id}/pdf`,undefined,retainedReviewer)).status,403);
+    assert.ok(!JSON.stringify(await h.json('/retention/ready',undefined,h.owner)).includes(s.client.name),'Expiry queues use opaque retained-record labels');
     const ready = (await h.json('/retention/ready', undefined, h.owner)).ready.find(r => r.kind === 'invoice' && r.id === invoice.id); assert.ok(ready);
     const expiry = await h.json('/retention/ready/confirm', { kind: 'invoice', id: invoice.id, reason: 'Billing retention ended; client requested deletion' }, h.owner); assert.equal(expiry.kind, 'invoice');
     assert.equal((await h.request(`/api/blotter/invoices/${invoice.id}/pdf`, undefined, h.owner)).status, 404);
