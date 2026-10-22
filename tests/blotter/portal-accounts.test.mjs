@@ -18,10 +18,10 @@ function png(width, height, [r, g, b]) {
 }
 /** RFC 6238 codes, each a later 30-second step than the account's last one (the server refuses a replayed step). */
 const used = new Map();
-function code(secret) {
+function code(secret, currentStep = false) {
   let bits = 0, value = 0; const bytes = [];
   for (const char of secret) { value = (value << 5) | 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(char); bits += 5; if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; } }
-  const now = Math.floor(Date.now() / 30000), step = Math.max(now - 1, (used.get(secret) ?? 0) + 1);
+  const now = Math.floor(Date.now() / 30000), step = Math.max(now + (currentStep ? 0 : -1), (used.get(secret) ?? 0) + 1);
   assert.ok(step <= now + 1, 'the journey ran out of authenticator steps'); used.set(secret, step);
   const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(step));
   const mac = createHmac('sha1', Buffer.from(bytes)).update(counter).digest(), offset = mac[19] & 15;
@@ -96,7 +96,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     assert.match(samInvitationMail.subject, /Su portal de clientes/); assert.match(samInvitationMail.text, /&lang=es/);
     const samSession = as(await enter('accept', samInvite));
     assert.equal((await samSession.get('/me')).language, 'es');
-    await spanishAccountEnrollment(h, { clientCookie: samSession.cookie, inviteUrl: samInvitationMail.text.match(/https:\/\/[^\s]+\/client\?invite=[^\s]+/)[0], code });
+    await spanishAccountEnrollment(h, { clientCookie: samSession.cookie, inviteUrl: samInvitationMail.text.match(/https:\/\/[^\s]+\/client\?invite=[^\s]+/)[0], code: secret => code(secret, true) });
     assert.equal((await samSession.get(`/entities/${birch.id}`)).language, 'es');
     assert.deepEqual((await samSession.get('/me')).entities.map(e => e.name), ['Birch Street Cafe']);
     assert.deepEqual(await samSession.get(`/entities/${cedar.id}`, 404), await samSession.get('/entities/no-such-client', 404));
