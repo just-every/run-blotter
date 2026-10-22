@@ -35,6 +35,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const tomLink = tokenOf(await h.json(`/jobs/${job.id}/reminders`, { contactId: tom.id }, h.owner));
     const switched = await h.json(contactsPath, { id: tom.id, revision: tom.revision, language: 'es' }, h.owner);
     assert.deepEqual([switched.language, switched.revision], ['es', tom.revision], 'A language-only edit keeps the contact revision');
+    assert.ok((await h.json(`/clients/${client.id}/history`, undefined, h.owner)).history.some(e => e.action === 'client.contact_changed' && e.actor === 'owner@example.test' && e.detail.startsWith(tom.id)), 'A language change is audited in the client history');
     assert.equal((await h.json(`/portal/${tomLink}`)).language, 'es');
     await h.json(contactsPath, { id: tom.id, revision: tom.revision, language: 'en' }, h.owner);
     assert.equal((await h.json(`/portal/${tomLink}`)).language, 'en');
@@ -51,7 +52,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     await h.json(`/messages/templates/${withSpanish.id}/translations`, spanish, h.owner);
     await h.json(`/messages/templates/${withSpanish.id}/translations`, spanish, h.owner, 409);
     const listed = (await h.json('/messages/templates', undefined, h.owner)).templates;
-    assert.deepEqual([listed.find(t => t.id === withSpanish.id).translations.map(x => x.language), listed.find(t => t.id === englishOnly.id).translations], [['es'], []]);
+    assert.deepEqual([listed.find(t => t.id === withSpanish.id).translations.map(x => [x.language, x.author]), listed.find(t => t.id === englishOnly.id).translations], [[['es', 'owner@example.test']], []], 'The Spanish version records who added it');
 
     // A templated request to the Spanish contact uses the Spanish version; a template without one warns staff before the send.
     const maria2 = (await contactsOf()).find(c => c.id === maria.id);
