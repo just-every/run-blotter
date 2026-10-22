@@ -7,7 +7,7 @@ const axeSource = async () => readFile(createRequire(import.meta.url).resolve('a
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /** An automated WCAG 2.2 AA scan of the page as it stands; any violation fails with its rule, target and message. */
-async function scan(page, name) {
+export async function scan(page, name) {
   await page.addScriptTag({ content: await axeSource() });
   const result = await page.evaluate(tags => globalThis.axe.run(document, { runOnly: { type: 'tag', values: tags } }), WCAG);
   assert.deepEqual(result.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')} (${v.help})`), [], `${name}: WCAG 2.2 AA violations`);

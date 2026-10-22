@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { harness } from './harness.mjs';
+import { portalAccountJourney } from './portal-accounts-ui.mjs';
 
 const acknowledge = 'erasure history unverified: supply your latest erasure journal';
 const person = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
@@ -99,6 +100,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     await later.post('/verify', { code: code(patKey) }, 400);
     await later.post('/verify', { recoveryCode: patCodes[1] }, 400);
     await later.post('/verify', { code: code(newKey) });
+    await portalAccountJourney(h, { clientCookie: later.cookie, clientId: cedar.id });
 
     // Revoke Pat on Cedar mid-session: the entity, its document and its bill refuse at once, as for an entity Pat never held; Birch still opens.
     assert.equal((await h.request(fileDoor, undefined, later.cookie)).status, 200);
