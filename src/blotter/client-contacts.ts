@@ -1,5 +1,6 @@
 import { requireClient } from './permissions';
 // Contact records are entity relationships; a matching email never grants access.
+import { isLanguage } from '../i18n/catalog';
 import { atomic, audit, email, guard, human, id, insist, need, now, optional, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 
 export const CONTACT_ROLES = ['primary', 'billing', 'tax', 'bookkeeping'];
@@ -23,7 +24,8 @@ export function contactValues(body: Data, previous: Data = {}): Data {
   insist(name || address, 'Record a contact name or email');
   const values = { name, first_name: first, last_name: last, email: address, phone: body.phone === undefined ? previous.phone ?? '' : normalizedPhone(body.phone), roles: JSON.stringify([...new Set(roles)]),
     authorized: flag('authorized'), signer: flag('signer'), portal: flag('portal'), request_consent: flag('requestConsent', 'request_consent'), email_consent: flag('emailConsent', 'email_consent'), active: flag('active'),
-    consent_note: body.consentNote === undefined ? previous.consent_note ?? '' : optional(body.consentNote, 'Consent note', 1000) };
+    consent_note: body.consentNote === undefined ? previous.consent_note ?? '' : optional(body.consentNote, 'Consent note', 1000),
+    language: body.language === undefined ? previous.language ?? 'en' : (insist(isLanguage(body.language), 'Language: choose English or Spanish'), body.language as string) };
   insist(!values.signer || values.authorized, 'A signer must be authorized for this entity');
   insist(!values.portal || values.authorized, 'Portal permission requires entity authority');
   return values;
@@ -33,8 +35,8 @@ export function legacyContactValues(name: string, address: string): Data {
   return contactValues({ name, firstName:name.trim().split(/\s+/)[0] ?? '', email:address, roles:['primary'], authorized:true, portal:!!address, requestConsent:!!address, emailConsent:!!address });
 }
 export function contactInsert(db: D1Database, actor: Actor, clientId: string, value: Data, contactId: string = id(), at = now()) {
-  return stmt(db, `INSERT INTO b_client_contacts(id,client_id,name,first_name,last_name,email,phone,roles,authorized,signer,portal,request_consent,email_consent,active,consent_note,revision,created_by,created_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    contactId, clientId, value.name, value.first_name, value.last_name, value.email, value.phone, value.roles, value.authorized, value.signer, value.portal, value.request_consent, value.email_consent, value.active, value.consent_note, id(), actor.email, at, actor.email, at);
+  return stmt(db, `INSERT INTO b_client_contacts(id,client_id,name,first_name,last_name,email,phone,roles,authorized,signer,portal,request_consent,email_consent,active,consent_note,revision,created_by,created_at,updated_by,updated_at,language) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    contactId, clientId, value.name, value.first_name, value.last_name, value.email, value.phone, value.roles, value.authorized, value.signer, value.portal, value.request_consent, value.email_consent, value.active, value.consent_note, id(), actor.email, at, actor.email, at, value.language ?? 'en');
 }
 export async function readableClient(db: D1Database, actor: Actor, clientId: string) {
   await requireClient(db,actor,clientId);
@@ -46,6 +48,8 @@ export async function clientContacts(db: D1Database, actor: Actor, clientId: str
   await readableClient(db, actor, clientId);
   return (await rows(db, 'SELECT * FROM b_client_contacts WHERE client_id=? ORDER BY active DESC,name,email,id', clientId)).map(c => ({ ...c, roles: JSON.parse(c.roles) }));
 }
+/** True when the edit changes nothing but the language preference. */
+const languageOnly = (previous: Data, next: Data) => ['name', 'first_name', 'last_name', 'email', 'phone', 'roles', 'authorized', 'signer', 'portal', 'request_consent', 'email_consent', 'active', 'consent_note'].every(k => previous[k] === next[k]);
 export async function saveContact(db: D1Database, actor: Actor, clientId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer');
   const client = await readableClient(db, actor, clientId);
@@ -55,9 +59,9 @@ export async function saveContact(db: D1Database, actor: Actor, clientId: string
   const c = contactValues(body, previous ?? {}), contactId = previous?.id ?? id();
   insist(!c.active || !c.email || !await stmt(db, 'SELECT 1 FROM b_client_contacts WHERE client_id=? AND email=? AND active=1 AND id<>?', clientId, c.email, contactId).first(), 'This email already represents this entity; edit that contact', 409);
   const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=? AND merged_into IS NULL)', clientId, client.revision);
-  await atomic(db, actor, [check, ...(previous ? [stmt(db, `UPDATE b_client_contacts SET name=?,first_name=?,last_name=?,email=?,phone=?,roles=?,authorized=?,signer=?,portal=?,request_consent=?,email_consent=?,active=?,consent_note=?,revision=?,updated_by=?,updated_at=? WHERE id=?`, c.name,c.first_name,c.last_name,c.email,c.phone,c.roles,c.authorized,c.signer,c.portal,c.request_consent,c.email_consent,c.active,c.consent_note,id(),actor.email,now(),contactId)] : [contactInsert(db, actor, clientId, c, contactId)]),
-    // Any permission or address edit fences already issued bearer credentials.
-    ...(previous ? [stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE contact_id=? AND revoked_at IS NULL', now(), contactId)] : []),
+  await atomic(db, actor, [check, ...(previous && languageOnly(previous, c) ? [stmt(db, 'UPDATE b_client_contacts SET language=? WHERE id=?', c.language, contactId)] : previous ? [stmt(db, `UPDATE b_client_contacts SET name=?,first_name=?,last_name=?,email=?,phone=?,roles=?,authorized=?,signer=?,portal=?,request_consent=?,email_consent=?,active=?,consent_note=?,revision=?,updated_by=?,updated_at=? WHERE id=?`, c.name,c.first_name,c.last_name,c.email,c.phone,c.roles,c.authorized,c.signer,c.portal,c.request_consent,c.email_consent,c.active,c.consent_note,id(),actor.email,now(),contactId), stmt(db, 'UPDATE b_client_contacts SET language=? WHERE id=?', c.language, contactId)] : [contactInsert(db, actor, clientId, c, contactId)]),
+    // A language change alone leaves an issued link and a pending signature working; any other edit fences them.
+    ...(previous && !languageOnly(previous, c) ? [stmt(db, 'UPDATE b_portal_links SET revoked_at=? WHERE contact_id=? AND revoked_at IS NULL', now(), contactId)] : []),
     stmt(db,'UPDATE b_clients SET revision=? WHERE id=?',id(),clientId),
     audit(db, actor, previous ? 'client.contact_changed' : 'client.contact_added', clientId, `${contactId}: ${c.name || c.email}`), release]);
   return (await clientContacts(db, actor, clientId)).find(c => c.id === contactId);

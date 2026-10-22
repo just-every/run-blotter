@@ -11,6 +11,7 @@ import { contactRequestSql } from './organizers-requests';
 // completes nothing else. Internal discussions, internal tasks and other jobs
 // never reach the link. Staff messages are shown on the link only: no email is
 // sent for them.
+import { tr, type Key, type Language } from '../i18n/catalog';
 import { contactGuard } from './client-recipients';
 import type { Bindings } from '../auth.server';
 import { runtimeBindings } from '../auth.server';
@@ -18,7 +19,7 @@ import { portalJob } from './documents';
 import { flowSteps } from './flow';
 import { notify } from './notifications';
 import { clientStatus } from './statuses';
-import { engagementOnly, render, templateFiles, usable, valuesFor } from './messages';
+import { engagementOnly, localize, render, templateFiles, translationWarning, usable, valuesFor } from './messages';
 import { recipientFor } from './client-recipients';
 import { atomic, audit, date, guard, human, id, insist, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -28,7 +29,8 @@ const short = (body: string) => body.length > 120 ? body.slice(0, 119) + '…' :
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** What the client sees of the engagement's progress; staff see the same view on the job. */
-export async function clientProgress(db: D1Database, j: Data,contactId?:string) {
+export async function clientProgress(db: D1Database, j: Data,contactId?:string,language:Language='en') {
+  const T=(key:Key,vars:Record<string,string|number>={})=>tr(language,key,vars);
   const [requests, steps, todos] = await Promise.all([
     contactId ? rows(db,`SELECT r.status FROM b_requests r WHERE r.job_id=? AND ${contactRequestSql()}`,j.id,contactId) : rows(db,'SELECT status FROM b_requests WHERE job_id=? AND organizer_active=1',j.id),
     flowSteps(db, j),
@@ -38,16 +40,15 @@ export async function clientProgress(db: D1Database, j: Data,contactId?:string) 
   const outstanding = requests.filter(r => r.status === 'requested').length, accepted = requests.filter(r => r.status === 'accepted').length;
   const openTodos = Number(todos[0].n);
   const stage = j.status === 'signed_off' ? 'completed' : j.status === 'review' ? 'in_review' : outstanding ? 'collecting' : 'preparing';
-  const yours = [outstanding ? `upload ${plural(outstanding, 'document')}` : '', openTodos ? `complete ${plural(openTodos, 'to-do')}` : ''].filter(Boolean);
+  const yours = [outstanding ? T('progress.upload', { n: outstanding, document: T(outstanding === 1 ? 'progress.document.one' : 'progress.document.other') }) : '', openTodos ? T('progress.todo', { n: openTodos, todo: T(openTodos === 1 ? 'progress.todo.one' : 'progress.todo.other') }) : ''].filter(Boolean);
   return {
-    stage, status: await clientStatus(db, j),
-    nextAction: yours.length ? `Please ${yours.join(' and ')}.` : stage === 'completed' ? 'Nothing needed from you: the work is complete.'
-      : stage === 'in_review' ? 'Nothing needed from you: your accountant is reviewing the work.' : 'Nothing needed from you: your accountant is preparing the work.',
+    stage, status: await clientStatus(db, j, language),
+    nextAction: yours.length ? T('progress.please', { actions: yours.join(T('progress.and')) }) : T(`progress.nothing.${stage === 'completed' ? 'completed' : stage === 'in_review' ? 'in_review' : 'preparing'}` as Key),
     milestones: [
-      { key: 'documents', label: 'Documents', done: requests.length > 0 && accepted === requests.length, detail: `${requests.length - outstanding} of ${requests.length} received, ${accepted} accepted` },
-      { key: 'preparation', label: 'Preparation', done: j.status !== 'open', detail: `${done} of ${applicable.length} steps complete` },
-      { key: 'review', label: 'Review', done: j.status === 'signed_off', detail: j.status === 'review' ? 'in review' : j.status === 'signed_off' ? 'reviewed' : 'not started' },
-      { key: 'completed', label: 'Completed', done: j.status === 'signed_off', detail: j.status === 'signed_off' ? 'signed off' : 'not yet' },
+      { key: 'documents', label: T('progress.m.documents'), done: requests.length > 0 && accepted === requests.length, detail: T('progress.d.documents', { received: requests.length - outstanding, total: requests.length, accepted }) },
+      { key: 'preparation', label: T('progress.m.preparation'), done: j.status !== 'open', detail: T('progress.d.preparation', { done, total: applicable.length }) },
+      { key: 'review', label: T('progress.m.review'), done: j.status === 'signed_off', detail: j.status === 'review' ? T('progress.d.inReview') : j.status === 'signed_off' ? T('progress.d.reviewed') : T('progress.d.notStarted') },
+      { key: 'completed', label: T('progress.m.completed'), done: j.status === 'signed_off', detail: j.status === 'signed_off' ? T('progress.d.signedOff') : T('progress.d.notYet') },
     ],
   };
 }
@@ -60,7 +61,7 @@ async function items(db: D1Database, jobId: string, staff: boolean) {
   return { messages: all.filter(i => i.kind !== 'todo').map(shown), todos: all.filter(i => i.kind === 'todo').map(shown) };
 }
 
-export async function portalItems(db: D1Database, j: Data,contactId?:string) { return { progress: await clientProgress(db, j,contactId), ...await items(db, j.id, false) }; }
+export async function portalItems(db: D1Database, j: Data,contactId?:string,language:Language='en') { return { progress: await clientProgress(db, j,contactId,language), ...await items(db, j.id, false) }; }
 export async function staffPortal(db: D1Database, j: Data) { return { progress: await clientProgress(db, j), ...await items(db, j.id, true) }; }
 
 const linkGuard = (db: D1Database, linkId: string) => guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off' AND EXISTS(SELECT 1 FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=l.contact_id AND c.client_id=j.client_id AND c.authorized=1 AND c.active=1 AND c.portal=1 AND c.request_consent=1 AND e.lifecycle='active'))", linkId, now());
@@ -120,10 +121,11 @@ async function composed(db: D1Database, actor: Actor, j: Data, body: Data) {
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
   client!.contact_email = contact.email; client!.contact_name = contact.name;
   const outstanding = (await rows(db, "SELECT label FROM b_requests WHERE job_id=? AND status='requested' ORDER BY ordinal", j.id)).map(r => r.label as string);
-  const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : t.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : t.body;
+  const language: Language = contact.language ?? 'en', localized = await localize(db, t, language), edited = body.subject !== undefined || body.body !== undefined;
+  const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : localized.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : localized.body;
   const rendered = render(subject, message, await valuesFor(db, actor, j, client!, outstanding, THIS_PAGE), body.values);
   // The version's files go with the message even when its text was edited.
-  return { to: contact.email, ...rendered, templateId: t.id as string, version: t.version as number, attachments: t.attachments as Data[], edited: body.subject !== undefined || body.body !== undefined };
+  return { to: contact.email, ...rendered, templateId: t.id as string, version: t.version as number, attachments: t.attachments as Data[], edited, language, translated: localized.translated && !edited, warnings: localized.missing && !edited ? [translationWarning(t, language)] : [] };
 }
 
 /** Render a portal message without sending it. */

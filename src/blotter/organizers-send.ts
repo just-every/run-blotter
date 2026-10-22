@@ -1,7 +1,8 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { recipientFor, contactGuard } from './client-recipients';
 import { issueLink, sendMail } from './documents';
-import { LINK_PREVIEW, engagementOnly, render, templateFiles, usable, valuesFor } from './messages';
+import type { Language } from '../i18n/catalog';
+import { LINK_PREVIEW, engagementOnly, localize, render, templateFiles, translationWarning, usable, valuesFor } from './messages';
 import { organizerAnswers, organizerStaffGuard, storedOrganizer } from './organizers-store';
 import { organizerProjection, submittedAnswers } from './organizers-client';
 import { advance } from './flow';
@@ -28,9 +29,14 @@ async function prepared(db: D1Database, actor: Actor, jobId: string, body: Data)
   const template = body.templateId ? await usable(db, actor, text(body.templateId, 'Message template')) : null;
   engagementOnly(template);
   const files = template ? await templateFiles(db, template.id, template.version, true) : [];
-  const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : template?.subject ?? `Organizer: ${j.title} ${j.period_label}`;
-  const message = body.body !== undefined ? text(body.body, 'Message', 10_000) : template?.body ?? 'Hello {{contact_first_name}},\nPlease complete your assigned questions for {{work_item}} ({{period}}).\n{{portal_link}}';
-  const rendering = async (contact: Data, link: string) => render(subject, message, await valuesFor(db, actor, j, { ...client, contact_email: contact.email, contact_name: contact.name }, outstanding.filter(r=>!r.key||assignments[r.key]===contact.id).map(r=>r.label), link), body.values);
+  // Each contact reads the invitation in their own language: the template's Spanish version, or the built-in Spanish text.
+  const wording = async (contact: Data) => {
+    const language: Language = contact.language ?? 'en', localized = template ? await localize(db, template, language) : null, edited = body.subject !== undefined || body.body !== undefined;
+    return { language, warnings: template && localized?.missing && !edited ? [translationWarning(template, language)] : [],
+      subject: body.subject !== undefined ? text(body.subject, 'Subject', 200) : localized?.subject ?? (language === 'es' ? `Cuestionario: ${j.title} ${j.period_label}` : `Organizer: ${j.title} ${j.period_label}`),
+      message: body.body !== undefined ? text(body.body, 'Message', 10_000) : localized?.body ?? (language === 'es' ? 'Hola {{contact_first_name}},\nPor favor, complete las preguntas que se le asignaron para {{work_item}} ({{period}}).\n{{portal_link}}' : 'Hello {{contact_first_name}},\nPlease complete your assigned questions for {{work_item}} ({{period}}).\n{{portal_link}}') };
+  };
+  const rendering = async (contact: Data, link: string) => { const w = await wording(contact); return { ...render(w.subject, w.message, await valuesFor(db, actor, j, { ...client, contact_email: contact.email, contact_name: contact.name }, outstanding.filter(r=>!r.key||assignments[r.key]===contact.id).map(r=>r.label), link), body.values), language: w.language, warnings: w.warnings }; };
   return { j, organizer, answers, assignments, contacts, template, files, rendering };
 }
 

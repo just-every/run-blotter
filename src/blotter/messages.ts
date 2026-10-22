@@ -4,8 +4,9 @@
 // template for one job and client, previews it, and refuses to send while a
 // placeholder is unresolved or empty, naming the field. A version may carry
 // attachments, sent with every message made from it.
-import { atomic, audit, digest, human, id, insist, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, guard, human, id, insist, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 import { decodeFile } from './documents';
+import { isLanguage, type Language } from '../i18n/catalog';
 
 type File = { name: string; mime: string; encoded: string; size: number; sha256: string };
 const MAX_FILES = 5;
@@ -73,10 +74,11 @@ export async function templates(db: D1Database, actor: Actor, query: Data = {}) 
       WHERE t.deleted_at IS NULL AND (t.scope='firm' OR t.owner_email=?) AND (?='' OR t.category=?)
         AND (lower(t.name) LIKE ? OR lower(t.category) LIKE ? OR lower(v.subject) LIKE ? OR lower(v.body) LIKE ?)
       ORDER BY t.category,t.name`, actor.email, category, category, q, q, q, q);
+  const spanish = await rows(db, 'SELECT x.template_id,x.language,x.subject,x.body,x.author,x.created_at FROM b_msg_template_translations x JOIN b_msg_templates t ON t.id=x.template_id AND t.version=x.version');
   return {
     firmName: (await stmt(db, 'SELECT name FROM b_firm WHERE id=1').first<Data>())?.name ?? '',
     placeholders: PLACEHOLDERS,
-    templates: list.map((t): Data => ({ ...t, attachments: files.filter(f => f.template_id === t.id).map(({ template_id, ...f }) => f) })),
+    templates: list.map((t): Data => ({ ...t, attachments: files.filter(f => f.template_id === t.id).map(({ template_id, ...f }) => f), translations: spanish.filter(x => x.template_id === t.id).map(({ template_id, ...x }) => x) })),
   };
 }
 
@@ -167,4 +169,29 @@ export async function usable(db: D1Database, actor: Actor, templateId: string) {
   const t = (await templates(db, actor)).templates.find(row => row.id === templateId);
   insist(t, 'Template not found', 404);
   return t;
+}
+
+// ---- PORTAL-005: a Spanish version of each template version ----
+
+/** The template's text in the contact's language: its Spanish version when it has one, otherwise the English text and a flag staff are warned with. */
+export async function localize(db: D1Database, t: Data, language: Language) {
+  if (language === 'en') return { subject: t.subject as string, body: t.body as string, language, translated: false, missing: false };
+  const spanish = await stmt(db, 'SELECT subject,body FROM b_msg_template_translations WHERE template_id=? AND version=? AND language=?', t.id, t.version, language).first<Data>();
+  return spanish ? { subject: spanish.subject as string, body: spanish.body as string, language, translated: true, missing: false } : { subject: t.subject as string, body: t.body as string, language, translated: false, missing: true };
+}
+/** The warning shown before a send when the template has no version in the contact's language. */
+export const translationWarning = (t: Data, language: Language) => ({ kind: 'no_translation', language, message: `${t.name} has no Spanish version, so this contact's Spanish preference cannot be honored: the English text would be sent. Add a Spanish version of version ${t.version} first.` });
+
+/** Add the Spanish version of the template's current version. Versions are immutable: an English edit needs a new Spanish version. */
+export async function addTranslation(db: D1Database, actor: Actor, templateId: string, body: Data) {
+  human(actor);
+  const t = await editable(db, actor, templateId);
+  insist(isLanguage(body.language) && body.language !== 'en', 'Add a Spanish version (language es); the English text is the version itself');
+  const f = fields(body), current = await stmt(db, 'SELECT message_class FROM b_msg_template_versions WHERE template_id=? AND version=?', t.id, t.version).first<Data>();
+  messageClass(current?.message_class, f.subject, f.body);
+  insist(!await stmt(db, 'SELECT 1 FROM b_msg_template_translations WHERE template_id=? AND version=? AND language=?', t.id, t.version, body.language).first(), 'This version already has a Spanish version; edit the template for a new version', 409);
+  const [check, release] = guard(db, 'EXISTS(SELECT 1 FROM b_msg_templates WHERE id=? AND version=? AND deleted_at IS NULL)', t.id, t.version);
+  await atomic(db, actor, [check, stmt(db, 'INSERT INTO b_msg_template_translations(template_id,version,language,subject,body,author,created_at) VALUES(?,?,?,?,?,?,?)', t.id, t.version, body.language, f.subject, f.body, actor.email, now()),
+    release, audit(db, actor, 'template.message_translated', t.id, `version ${t.version}: ${body.language}`)]);
+  return { id: t.id, version: t.version, language: body.language };
 }

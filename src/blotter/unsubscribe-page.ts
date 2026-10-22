@@ -5,6 +5,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { firmSettings } from './firm';
 import { withdrawStatements } from './marketing-consent';
+import { isLanguage, tr, type Language } from '../i18n/catalog';
 import { Fault, digest, email, insist, rows, stmt, type Data } from './model';
 
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -45,12 +46,17 @@ export async function unsubscribeResponse(request: Request, original: Bindings):
     if (!(e instanceof Fault)) throw e;
     error = e.message; status = e.status;
   }
-  const firm = (await firmSettings(db)).name || 'this practice';
+  // The page speaks the language of the contact the address belongs to (Spanish when any of its contacts prefers it); ?lang= overrides.
+  const wanted = url.searchParams.get('lang'), known = done || (/^us_[0-9a-f]{64}$/.test(token) ? (await stmt(db, 'SELECT address FROM b_unsubscribe_tokens WHERE digest=?', await digest(token)).first<Data>())?.address : '') || '';
+  const language: Language = isLanguage(wanted) ? wanted : known && await stmt(db, "SELECT 1 FROM b_client_contacts WHERE email=? AND active=1 AND language='es'", known).first() ? 'es' : 'en';
+  const T = (key: Parameters<typeof tr>[1], vars: Record<string, string | number> = {}) => tr(language, key, vars);
+  if (error === 'This unsubscribe link is not valid; type your email address instead') error = T('unsub.invalid');
+  const firm = (await firmSettings(db)).name || T('unsub.thisPractice');
   const page = done
-    ? `<p role="status">${escape(done)} will receive no more marketing email from ${escape(firm)}, starting now. Messages about work the practice is doing for you still arrive.</p>`
-    : `${token ? `<form action="/unsubscribe?t=${escape(token)}" method="post"><input type="hidden" name="t" value="${escape(token)}"><button type="submit">Unsubscribe from marketing email</button></form><p class="muted">Or type the address that receives it.</p>` : ''}
-      <form action="/unsubscribe" method="post"><label class="field">Email address<input name="address" type="email" required maxlength="254" autocomplete="email"></label><button type="submit">Unsubscribe this address</button></form>`;
-  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribe · ${escape(firm)}</title><link rel="stylesheet" href="/rer-theme.css"><link rel="stylesheet" href="/app/base.css"></head><body><div class="portal"><main><section class="panel"><h1>Unsubscribe from marketing email</h1>${error ? `<p role="alert">${escape(error)}</p>` : ''}${page}<p class="muted">No sign-in or fee is needed, and it takes effect immediately.</p></section></main></div></body></html>`, {
+    ? `<p role="status">${escape(T('unsub.done', { address: done, firm }))}</p>`
+    : `${token ? `<form action="/unsubscribe?t=${escape(token)}" method="post"><input type="hidden" name="t" value="${escape(token)}"><button type="submit">${escape(T('unsub.button'))}</button></form><p class="muted">${escape(T('unsub.or'))}</p>` : ''}
+      <form action="/unsubscribe" method="post"><label class="field">${escape(T('unsub.address'))}<input name="address" type="email" required maxlength="254" autocomplete="email"></label><button type="submit">${escape(T('unsub.addressButton'))}</button></form>`;
+  return new Response(`<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(T('unsub.title'))} · ${escape(firm)}</title><link rel="stylesheet" href="/rer-theme.css"><link rel="stylesheet" href="/app/base.css"></head><body><div class="portal"><main><section class="panel"><h1>${escape(T('unsub.heading'))}</h1>${error ? `<p role="alert">${escape(error)}</p>` : ''}${page}<p class="muted">${escape(T('unsub.footer'))}</p></section></main></div></body></html>`, {
     status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex',
       'content-security-policy': "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'" },
   });

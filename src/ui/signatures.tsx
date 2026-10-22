@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import {SignaturePdfPreview} from './signature-pdf-preview';
 import { api, Field, Form, readFile, Status, when, type Row, type Run } from './common';
+import { useT } from './i18n';
+import type { Key } from '../i18n/catalog';
 
 /** Reuses the existing job/client panels and forms. Frozen requests are never edited. */
 export function SignatureRequests({detail,clientId,people=[],run,tick=0,readOnly=false}:{detail?:Row;clientId?:string;people?:Row[];run:Run;tick?:number;readOnly?:boolean}) {
@@ -64,27 +66,28 @@ export function SignatureRequests({detail,clientId,people=[],run,tick=0,readOnly
 
 /** Client UI only receives this contact's fields, never another signer's answers or IP. */
 export function PortalSignatures({path,busy,act}:{path:string;busy:boolean;act:(work:()=>Promise<string>)=>Promise<void>}) {
-  const [items,setItems]=useState<Row[]>([]),[selected,setSelected]=useState<Row>(),[failure,setFailure]=useState('');
+  const t=useT(),[items,setItems]=useState<Row[]>([]),[selected,setSelected]=useState<Row>(),[failure,setFailure]=useState('');
   const request=async(url:string,body?:Row):Promise<any>=>{const response=await fetch(url,{...(body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{})});const result=await response.json() as Row;if(!response.ok)throw new Error(result.error);return result;};
   const load=async()=>setItems(await request(path+'/signatures'));
   useEffect(()=>{load().catch(e=>setFailure(e.message))},[path]);
   const open=async(id:string)=>{try{setSelected(await request(`${path}/signatures/${id}`));setFailure('')}catch(e){setFailure((e as Error).message)}};
-  const post=(suffix:string,body:Row)=>act(async()=>{await request(`${path}/signatures/${selected!.id}/${suffix}`,body);await load();await open(selected!.id);return suffix==='sign'?'Signature recorded.':'Decline recorded. Your practice can arrange another way to sign.';});
+  const post=(suffix:string,body:Row)=>act(async()=>{await request(`${path}/signatures/${selected!.id}/${suffix}`,body);await load();await open(selected!.id);return suffix==='sign'?t('sig.signedDone'):t('sig.declinedDone');});
+  const mode=(m:string)=>m==='sequential'||m==='parallel'?t(`sig.mode.${m}` as Key):m;
   if(!items.length&&!failure)return null;
-  return <section className="panel" style={{minWidth:0,overflowWrap:'anywhere'}}><h2>Your signature requests</h2>{failure&&<p role="alert">{failure}</p>}
-    <ul>{items.map(r=><li key={r.id}><button className="quiet" disabled={busy} onClick={()=>open(r.id)}>{r.title}</button> · {r.status}</li>)}</ul>
-    {selected&&<article className="record"><h3>{selected.title}</h3><p>{selected.mode} · attempt {selected.attempt} · {selected.status}</p><p><a href={`${path}/signatures/${selected.id}/files/original`} target="_blank" rel="noreferrer">Read and download the document</a></p>
-      <ol>{selected.signers.map((s:Row)=><li key={s.ordinal}>{s.name} · {s.status}{s.signedAt&&<> · {when(s.signedAt)}</>}</li>)}</ol>
-      {selected.attestationRequired&&!selected.attested&&selected.status==='pending'&&<p>Before you can sign this IRS authorization form, the practice must confirm your identity (photo ID by selfie or video, or personal knowledge). Contact them if you have not been asked.</p>}
-      {!selected.canSign&&selected.attested!==false&&selected.status==='pending'&&selected.signerStatus==='pending'&&<p>Waiting for earlier signers. Reopen this request after they finish.</p>}
-      {selected.canSign&&<Form label="Consent and sign document" disabled={busy} submit={async data=>post('sign',{revision:selected.revision,attempt:selected.attempt,consentVersion:selected.consentVersion,consent:data.consent==='on',intent:data.intent==='on',values:Object.fromEntries(selected.fields.map((f:Row)=>[f.id,data[f.id]]))})}>
-        <p>Signing as {selected.signerName}. Review the complete PDF before signing.</p>
-        {selected.fields.map((f:Row)=><Field key={f.id} label={`${f.label} (page ${f.page})`} name={f.id} type={f.type==='date'?'date':'text'}/>)}
-        <p>{selected.consentText}</p><label className="check"><input name="consent" type="checkbox" required disabled={busy}/>I consent to electronic records and signatures for this document.</label>
-        <label className="check"><input name="intent" type="checkbox" required disabled={busy}/>I am authorized for this client and intend to sign this document.</label>
+  return <section className="panel" aria-labelledby="signatures-title" style={{minWidth:0,overflowWrap:'anywhere'}}><h2 id="signatures-title">{t('sig.title')}</h2>{failure&&<p role="alert">{failure}</p>}
+    <ul>{items.map(r=><li key={r.id}><button className="quiet" disabled={busy} onClick={()=>open(r.id)}>{r.title}</button> · <Status value={r.status}/></li>)}</ul>
+    {selected&&<article className="record" aria-labelledby="signature-selected"><h3 id="signature-selected">{selected.title}</h3><p>{t('sig.mode',{mode:mode(selected.mode),attempt:selected.attempt,status:selected.status})}</p><p><a href={`${path}/signatures/${selected.id}/files/original`} target="_blank" rel="noreferrer">{t('sig.read')}</a></p>
+      <ol>{selected.signers.map((s:Row)=><li key={s.ordinal}>{s.name} · <Status value={s.status}/>{s.signedAt&&<> · {when(s.signedAt)}</>}</li>)}</ol>
+      {selected.attestationRequired&&!selected.attested&&selected.status==='pending'&&<p>{t('sig.attest')}</p>}
+      {!selected.canSign&&selected.attested!==false&&selected.status==='pending'&&selected.signerStatus==='pending'&&<p>{t('sig.waiting')}</p>}
+      {selected.canSign&&<Form label={t('sig.consentAction')} disabled={busy} submit={async data=>post('sign',{revision:selected.revision,attempt:selected.attempt,consentVersion:selected.consentVersion,consent:data.consent==='on',intent:data.intent==='on',values:Object.fromEntries(selected.fields.map((f:Row)=>[f.id,data[f.id]]))})}>
+        <p>{t('sig.signingAs',{name:selected.signerName})}</p>
+        {selected.fields.map((f:Row)=><Field key={f.id} label={t('sig.field',{label:f.label,page:f.page})} name={f.id} type={f.type==='date'?'date':'text'}/>)}
+        <p lang={selected.language}>{selected.consentText}</p><label className="check"><input name="consent" type="checkbox" required disabled={busy}/>{t('sig.consent')}</label>
+        <label className="check"><input name="intent" type="checkbox" required disabled={busy}/>{t('sig.intent')}</label>
       </Form>}
-      {selected.status==='pending'&&selected.signerStatus==='pending'&&<Form label="Decline electronic signing" disabled={busy} submit={async data=>post('decline',{revision:selected.revision,reason:data.reason})}><Field label="Reason for declining" name="reason"/><p className="muted">You can ask the practice for a paper copy or another way to sign. Declining does not withdraw any marketing consent.</p></Form>}
-      {selected.hasSigned&&<p><a href={`${path}/signatures/${selected.id}/files/signed`}>Download signed PDF</a> · <a href={`${path}/signatures/${selected.id}/files/certificate`}>Download certificate</a></p>}
+      {selected.status==='pending'&&selected.signerStatus==='pending'&&<Form label={t('sig.decline')} disabled={busy} submit={async data=>post('decline',{revision:selected.revision,reason:data.reason})}><Field label={t('sig.declineReason')} name="reason"/><p className="muted">{t('sig.declineHint')}</p></Form>}
+      {selected.hasSigned&&<p><a href={`${path}/signatures/${selected.id}/files/signed`}>{t('sig.downloadSigned')}</a> · <a href={`${path}/signatures/${selected.id}/files/certificate`}>{t('sig.downloadCertificate')}</a></p>}
     </article>}
   </section>;
 }

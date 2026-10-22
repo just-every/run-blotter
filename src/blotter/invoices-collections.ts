@@ -6,7 +6,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { sendMail } from './documents';
 import { firmSettings, localClock } from './firm';
-import { engagementOnly, render, usable } from './messages';
+import { engagementOnly, localize, render, usable } from './messages';
 import { atomic, audit, canReadBilling, date, digest, id, insist, integer, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 import { AGING_BUCKETS, agingBucket } from './invoice-aging';
 import { invoiceNumber } from './invoices-pdf';
@@ -182,7 +182,7 @@ export async function runInvoiceReminders(env: Bindings, at = new Date()) {
     if (!await canAccessClient(db, consenter.email, i.client_id)) { await hold(`${policy.consented_by} no longer holds this client`); continue; }
     const values: Record<string, string> = { firm_name: firm.name ?? '', sender_name: consenter.name || consenter.email, client_name: snapshot.client.name, contact_first_name: String(contact.first_name || contact.name || '').trim().split(/\s+/)[0] ?? '',
       invoice_amount: usd(i.balance_cents), invoice_due_date: i.due_date };
-    const message = render(template.subject, template.body, values, undefined);
+    const localized = await localize(db, { id: policy.template_id, version: policy.template_version, ...template }, contact.language ?? 'en'), message = render(localized.subject, localized.body, values, undefined);
     if (message.missing.length) { await hold(`unresolved placeholder: ${message.missing.map(m => m.label).join(', ')}`); continue; }
     const delivery = await sendMail(bindings, reminderId, contact.email, message.subject, message.body, i.pdf_base64 ? [{ name: `${invoiceNumber(i.number)}.pdf`, mime: 'application/pdf', content_base64: i.pdf_base64 }] : []);
     const status = delivery.startsWith('accepted by ') || delivery.startsWith('suppressed in development') ? 'accepted' : /^(not sent:|rejected )/.test(delivery) ? 'failed' : 'held';

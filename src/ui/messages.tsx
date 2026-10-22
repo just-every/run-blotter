@@ -38,6 +38,11 @@ export function MessageTemplates({ actor, run, tick }: { actor: Row; run: Run; t
         {t.scope === 'firm' && <button className="quiet" onClick={() => run(() => api(`/messages/templates/${t.id}/copy`, {}), 'Personal copy saved')}>Save a personal copy</button>}
         {(t.scope === 'personal' || owner) && <button className="quiet" onClick={() => run(() => api(`/messages/templates/${t.id}/delete`, {}), 'Template deleted; sent messages keep their text')}>Delete</button>}
       </div>
+      {t.translations?.map((x: Row) => <p key={x.language} className="muted">Spanish version of version {t.version} by {x.author}: {x.subject}</p>)}
+      {(t.scope === 'personal' || owner) && !t.translations?.length && <details><summary>Add the Spanish version of version {t.version}</summary>
+        <Form label={`Save Spanish version of ${t.name}`} submit={async (data, form) => run(async () => { await api(`/messages/templates/${t.id}/translations`, { ...data, language: 'es' }); form.reset(); }, 'Spanish version saved')}>
+          <Field label={`Spanish subject for ${t.name}`} name="subject" /><Field label={`Spanish message for ${t.name}`} name="body" hint={`Same placeholders: ${catalog}`}><textarea name="body" rows={6} required /></Field>
+        </Form></details>}
       {editing === t.id && <Form label="Save new version" submit={async (data, form) => run(async () => { await api(`/messages/templates/${t.id}`, await withFiles(data, form)); setEditing(''); }, 'New version saved')}>{fields(t)}</Form>}
     </article>)}
     <details><summary>New template</summary>
@@ -61,6 +66,8 @@ export function ReminderComposer({ jobId, run, sent, copied = [], contacts = [] 
       <option value="">Standard reminder</option>{list.map(t => <option key={t.id} value={t.id}>{t.name} ({t.scope === 'firm' ? 'firm' : 'mine'})</option>)}</select></Field>
     {preview && <div className="notice">
       <p><strong>To {preview.to}: {preview.subject}</strong></p><MessageText>{preview.body}</MessageText>
+      {preview.language && preview.language !== 'en' && <p className="muted">This contact reads Spanish{preview.translated ? ': the Spanish version of this template is used.' : '.'}</p>}
+      {preview.warnings?.map((w: Row) => <p key={w.kind} className="error" role="alert">{w.message}</p>)}
       {preview.attachments.length > 0 && <p className="muted">Attached: {preview.attachments.map((f: Row) => f.name).join(', ')}</p>}
       {preview.missing.length > 0 && <Form label="Fill in and preview again" submit={async data => run(() => show({ ...draft, values: { ...(draft.values ?? {}), ...data } }), 'Preview updated')}>
         <p className="error">Missing: {preview.missing.map((m: Row) => m.label).join(', ')}. Fill them in, or choose another template.</p>
@@ -86,6 +93,7 @@ export function PortalMessageComposer({ jobId, run, contacts = [] }: { jobId: st
       <option value="">Choose a template</option>{list.map(t => <option key={t.id} value={t.id}>{t.name} ({t.scope === 'firm' ? 'firm' : 'mine'})</option>)}</select></Field>
     {preview && <div className="notice">
       <p><strong>{preview.subject}</strong></p><MessageText>{preview.body}</MessageText>
+      {preview.warnings?.map((w: Row) => <p key={w.kind} className="error" role="alert">{w.message}</p>)}
       {preview.attachments.length > 0 && <p className="muted">The client can download: {preview.attachments.map((f: Row) => f.name).join(', ')}</p>}
       {preview.missing.length > 0 && <Form label="Fill in and preview again" submit={async data => run(() => show({ ...draft, values: { ...(draft.values ?? {}), ...data } }), 'Preview updated')}>
         <p className="error">Missing: {preview.missing.map((m: Row) => m.label).join(', ')}. Fill them in, or choose another template.</p>

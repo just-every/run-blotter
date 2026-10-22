@@ -51,7 +51,7 @@ import { decideRequest, downloadFile, portalUpload, portalView, previewReminder,
 import { addNoticeEvent, closeNotice, noticeDetail, noticeFile, notices, openNotice, updateNotice, verifyDeadline } from './notices';
 import { clientAuthorizations, createAuthorization, linkAuthorizationSignature, recordAuthorizationStatus, recordAuthorizationSubmission, requestTranscript, withdrawAuthorization } from './authorizations';
 import { prepareAuthorization } from './authorization-prepare';
-import { copyTemplate, createTemplate, deleteTemplate, editTemplate, setFirmName, templates } from './messages';
+import { copyTemplate, createTemplate, deleteTemplate, editTemplate, setFirmName, templates, addTranslation } from './messages';
 import { decideExpense, downloadReceipt, recordExpense, reimburseExpense, setMileageRate } from './expenses';
 import { downloadAttachment } from './tasks';
 import { board, calendar, personalPlan, planItem, previewDueMove, saveFilters, setPriority, unplanItem } from './planner';
@@ -339,6 +339,7 @@ api.post(`${P}/jobs/:id/reminders/preview`, as(async (a, c) => previewReminder(d
 api.get(`${P}/messages/templates`, as((a, c) => templates(db(c), a, c.req.query())));
 api.post(`${P}/messages/templates`, as(async (a, c) => createTemplate(db(c), a, await body(c))));
 api.post(`${P}/messages/templates/:id`, as(async (a, c) => editTemplate(db(c), a, param(c), await body(c))));
+api.post(`${P}/messages/templates/:id/translations`, as(async (a, c) => addTranslation(db(c), a, param(c), await body(c))));
 api.post(`${P}/messages/templates/:id/delete`, as((a, c) => deleteTemplate(db(c), a, param(c))));
 api.post(`${P}/messages/templates/:id/copy`, as(async (a, c) => copyTemplate(db(c), a, param(c), await body(c))));
 // Sourced deadlines (DUE-001, DUE-003): the principal approves catalog rules, firm rules and source revisions; dates are calculated per obligation.

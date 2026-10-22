@@ -1,3 +1,4 @@
+import { tr, type Key, type Language } from '../i18n/catalog';
 // Firm work types and the status model (WORK-007). Every job has one work type
 // (its template's own, or one the firm chose) and one of six stages: Planned,
 // Ready to start, In progress and Waiting are set by the job's people while it
@@ -225,7 +226,8 @@ export async function deleteView(db: D1Database, actor: Actor, viewId: string) {
 }
 
 /** The status the client sees: the sub-status's client label when staff gave one, else the stage's name. */
-export async function clientStatus(db: D1Database, j: Data) {
+export async function clientStatus(db: D1Database, j: Data, language: Language = 'en') {
   const sub = j.sub_status_id ? await stmt(db, 'SELECT client_label FROM b_sub_statuses WHERE id=?', j.sub_status_id).first<Data>() : null;
-  return sub?.client_label ?? STAGE_LABELS[stageOf(j)];
+  // A firm-written client label is shown as written; the built-in stage names follow the contact's language.
+  return sub?.client_label ?? tr(language, `stage.${stageOf(j)}` as Key);
 }

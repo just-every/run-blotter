@@ -1,3 +1,4 @@
+import { useT } from './i18n';
 import { readFile, type Row, day } from './common';
 
 const ROLE: Record<string, string> = { preparer: 'Preparer', reviewer: 'Reviewer', manager: 'Manager' };
@@ -65,6 +66,7 @@ export async function attachmentBody(file: File | undefined) { return file ? { a
 
 /** Client-facing tasks on the client's link: label, due date and whether it is done. */
 export function ClientTasks({ tasks }: { tasks: Row[] }) {
+  const t = useT();
   if (!tasks?.length) return null;
-  return <section className="panel"><h2>Progress</h2><ul className="list">{tasks.map((t: Row, n: number) => <li key={n}>{t.done ? '✓' : '○'} {t.label}{t.dueDate && <small className="muted"> · due {day(t.dueDate)}</small>}</li>)}</ul></section>;
+  return <section className="panel" aria-labelledby="tasks-title"><h2 id="tasks-title">{t('tasks.title')}</h2><ul className="list">{tasks.map((task: Row, n: number) => <li key={n}><span aria-hidden="true">{task.done ? '✓' : '○'}</span> {task.label}{task.dueDate && <small className="muted"> · {t('todos.due', { when: day(task.dueDate) })}</small>}</li>)}</ul></section>;
 }

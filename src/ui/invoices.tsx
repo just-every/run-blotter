@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { LanguageProvider, useT } from './i18n';
+import type { Language } from '../i18n/catalog';
 import { InvoiceCollectionControls, InvoiceCollections } from './invoice-collections';
-import { api, day, Empty, Field, Form, money, prose, Status, today, when, type Row, type Run, ExportLink } from './common';
+import { api, day, Empty, Field, Form, money, moneyText, prose, Status, today, when, type Row, type Run, ExportLink } from './common';
 
 function InvoiceLines({ snapshot }: { snapshot: Row }) {
   return <div className="stack">
@@ -136,11 +138,15 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
 export function InvoicePortal({ token }: { token: string }) {
   const [invoice, setInvoice] = useState<Row>(), [error, setError] = useState('');
   useEffect(() => { api(`/invoice-portal/${encodeURIComponent(token)}`).then(setInvoice).catch(e => setError(e.message)); }, [token]);
-  return <div className="portal"><main><section className="panel stack">{error ? <p role="alert">{error}</p> : !invoice ? <p>Opening invoice…</p> : <>
-    <p className="eyebrow">{invoice.firm}</p><h1>{invoice.number}</h1><h2>{invoice.title}</h2><p>{invoice.client} · for {invoice.recipient}</p><Status value={invoice.status} />
-    <p>Issued {day(invoice.issueDate)} · due {day(invoice.dueDate)}</p><p>Amount at issue {money(invoice.totalCents)} · <strong>Current balance {money(invoice.balanceCents)}</strong></p>
-    <p>{invoice.terms}</p><p>Supplied tax {money(invoice.taxCents)} · {invoice.taxTreatment}</p><a className="button" href={`/api/blotter/invoice-portal/${encodeURIComponent(token)}/pdf`}>Download invoice PDF</a>
-    <small className="muted" style={{overflowWrap:'anywhere'}}>Private invoice link; expires {day(invoice.expiresAt)}. SHA-256 {invoice.sha256}</small>
+  return <LanguageProvider language={(invoice?.language ?? 'en') as Language}><InvoicePortalPage token={token} invoice={invoice} error={error} /></LanguageProvider>;
+}
+function InvoicePortalPage({ token, invoice, error }: { token: string; invoice?: Row; error: string }) {
+  const t = useT();
+  return <div className="portal"><main id="portal-main"><section className="panel stack">{error ? <p role="alert">{error}</p> : !invoice ? <p>{t('inv.opening')}</p> : <>
+    <p className="eyebrow">{invoice.firm}</p><h1>{invoice.number}</h1><h2>{invoice.title}</h2><p>{t('inv.forRecipient', { client: invoice.client, recipient: invoice.recipient })}</p><Status value={invoice.status} />
+    <p>{t('inv.dates', { issued: day(invoice.issueDate), due: day(invoice.dueDate) })}</p><p>{t('inv.amounts', { total: moneyText(invoice.totalCents) })}<strong>{t('inv.balance', { balance: moneyText(invoice.balanceCents) })}</strong></p>
+    <p>{invoice.terms}</p><p>{t('inv.tax', { tax: moneyText(invoice.taxCents), treatment: invoice.taxTreatment })}</p><a className="button" href={`/api/blotter/invoice-portal/${encodeURIComponent(token)}/pdf`}>{t('inv.download')}</a>
+    <small className="muted" style={{overflowWrap:'anywhere'}}>{t('inv.private', { when: day(invoice.expiresAt), sha: invoice.sha256 })}</small>
   </>}</section></main></div>;
 }
 

@@ -66,11 +66,15 @@ export async function clientOrganizer(db: D1Database, token: string, organizerId
   const { job: j, contact, organizer, answers } = await contactOrganizer(db, token, organizerId);
   const visible = visibleQuestions(organizer.definition, answers), requests = await rows(db, `SELECT m.key,r.id,r.label,r.status,r.organizer_active FROM b_organizer_requests m JOIN b_requests r ON r.id=m.request_id WHERE m.organizer_id=?`, organizerId);
   const submissions = await rows(db, 'SELECT version,answers,submitted_at,reviewed_at FROM b_organizer_submissions WHERE organizer_id=? AND contact_id=? AND erased_at IS NULL ORDER BY version', organizerId, contact.id);
-  return { id: organizer.id, name: organizer.definition.name, kind: organizer.definition.kind, version: organizer.definition.version, revision: organizer.revision, writable: j.status === 'open',
-    questions: organizer.definition.questions.filter((q: Data) => visible.has(q.key) && answers[q.key].contactId === contact.id)
-      .map((q: Data) => ({ key: q.key, label: q.label, type: q.type, options: q.options, required: q.required, supportingUpload: !!q.request,
+  // PORTAL-005: the contact's language picks the Spanish wording; recorded answers and every rule stay on the English choice values.
+  const es = contact.language === 'es', definition = organizer.definition;
+  const shown = (q: Data) => ({ label: es && q.es ? q.es.label : q.label, optionLabels: Object.fromEntries((q.options as string[]).map((v, n) => [v, es && q.es?.options ? q.es.options[n] : v])) });
+  return { id: organizer.id, name: es && definition.es ? definition.es.name : definition.name, kind: definition.kind, version: definition.version, revision: organizer.revision, writable: j.status === 'open',
+    labels: Object.fromEntries(definition.questions.map((q: Data) => [q.key, shown(q).label])), optionLabels: Object.fromEntries(definition.questions.map((q: Data) => [q.key, shown(q).optionLabels])),
+    questions: definition.questions.filter((q: Data) => visible.has(q.key) && answers[q.key].contactId === contact.id)
+      .map((q: Data) => ({ key: q.key, label: shown(q).label, optionLabels: shown(q).optionLabels, type: q.type, options: q.options, required: q.required, supportingUpload: !!q.request,
         value: answers[q.key].value, confirmed: answers[q.key].confirmed, carriedFrom: answers[q.key].carriedFrom,
-        request: requests.find(r => r.key === q.key && r.organizer_active) ?? null })),
+        request: (r => r ? { ...r, label: es && q.es?.request ? q.es.request : r.label } : null)(requests.find(r => r.key === q.key && r.organizer_active)) })),
     submissions: submissions.map(s => ({ ...s, answers: JSON.parse(s.answers ?? '{}') })) };
 }
 

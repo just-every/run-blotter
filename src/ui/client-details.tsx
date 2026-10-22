@@ -12,7 +12,7 @@ function ContactForm({ contact = {}, clientId, run }: { contact?: Row; clientId:
   return <Form label={contact.id ? 'Save contact' : 'Add contact'} submit={async data => run(() => api(`/clients/${clientId}/contacts`, {
     ...data, id: contact.id, revision: contact.revision, roles: list(data.roles),
     ...Object.fromEntries(FLAGS.map(([key]) => [key, data[key] === 'true'])),
-  }), 'Contact saved; previous links revoked')}>
+  }), 'Contact saved; links issued before an access change are revoked')}>
     <div className="row"><Field label="First name" name="firstName" value={contact.first_name ?? ''} required={false} /><Field label="Last name" name="lastName" value={contact.last_name ?? ''} required={false} /></div>
     <Field label="Display name" name="name" value={contact.name ?? ''} />
     <Field label="Email" name="email" type="email" value={contact.email ?? ''} required={false} />
@@ -20,6 +20,7 @@ function ContactForm({ contact = {}, clientId, run }: { contact?: Row; clientId:
     <Field label="Roles, separated by commas" hint="primary, billing, tax, bookkeeping" name="roles" value={(contact.roles ?? []).join(', ')} required={false} />
     {FLAGS.map(([key,label]) => { const column = key === 'requestConsent' ? 'request_consent' : key === 'emailConsent' ? 'email_consent' : key; return <Field key={key} label={label} name={key}><select name={key} defaultValue={String(Boolean(contact[column] ?? (key === 'active')))}><option value="false">No</option><option value="true">Yes</option></select></Field>; })}
     <Field label="Authority and consent note" name="consentNote" value={contact.consent_note ?? ''} required={false} />
+    <Field label="Language for this contact" name="language" hint="Portal, emails, organizers and signature screens use it; templates warn when they have no version in it."><select name="language" defaultValue={contact.language ?? 'en'}><option value="en">English</option><option value="es">Español (Spanish)</option></select></Field>
   </Form>;
 }
 export function ClientDetails({ clientId, state, run, tick }: { clientId: string; state: Row; run: Run; tick: number }) {

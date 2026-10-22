@@ -4,6 +4,7 @@ import { contactCanRead, contactDownload, initialContactAccessStatements, inheri
 // or asks for changes with a comment. A decision records the approver, the time
 // and the version's SHA-256. A newer version resets approval, and an approval can
 // submit the job for review when its checklist and documents are complete.
+import { tr, type Key, type Language } from '../i18n/catalog';
 import { recipientFor, contactGuard } from './client-recipients';
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { reviewRequested } from './notifications';
@@ -56,13 +57,14 @@ export async function sendDeliverable(env: Bindings, actor: Actor, jobId: string
     stmt(db, `INSERT INTO b_deliverable_versions(id,deliverable_id,job_id,version,name,mime,size,sha256,content_base64,note,submit_on_approval,sent_by,sent_at,delivery,status)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'pending','sent')`, versionId, deliverable.id, j.id, version, file.name, file.mime, file.bytes.length, sha256, file.encoded, note, body.submitOnApproval === true ? 1 : 0, actor.email, at),
     ...permissionStatements, ...link.statements, release, audit(db, actor, 'deliverable.sent', versionId, `${deliverable.title} v${version} ${sha256}`)]);
+  const language: Language = recipient.language ?? 'en', T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars);
   const message = [
-    `Hello ${client.contact_name || client.name},`, '',
-    `Please review ${deliverable.title} (version ${version}) for ${j.title} (${j.period_label}).`, '',
+    T('mail.hello', { name: client.contact_name || client.name }), '',
+    T('mail.deliverable.intro', { title: deliverable.title, version, work: `${j.title} (${j.period_label})` }), '',
     ...(note ? [note, ''] : []),
-    `Approve it or request changes here: ${link.url}`, `This link expires on ${link.expiresAt.slice(0, 10)}.`,
+    T('mail.deliverable.action', { url: link.url }), T('mail.expires', { date: link.expiresAt.slice(0, 10) }),
   ].join('\n');
-  const delivery = await sendMail(bindings, versionId, client.contact_email, `For your approval: ${deliverable.title} v${version}`, message);
+  const delivery = await sendMail(bindings, versionId, client.contact_email, T('mail.deliverable.subject', { title: deliverable.title, version }), message);
   await stmt(db, 'UPDATE b_deliverable_versions SET delivery=? WHERE id=?', delivery, versionId).run();
   return { id: versionId, deliverableId: deliverable.id, version, sha256, delivery, portalUrl: link.url, expiresAt: link.expiresAt };
 }

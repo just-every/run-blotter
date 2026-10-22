@@ -14,7 +14,7 @@ import { demoEffect } from '../modules/demo/index.mjs';
 import { firmSettings } from './firm';
 import { issueLink } from './documents';
 import { issueBulkOrganizer, organizerAttachment, recheckOrganizer } from './bulk-organizers';
-import { LINK_PREVIEW, render, templateFiles, usable, valuesFor } from './messages';
+import { LINK_PREVIEW, localize, render, templateFiles, usable, valuesFor } from './messages';
 import { marketingGrantSql, marketingHold, withdrawnSql } from './marketing-consent';
 import { Fault, atomic, audit, digest, human, id, insist, integer, need, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
@@ -132,7 +132,7 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
   insist(body.attachOrganizer === undefined || typeof body.attachOrganizer === 'boolean', 'Attach organizer must be true or false');
   const attachOrganizer = body.attachOrganizer === true;
   insist(!attachOrganizer || (body.class === 'engagement' && attachesRequest(t)), 'An organizer attachment needs an engagement template with {{portal_link}}', 409);
-  const recipients = [], linked = body.class === 'engagement' && attachesRequest(t);
+  const recipients = [], untranslated: Data[] = [], linked = body.class === 'engagement' && attachesRequest(t);
   for (const c of included) {
     // A request link needs an open basis job and a contact authorized for requests (portal and request consent).
     const unlinked = !linked ? '' : !c.jobId ? 'no open job to attach the request to' : !c.contact.request_consent || !c.contact.portal ? 'contact not authorized for requests' : '';
@@ -146,7 +146,8 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
         continue;
       }
     }
-    const r = render(t.subject, t.body, await values(db, sender, body.class, c, linked ? LINK_PREVIEW : '', organizer?.id), undefined);
+    const loc = await localize(db, t, c.contact.language ?? 'en'), r = render(loc.subject, loc.body, await values(db, sender, body.class, c, linked ? LINK_PREVIEW : '', organizer?.id), undefined);
+    if (loc.missing) untranslated.push({ client: c.client.name, address: c.contact.email, language: loc.language });
     if (r.missing.length) excluded.push({ client_id: c.client.id, client: c.client.name, contact_id: c.contact.id, address: c.contact.email, reason: `unresolved placeholder: ${r.missing.map(m => m.label).join(', ')}` });
     else recipients.push({ c, r, organizer });
   }
@@ -160,7 +161,7 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
       id(), batchId, n + 1, c.client.id, c.contact.id, c.contact.email, body.class === 'marketing' ? c.contact.email : c.client.id, c.basis, c.jobId, organizer?.id ?? null, organizer?.revision ?? null)),
     ...excluded.map(e => stmt(db, 'INSERT INTO b_bulk_exclusions(id,batch_id,client_id,contact_id,address,reason) VALUES(?,?,?,?,?,?)', id(), batchId, e.client_id, e.contact_id ?? null, e.address ?? '', e.reason)),
     audit(db, actor, 'bulk.previewed', batchId, `${body.class}: ${recipients.length} recipients, ${excluded.length} excluded`)]);
-  return { ...await batchDetail(db, actor, batchId), samples: recipients.slice(0, 3).map(({ c, r }) => ({ client: c.client.name, to: c.contact.email, subject: r.subject, body: r.body })), notice: topic === 'other' ? NOTICE_7216 : null };
+  return { ...await batchDetail(db, actor, batchId), untranslated, samples: recipients.slice(0, 3).map(({ c, r }) => ({ client: c.client.name, to: c.contact.email, subject: r.subject, body: r.body })), notice: topic === 'other' ? NOTICE_7216 : null };
 }
 
 export async function batchDetail(db: D1Database, actor: Actor, batchId: string) {
@@ -281,7 +282,7 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
           continue;
         }
       }
-      const rendered = render(template!.subject, template!.body, await values(db, sender, b.class, { client: client!, contact: contact!, basis: r.basis, jobId: r.job_id, job }, link?.url ?? '', r.organizer_id), undefined);
+      const localized = await localize(db, { id: b.template_id, version: b.template_version, ...template! }, contact?.language ?? 'en'), rendered = render(localized.subject, localized.body, await values(db, sender, b.class, { client: client!, contact: contact!, basis: r.basis, jobId: r.job_id, job }, link?.url ?? '', r.organizer_id), undefined);
       if (rendered.missing.length) {
         held++;
         await stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", `held: not sent (unresolved placeholder: ${rendered.missing.map(m => m.label).join(', ')})`, r.id, attemptId).run();

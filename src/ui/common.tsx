@@ -1,3 +1,4 @@
+import { hasKey, tr, type Key, type Language } from '../i18n/catalog';
 import { Fragment, cloneElement, isValidElement, useId, type FormEvent, type ReactElement, type ReactNode } from 'react';
 
 export type Row = Record<string, any>;
@@ -30,7 +31,10 @@ export function ExportLink({ href, className, filename, children }: { href: stri
 /** Where a time entry's rate came from (TIME-003 rate cards). */
 export const SOURCE: Record<string, string> = { client_service: 'client and service', client: 'client', service: 'service', staff: 'staff member', role: 'role' };
 /** "USD 1,234.50" as plain text, for labels and options. */
-export const moneyText = (cents: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
+/** Client screens read in the contact's language (PORTAL-005); staff screens stay US English. */
+let uiLocale = 'en-US', uiLanguage: Language = 'en';
+export const setUiLocale = (language: Language) => { uiLanguage = language; uiLocale = language === 'es' ? 'es-US' : 'en-US'; };
+export const moneyText = (cents: number, currency = 'USD') => new Intl.NumberFormat(uiLocale, { style: 'currency', currency, currencyDisplay: 'code' }).format(Number(cents) / 100);
 /** An amount on one line with tabular figures. */
 export const money = (cents: number, currency = 'USD') => <span className="money">{moneyText(cents, currency)}</span>;
 export const taxId = (value: string) => value ? `${value.length === 11 ? 'Legacy ABN' : 'EIN'} •••••${value.slice(-4)}` : '';
@@ -44,17 +48,18 @@ let displayZone = 'America/New_York';
 /** Firm-local dates and instants, US style; date-only deadlines keep their recorded calendar day. Stored values stay UTC. */
 const dateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 const zoned = (value: string) => dateOnly(value) ? { at: new Date(value + 'T12:00:00Z'), timeZone: 'UTC' } : { at: new Date(value), timeZone: displayZone };
-const parts = (d: Date) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: displayZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }).formatToParts(d).map(p => [p.type, p.value]));
+const parts = (d: Date) => Object.fromEntries(new Intl.DateTimeFormat(uiLocale, { timeZone: displayZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }).formatToParts(d).map(p => [p.type, p.value]));
 /** The firm's calendar day as a native date input value ("2026-10-19"). */
 export const today = () => { const p = parts(new Date()); return `${p.year}-${p.month}-${p.day}`; };
 /** "Tue Oct 13", with the year when it is not this year ("Wed Dec 23, 2025"). */
 export const day = (value?: string) => {
   if (!value) return '';
-  const { at, timeZone } = zoned(value), year = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric' }).format(at) === today().slice(0, 4) ? {} : { year: 'numeric' as const };
-  return at.toLocaleDateString('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric', ...year }).replace(/^(\w{3}),/, '$1');
+  const { at, timeZone } = zoned(value), year = new Intl.DateTimeFormat(uiLocale, { timeZone, year: 'numeric' }).format(at) === today().slice(0, 4) ? {} : { year: 'numeric' as const };
+  const text = at.toLocaleDateString(uiLocale, { timeZone, weekday: 'short', month: 'short', day: 'numeric', ...year });
+  return uiLocale === 'en-US' ? text.replace(/^(\w{3}),/, '$1') : text;
 };
 /** "8:10 am". */
-export const clock = (value?: string) => value ? new Date(value).toLocaleTimeString('en-US', { timeZone: displayZone, hour: 'numeric', minute: '2-digit' }).replace(/\s?([AP])M/, (_, m: string) => ` ${m.toLowerCase()}m`) : '';
+export const clock = (value?: string) => { if (!value) return ''; const text = new Date(value).toLocaleTimeString(uiLocale, { timeZone: displayZone, hour: 'numeric', minute: '2-digit' }); return uiLocale === 'en-US' ? text.replace(/\s?([AP])M/, (_, m: string) => ` ${m.toLowerCase()}m`) : text; };
 /** "Tue Oct 13 · 8:10 am EDT" in the firm's zone; a date-only value prints its day. */
 export const when = (iso?: string) => !iso ? '' : dateOnly(iso) ? day(iso) : `${day(iso)} · ${clock(iso)} ${parts(new Date(iso)).timeZoneName}`;
 /** Server-written text (summaries, reasons, history details) with its ISO dates and instants printed US style. */
@@ -86,7 +91,8 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty"><p>{children}</p></div>;
 }
 export function Status({ value }: { value: string }) {
-  const label = value.replaceAll('_', ' ');
+  // Client screens translate the built-in statuses; staff screens (English) keep the raw name.
+  const label = uiLanguage !== 'en' && hasKey(`status.${value}`) ? tr(uiLanguage, `status.${value}` as Key) : value.replaceAll('_', ' ');
   return <span className={`status status-${value}`}>{label.charAt(0).toUpperCase() + label.slice(1)}</span>;
 }
 

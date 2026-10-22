@@ -21,7 +21,7 @@ export async function previewInvoiceDelivery(db: D1Database, actor: Actor, invoi
     text(body.resendReason, 'Reason to deliver again', 1000);
   }
   const preview = { invoiceId, revision: invoice.revision, number: invoice.number, pdfSha256: invoice.pdf_sha256,
-    recipient: { id: recipient.id, revision: recipient.revision, name: recipient.name, email: recipient.email, portal: recipient.portal === 1 },
+    recipient: { id: recipient.id, revision: recipient.revision, name: recipient.name, email: recipient.email, portal: recipient.portal === 1, language: (recipient.language ?? 'en') as string },
     previousDeliveryId: previous[0]?.id ?? null, resendReason: previous[0] ? body.resendReason.trim() : '',
     subject: `${invoiceNumber(invoice.number)} - ${invoice.title}`, amountCents: invoice.balance_cents, dueDate: invoice.due_date };
   return { ...preview, previewHash: await digest(JSON.stringify(preview)) };
@@ -35,8 +35,9 @@ export async function sendInvoice(env: Bindings, actor: Actor, invoiceId: string
   insist(invoice?.pdf_base64, 'Invoice PDF was erased or is unavailable', 409);
   const deliveryId = id(), token = secret('iv_'), at = now(), expiresAt = new Date(Date.now() + 30 * 86_400_000).toISOString(), portalUrl = `${bindings.AUTH_ORIGIN}/invoice/${token}`;
   // A billing contact without portal access receives the PDF by email alone: the stored link is revoked at claim time and never shared.
-  const message = `Hello ${preview.recipient.name},\n\nPlease find ${invoiceNumber(invoice.number)} attached. Amount due: USD ${(preview.amountCents / 100).toFixed(2)}. Due date: ${preview.dueDate}.`
-    + (preview.recipient.portal ? `\n\nInvoice portal: ${portalUrl}\nThis private link expires on ${expiresAt.slice(0, 10)}.` : '');
+  const spanish = preview.recipient.language === 'es', amount = `USD ${(preview.amountCents / 100).toFixed(2)}`;
+  const message = (spanish ? `Hola ${preview.recipient.name},\n\nAdjuntamos la factura ${invoiceNumber(invoice.number)}. Importe a pagar: ${amount}. Fecha de vencimiento: ${preview.dueDate}.` : `Hello ${preview.recipient.name},\n\nPlease find ${invoiceNumber(invoice.number)} attached. Amount due: ${amount}. Due date: ${preview.dueDate}.`)
+    + (preview.recipient.portal ? (spanish ? `\n\nPortal de facturas: ${portalUrl}\nEste enlace privado vence el ${expiresAt.slice(0, 10)}.` : `\n\nInvoice portal: ${portalUrl}\nThis private link expires on ${expiresAt.slice(0, 10)}.`) : '');
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_invoices WHERE id=? AND revision=? AND status='issued' AND erased_at IS NULL)
     AND NOT EXISTS(SELECT 1 FROM b_invoice_deliveries WHERE invoice_id=? AND status IN ('dispatching','held'))
     AND COALESCE((SELECT id FROM b_invoice_deliveries WHERE invoice_id=? ORDER BY sent_at DESC,id DESC LIMIT 1),'')=?`, invoiceId, preview.revision, invoiceId, invoiceId, preview.previousDeliveryId ?? '');
@@ -88,6 +89,7 @@ export async function invoicePortalView(db: D1Database, token: string) {
   return { id: invoice.id, number: invoiceNumber(invoice.number), title: invoice.title, currency: 'USD', status: invoice.status,
     issueDate: invoice.issue_date, dueDate: invoice.due_date, totalCents: invoice.total_cents, balanceCents: invoice.subtotal_cents + invoice.tax_cents - used,
     terms: snapshot.terms, taxTreatment: snapshot.taxTreatment, taxCents: invoice.tax_cents,
+    language: (await stmt(db, 'SELECT language FROM b_client_contacts WHERE id=?', delivery.contact_id).first<Data>())?.language ?? 'en',
     client: snapshot.client.name, firm: snapshot.firm.name, recipient: delivery.recipient_name, expiresAt: delivery.expires_at, sha256: invoice.pdf_sha256 };
 }
 export async function invoicePortalPdf(db: D1Database, token: string) {

@@ -9,7 +9,8 @@ import { runtimeBindings, type Bindings } from '../auth.server';
 import { advance } from './flow';
 import { clientTasks } from './tasks';
 import { portalItems } from './portal-items';
-import { LINK_PREVIEW, engagementOnly, render, templateFiles, usable, valuesFor } from './messages';
+import { tr, type Key, type Language } from '../i18n/catalog';
+import { LINK_PREVIEW, engagementOnly, localize, render, templateFiles, translationWarning, usable, valuesFor } from './messages';
 import { atomic, audit, digest, guard, human, id, insist, job, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 const MAX_BYTES = 1_048_576;
@@ -124,11 +125,15 @@ async function reminderContext(db: D1Database, actor: Actor, jobId: string, cont
 async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<typeof reminderContext>>, body: Data, link: string) {
   const t = body.templateId ? await usable(db, actor, text(body.templateId, 'Template')) : null;
   engagementOnly(t);
-  const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : t?.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : t?.body;
+  // The contact's language picks the template's Spanish version; a missing one warns staff before the send and the English text is used.
+  const language: Language = ctx.contact.language ?? 'en', localized = t ? await localize(db, t, language) : null;
+  const subject = body.subject !== undefined ? text(body.subject, 'Subject', 200) : localized?.subject, message = body.body !== undefined ? text(body.body, 'Message', 10_000) : localized?.body;
   insist(subject && message, 'Choose a template or write the subject and message');
   const rendered = render(subject, message, await valuesFor(db, actor, ctx.j, ctx.client, ctx.outstanding, link), body.values);
   // The template version's attachments go with the message, even when its text was edited.
-  return { ...rendered, templateId: t?.id ?? null, version: t?.version ?? null, attachments: t?.attachments ?? [], edited: body.subject !== undefined || body.body !== undefined };
+  const edited = body.subject !== undefined || body.body !== undefined;
+  return { ...rendered, templateId: t?.id ?? null, version: t?.version ?? null, attachments: t?.attachments ?? [], edited, language, translated: Boolean(localized?.translated) && !edited,
+    warnings: t && localized?.missing && !edited ? [translationWarning(t, language)] : [] };
 }
 
 /** Render a reminder without sending it; the secure link is created only when sending. */
@@ -143,7 +148,8 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   const ctx = await reminderContext(db, actor, jobId, body.contactId), { j, client, outstanding } = ctx;
   const reminderId = actor.automation?.attemptId ?? actor.approval?.resultId ?? id(), at = now();
   const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
-  let subject = `Documents needed: ${j.title} ${j.period_label}`, message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
+  const language: Language = ctx.contact.language ?? 'en', T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars);
+  let subject = T('mail.request.subject', { work: `${j.title} ${j.period_label}` }), message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
   if (body.templateId || body.subject !== undefined || body.body !== undefined) {
     const r = await templated(db, actor, ctx, body, url);
     insist(!r.missing.length, `Fill in or remove before sending: ${r.missing.map(m => m.label).join(', ')}`, 409);
@@ -152,18 +158,18 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   } else {
     const note = optional(body.message, 'Message', 1000);
     message = [
-      `Hello ${client.contact_name || client.name},`, '',
-      `We need the following documents for ${j.title} (${j.period_label}):`, ...outstanding.map(label => `- ${label}`), '',
+      T('mail.hello', { name: client.contact_name || client.name }), '',
+      T('mail.request.intro', { work: `${j.title} (${j.period_label})` }), ...outstanding.map(label => `- ${label}`), '',
       ...(note ? [note, ''] : []),
-      `Upload them securely here: ${url}`, `This link expires on ${expires.slice(0, 10)}.`,
+      T('mail.request.upload', { url }), T('mail.expires', { date: expires.slice(0, 10) }),
     ].join('\n');
   }
   const [check, release] = openGuard(db, j.id);
   const [authorized, authorizedDone] = contactGuard(db,j.client_id,ctx.contact.id,'request',ctx.contact.revision);
   await atomic(db, actor, [check, authorized, authorizedDone, ...statements,
-    stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version,attachments) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version,attachments,language) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
-      subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 })))),
+      subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 }))), language),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
   if (actor.automation) {
     insist(await stmt(db,"SELECT 1 FROM b_automation_rules r JOIN oa_operators o ON o.id=r.principal_id WHERE r.id=? AND r.status='active' AND r.used<=r.budget AND o.status='active' AND o.role='owner' AND EXISTS(SELECT 1 FROM b_client_contacts c WHERE c.id=? AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.request_consent=1 AND c.email_consent=1 AND c.revision=?)",actor.automation.ruleId,ctx.contact.id,ctx.contact.revision).first(),'Automation paused or authority revoked before dispatch',409);
@@ -194,9 +200,9 @@ export async function portalView(db: D1Database, token: string, practice: string
   const requests = await rows(db, `SELECT r.id,r.label,r.status,r.note FROM b_requests r WHERE r.job_id=? AND ${contactRequestSql()} ORDER BY r.ordinal`, j.id,contact.id);
   const files = await rows(db, 'SELECT request_id,name,uploaded_at FROM b_files WHERE job_id=? AND channel=? ORDER BY uploaded_at', j.id, 'portal');
   return {
-    practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
+    language: contact.language, practice, client: j.client_name, job: j.title, period: j.period_label, dueDate: j.due_date, expiresAt: link.expires_at, collecting: j.status === 'open',
     requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id).map(f => ({ name: f.name, uploadedAt: f.uploaded_at })) })),
-    sharedFiles: await contactDocuments(db,j.id,contact.id), tasks: await clientTasks(db, j), ...await portalItems(db, j,contact.id),
+    sharedFiles: await contactDocuments(db,j.id,contact.id), tasks: await clientTasks(db, j), ...await portalItems(db, j,contact.id,contact.language),
   };
 }
 

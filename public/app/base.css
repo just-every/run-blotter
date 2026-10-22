@@ -157,3 +157,7 @@ pre {overflow:auto;max-height:360px;font:13px/1.6 var(--bl-font-mono);background
   .portal .requests .split h2 {font-size:18px;}
 }
 @media(prefers-reduced-motion:reduce) {button,.button,input,select,textarea {transition:none;}}
+
+/* PORTAL-005: a keyboard user can jump past the client page's header to the work. */
+.skip-link { position: absolute; left: 0.5rem; top: -4rem; z-index: 20; padding: 0.5rem 0.75rem; background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; border-radius: 6px; }
+.skip-link:focus { top: 0.5rem; }

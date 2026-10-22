@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api, Field, Form, readFile, Status, when, type Row, type Run, day } from './common';
+import { api, Field, Form, moneyText, readFile, Status, when, type Row, type Run, day } from './common';
+import { useT } from './i18n';
 
 const short = (sha: string) => sha.slice(0, 12);
 
@@ -51,30 +52,30 @@ function VersionFields({contacts}: {contacts:Row[]}) {
 
 /** Client side: approve the newest version, or request changes with a comment. */
 export function PortalDeliverables({ path, busy, act }: { path: string; busy: boolean; act: (work: () => Promise<string>) => Promise<void> }) {
-  const [list, setList] = useState<Row[]>([]);
+  const t = useT(), [list, setList] = useState<Row[]>([]);
   const load = async () => { const r = await fetch(`${path}/deliverables`); if (r.ok) setList(await r.json()); };
   useEffect(() => { load(); }, [path]);
   const decide = (v: Row, data: Row) => act(async () => {
     const r = await fetch(`${path}/deliverables/${v.id}/decide`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...data, sha256: v.sha256 }) });
-    const b: any = await r.json(); await load(); if (!r.ok) throw new Error(b.error ?? 'Your answer was not recorded');
-    return b.status === 'approved' ? `You approved version ${v.version}. Thank you.` : 'Your requested changes were sent to your accountant.';
+    const b: any = await r.json(); await load(); if (!r.ok) throw new Error(b.error ?? t('del.failed'));
+    return b.status === 'approved' ? t('del.approvedDone', { version: v.version }) : t('del.changesDone');
   });
   if (list.length === 0) return null;
   return <>
-    <h2>For your approval</h2>
-    {list.map(d => <section key={d.id} className="panel">
-      <div className="split"><h3>{d.title}</h3><Status value={d.status} /></div>
-      {d.locked && <p className="notice" role="status">This file is locked until invoice {d.locked.invoiceNumber} is paid. {d.locked.remainingCents > 0 ? `USD ${(d.locked.remainingCents / 100).toFixed(2)} is still due.` : ''}{d.locked.pendingCents > 0 ? ' Your ACH payment is pending and has not settled yet.' : ''} Documents you gave us stay available.</p>}
+    <h2>{t('del.title')}</h2>
+    {list.map(d => <section key={d.id} className="panel" aria-labelledby={`deliverable-${d.id}`}>
+      <div className="split"><h3 id={`deliverable-${d.id}`}>{d.title}</h3><Status value={d.status} /></div>
+      {d.locked && <p className="notice" role="status">{t('del.lockedNotice', { invoice: d.locked.invoiceNumber })}{d.locked.remainingCents > 0 ? t('del.stillDue', { amount: moneyText(d.locked.remainingCents) }) : ''}{d.locked.pendingCents > 0 ? t('del.achPending') : ''}{t('del.yourDocs')}</p>}
       {d.versions.map((v: Row) => <div key={v.id} className="record">
-        {d.locked ? <p><strong>Version {v.version}: {v.name}</strong> <small className="muted">sent {when(v.sentAt)} · locked</small></p>
-          : <p><a href={`${path}/deliverables/${v.id}/file`}>Version {v.version}: {v.name}</a> <small className="muted">sent {when(v.sentAt)} · SHA-256 {v.sha256.slice(0, 12)}</small></p>}
+        {d.locked ? <p><strong>{t('del.version', { version: v.version, name: v.name })}</strong> <small className="muted">{t('del.sent', { when: when(v.sentAt) })} · {t('del.locked')}</small></p>
+          : <p><a href={`${path}/deliverables/${v.id}/file`}>{t('del.version', { version: v.version, name: v.name })}</a> <small className="muted">{t('del.sent', { when: when(v.sentAt) })} · SHA-256 {v.sha256.slice(0, 12)}</small></p>}
         {v.note && <p className="muted">{v.note}</p>}
-        {v.status === 'approved' && <p className="notice">Approved by {v.approverName} on {when(v.decidedAt)}.</p>}
-        {v.status === 'changes_requested' && <p className="notice">{v.approverName} asked for changes on {when(v.decidedAt)}: {v.comment}</p>}
-        {v.id === d.currentVersionId && v.status === 'sent' && <Form label="Send my answer" disabled={busy} submit={async (data, form) => { await decide(v, data); form.reset(); }}>
-          <Field label="Your name" name="name" />
-          <Field label="Your answer" name="decision"><select name="decision"><option value="approve">Approve this version</option><option value="changes">Request changes</option></select></Field>
-          <Field label="Comment (required when requesting changes)" name="comment" required={false}><textarea name="comment" rows={3} /></Field>
+        {v.status === 'approved' && <p className="notice">{t('del.approvedBy', { name: v.approverName, when: when(v.decidedAt) })}</p>}
+        {v.status === 'changes_requested' && <p className="notice">{t('del.changesBy', { name: v.approverName, when: when(v.decidedAt), comment: v.comment })}</p>}
+        {v.id === d.currentVersionId && v.status === 'sent' && <Form label={t('del.send')} disabled={busy} submit={async (data, form) => { await decide(v, data); form.reset(); }}>
+          <Field label={t('del.name')} name="name" />
+          <Field label={t('del.answer')} name="decision"><select name="decision"><option value="approve">{t('del.approve')}</option><option value="changes">{t('del.changes')}</option></select></Field>
+          <Field label={t('del.comment')} name="comment" required={false}><textarea name="comment" rows={3} /></Field>
         </Form>}
       </div>)}
     </section>)}

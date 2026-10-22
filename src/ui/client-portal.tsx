@@ -1,13 +1,15 @@
 import { PortalMessageComposer } from './messages';
+import { useT } from './i18n';
 import { api, Field, MessageText, Form, prose, Status, when, type Row, type Run, day } from './common';
 
 /** Milestones and the client's next action (PORTAL-003); staff see the same view on the job. */
-export function PortalProgress({ progress, title = 'Where things stand' }: { progress: Row; title?: string }) {
-  return <section className="panel">
-    <h2>{title}</h2>
-    <p><strong>Status:</strong> {progress.status}</p>
-    <p><strong>Next step:</strong> {progress.nextAction}</p>
-    <ol className="list">{progress.milestones.map((m: Row) => <li key={m.key}>{m.done ? '✓' : '○'} {m.label} <small className="muted">· {prose(m.detail)}</small></li>)}</ol>
+export function PortalProgress({ progress, title }: { progress: Row; title?: string }) {
+  const t = useT();
+  return <section className="panel" aria-labelledby="progress-title">
+    <h2 id="progress-title">{title ?? t('progress.title')}</h2>
+    <p><strong>{t('progress.status')}</strong> {progress.status}</p>
+    <p><strong>{t('progress.next')}</strong> {progress.nextAction}</p>
+    <ol className="list">{progress.milestones.map((m: Row) => <li key={m.key}><span aria-hidden="true">{m.done ? '✓' : '○'}</span> {m.label} <small className="muted">· {prose(m.detail)}</small></li>)}</ol>
   </section>;
 }
 
@@ -15,35 +17,36 @@ const thread = (messages: Row[], replyTo: (m: Row) => string | null): Row[] => m
 
 /** The client's secure messages and to-dos on their link. */
 export function PortalConversation({ view, path, busy, act, reload }: { view: Row; path: string; busy: boolean; act: (work: () => Promise<string>) => Promise<void>; reload: () => Promise<void> }) {
+  const t = useT();
   const post = (url: string, body: Row, done: string) => act(async () => {
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? 'That did not go through');
+    const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? t('messages.failed'));
     await reload(); return done;
   });
   return <>
-    {view.todos.length > 0 && <section className="panel">
-      <h2>Your to-dos</h2>
-      <ul className="list">{view.todos.map((t: Row) => <li key={t.id}>
-        {t.status === 'done' ? '✓' : '○'} {t.body}{t.dueDate && <small className="muted"> · due {day(t.dueDate)}</small>}
-        {t.status === 'done' ? <small className="muted"> · completed {when(t.closedAt)}{t.response && `: ${t.response}`}</small>
-          : <form onSubmit={e => { e.preventDefault(); const data = new FormData(e.currentTarget); post(`${path}/todos/${t.id}`, { response: data.get('response') }, 'To-do completed. Your accountant has been told.'); }}>
-            <label>Reply (optional)<input name="response" maxLength={2000} disabled={busy} /></label>
-            <button disabled={busy}>Mark done</button>
+    {view.todos.length > 0 && <section className="panel" aria-labelledby="todos-title">
+      <h2 id="todos-title">{t('todos.title')}</h2>
+      <ul className="list">{view.todos.map((todo: Row) => <li key={todo.id}>
+        <span aria-hidden="true">{todo.status === 'done' ? '✓' : '○'}</span> {todo.body}{todo.dueDate && <small className="muted"> · {t('todos.due', { when: day(todo.dueDate) })}</small>}
+        {todo.status === 'done' ? <small className="muted"> · {t('todos.completed', { when: when(todo.closedAt) })}{todo.response && `: ${todo.response}`}</small>
+          : <form onSubmit={e => { e.preventDefault(); const data = new FormData(e.currentTarget); post(`${path}/todos/${todo.id}`, { response: data.get('response') }, t('todos.done')); }}>
+            <label>{t('todos.reply')}<input name="response" maxLength={2000} disabled={busy} /></label>
+            <button disabled={busy}>{t('todos.markDone')}</button>
           </form>}
       </li>)}</ul>
     </section>}
-    <section className="panel">
-      <h2>Messages</h2>
-      <p className="muted">Secure messages about this work only. Your accountant replies here; no email is sent.</p>
+    <section className="panel" aria-labelledby="messages-title">
+      <h2 id="messages-title">{t('messages.title')}</h2>
+      <p className="muted">{t('messages.intro')}</p>
       {thread(view.messages, m => m.replyTo).filter(m => !m.replyTo).map(m => <article key={m.id} className="record">
-        <p><strong>{m.from === 'you' ? 'You' : 'Your accountant'}</strong> <small className="muted">{when(m.createdAt)}</small>{m.kind === 'question' && <> <Status value={m.status} /></>}<br />{m.subject && <strong>{m.subject}</strong>}</p>{m.subject ? <MessageText>{m.body}</MessageText> : <p>{m.body}</p>}
-        {m.files?.length > 0 && <ul className="list">{m.files.map((f: Row) => <li key={f.ordinal}><a href={`${path}/messages/${m.id}/files/${f.ordinal}`}>{f.name}</a> <small className="muted">· {f.size} bytes</small></li>)}</ul>}
-        {m.answer.map((r: Row) => <p key={r.id}><strong>Your accountant</strong> <small className="muted">{when(r.createdAt)}</small><br />{r.subject && <strong>{r.subject}<br /></strong>}{r.body}</p>)}
+        <p><strong>{m.from === 'you' ? t('messages.you') : t('messages.accountant')}</strong> <small className="muted">{when(m.createdAt)}</small>{m.kind === 'question' && <> <Status value={m.status} /></>}<br />{m.subject && <strong>{m.subject}</strong>}</p>{m.subject ? <MessageText>{m.body}</MessageText> : <p>{m.body}</p>}
+        {m.files?.length > 0 && <ul className="list">{m.files.map((f: Row) => <li key={f.ordinal}><a href={`${path}/messages/${m.id}/files/${f.ordinal}`}>{f.name}</a> <small className="muted">· {t('messages.bytes', { size: f.size })}</small></li>)}</ul>}
+        {m.answer.map((r: Row) => <p key={r.id}><strong>{t('messages.accountant')}</strong> <small className="muted">{when(r.createdAt)}</small><br />{r.subject && <strong>{r.subject}<br /></strong>}{r.body}</p>)}
         {m.answer.flatMap((r: Row) => r.files ?? []).length > 0 && <ul className="list">{m.answer.flatMap((r: Row) => (r.files ?? []).map((f: Row) => <li key={`${r.id}-${f.ordinal}`}><a href={`${path}/messages/${r.id}/files/${f.ordinal}`}>{f.name}</a></li>))}</ul>}
       </article>)}
-      <form onSubmit={e => { e.preventDefault(); const form = e.currentTarget, data = new FormData(form); post(`${path}/messages`, { body: data.get('body') }, 'Question sent to your accountant.').then(() => form.reset()); }}>
-        <label>Ask your accountant a question<textarea name="body" required maxLength={2000} rows={3} disabled={busy} /></label>
-        <button disabled={busy}>Send question</button>
+      <form onSubmit={e => { e.preventDefault(); const form = e.currentTarget, data = new FormData(form); post(`${path}/messages`, { body: data.get('body') }, t('messages.sent')).then(() => form.reset()); }}>
+        <label>{t('messages.ask')}<textarea name="body" required maxLength={2000} rows={3} disabled={busy} /></label>
+        <button disabled={busy}>{t('messages.send')}</button>
       </form>
     </section>
   </>;

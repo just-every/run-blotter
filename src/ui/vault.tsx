@@ -1,15 +1,17 @@
+import { useT } from './i18n';
 import { useEffect, useState } from 'react';
 import { api, day, Field, Form, when, type Row, type Run } from './common';
 
 /** The credential fields a client or staff member enters; the stored values are never shown back. */
 export function CredentialFields({ credential = {} }: { credential?: Row }) {
+  const t = useT();
   return <>
-    <Field label="Name" name="label" value={credential.label ?? ''} hint="For example: Ohio sales-tax portal" />
-    <Field label="Portal address" name="url" type="url" required={false} value={credential.url ?? ''} />
-    <Field label="Username" name="username" />
-    <Field label="Password" name="password" type="password" />
-    <Field label="Notes, such as security answers" name="notes" required={false} />
-    <Field label="Rotation reminder date (optional)" name="rotateBy" type="date" required={false} value={credential.rotate_by ?? ''} />
+    <Field label={t('cred.name')} name="label" value={credential.label ?? ''} hint={t('cred.nameHint')} />
+    <Field label={t('cred.url')} name="url" type="url" required={false} value={credential.url ?? ''} />
+    <Field label={t('cred.username')} name="username" />
+    <Field label={t('cred.password')} name="password" type="password" />
+    <Field label={t('cred.notes')} name="notes" required={false} />
+    <Field label={t('cred.rotate')} name="rotateBy" type="date" required={false} value={credential.rotate_by ?? ''} />
   </>;
 }
 
@@ -48,21 +50,21 @@ export function VaultDetails(props: { clientId: string; run: Run; tick: number; 
 
 /** On the client's link: add or replace logins for the firm; stored secrets are never shown again. */
 export function PortalCredentials({ path, busy, act }: { path: string; busy: boolean; act: (work: () => Promise<string>) => Promise<void> }) {
-  const [list, setList] = useState<Row[]>();
+  const t = useT(), [list, setList] = useState<Row[]>();
   const load = async () => { const r = await fetch(`${path}/credentials`); const b: any = await r.json(); if (r.ok) setList(b.credentials); };
   useEffect(() => { load(); }, [path]);
   const save = (body: Row, done: string) => act(async () => {
     const r = await fetch(`${path}/credentials`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? 'That did not save');
+    const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? t('cred.failed'));
     await load(); return done;
   });
   if (!list) return null;
-  return <section className="panel">
-    <h2>Logins you share with your accountant</h2>
-    <p className="muted">Stored encrypted. Only staff on your account can open them, and each opening is logged. Saved passwords are never shown here again; to change one, enter it in full.</p>
-    <ul className="list">{list.map(c => <li key={c.id}><details><summary>{c.label} · updated {when(c.updatedAt)}</summary>
-      <Form label="Replace login" disabled={busy} submit={async data => save({ ...data, id: c.id, revision: c.revision }, `${c.label} updated.`)}><CredentialFields credential={{ label: c.label, url: c.url }} /></Form>
+  return <section className="panel" aria-labelledby="credentials-title">
+    <h2 id="credentials-title">{t('cred.title')}</h2>
+    <p className="muted">{t('cred.intro')}</p>
+    <ul className="list">{list.map(c => <li key={c.id}><details><summary>{t('cred.updated', { label: c.label, when: when(c.updatedAt) })}</summary>
+      <Form label={t('cred.replace')} disabled={busy} submit={async data => save({ ...data, id: c.id, revision: c.revision }, t('cred.updatedDone', { label: c.label }))}><CredentialFields credential={{ label: c.label, url: c.url }} /></Form>
     </details></li>)}</ul>
-    <details><summary>Add a login</summary><Form label="Save login" disabled={busy} submit={async data => save(data, 'Login saved. Thank you.')}><CredentialFields /></Form></details>
+    <details><summary>{t('cred.add')}</summary><Form label={t('cred.save')} disabled={busy} submit={async data => save(data, t('cred.saved'))}><CredentialFields /></Form></details>
   </section>;
 }

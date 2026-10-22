@@ -2,8 +2,8 @@
 // is deterministic and a hidden ancestor keeps the entire section hidden.
 import { insist, integer, optional, text, type Data } from './model';
 
-export type OrganizerQuestion = { key: string; label: string; type: 'text' | 'choice'; options: string[]; required: boolean; when: { question: string; values: string[] } | null; request: string; workflowQuestion: string };
-export type OrganizerDefinition = { name: string; kind: 'tax' | 'bookkeeping'; version: number; questions: OrganizerQuestion[] };
+export type OrganizerQuestion = { key: string; label: string; type: 'text' | 'choice'; options: string[]; required: boolean; when: { question: string; values: string[] } | null; request: string; workflowQuestion: string; es?: { label: string; options?: string[]; request?: string } };
+export type OrganizerDefinition = { name: string; kind: 'tax' | 'bookkeeping'; version: number; questions: OrganizerQuestion[]; es?: { name: string } };
 
 export function organizerTemplate(value: unknown): OrganizerDefinition | null {
   if (value === undefined || value === null || value === '') return null;
@@ -34,10 +34,21 @@ export function organizerTemplate(value: unknown): OrganizerDefinition | null {
     }
     const workflowQuestion = optional(raw.workflowQuestion, 'Workflow question key', 40);
     insist(!workflowQuestion || (raw.type === 'choice' && !questions.some(q => q.workflowQuestion === workflowQuestion)), 'A workflow question binds to one choice question');
+    // PORTAL-005: an optional Spanish rendering of the question; stored answers always use the recorded (English) choice values.
+    let es: OrganizerQuestion['es'];
+    if (raw.es !== undefined && raw.es !== null) {
+      insist(typeof raw.es === 'object' && !Array.isArray(raw.es), 'The Spanish question is an object');
+      const spanishOptions = raw.type === 'choice' && raw.es.options !== undefined ? (() => {
+        insist(Array.isArray(raw.es.options) && raw.es.options.length === options.length, 'Give one Spanish choice for each recorded choice, in the same order');
+        const list = raw.es.options.map((v: unknown) => text(v, 'Spanish choice', 80)); insist(new Set(list).size === list.length, 'Spanish choices must be distinct'); return list;
+      })() : undefined;
+      es = { label: text(raw.es.label, 'Spanish question label', 200), ...(spanishOptions ? { options: spanishOptions } : {}), ...(raw.es.request ? { request: text(raw.es.request, 'Spanish document request', 200) } : {}) };
+    }
     questions.push({ key, label: text(raw.label, 'Question label', 200), type: raw.type, options, required: raw.required === true, when,
-      request: optional(raw.request, 'Supporting document request', 200), workflowQuestion });
+      request: optional(raw.request, 'Supporting document request', 200), workflowQuestion, ...(es ? { es } : {}) });
   }
-  return { name: text(input.name, 'Organizer name', 120), kind: input.kind, version: integer(input.version ?? 1, 'Organizer version', 1, 1_000_000), questions };
+  const es = input.es?.name ? { name: text(input.es.name, 'Spanish organizer name', 120) } : undefined;
+  return { name: text(input.name, 'Organizer name', 120), kind: input.kind, version: integer(input.version ?? 1, 'Organizer version', 1, 1_000_000), questions, ...(es ? { es } : {}) };
 }
 
 export function visibleQuestions(definition: OrganizerDefinition, answers: Data): Set<string> {
