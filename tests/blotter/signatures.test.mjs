@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {inflateSync} from 'node:zlib';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
+import {pdfText} from './pdf-text.mjs';
 import {authorizationJourney,authorizationLifecycleJourney,signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -26,7 +26,6 @@ const browser={'user-agent':'synthetic-blotter-browser/1'};
 const sign=(h,t,id,v,expected=200,extra={},headers=browser)=>h.json(`/portal/${t}/signatures/${id}/sign`,{...signBody(v),...extra},'',expected,headers);
 async function sent(h,f,extra={}){const d=await draft(h,f,extra);return h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep);}
 async function complete(h,r){for(const i of r.invitations){const t=token(i),v=await open(h,t,r.id);await sign(h,t,r.id,v);}return h.json(`/signatures/${r.id}`,undefined,h.owner);}
-function pdfText(bytes){let text='';const raw=Buffer.from(bytes).toString('latin1');for(const m of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)){let content;try{content=inflateSync(Buffer.from(m[1],'latin1')).toString('latin1');}catch{content=m[1];}for(const t of content.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g))text+=Buffer.from(t[1],'hex').toString('latin1');}return text;}
 async function finishJob(h,f){let d=await h.json(`/jobs/${f.job.id}`,undefined,f.prep);for(const r of d.requests){await h.json(`/requests/${r.id}/files`,{name:'synthetic-blotter-11.txt',mime:'text/plain',contentBase64:Buffer.from('Evidence').toString('base64')},f.prep);await h.json(`/requests/${r.id}/decide`,{decision:'accept'},f.prep);}for(const s of d.steps)await h.json(`/jobs/${f.job.id}/steps`,{ordinal:s.ordinal,done:true},f.prep);d=await h.json(`/jobs/${f.job.id}/submit`,{revision:(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).job.revision},f.prep);await h.json(`/jobs/${f.job.id}/review`,{revision:d.job.revision,decision:'signoff',note:'Inspected the evidence'},h.owner);}
 
 test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized sequential and parallel signers, decline/resend, void, filed certificate/timeline, notification preferences and atomic offboarding',async()=>{
@@ -54,8 +53,8 @@ test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized seq
   const b=await open(h,t2,r.id);assert.equal(b.canSign,true);await sign(h,t2,r.id,b);await sign(h,t2,r.id,b,409);
   const done=await h.json(`/signatures/${r.id}`,undefined,f.prep);assert.equal(done.status,'completed');assert.ok(done.hasSigned&&done.hasCertificate);assert.deepEqual(done.signers.map(s=>s.status),['signed','signed']);assert.ok(done.signers.every(s=>s.consent_text&&s.consent_version&&s.connection_ip==='192.0.2.1'&&s.connection_user_agent==='synthetic-blotter-browser/1'&&s.portal_link_id));
   const signedBytes=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,f.prep)).arrayBuffer()),certBytes=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/certificate`,undefined,f.prep)).arrayBuffer());
-  assert.equal((await PDFDocument.load(signedBytes)).getPageCount(),1);assert.equal(sha(signedBytes),done.signed_sha256);assert.equal(sha(certBytes),done.certificate_sha256);assert.notDeepEqual(signedBytes,f.bytes);for(const value of [...f.client.contacts.slice(0,2).map(c=>c.name),'SB','2026-10-22','Reviewed'])assert.ok(pdfText(signedBytes).includes(value));
-  const certificate=pdfText(certBytes);assert.ok(certificate.includes(done.signed_sha256)&&certificate.includes('192.0.2.1')&&certificate.includes('synthetic-blotter-browser/1')&&certificate.includes('identity not verified'));
+  assert.equal((await PDFDocument.load(signedBytes)).getPageCount(),1);assert.equal(sha(signedBytes),done.signed_sha256);assert.equal(sha(certBytes),done.certificate_sha256);assert.notDeepEqual(signedBytes,f.bytes);for(const value of [...f.client.contacts.slice(0,2).map(c=>c.name),'SB','2026-10-22','Reviewed'])assert.ok((await pdfText(signedBytes)).includes(value));
+  const certificate=await pdfText(certBytes);for(const value of [done.signed_sha256,'192.0.2.1','synthetic-blotter-browser/1','identity not verified'])assert.ok(certificate.includes(value),`Certificate contains ${value}`);
   assert.equal((await h.json(`/clients/${f.client.id}/signatures`,undefined,f.prep)).filter(x=>x.id===r.id).length,1);
   assert.ok((await h.json(`/clients/${f.client.id}/history`,undefined,f.prep)).history.some(e=>e.action==='signature.completed'&&e.object_id===f.job.id));assert.ok(done.events.some(e=>e.action==='declined')&&done.events.some(e=>e.action==='resent'));
   assert.equal((await h.request(`/api/blotter/portal/${t1}/signatures/${r.id}/files/certificate`)).status,200);
@@ -143,7 +142,7 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
   await h.json(`/signatures/${r.id}/staff-sign`,signBody(mine),f.prep,200,{'user-agent':'synthetic-blotter-staff/3'});
   const done=await h.json(`/signatures/${r.id}`,undefined,f.prep);assert.equal(done.status,'completed');
   assert.deepEqual(done.signers.map(s=>[s.signer_kind,s.connection_ip,s.connection_user_agent]),[['contact','198.51.100.7','synthetic-blotter-browser/2'],['staff','192.0.2.1','synthetic-blotter-staff/3']]);
-  const certificate=pdfText(Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/certificate`,undefined,f.prep)).arrayBuffer()));
+  const certificate=await pdfText(Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/certificate`,undefined,f.prep)).arrayBuffer()));
   for(const value of ['IRS.gov/Submit2848','198.51.100.7','synthetic-blotter-browser/2','synthetic-blotter-staff/3','photo id video','Pat Harper','Utility bill matching name and address','identity not verified'])assert.ok(certificate.includes(value),value);
   // Non-signer and void denials still hold for these forms.
   const nonSigner=await h.json(`/jobs/${f.job.id}/reminders`,{contactId:f.client.contacts[2].id},h.owner);await h.json(`/portal/${token(nonSigner)}/signatures/${r.id}`,undefined,'',404);
@@ -172,7 +171,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   assert.equal(d.status,'draft');assert.equal(h.mails.length,before,'Preparation sends no invitations');assert.equal(d.attestation_required,1);
   const original=Buffer.from(await(await h.request(`/api/blotter/signatures/${d.id}/files/original`,undefined,h.owner)).arrayBuffer()),prepared=await PDFDocument.load(original);
   assert.equal(prepared.getPageCount(),2);assert.equal(prepared.getForm().getFields().length,0);
-  for(const value of [f.client.name,'123 Cedar Lane','111-22-3333','Pat Harper','1040','2022-2025','Colorado'])assert.ok(pdfText(original).includes(value),value);
+  for(const value of [f.client.name,'123 Cedar Lane','111-22-3333','Pat Harper','1040','2022-2025','Colorado'])assert.ok((await pdfText(original)).includes(value),value);
   if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {mkdir,writeFile}=await import('node:fs/promises');await mkdir(process.env.BLOTTER_SIGNATURE_EVIDENCE,{recursive:true});await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/prepared-2848.pdf',original);}
   await h.json(`/authorizations/${a.id}/prepare`,input,f.outside,403);
   await h.json(`/clients/${f.client.id}/authorizations`,undefined,f.outside,404);
@@ -182,7 +181,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
   await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
   const signedForm=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).arrayBuffer());
-  for(const signer of [client.name,'Pat Harper'])assert.ok(pdfText(signedForm).includes(signer));
+  for(const signer of [client.name,'Pat Harper'])assert.ok((await pdfText(signedForm)).includes(signer));
   if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {writeFile}=await import('node:fs/promises');await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/signed-2848.pdf',signedForm);}
   const general=await sent(h,f,{title:'synthetic-blotter-20'});await complete(h,general);
   await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner,409);
@@ -228,7 +227,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   const infoDraft=await h.json(`/authorizations/${info.id}/prepare`,{...input,revision:info.revision},h.owner);
   const infoPdf=Buffer.from(await(await h.request(`/api/blotter/signatures/${infoDraft.id}/files/original`,undefined,h.owner)).arrayBuffer());
   assert.equal((await PDFDocument.load(infoPdf)).getPageCount(),1);assert.equal(infoDraft.signers.length,1);assert.ok(infoDraft.fields.every(f=>f.contactId===client.id));
-  for(const value of [f.client.name,'111-22-3333','Pat Harper','1040','2022-2025'])assert.ok(pdfText(infoPdf).includes(value),value);
+  for(const value of [f.client.name,'111-22-3333','Pat Harper','1040','2022-2025'])assert.ok((await pdfText(infoPdf)).includes(value),value);
   if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {writeFile}=await import('node:fs/promises');await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/prepared-8821.pdf',infoPdf);}
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   const copy=await harness();try{
