@@ -49,6 +49,7 @@ import { notificationSettings, saveNotificationSettings, saveNotificationDefault
 import { openThread, readThread, reply, resolveThread, threadsFor } from './threads';
 import { decideRequest, downloadFile, portalUpload, portalView, previewReminder, sendReminder, staffUpload } from './documents';
 import { addNoticeEvent, closeNotice, noticeDetail, noticeFile, notices, openNotice, updateNotice, verifyDeadline } from './notices';
+import { clientAuthorizations, createAuthorization, linkAuthorizationSignature, recordAuthorizationStatus, recordAuthorizationSubmission, requestTranscript, withdrawAuthorization } from './authorizations';
 import { copyTemplate, createTemplate, deleteTemplate, editTemplate, setFirmName, templates } from './messages';
 import { decideExpense, downloadReceipt, recordExpense, reimburseExpense, setMileageRate } from './expenses';
 import { downloadAttachment } from './tasks';
@@ -350,6 +351,13 @@ api.post(`${P}/clients/:id/obligations`, as(async (a, c) => addObligation(db(c),
 api.post(`${P}/jobs/:id/deadline/extension`, as((a, c) => recordExtension(db(c), a, param(c))));
 api.post(`${P}/jobs/:id/deadline/override`, as(async (a, c) => overrideDeadline(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/deadline/filing`, as(async (a, c) => recordFiling(db(c), a, param(c), await body(c))));
+api.get(`${P}/clients/:id/authorizations`, as((a, c) => clientAuthorizations(db(c), a, param(c))));
+api.post(`${P}/clients/:id/authorizations`, as(async (a, c) => createAuthorization(db(c), a, param(c), await body(c))));
+api.post(`${P}/clients/:id/transcript-requests`, as(async (a, c) => requestTranscript(db(c), a, param(c), await body(c))));
+api.post(`${P}/authorizations/:id/signature`, as(async (a, c) => linkAuthorizationSignature(db(c), a, param(c), await body(c))));
+api.post(`${P}/authorizations/:id/submission`, as(async (a, c) => recordAuthorizationSubmission(db(c), a, param(c), await body(c))));
+api.post(`${P}/authorizations/:id/status`, as(async (a, c) => recordAuthorizationStatus(db(c), a, param(c), await body(c))));
+api.post(`${P}/authorizations/:id/withdraw`, as(async (a, c) => withdrawAuthorization(db(c), a, param(c), await body(c))));
 api.get(`${P}/notices`, as((a, c) => notices(db(c), a)));
 api.post(`${P}/notices`, as(async (a, c) => openNotice(db(c), a, await body(c))));
 api.get(`${P}/notices/:id`, as((a, c) => noticeDetail(db(c), a, param(c))));

@@ -105,3 +105,22 @@ export async function signatureAuthorityJourney(h,f,poa){
   await signerContext.close();await context.close();
  }finally{await browser.close();}
 }
+
+/** AUTHZ-001 screen: the client's authorizations with their lifecycle and the transcript requests they scoped. */
+export async function authorizationJourney(h,f){
+ const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
+ await mkdir(evidence,{recursive:true});
+ const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ try{
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
+  await context.addCookies(h.owner.split('; ').map(c=>{const at=c.indexOf('=');return {name:c.slice(0,at),value:c.slice(at+1),url:h.origin};}));
+  const page=await context.newPage();await page.goto(h.origin+'/app');
+  if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();await page.waitForURL('**/app');}
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Clients & templates',exact:true}).click();
+  const clients=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Clients',exact:true})}),record=clients.locator('ul.list > li').filter({hasText:f.client.name}).first();
+  await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
+  const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});await panel.getByText('CAF 0300-12345R',{exact:false}).waitFor();
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`authorizations ${width} overflows`);await panel.screenshot({path:`${evidence}/client-authorizations-${width}.png`});}
+  await context.close();
+ }finally{await browser.close();}
+}

@@ -5,6 +5,7 @@ import { staffDownload } from './document-shares';
 // contact, responses, follow-ups, transcripts and receipts until it closes with
 // a recorded outcome. Blotter tracks the work; it gives no tax advice.
 import { decodeFile } from './documents';
+import { agencyContactAuthority } from './authorizations';
 import { eligible } from './jobs';
 import { atomic, audit, date, digest, Fault, human, id, insist, job, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -93,6 +94,8 @@ export async function addNoticeEvent(db: D1Database, actor: Actor, noticeId: str
   const n = await visible(db, actor, noticeId); open(n);
   const kind = body.kind;
   insist(KINDS.includes(kind), 'Choose what happened');
+  // AUTHZ-001: contacting the agency for the client needs a recorded authorization covering the notice year.
+  if (kind === 'agency_contact') await agencyContactAuthority(db, n);
   const note = text(body.note, 'Note', 4000);
   const result = kind === 'response_submitted' ? body.result : null;
   insist(kind !== 'response_submitted' || ['pending', 'failed', 'accepted'].includes(result), 'Record whether the response is pending, failed or accepted');
