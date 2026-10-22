@@ -569,17 +569,31 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     };
     const a = await issueOne(s.job, s.billing.id, 'MS-1', '2026-12-01', 10000), b = await issueOne(s.job, s.billing.id, 'MS-2', '2026-12-10', 20000);
     const c = await issueOne(s.job, s.billing.id, 'MS-3', '2026-12-20', 30000), d = await issueOne(otherJob, robin.id, 'MS-4', '2026-12-01', 5000);
+    // PORTAL-005: a billing contact who reads Spanish gets the invoice mail and the reminders in Spanish.
+    const cedro = await h.json('/clients', { name: 'Cedro Taller LLC', contacts: [{ ...contact('Lucía Ríos', 'lucia@example.test'), language: 'es' }] }, h.owner);
+    const cedroJob = await h.json('/jobs', { clientId: cedro.id, templateId: s.template.id, periodStart: '2026-11-01', dueDate: '2026-12-15', dueNote: 'Recorded engagement date', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+    const lucia = (await h.json(`/clients/${cedro.id}/contacts`, undefined, h.owner))[0], e = await issueOne(cedroJob, lucia.id, 'MS-5', '2026-12-01', 7000);
+    const toLucia = await h.json(`/invoices/${e.id}/delivery-preview`, { contactId: lucia.id }, h.owner), mailed = await h.json(`/invoices/${e.id}/send`, { contactId: lucia.id, previewHash: toLucia.previewHash }, h.owner);
+    assert.match(h.mails.find(m => m.subject === toLucia.subject).text, /^Hola Lucía Ríos,\n\nAdjuntamos la factura INV-\d+\. Importe a pagar: USD 70\.00\. Fecha de vencimiento: 2026-12-01\.\n\nPortal de facturas: https:\/\/\S+\nEste enlace privado vence el /);
+    assert.equal((await h.json('/invoice-portal/' + new URL(mailed.portalUrl).pathname.split('/').at(-1))).language, 'es');
     const template = await h.json('/messages/templates', { name: 'Invoice reminder', scope: 'firm', subject: 'Reminder: {{invoice_amount}} due {{invoice_due_date}}', body: 'Hello {{contact_first_name}}, {{client_name}} owes {{invoice_amount}} by {{invoice_due_date}}. {{firm_name}}' }, h.owner);
     const newsletter = await h.json('/messages/templates', { name: 'Newsletter', scope: 'firm', class: 'marketing', subject: 'News', body: 'Hello {{contact_first_name}}' }, h.owner);
     const schedule = { offsets: [7, -3, 0], templateId: template.id, reason: 'Engagement letters authorize overdue reminders' };
     await h.json('/invoices/reminders', { ...schedule, templateId: newsletter.id }, h.owner, 409);
     await h.json('/invoices/reminders', schedule, s.preparer, 403);
-    assert.deepEqual((await h.json('/invoices/reminders', schedule, h.owner)).policy.offsets, [-3, 0, 7]);
+    const consented = await h.json('/invoices/reminders', schedule, h.owner);
+    assert.deepEqual(consented.policy.offsets, [-3, 0, 7]);
+    // The template has no Spanish version yet, so staff are warned before any reminder goes to her; adding it clears the warning.
+    assert.deepEqual([consented.spanishRecipients, consented.warnings.map(w => w.kind)], [1, ['no_translation']]);
+    await h.json(`/messages/templates/${template.id}/translations`, { language: 'es', subject: 'Recordatorio: {{invoice_amount}} vence el {{invoice_due_date}}', body: 'Hola {{contact_first_name}}, {{client_name}} debe {{invoice_amount}} antes del {{invoice_due_date}}. {{firm_name}}' }, h.owner);
+    assert.deepEqual((await h.json('/invoices/reminders', undefined, h.owner)).warnings, []);
     await h.json(`/clients/${other.id}/invoice-reminders`, { mode: 'off', reason: 'Client pays by standing order' }, h.owner);
     const sent = () => h.mails.filter(m => /^Reminder:/.test(m.subject)).map(m => [m.to[0], m.subject]);
     await h.scheduled('2026-11-28T15:00:00Z');
     assert.deepEqual(sent(), [['alex@example.test', 'Reminder: USD 100.00 due 2026-12-01']]);
     assert.equal(h.mails.find(m => /^Reminder:/.test(m.subject)).attachments.length, 1, 'The reminder carries the numbered PDF');
+    const spanishReminder = h.mails.filter(m => /^Recordatorio:/.test(m.subject));
+    assert.deepEqual(spanishReminder.map(m => [m.to[0], m.subject]), [['lucia@example.test', 'Recordatorio: USD 70.00 vence el 2026-12-01']]); assert.match(spanishReminder[0].text, /^Hola Lucía, Cedro Taller LLC debe USD 70\.00 antes del 2026-12-01\./);
     // The first invoice is paid (a recorded receipt settles it) and the third is disputed between steps.
     const receipt = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', reference: 'BANK-RECEIPT-A', amountCents: 10000, reason: 'Client paid by bank transfer; receipt supplied' }, h.owner);
     await h.json(`/invoices/${a.id}/credits`, { creditId: receipt.id, amountCents: 10000, reason: 'Apply the recorded bank receipt' }, h.owner);
@@ -626,13 +640,15 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     const quiet = restored.mails.length; await restored.scheduled('2027-01-05T15:00:00Z'); assert.equal(restored.mails.length, quiet);
     // Staff see the missing Spanish version before scheduled sends; the fallback stays honest and later steps use the supplied translation.
     await h.json(`/clients/${s.client.id}/contacts`, { id: s.billing.id, revision: s.billing.revision, language: 'es' }, h.owner);
-    const localizedSchedule = await h.json('/invoices/reminders', { ...schedule, offsets: [-3, 0, 7, 30, 31] }, h.owner);
+    await h.json(`/clients/${cedro.id}/invoice-reminders`, { mode: 'off', reason: 'This client is outside the late fallback scenario' }, h.owner);
+    const fallbackTemplate = await h.json('/messages/templates', { name: 'Late English-only reminder', scope: 'firm', subject: 'Reminder: {{invoice_amount}} due {{invoice_due_date}}', body: 'Hello {{contact_first_name}}, {{client_name}} owes {{invoice_amount}} by {{invoice_due_date}}.' }, h.owner);
+    const localizedSchedule = await h.json('/invoices/reminders', { ...schedule, templateId: fallbackTemplate.id, offsets: [-3, 0, 7, 30, 31] }, h.owner);
     assert.ok(localizedSchedule.warnings.some(w => w.contactId === s.billing.id && w.kind === 'no_translation' && /English text/.test(w.message)));
     await collectionsJourney(h, s);
     let translatedMailCount = h.mails.length;
     await h.scheduled('2027-01-09T15:00:00Z');
     assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Reminder: USD 200.00 due 2026-12-10');
-    await h.json(`/messages/templates/${template.id}/translations`, { language: 'es', subject: 'Recordatorio: {{invoice_amount}} vence {{invoice_due_date}}', body: 'Hola {{contact_first_name}}, {{client_name}} debe {{invoice_amount}} antes del {{invoice_due_date}}.' }, h.owner);
+    await h.json(`/messages/templates/${fallbackTemplate.id}/translations`, { language: 'es', subject: 'Recordatorio: {{invoice_amount}} vence {{invoice_due_date}}', body: 'Hola {{contact_first_name}}, {{client_name}} debe {{invoice_amount}} antes del {{invoice_due_date}}.' }, h.owner);
     assert.deepEqual((await h.json('/invoices/reminders', undefined, h.owner)).warnings, []);
     translatedMailCount = h.mails.length; await h.scheduled('2027-01-10T15:00:00Z');
     assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Recordatorio: USD 200.00 vence 2026-12-10');

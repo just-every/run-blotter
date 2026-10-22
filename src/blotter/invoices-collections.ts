@@ -32,17 +32,18 @@ export async function reminderState(db: D1Database, actor: Actor) {
   const clients = await rows(db, 'SELECT r.* FROM b_invoice_reminder_clients r JOIN b_clients c ON c.id=r.client_id WHERE c.erased_at IS NULL ORDER BY r.set_at');
   const mine: Data[] = [];
   for (const c of clients) if (await canAccessClient(db, actor.email, c.client_id)) mine.push({ ...c, offsets: c.offsets ? JSON.parse(c.offsets) : null });
-  const warnings: Data[] = [];
-  if (policy) {
-    const template = await stmt(db, 'SELECT t.id,t.name,? version FROM b_msg_templates t WHERE t.id=?', policy.template_version, policy.template_id).first<Data>();
-    if (template && (await localize(db, template, 'es')).missing) {
-      for (const contact of await rows(db, `SELECT c.id,c.client_id,c.name,c.email FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id
-        WHERE c.language='es' AND c.active=1 AND c.authorized=1 AND c.email_consent=1 AND e.lifecycle='active' AND e.erased_at IS NULL AND e.merged_into IS NULL AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing')`)) {
-        if (await canAccessClient(db, actor.email, contact.client_id)) warnings.push({ ...translationWarning(template, 'es'), contactId: contact.id, contactName: contact.name, address: contact.email });
-      }
-    }
+  // Restrict both warnings and their aggregate count to billing contacts on open invoices the reader may access.
+  const spanish: Data[] = [];
+  for (const contact of await rows(db, `SELECT DISTINCT c.id,c.client_id,c.name,c.email FROM b_invoices i JOIN b_client_contacts c ON c.id=json_extract(i.snapshot,'$.recipient.id') AND c.client_id=i.client_id
+    JOIN b_clients e ON e.id=c.client_id WHERE i.status='issued' AND i.erased_at IS NULL AND ${balanceSql}>0 AND c.active=1 AND c.language='es' AND e.lifecycle='active' AND e.erased_at IS NULL AND e.merged_into IS NULL`)) {
+    if (await canAccessClient(db, actor.email, contact.client_id)) spanish.push(contact);
   }
-  return { policy: policy ? { ...policy, offsets: JSON.parse(policy.offsets) } : null, clients: mine, warnings };
+  const warnings: Data[] = [];
+  if (policy?.status === 'active' && spanish.length) {
+    const template = await stmt(db, 'SELECT t.id,t.name,? version FROM b_msg_templates t WHERE t.id=?', policy.template_version, policy.template_id).first<Data>();
+    if (template && (await localize(db, template, 'es')).missing) for (const contact of spanish) warnings.push({ ...translationWarning(template, 'es'), contactId: contact.id, contactName: contact.name, address: contact.email });
+  }
+  return { policy: policy ? { ...policy, offsets: JSON.parse(policy.offsets) } : null, clients: mine, spanishRecipients: spanish.length, warnings };
 }
 
 /** Enabling the schedule is the consent: who, which template version, which steps and why, audited and step-up confirmed. */

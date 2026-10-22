@@ -60,6 +60,15 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const noSpanish = await h.json(`/jobs/${job.id}/reminders/preview`, { templateId: englishOnly.id, contactId: maria.id }, h.owner);
     assert.deepEqual([noSpanish.translated, noSpanish.warnings.map(w => w.kind)], [false, ['no_translation']]); assert.match(noSpanish.warnings[0].message, /Request English only has no Spanish version/);
     assert.deepEqual((await h.json(`/jobs/${job.id}/reminders/preview`, { templateId: englishOnly.id, contactId: tom.id }, h.owner)).warnings, [], 'The English contact is never warned');
+    // The same warning precedes a portal message and a bulk batch; with a Spanish version the batch renders it for her.
+    assert.deepEqual((await h.json(`/jobs/${job.id}/portal/messages/preview`, { templateId: englishOnly.id, contactId: maria.id }, h.owner)).warnings.map(w => w.kind), ['no_translation']);
+    assert.deepEqual((await h.json(`/jobs/${job.id}/portal/messages/preview`, { templateId: withSpanish.id, contactId: maria.id }, h.owner)).warnings, []);
+    const kickoff = await h.json('/messages/templates', { scope: 'firm', name: 'Kickoff', subject: '{{work_item}} kickoff for {{client_name}}', body: '{{work_item}}: hello {{contact_first_name}}.' }, h.owner);
+    const batch = key => h.json('/bulk-messages/preview', { class: 'engagement', templateId: kickoff.id, entityType: 'business', role: 'tax', reason: 'Season kickoff for open engagements', idempotencyKey: key }, h.owner);
+    assert.deepEqual((await batch('kickoff-1')).untranslated.map(u => [u.address, u.language]), [['maria@example.test', 'es']]);
+    await h.json(`/messages/templates/${kickoff.id}/translations`, { language: 'es', subject: '{{work_item}}: inicio para {{client_name}}', body: '{{work_item}}: hola {{contact_first_name}}.' }, h.owner);
+    const kicked = await batch('kickoff-2');
+    assert.deepEqual(kicked.untranslated, []); assert.match(kicked.samples.find(x => x.to === 'maria@example.test').subject, /: inicio para Cedar Lane LLC$/);
     const sentSpanish = await h.json(`/jobs/${job.id}/reminders`, { templateId: withSpanish.id, contactId: maria.id }, h.owner), mailTo = (address, n = -1) => h.mails.filter(m => m.to.includes(address)).at(n);
     assert.match(mailTo('maria@example.test').subject, /^Documentos para Cedar Lane LLC$/); assert.match(mailTo('maria@example.test').text, /^Hola María, cargue /);
     await h.json(`/jobs/${job.id}/reminders`, { templateId: englishOnly.id, contactId: maria.id }, h.owner);
@@ -79,6 +88,8 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const org = (await h.json(`/jobs/${job.id}/organizers`, undefined, h.owner)).organizers[0], assignments = { ownership: maria.id, owners: maria.id, bookkeeping: tom.id };
     const invite = await h.json(`/jobs/${job.id}/organizers/send/preview`, { revision: org.revision, assignments }, h.owner);
     assert.match(invite.recipients.find(r => r.contactId === maria.id).subject, /^Cuestionario: /); assert.match(invite.recipients.find(r => r.contactId === tom.id).subject, /^Organizer: /);
+    const templatedInvite = await h.json(`/jobs/${job.id}/organizers/send/preview`, { revision: org.revision, assignments, templateId: englishOnly.id }, h.owner);
+    assert.deepEqual([maria.id, tom.id].map(id => templatedInvite.recipients.find(r => r.contactId === id).warnings.map(w => w.kind)), [['no_translation'], []], 'An organizer invitation warns before the send too');
     const sentOrg = await h.json(`/jobs/${job.id}/organizers/send`, { revision: org.revision, assignments }, h.owner), mo = tokenOf(sentOrg.recipients.find(r => r.contactId === maria.id)), to = tokenOf(sentOrg.recipients.find(r => r.contactId === tom.id));
     const portal = token => `/portal/${token}/organizers`;
     let a = (await h.json(portal(mo))).organizers[0], b = (await h.json(portal(to))).organizers[0];
@@ -131,6 +142,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const draft = await h.json(`/jobs/${job.id}/signatures`, { title: 'Carta de representación', formKind: 'management representation', requiresKba: false, mode: 'parallel', contactIds: [maria.id, tom.id], fields: [...fields(maria), ...fields(tom)], file }, prep);
     const sig = await h.json(`/signatures/${draft.id}/send`, { revision: draft.revision }, prep);
     assert.match(mailTo('maria@example.test').subject, /^Solicitud de firma de documento$/); assert.equal(mailTo('tom@example.test').subject, 'Document signature request');
+    assert.match(mailTo('maria@example.test').text, /^Por favor, revise y firme Carta de representación\.\n/); assert.match(mailTo('tom@example.test').text, /^Please review and sign Carta de representación\.\n/);
     const mine = [sig.invitations[0], sig.invitations[1]].map(i => tokenOf(i));
     const detailOf = async token => h.json(`/portal/${token}/signatures/${draft.id}`);
     const details = await Promise.all(mine.map(detailOf)), spanishDetail = details.find(d => d.signerName === 'María Gómez'), englishDetail = details.find(d => d.signerName === 'Tom Baker'), spanishToken = mine[details.indexOf(spanishDetail)], englishToken = mine[details.indexOf(englishDetail)];
@@ -148,11 +160,28 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     // The deliverable mail and the unsubscribe page follow the contact's language.
     await h.json(`/jobs/${job.id}/deliverables`, { title: 'Estados financieros', name: 'fs.pdf', mime: 'application/pdf', contentBase64: Buffer.from('FS').toString('base64'), contactId: maria.id }, prep);
     assert.match(mailTo('maria@example.test').subject, /^Para su aprobación: Estados financieros v1$/); assert.match(mailTo('maria@example.test').text, /^Hola María Gómez,\n\nPor favor, revise Estados financieros \(versión 1\)/);
-    const unsubscribe = async (address, query = '') => { const form = new FormData(); form.set('address', address); return (await h.request('/unsubscribe' + query, form)).text(); };
-    const spanishPage = await unsubscribe('maria@example.test'), englishPage = await unsubscribe('tom@example.test');
-    assert.match(spanishPage, /<html lang="es">/); assert.match(spanishPage, /maria@example\.test no recibirá más correo de mercadeo de /); assert.match(spanishPage, /Cancelar el correo de mercadeo/);
-    assert.match(englishPage, /<html lang="en">/); assert.match(englishPage, /tom@example\.test will receive no more marketing email/);
-    const blank = await (await h.request('/unsubscribe?lang=es')).text(); assert.match(blank, /Cancelar esta dirección/); assert.match(await (await h.request('/unsubscribe')).text(), /Unsubscribe this address/);
+    // A marketing email to her (MSG-002): its Spanish version and a Spanish footer whose unsubscribe link opens the Spanish page.
+    await h.json('/firm/settings', { name: 'Cardinal Tax & Books', ein: '12-3456789', entity: 'LLC', address: '100 Main Street', city: 'Raleigh', state: 'NC', zip: '27601', fiscalYearEnd: '12-31', services: 'Individual tax', currency: 'USD', timeZone: 'America/New_York', notificationStart: '08:00', notificationEnd: '18:00', calendars: [] }, h.owner);
+    const news = await h.json('/messages/templates', { scope: 'firm', name: 'Seminar news', class: 'marketing', subject: 'News from {{firm_name}}', body: 'Hi {{contact_first_name}}, our spring seminar is open.' }, h.owner);
+    await h.json(`/messages/templates/${news.id}/translations`, { language: 'es', subject: 'Novedades de {{firm_name}}', body: 'Hola {{contact_first_name}}, nuestro seminario de primavera está abierto.' }, h.owner);
+    await h.json('/marketing-consents', { contactId: maria.id, kind: 'grant', actedAt: '2026-10-01T15:00:00Z', wording: 'Sí, envíenme invitaciones a seminarios y novedades por correo electrónico.', wordingVersion: 'v1-es', evidence: 'Signed Spanish sign-up sheet at the October seminar' }, h.owner);
+    const newsBatch = await h.json('/bulk-messages/preview', { class: 'marketing', templateId: news.id, entityType: 'business', topic: 'other', idempotencyKey: 'news-es' }, h.owner);
+    assert.deepEqual([newsBatch.recipients.map(r => r.address), newsBatch.untranslated], [['maria@example.test'], []]);
+    await h.json(`/bulk-messages/${newsBatch.batch.id}/approve`, { fingerprint: newsBatch.batch.fingerprint }, h.owner);
+    await h.json(`/bulk-messages/${newsBatch.batch.id}/schedule`, { fingerprint: newsBatch.batch.fingerprint }, h.owner);
+    await h.json(`/bulk-messages/${newsBatch.batch.id}/run`, {}, h.owner);
+    const newsMail = mailTo('maria@example.test'); assert.equal(newsMail.subject, 'Novedades de Cardinal Tax & Books'); assert.match(newsMail.text, /^Hola María, nuestro seminario de primavera está abierto\./);
+    const unsubscribeLink = newsMail.text.match(/\nRecibe correo de mercadeo de Cardinal Tax & Books porque lo aceptó\. Cancelar la suscripción: https:\/\/[^/\s]+(\/unsubscribe\?t=us_[0-9a-f]{64})&lang=es\n/)?.[1];
+    assert.ok(unsubscribeLink, 'The marketing footer is Spanish and its unsubscribe link carries the language');
+    const page = async (path, form) => (await h.request(path, form)).text();
+    for (const path of [unsubscribeLink + '&lang=es', unsubscribeLink]) { const html = await page(path); assert.match(html, /<html lang="es">/); assert.match(html, /Cancelar el correo de mercadeo/); }
+    // The page's forms keep its language. A typed address is never looked up for it: a Spanish contact's address and an unknown one get the same reply.
+    const typed = (address, query = '') => { const form = new FormData(); form.set('address', address); return page('/unsubscribe' + query, form); };
+    const blank = await page('/unsubscribe?lang=es'); assert.match(blank, /Cancelar esta dirección/); assert.match(blank, /action="\/unsubscribe\?lang=es"/);
+    assert.match(await typed('maria@example.test', '?lang=es'), /maria@example\.test no recibirá más correo de mercadeo de Cardinal Tax &amp; Books/);
+    const unknown = await typed('nobody@example.test'), known = await typed('maria@example.test');
+    assert.match(known, /<html lang="en">/); assert.equal(known.replace('maria@example.test', '{address}'), unknown.replace('nobody@example.test', '{address}'));
+    assert.match(await page('/unsubscribe'), /Unsubscribe this address/);
 
     // Scheduled batches keep the exact reviewed language and wording, even when a translation is added to that same version.
     const batchTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Bilingual scheduled request', subject: '{{work_type}} update for {{client_name}}', body: '{{work_type}} documents: {{portal_link}}.' }, h.owner);
@@ -160,9 +189,9 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const offTopic = await h.json('/messages/templates', { scope: 'firm', name: 'Wrong Spanish opening', subject: '{{work_type}} update', body: '{{work_type}} documents follow.' }, h.owner);
     await h.json(`/messages/templates/${offTopic.id}/translations`, { language: 'es', subject: 'Oferta especial', body: 'Tenemos una oferta.' }, h.owner);
     await h.json('/bulk-messages/preview', { ...batchBody, templateId: offTopic.id, idempotencyKey: 'synthetic-blotter-24' }, h.owner, 409);
-    const batch = async key => h.json('/bulk-messages/preview', { ...batchBody, idempotencyKey: key }, h.owner);
+    const reviewedBatch = async key => h.json('/bulk-messages/preview', { ...batchBody, idempotencyKey: key }, h.owner);
     const schedule = b => h.json(`/bulk-messages/${b.batch.id}/schedule`, { fingerprint: b.batch.fingerprint }, h.owner);
-    const untranslatedBatch = await batch('synthetic-blotter-21');
+    const untranslatedBatch = await reviewedBatch('synthetic-blotter-21');
     assert.deepEqual(untranslatedBatch.untranslated.map(c => c.address), ['maria@example.test']);
     await schedule(untranslatedBatch);
     await h.json(`/messages/templates/${batchTemplate.id}/translations`, { language: 'es', subject: 'Actualización de {{work_type}} para {{client_name}}', body: '{{work_type}} documentos: {{portal_link}}.' }, h.owner);
@@ -170,7 +199,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const heldTranslation = await h.json(`/bulk-messages/${untranslatedBatch.batch.id}/run`, {}, h.owner);
     assert.equal(h.mails.length, mailCount, 'A newly added translation cannot replace the reviewed English fallback');
     assert.match(heldTranslation.recipients[0].held_reason, /translation changed; preview again/);
-    const changedLanguage = await batch('synthetic-blotter-22');
+    const changedLanguage = await reviewedBatch('synthetic-blotter-22');
     assert.notEqual(changedLanguage.batch.fingerprint, untranslatedBatch.batch.fingerprint, 'The reviewed fingerprint includes localized wording');
     assert.match(changedLanguage.samples[0].subject, /^Actualización de Monthly close/);
     await schedule(changedLanguage);
@@ -178,7 +207,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     const heldLanguage = await h.json(`/bulk-messages/${changedLanguage.batch.id}/run`, {}, h.owner);
     assert.equal(h.mails.length, mailCount); assert.match(heldLanguage.recipients[0].held_reason, /language changed; preview again/);
     await h.json(contactsPath, { id: maria.id, revision: maria.revision, language: 'es' }, h.owner);
-    const approvedLanguage = await batch('synthetic-blotter-23'); await schedule(approvedLanguage);
+    const approvedLanguage = await reviewedBatch('synthetic-blotter-23'); await schedule(approvedLanguage);
     const translatedBatch = await h.json(`/bulk-messages/${approvedLanguage.batch.id}/run`, {}, h.owner);
     assert.equal(translatedBatch.counts.accepted, 1); assert.equal(h.mails.length, mailCount + 1);
     assert.match(h.mails.at(-1).subject, /^Actualización de Monthly close/);

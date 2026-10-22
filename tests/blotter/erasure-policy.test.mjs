@@ -16,6 +16,10 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
   const h = await harness(), target = await harness();
   try {
     const s = await build(h);
+    const spanishContact = s.client.contacts.find(c => c.language === 'es');
+    await h.json(`/clients/${s.client.id}/contacts`, { id: spanishContact.id, revision: spanishContact.revision, roles: ['primary', 'tax'] }, h.owner);
+    const reviewTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Erasure review fixture', subject: '{{work_type}} review', body: '{{work_type}} document review.' }, h.owner);
+    await h.json('/bulk-messages/preview', { class: 'engagement', templateId: reviewTemplate.id, workTypeId: 'wt-' + s.template.id, role: 'tax', reason: 'Prepare a requested document review', idempotencyKey: 'synthetic-blotter-25' }, h.owner);
     const archive = async () => (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     const old = await archive();
     for (const sentinel of [SENTINEL.organizer, SENTINEL.thread, 'alex@example.test', IDENTITY.name]) assert.ok(old.includes(sentinel), sentinel);
@@ -123,6 +127,8 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.deepEqual(closed.time.map(t => t.description), ['Reconcile bank'], 'Time a billing export snapshotted keeps its description');
     assert.deepEqual(closed.expenses.map(e => e.description), ['[erased]'], 'Unbilled expense text is replaced');
     const after = await archive();
+    const erasedReview = rowsOf(after).filter(item => item.table === 'b_bulk_recipients' && item.row.client_id === id);
+    assert.ok(erasedReview.length > 0 && erasedReview.every(item => item.row.preview_language === 'en' && item.row.template_wording_hash === null), 'Approved erasure removes stored language review metadata from the public archive');
     for (const gone of [SENTINEL.thread, SENTINEL.credential, 'alex@example.test:', 'Blair Bookkeeper', 'blair@example.test', 'Courier to Cedar Lane', IDENTITY.address]) assert.ok(!after.includes(gone), `${gone} is absent from new archives`);
     for (const stays of [b64(SENTINEL.engagement), b64(SENTINEL.accepted), 'Signed off and filed', SENTINEL.organizer]) assert.ok(after.includes(stays), `${stays} stays`);
     // The legal name survives only inside approved billing evidence and the sealed remainder, never in a plain row.
@@ -157,6 +163,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.match(erased.name, /^Erased client [0-9a-f]{8}$/);
     assert.ok(!erased.name.includes(id.slice(0, 8)), 'The label is random, not derived from the id');
     assert.ok(erased.contacts.every(c => /^Erased contact [0-9a-f]{8}$/.test(c.name)));
+    assert.ok(erased.contacts.every(c => c.language === 'en'), 'A contact language preference (PORTAL-005) is erased with the contact');
     for (const door of ['/state', '/inbox', '/search?q=Cedar', '/search?q=123456789', '/agent/context', `/clients/${id}/history`]) {
       const text = JSON.stringify(await h.json(door, undefined, door === '/agent/context' ? '' : h.owner, 200, door === '/agent/context' ? bearer : {}));
       assert.ok(!text.includes(IDENTITY.name) && !text.includes(IDENTITY.address) && !text.includes('Cedar Lane'), `${door} shows no legal name: ${text.slice(Math.max(0, text.indexOf('Cedar Lane') - 200), text.indexOf('Cedar Lane') + 100)}`);

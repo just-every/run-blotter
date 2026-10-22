@@ -122,6 +122,18 @@ const C = {
   'mail.deliverable.subject': { en: 'For your approval: {title} v{version}', es: 'Para su aprobación: {title} v{version}' },
   'mail.deliverable.intro': { en: 'Please review {title} (version {version}) for {work}.', es: 'Por favor, revise {title} (versión {version}) de {work}.' },
   'mail.deliverable.action': { en: 'Approve it or request changes here: {url}', es: 'Apruébelo o pida cambios aquí: {url}' },
+  'mail.organizer.subject': { en: 'Organizer: {work}', es: 'Cuestionario: {work}' },
+  // A message template body: read verbatim, its {{placeholders}} are filled by the template renderer.
+  'mail.organizer.body': { en: 'Hello {{contact_first_name}},\nPlease complete your assigned questions for {{work_item}} ({{period}}).\n{{portal_link}}', es: 'Hola {{contact_first_name}},\nPor favor, complete las preguntas que se le asignaron para {{work_item}} ({{period}}).\n{{portal_link}}' },
+  'mail.signature.subject': { en: 'Document signature request', es: 'Solicitud de firma de documento' },
+  'mail.signature.review': { en: 'Please review and sign {title}.', es: 'Por favor, revise y firme {title}.' },
+  'mail.signature.sequential': { en: 'Sequential signing: you are signer {n} of {total}. You may review now and sign when all earlier signers finish.', es: 'Firma en orden: usted es el firmante {n} de {total}. Puede revisar ahora y firmar cuando terminen todos los anteriores.' },
+  'mail.signature.parallel': { en: 'Parallel signing: you may sign now.', es: 'Firma en cualquier orden: puede firmar ahora.' },
+  'mail.signature.optional': { en: 'Electronic signing is optional. You may decline with a reason and ask for paper signing.', es: 'La firma electrónica es opcional. Puede rechazarla con un motivo y pedir firmar en papel.' },
+  'mail.invoice.body': { en: 'Please find {number} attached. Amount due: {amount}. Due date: {due}.', es: 'Adjuntamos la factura {number}. Importe a pagar: {amount}. Fecha de vencimiento: {due}.' },
+  'mail.invoice.portal': { en: 'Invoice portal: {url}', es: 'Portal de facturas: {url}' },
+  'mail.invoice.expires': { en: 'This private link expires on {date}.', es: 'Este enlace privado vence el {date}.' },
+  'mail.marketing.footer': { en: 'You receive marketing email from {firm} because you opted in. Unsubscribe: {url}', es: 'Recibe correo de mercadeo de {firm} porque lo aceptó. Cancelar la suscripción: {url}' },
   // Unsubscribe page
   'unsub.title': { en: 'Unsubscribe', es: 'Cancelar la suscripción' }, 'unsub.heading': { en: 'Unsubscribe from marketing email', es: 'Cancelar el correo de mercadeo' },
   'unsub.footer': { en: 'No sign-in or fee is needed, and it takes effect immediately.', es: 'No se necesita iniciar sesión ni pagar, y surte efecto de inmediato.' },
@@ -138,4 +150,6 @@ export type Key = keyof typeof C;
 export function tr(language: Language, key: Key, vars: Record<string, string | number> = {}): string {
   return C[key][language].replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? ''));
 }
+/** The text for a key exactly as written, for message templates whose {{placeholders}} the template renderer fills. */
+export const verbatim = (language: Language, key: Key): string => C[key][language];
 export const hasKey = (key: string): key is Key => Object.hasOwn(C, key);

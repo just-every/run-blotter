@@ -8,6 +8,7 @@ import { openSignatureJob, sameRequest, signatureDetail, signatureEvent, signerR
 import { canAccessClient } from './permissions';
 import { classifyForm } from './signatures-forms';
 import { staffRef } from './signatures-staff';
+import { isLanguage, tr, type Key } from '../i18n/catalog';
 import { atomic, audit, digest, human, id, insist, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
 export { signatureDetail, pendingSignatures, transferSignatures } from './signatures-store';
 
@@ -73,7 +74,12 @@ export async function sendSignature(env:Bindings,actor:Actor,requestId:string,bo
     ...deliveries.map(d=>stmt(db,"INSERT INTO b_signature_deliveries(id,request_id,attempt,contact_id,sent_by,sent_at,delivery) VALUES(?,?,?,?,?,?,'uncertain: provider outcome not recorded')",d.id,r.id,attempt,d.contact.id,actor.email,at)),
     ...signatureEvent(db,next,resend?'resent':'sent',actor.email,resend?'Fresh attempt; previous signatures and decline remain in timeline':'Signer invitations issued'),...guards.map(g=>g[1]),closed,done]);
   const result=[];
-  for(const d of deliveries){const delivery=await sendMail(bindings,d.id,d.contact.email,d.contact.language==='es'?'Solicitud de firma de documento':'Document signature request',d.contact.language==='es'?`Por favor, revise y firme ${r.title}.\n${d.url}\n${r.mode==='sequential'?`Firma en orden: usted es el firmante ${d.ordinal} de ${people.length}. Puede revisar ahora y firmar cuando terminen todos los anteriores.`:'Firma en cualquier orden: puede firmar ahora.'}\nLa firma electrónica es opcional. Puede rechazarla con un motivo y pedir firmar en papel.`:`Please review and sign ${r.title}.\n${d.url}\n${r.mode==='sequential'?`Sequential signing: you are signer ${d.ordinal} of ${people.length}. You may review now and sign when all earlier signers finish.`:'Parallel signing: you may sign now.'}\nElectronic signing is optional. You may decline with a reason and ask for paper signing.`);await stmt(db,'UPDATE b_signature_deliveries SET delivery=? WHERE id=?',delivery,d.id).run();result.push({contactId:d.contact.id,portalUrl:d.url,delivery});}
+  for(const d of deliveries){
+    // The invitation reads in the signer's language (PORTAL-005).
+    const T=(key:Key,vars:Record<string,string|number>={})=>tr(isLanguage(d.contact.language)?d.contact.language:'en',key,vars);
+    const delivery=await sendMail(bindings,d.id,d.contact.email,T('mail.signature.subject'),[T('mail.signature.review',{title:r.title}),d.url,r.mode==='sequential'?T('mail.signature.sequential',{n:d.ordinal,total:people.length}):T('mail.signature.parallel'),T('mail.signature.optional')].join('\n'));
+    await stmt(db,'UPDATE b_signature_deliveries SET delivery=? WHERE id=?',delivery,d.id).run();result.push({contactId:d.contact.id,portalUrl:d.url,delivery});
+  }
   return {...await signatureDetail(db,actor,r.id),invitations:result};
 }
 export async function cancelSignature(db:D1Database,actor:Actor,requestId:string,body:Data) {

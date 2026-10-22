@@ -13,12 +13,12 @@ export function InvoiceCollections({ state, clients, billing, run, tick }: { sta
     <h3>Overdue reminders</h3>
     {!policy ? <Empty>No reminder schedule. Invoices are reminded only after a billing person consents to a schedule.</Empty>
       : <p>Reminders are <strong>{policy.status === 'active' ? 'running' : 'paused'}</strong>: {stepText(policy.offsets)}, using the firm template version {policy.template_version}. Consent by {policy.consented_by} {when(policy.consented_at)}: {policy.reason}</p>}
-    {reminders?.warnings?.map((w: Row) => <p className="notice" role="alert" key={w.contactId}>{w.contactName}: {w.message}</p>)}
+    {reminders?.warnings?.map((w: Row) => <p key={w.contactId ?? w.kind} className="error" role="alert">{w.contactName ? `${w.contactName}: ` : ''}{w.message}</p>)}
     <p className="muted">Each run rechecks the consenting person's authority and the billing contact's role, email consent and deliverability. A paid, disputed or payment-plan invoice is not reminded, each step is sent at most once, and every reminder is recorded in the client's history.</p>
     {billing && <details><summary>{policy?.status === 'active' ? 'Change or pause the reminder schedule' : 'Start the reminder schedule'}</summary>
       <Form label="Consent to the reminder schedule" submit={data => run(async () => setReminders(await api('/invoices/reminders', { offsets: stepsOf(data.offsets), templateId: data.templateId, reason: data.reason })), 'Reminder schedule recorded')}>
         <Field label="Reminder steps in days from the due date (negative is before)" name="offsets" value={policy ? policy.offsets.join(', ') : '-3, 0, 7, 14, 30'} />
-        <Field label="Reminder template" name="templateId"><select name="templateId">{templates.map(t => <option key={t.id} value={t.id}>{t.name} · v{t.version}{t.translations?.length ? ' · English and Spanish' : ' · English only: Spanish contacts will receive English'}</option>)}</select></Field>
+        <Field label="Reminder template" name="templateId" hint={reminders?.spanishRecipients ? `${reminders.spanishRecipients} billing contact${reminders.spanishRecipients === 1 ? '' : 's'} with open invoices read${reminders.spanishRecipients === 1 ? 's' : ''} Spanish: a template with no Spanish version sends them the English text.` : undefined}><select name="templateId">{templates.map(t => <option key={t.id} value={t.id}>{t.name} · v{t.version}{reminders?.spanishRecipients ? (t.translations?.length ? ' · has a Spanish version' : ' · no Spanish version') : ''}</option>)}</select></Field>
         <Field label="Consent and reason recorded in audit" name="reason" />
       </Form>
       {policy?.status === 'active' && <Form danger label="Pause reminders" submit={data => run(async () => setReminders(await api('/invoices/reminders', { status: 'paused', reason: data.reason })), 'Reminders paused')}><Field label="Reason to pause" name="reason" /></Form>}

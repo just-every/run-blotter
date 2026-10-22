@@ -46,16 +46,18 @@ export async function unsubscribeResponse(request: Request, original: Bindings):
     if (!(e instanceof Fault)) throw e;
     error = e.message; status = e.status;
   }
-  // The page speaks the language of the contact the address belongs to (Spanish when any of its contacts prefers it); ?lang= overrides.
-  const wanted = url.searchParams.get('lang'), known = done || (/^us_[0-9a-f]{64}$/.test(token) ? (await stmt(db, 'SELECT address FROM b_unsubscribe_tokens WHERE digest=?', await digest(token)).first<Data>())?.address : '') || '';
-  const language: Language = isLanguage(wanted) ? wanted : known && await stmt(db, "SELECT 1 FROM b_client_contacts WHERE email=? AND active=1 AND language='es'", known).first() ? 'es' : 'en';
+  // The page language comes from ?lang= (set on Spanish marketing links and carried by this page's forms) or from the
+  // emailed link's own recipient. A typed address is never looked up for it: the reply must not reveal whether an address is a contact.
+  const wanted = url.searchParams.get('lang'), linked = /^us_[0-9a-f]{64}$/.test(token) ? (await stmt(db, 'SELECT address FROM b_unsubscribe_tokens WHERE digest=?', await digest(token)).first<Data>())?.address : '';
+  const language: Language = isLanguage(wanted) ? wanted : linked && await stmt(db, "SELECT 1 FROM b_client_contacts WHERE email=? AND active=1 AND language='es'", linked).first() ? 'es' : 'en';
+  const lang = language === 'en' ? '' : `lang=${language}`;
   const T = (key: Parameters<typeof tr>[1], vars: Record<string, string | number> = {}) => tr(language, key, vars);
   if (error === 'This unsubscribe link is not valid; type your email address instead') error = T('unsub.invalid');
   const firm = (await firmSettings(db)).name || T('unsub.thisPractice');
   const page = done
     ? `<p role="status">${escape(T('unsub.done', { address: done, firm }))}</p>`
-    : `${token ? `<form action="/unsubscribe?t=${escape(token)}" method="post"><input type="hidden" name="t" value="${escape(token)}"><button type="submit">${escape(T('unsub.button'))}</button></form><p class="muted">${escape(T('unsub.or'))}</p>` : ''}
-      <form action="/unsubscribe" method="post"><label class="field">${escape(T('unsub.address'))}<input name="address" type="email" required maxlength="254" autocomplete="email"></label><button type="submit">${escape(T('unsub.addressButton'))}</button></form>`;
+    : `${token ? `<form action="/unsubscribe?t=${escape(token)}${lang ? '&amp;' + lang : ''}" method="post"><input type="hidden" name="t" value="${escape(token)}"><button type="submit">${escape(T('unsub.button'))}</button></form><p class="muted">${escape(T('unsub.or'))}</p>` : ''}
+      <form action="/unsubscribe${lang ? '?' + lang : ''}" method="post"><label class="field">${escape(T('unsub.address'))}<input name="address" type="email" required maxlength="254" autocomplete="email"></label><button type="submit">${escape(T('unsub.addressButton'))}</button></form>`;
   return new Response(`<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(T('unsub.title'))} · ${escape(firm)}</title><link rel="stylesheet" href="/rer-theme.css"><link rel="stylesheet" href="/app/base.css"></head><body><div class="portal"><main><section class="panel"><h1>${escape(T('unsub.heading'))}</h1>${error ? `<p role="alert">${escape(error)}</p>` : ''}${page}<p class="muted">${escape(T('unsub.footer'))}</p></section></main></div></body></html>`, {
     status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex',
       'content-security-policy': "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'" },
