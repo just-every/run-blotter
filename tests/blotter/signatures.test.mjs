@@ -155,20 +155,29 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
  }finally{await h.close();}
 });
 
-test('AUTHZ-001 / SIGN-002 / DUE-002: a signed and attested 2848 is submitted online and recorded; it scopes transcript requests and agency contact by form and year, and withdrawing it flags the notice work and refuses new requests',async()=>{
+test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attest a 2848, record online submission and CAF status, scope transcripts and agency contact, alert once and withdraw',async()=>{
  const h=await harness();try{
   const f=await fixture(h),rep='staff:'+prepEmail,client=f.client.contacts[0];
-  const pdf=async lines=>{const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),page=doc.addPage([612,792]);lines.forEach((line,i)=>page.drawText(line,{x:40,y:740-i*20,font,size:12}));return Buffer.from(await doc.save()).toString('base64');};
-  const own=[{type:'signature',contactId:client.id,page:1,x:40,y:300,width:240,height:28,label:'Taxpayer signature'},{type:'signature',contactId:rep,page:1,x:320,y:300,width:240,height:28,label:'Representative signature'}];
-  const d=await h.json(`/jobs/${f.job.id}/signatures`,{title:'Power of attorney 2022-2025',formKind:'general',requiresKba:false,mode:'sequential',contactIds:[client.id,rep],fields:own,file:{name:'poa.pdf',mime:'application/pdf',contentBase64:await pdf(['Form 2848 Power of Attorney and Declaration of Representative','Form 1040, 2022 through 2025'])}},f.prep);
-  const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep),t=token(r.invitations[0]);
-  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
-  await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
-  const general=await sent(h,f,{title:'synthetic-blotter-20'});await complete(h,general);
-  // The principal records the authorization and its lifecycle; a preparer cannot.
   const body={kind:'2848',representative:'Pat Harper',representativeEmail:prepEmail,matters:[{form:'Form 1040',from:2022,to:2025}]};
   await h.json(`/clients/${f.client.id}/authorizations`,body,f.prep,403);
   let a=await h.json(`/clients/${f.client.id}/authorizations`,body,h.owner);assert.deepEqual(a.matters,[{form:'1040',from:2022,to:2025,matter:'Income'}]);
+  const input={revision:a.revision,jobId:f.job.id,contactId:client.id,taxpayerName:f.client.name,taxpayerAddress:'123 Cedar Lane\nDenver CO 80202',tinType:'ein',taxpayerTin:'12-3456789',taxpayerTitle:'President',representativeAddress:'456 Review Avenue\nDenver CO 80203',representativePhone:'303-555-0142',designation:'b',jurisdiction:'Colorado',licenseNumber:'synthetic-blotter-31',reviewed:true};
+  await h.json(`/authorizations/${a.id}/prepare`,input,f.prep,403);
+  await h.json(`/authorizations/${a.id}/prepare`,{...input,reviewed:false},h.owner,400);
+  const before=h.mails.length,d=await h.json(`/authorizations/${a.id}/prepare`,input,h.owner);
+  assert.equal(d.status,'draft');assert.equal(h.mails.length,before,'Preparation sends no invitations');assert.equal(d.attestation_required,1);
+  const original=Buffer.from(await(await h.request(`/api/blotter/signatures/${d.id}/files/original`,undefined,h.owner)).arrayBuffer()),prepared=await PDFDocument.load(original);
+  assert.equal(prepared.getPageCount(),2);assert.equal(prepared.getForm().getFields().length,0);
+  for(const value of [f.client.name,'123 Cedar Lane','12-3456789','Pat Harper','1040','2022-2025','Colorado'])assert.ok(pdfText(original).includes(value),value);
+  if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {mkdir,writeFile}=await import('node:fs/promises');await mkdir(process.env.BLOTTER_SIGNATURE_EVIDENCE,{recursive:true});await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/prepared-2848.pdf',original);}
+  await h.json(`/authorizations/${a.id}/prepare`,input,f.outside,403);
+  await h.json(`/clients/${f.client.id}/authorizations`,undefined,f.outside,404);
+  await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.outside,404);
+  const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},h.owner),t=token(r.invitations[0]);
+  await sign(h,t,r.id,await open(h,t,r.id),409);
+  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
+  await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
+  const general=await sent(h,f,{title:'synthetic-blotter-20'});await complete(h,general);
   await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner,409);
   await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:general.id},h.owner,409);
   a=await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:r.id},h.owner);assert.equal(a.signature_id,r.id);
@@ -184,8 +193,9 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: a signed and attested 2848 is submitted on
   const fileId=file.id??(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).requests[0].files.at(-1).id;
   const notice=period=>h.json('/notices',{fileId,agency:'IRS',jurisdiction:'federal',noticeType:'CP2000',taxPeriod:period,noticeDate:'2026-10-01',responseDue:'2026-10-30',assigneeEmail:prepEmail},h.owner);
   const covered=(await notice('2023')).notice.id,outside=(await notice('2021')).notice.id;
-  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',note:'Called the practitioner priority line about the 2023 CP2000'},f.prep);
-  assert.match((await h.json(`/notices/${outside}/events`,{kind:'agency_contact',note:'Call about 2021'},f.prep,409)).error,/outside the authorization's scope/);
+  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',taxForm:'1040',note:'Called the practitioner priority line about the 2023 CP2000'},f.prep);
+  assert.match((await h.json(`/notices/${outside}/events`,{kind:'agency_contact',taxForm:'1040',note:'Call about 2021'},f.prep,409)).error,/outside the authorization's scope/);
+  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',taxForm:'1120',note:'Uncovered form'},f.prep,409);
   // Continuing work: one alert from October 1 of the last covered year, to the staff representative.
   await h.scheduled('2025-09-30T15:00:00Z');assert.ok(!(await h.json('/notifications',undefined,f.prep)).some(n=>n.kind==='authorization_expiring'));
   await h.scheduled('2025-10-02T15:00:00Z');await h.scheduled('2025-10-02T16:00:00Z');
@@ -196,11 +206,28 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: a signed and attested 2848 is submitted on
   assert.deepEqual(withdrawn.flaggedNotices,[covered]);
   assert.ok((await h.json(`/notices/${covered}`,undefined,f.prep)).events.some(e=>e.kind==='note'&&/Authorization withdrawn/.test(e.note)));
   await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.prep,409);
-  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',note:'Follow-up call'},f.prep,409);
+  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',taxForm:'1040',note:'Follow-up call'},f.prep,409);
   const state=await h.json(`/clients/${f.client.id}/authorizations`,undefined,f.prep);
   assert.deepEqual([state.authorizations[0].status,state.transcripts[0].status],['withdrawn','withdrawn']);
   const history=(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.map(e=>e.action);
   for(const action of ['authorization.created','authorization.signed','authorization.submitted','authorization.recorded','authorization.transcript_requested','authorization.withdrawn'])assert.ok(history.includes(action),action);
-  await authorizationJourney(h,f);
+  // Form 8821 prepares the official one-page information authorization with no representative signature.
+  const info=await h.json(`/clients/${f.client.id}/authorizations`,{...body,kind:'8821'},h.owner);
+  const infoDraft=await h.json(`/authorizations/${info.id}/prepare`,{...input,revision:info.revision},h.owner);
+  const infoPdf=Buffer.from(await(await h.request(`/api/blotter/signatures/${infoDraft.id}/files/original`,undefined,h.owner)).arrayBuffer());
+  assert.equal((await PDFDocument.load(infoPdf)).getPageCount(),1);assert.equal(infoDraft.signers.length,1);assert.ok(infoDraft.fields.every(f=>f.contactId===client.id));
+  for(const value of [f.client.name,'12-3456789','Pat Harper','1040','2022-2025'])assert.ok(pdfText(infoPdf).includes(value),value);
+  if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {writeFile}=await import('node:fs/promises');await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/prepared-8821.pdf',infoPdf);}
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const copy=await harness();try{
+   await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},copy.owner);
+   const restored=await copy.json(`/clients/${f.client.id}/authorizations`,undefined,copy.owner);
+   assert.equal(restored.authorizations.find(x=>x.id===a.id).status,'withdrawn');assert.equal(restored.transcripts[0].status,'withdrawn');
+   assert.equal((await copy.json(`/signatures/${d.id}`,undefined,copy.owner)).signed_sha256,(await h.json(`/signatures/${d.id}`,undefined,h.owner)).signed_sha256);
+   await copy.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},copy.owner,409);
+  }finally{await copy.close();}
+  assert.ok(!(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>String(e.detail).includes('12-3456789')),'The TIN stays out of audit detail');
+  await authorizationJourney(h,f,info);
+
  }finally{await h.close();}
 });

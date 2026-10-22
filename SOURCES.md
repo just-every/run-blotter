@@ -1,5 +1,18 @@
 # Source provenance
 
+Official IRS form templates (retrieved 22 October 2026):
+
+- `src/blotter/forms/f2848.pdf`: IRS Form 2848, January 2021, from <https://www.irs.gov/pub/irs-pdf/f2848.pdf>;
+  instructions <https://www.irs.gov/pub/irs-pdf/i2848.pdf> (September 2021).
+- `src/blotter/forms/f8821.pdf`: IRS Form 8821, January 2021, from <https://www.irs.gov/pub/irs-pdf/f8821.pdf>;
+  instructions <https://www.irs.gov/pub/irs-pdf/i8821.pdf> (September 2021).
+
+Blotter fills the official widgets, removes XFA and flattens the prepared values
+before adding SIGN-002 fields. Form 2848 has a taxpayer and a staff representative
+signer; Form 8821 has a taxpayer signer. Staff review scope, signer authority,
+representative eligibility and replacement of earlier authorizations before
+preparation. A prepared PDF is a draft, never an IRS submission or acceptance.
+
 Blotter was generated and assembled from the committed Base foundation at
 `runeditrun/base@a06bd065124c2b45fa879e62736fb5e1987efdaa`
 (`foundation/cli.mjs`, then `composition/cli.mjs`), and converted to package

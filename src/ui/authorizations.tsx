@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { api, day, Empty, Field, Form, Status, type Row, type Run } from './common';
+import { PrepareAuthorization } from './authorization-prepare';
 
 const METHOD: Record<string, string> = { irs_online: 'IRS online submission', tax_pro_account: 'Tax Pro Account', fax: 'Fax' };
 const title = (a: Row) => a.kind === 'state' ? `${a.agency} authorization` : `Form ${a.kind}`;
 
 /** AUTHZ-001: the client's 2848, 8821 and state authorizations, their lifecycle and the transcript requests they scope. */
-export function Authorizations({ clientId, lead, run, tick }: { clientId: string; lead: boolean; run: Run; tick: number }) {
+export function Authorizations({ clientId, client, jobs, lead, run, tick }: { clientId: string; client: Row; jobs: Row[]; lead: boolean; run: Run; tick: number }) {
   const [data, setData] = useState<Row>(), [signatures, setSignatures] = useState<Row[]>([]), [kind, setKind] = useState('2848');
   const load = async () => { const [list, signed] = await Promise.all([api(`/clients/${clientId}/authorizations`), api(`/clients/${clientId}/signatures`)]); setData(list); setSignatures(signed.filter((s: Row) => s.status === 'completed')); };
   useEffect(() => { load().catch(e => run(async () => { throw e; })); }, [clientId, tick]);
@@ -18,6 +19,7 @@ export function Authorizations({ clientId, lead, run, tick }: { clientId: string
       <div className="split"><strong>{title(a)} · {a.representative}{a.caf_number && ` · CAF ${a.caf_number}`}</strong><Status value={a.status} /></div>
       <p>{a.matters.map((m: Row) => `${m.matter}: Form ${m.form}, ${m.from}–${m.to}`).join('; ')}</p>
       <p>{a.signed_on ? `Signed ${day(a.signed_on)}` : 'Not signed yet'}{a.submitted_on && ` · submitted ${day(a.submitted_on)} by ${METHOD[a.submission_method]}`}{a.status_reason && ` · ${a.status_reason}`}</p>
+      {lead && a.status === 'draft' && !a.signature_id && <PrepareAuthorization authorization={a} client={client} jobs={jobs} run={run} />}
       {lead && a.status === 'draft' && !a.signature_id && <Form label="File the signed form" submit={data => act('signature', a, { signatureId: data.signatureId }, 'Signed form filed')}>
         <Field label="Completed signature request" name="signatureId"><select name="signatureId">{signatures.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</select></Field>
       </Form>}

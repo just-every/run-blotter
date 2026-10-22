@@ -107,7 +107,7 @@ export async function signatureAuthorityJourney(h,f,poa){
 }
 
 /** AUTHZ-001 screen: the client's authorizations with their lifecycle and the transcript requests they scoped. */
-export async function authorizationJourney(h,f){
+export async function authorizationJourney(h,f,info){
  const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
  await mkdir(evidence,{recursive:true});
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
@@ -121,6 +121,27 @@ export async function authorizationJourney(h,f){
   await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
   const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});await panel.getByText('CAF 0300-12345R',{exact:false}).waitFor();
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`authorizations ${width} overflows`);await panel.screenshot({path:`${evidence}/client-authorizations-${width}.png`});}
+  const draft=panel.locator('article').filter({hasText:'Form 8821'});
+  await draft.getByText('Prepare IRS Form 8821',{exact:true}).click();
+  for(const [label,value] of [['Taxpayer legal name',f.client.name],['Taxpayer mailing address','123 Cedar Lane\nDenver CO 80202'],['Taxpayer identification number','12-3456789'],['Taxpayer signer title or capacity','President'],['Representative mailing address','456 Review Avenue\nDenver CO 80203'],['Representative telephone','303-555-0142']])await draft.getByLabel(label,{exact:true}).fill(value);
+  await draft.getByLabel('Scope and representative review',{exact:true}).selectOption('yes');
+  const capture=async(target,name)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await target.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name} ${width} overflows`);await target.screenshot({path:`${evidence}/${name}-${width}.png`});}};
+  await capture(draft,'prepare-irs-form');
+  await draft.getByRole('button',{name:'Prepare form and signature draft',exact:true}).click();
+  const download=draft.getByRole('link',{name:'Review prepared IRS PDF',exact:true});await download.waitFor();
+  const response=await context.request.get(new URL(await download.getAttribute('href'),h.origin).href);assert.equal(response.status(),200);assert.equal(response.headers()['content-type'],'application/pdf');
+  await capture(draft,'prepared-irs-form');
+  await draft.getByRole('link',{name:'Open signature draft',exact:true}).click();
+  const signatures=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Document signatures',exact:true})});
+  await signatures.getByRole('button',{name:`Form 8821 - ${f.client.name}`,exact:true}).last().click();
+  await signatures.getByRole('link',{name:'Original PDF',exact:true}).waitFor();await capture(signatures,'prepared-signature-draft');
+  // The notice's agency-contact input carries the tax form that the recorded scope must cover.
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Notices',exact:true}).click();
+  await page.getByRole('button',{name:new RegExp('CP2000')}).first().click();
+  await page.getByText('Record work',{exact:true}).click();
+  const event=page.locator('form').filter({has:page.getByRole('button',{name:'Add to timeline',exact:true})});
+  await event.getByLabel('What happened',{exact:true}).selectOption('agency_contact');await event.getByLabel('Tax form for agency contact',{exact:true}).fill('1040');
+  await capture(event,'notice-agency-contact-scope');
   await context.close();
  }finally{await browser.close();}
 }

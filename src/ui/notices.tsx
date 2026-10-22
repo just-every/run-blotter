@@ -40,6 +40,7 @@ function NoticeDetail({ id, actor, run, tick }: { id: string; actor: Row; run: R
             <Field label="Response result" name="result"><select name="result"><option value="pending">Pending</option><option value="accepted">Accepted</option><option value="failed">Failed</option></select></Field>
             <Field label="Follow up on" name="followUpOn" type="date" value={today()} /></div>
           <Field label="Note" name="note"><textarea name="note" rows={2} required /></Field>
+          <Field label="Tax form for agency contact" name="taxForm" required={false} hint="Required for agency contact; checked with the notice year against a recorded authorization." />
           <Field label="File (transcript, receipt or correspondence)" name="file" required={false}><input name="file" type="file" /></Field>
         </Form>
       </details>

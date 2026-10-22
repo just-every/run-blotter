@@ -5,6 +5,7 @@
 // requests (2848 or 8821) and agency contact on a notice (2848, or the state's own form).
 import { firmSettings, localClock } from './firm';
 import { eligible } from './jobs';
+import { readableClient } from './client-contacts';
 import { atomic, audit, date, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 type Matter = { form: string; from: number; to: number; matter: string };
@@ -31,6 +32,7 @@ const step = (db: D1Database, actor: Actor, a: Data, set: string, ...values: unk
   stmt(db, `UPDATE b_authorizations SET ${set},revision=?,updated_by=?,updated_at=? WHERE id=? AND revision=?`, ...values, id(), actor.email, now(), a.id, a.revision);
 
 export async function clientAuthorizations(db: D1Database, actor: Actor, clientId: string) {
+  await readableClient(db, actor, clientId);
   insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=? AND erased_at IS NULL', clientId).first(), 'Client not found', 404);
   const list: Data[] = (await rows(db, 'SELECT * FROM b_authorizations WHERE client_id=? ORDER BY created_at,id', clientId)).map(a => ({ ...a, matters: JSON.parse(a.matters) }));
   return { authorizations: list, transcripts: await rows(db, 'SELECT * FROM b_transcript_requests WHERE client_id=? ORDER BY requested_at,id', clientId) };
@@ -56,9 +58,10 @@ export async function createAuthorization(db: D1Database, actor: Actor, clientId
 export async function linkAuthorizationSignature(db: D1Database, actor: Actor, authorizationId: string, body: Data) {
   lead(actor); const a = await record(db, authorizationId); changed(a, body);
   insist(a.status === 'draft', 'Only a draft authorization takes its signed form', 409);
-  const s = await stmt(db, `SELECT s.id,s.status,s.completed_at,s.attestation_required,j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?`, text(body.signatureId, 'Signature request')).first<Data>();
+  const s = await stmt(db, `SELECT s.id,s.status,s.completed_at,s.attestation_required,s.form_kind,j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?`, text(body.signatureId, 'Signature request')).first<Data>();
   insist(s && s.client_id === a.client_id && s.status === 'completed', 'Choose a completed signature request for this client', 409);
   insist(a.kind === 'state' || s.attestation_required === 1, 'A Form 2848 or 8821 is signed only through its remote-authentication attestation', 409);
+  insist(a.kind === 'state' || s.form_kind === a.kind, 'Choose a signature request for this authorization form', 409);
   await atomic(db, actor, [step(db, actor, a, 'signature_id=?,signed_on=?', s.id, String(s.completed_at).slice(0, 10)),
     audit(db, actor, 'authorization.signed', a.client_id, `Form ${a.kind} signed copy filed from signature request ${s.id}`)]);
   return record(db, a.id);
@@ -122,6 +125,7 @@ async function covering(db: D1Database, clientId: string, kinds: string[], form:
 /** A transcript request proceeds only inside a recorded 2848 or 8821; retrieval itself is INTEGRATE-006. */
 export async function requestTranscript(db: D1Database, actor: Actor, clientId: string, body: Data) {
   human(actor); need(actor, 'owner', 'reviewer', 'preparer');
+  await readableClient(db, actor, clientId);
   insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=? AND erased_at IS NULL', clientId).first(), 'Client not found', 404);
   const form = text(body.form, 'Tax form', 20).replace(/^Form\s+/i, ''), year = integer(body.year, 'Tax year', 1990, 2100), type = optional(body.transcriptType, 'Transcript type', 60) || 'Account transcript';
   const a = await covering(db, clientId, ['2848', '8821'], form, year);
@@ -132,9 +136,10 @@ export async function requestTranscript(db: D1Database, actor: Actor, clientId: 
   return { id: requestId, authorizationId: a.id, form, year, status: 'requested' };
 }
 /** Agency contact on a notice needs a recorded 2848 (federal) or the state's authorization covering the notice year. */
-export async function agencyContactAuthority(db: D1Database, notice: Data) {
+export async function agencyContactAuthority(db: D1Database, notice: Data, taxForm: unknown) {
   const year = yearOf(notice.tax_period);
-  const a = notice.jurisdiction === 'federal' ? await covering(db, notice.client_id, ['2848'], null, year) : await covering(db, notice.client_id, ['state'], null, year, notice.agency);
+  const form = text(taxForm, 'Tax form for agency contact', 20).replace(/^Form\s+/i, '');
+  const a = notice.jurisdiction === 'federal' ? await covering(db, notice.client_id, ['2848'], form, year) : await covering(db, notice.client_id, ['state'], form, year, notice.agency);
   insist(a, `No recorded ${notice.jurisdiction === 'federal' ? 'Form 2848' : `${notice.agency} authorization`} covers ${Number.isFinite(year) ? year : notice.tax_period}; agency contact on this notice is outside the authorization's scope`, 409);
   return a;
 }

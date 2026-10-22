@@ -94,9 +94,9 @@ export async function addNoticeEvent(db: D1Database, actor: Actor, noticeId: str
   const n = await visible(db, actor, noticeId); open(n);
   const kind = body.kind;
   insist(KINDS.includes(kind), 'Choose what happened');
-  // AUTHZ-001: contacting the agency for the client needs a recorded authorization covering the notice year.
-  if (kind === 'agency_contact') await agencyContactAuthority(db, n);
-  const note = text(body.note, 'Note', 4000);
+  // AUTHZ-001: the recorded authorization must cover the form and the notice year.
+  if (kind === 'agency_contact') await agencyContactAuthority(db, n, body.taxForm);
+  const note = `${kind === 'agency_contact' ? `Form ${body.taxForm}: ` : ''}${text(body.note, 'Note', 4000)}`;
   const result = kind === 'response_submitted' ? body.result : null;
   insist(kind !== 'response_submitted' || ['pending', 'failed', 'accepted'].includes(result), 'Record whether the response is pending, failed or accepted');
   const followUp = kind === 'follow_up' ? date(body.followUpOn, 'Follow up on') : null;
