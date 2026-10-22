@@ -109,7 +109,6 @@ export async function signatureAuthorityJourney(h,f,poa){
 /** AUTHZ-001 screen: the client's authorizations with their lifecycle and the transcript requests they scoped. */
 export async function authorizationJourney(h,f){
  const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
- await h.json(`/clients/${f.client.id}/authorizations`,{kind:'2848',representative:'Pat Harper',representativeEmail:'synthetic-blotter-1@example.test',cafNumber:'0300-12345R',matters:[{form:'1040',from:2026,to:2029}]},h.owner);
  await mkdir(evidence,{recursive:true});
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
  try{
@@ -121,6 +120,12 @@ export async function authorizationJourney(h,f){
   const clients=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Clients',exact:true})}),record=clients.locator('ul.list > li').filter({hasText:f.client.name}).first();
   await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
   const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});await panel.locator('article').filter({hasText:'Withdrawn'}).getByText('CAF 0300-12345R',{exact:false}).waitFor();
+  await panel.getByText('Add an authorization',{exact:true}).click();
+  const add=panel.locator('form').filter({has:panel.getByRole('button',{name:'Save authorization',exact:true})});
+  for(const [label,value] of [['Representative','Pat Harper'],['Staff representative email','synthetic-blotter-1@example.test'],['CAF number','0300-12345R'],['First year','2026'],['Last year','2029']])await add.getByLabel(label,{exact:true}).fill(value);
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await add.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await add.screenshot({path:`${evidence}/create-authorization-${width}.png`});}
+  await add.getByRole('button',{name:'Save authorization',exact:true}).click();await panel.getByText('2026–2029',{exact:false}).waitFor();
+
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`authorizations ${width} overflows`);await panel.screenshot({path:`${evidence}/client-authorizations-${width}.png`});}
   const draft=panel.locator('article').filter({hasText:'Form 8821'});
   await draft.getByText('Prepare IRS Form 8821',{exact:true}).click();
@@ -152,6 +157,30 @@ export async function authorizationJourney(h,f){
   const event=page.locator('form').filter({has:page.getByRole('button',{name:'Add to timeline',exact:true})});
   await event.getByLabel('What happened',{exact:true}).selectOption('agency_contact');await event.getByLabel('Tax form for agency contact',{exact:true}).fill('1040');
   await capture(event,'notice-agency-contact-scope');
+  await context.close();
+ }finally{await browser.close();}
+}
+
+/** Inspect each lifecycle state while the HTTP journey advances the same real authorization. */
+export async function authorizationLifecycleJourney(h,f,phase){
+ const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
+ const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ try{
+  await mkdir(evidence,{recursive:true});
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
+  await context.addCookies(h.owner.split('; ').map(c=>{const at=c.indexOf('=');return {name:c.slice(0,at),value:c.slice(at+1),url:h.origin};}));
+  const page=await context.newPage();await page.goto(h.origin+'/app');
+  if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();await page.waitForURL('**/app');}
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Clients & templates',exact:true}).click();
+  const record=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Clients',exact:true})}).locator('ul.list > li').filter({hasText:f.client.name}).first();
+  await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
+  const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});
+  if(phase==='Withdraw authorization')await panel.getByText('Withdraw',{exact:true}).click();
+  const form=panel.locator('form').filter({has:panel.getByRole('button',{name:phase,exact:true})});await form.waitFor();
+  if(phase==='Record submission')await form.getByLabel('Submitted on',{exact:true}).fill('2026-10-22');
+  if(phase==='Record agency answer')await form.getByLabel('Representative CAF number',{exact:true}).fill('0300-12345R');
+  if(phase==='Withdraw authorization')await form.getByLabel('Withdrawal reason',{exact:true}).fill('Client revoked the power of attorney');
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await form.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await form.screenshot({path:`${evidence}/${phase.toLowerCase().replaceAll(' ','-')}-${width}.png`});}
   await context.close();
  }finally{await browser.close();}
 }

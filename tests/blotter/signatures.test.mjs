@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {inflateSync} from 'node:zlib';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
-import {authorizationJourney,signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
+import {authorizationJourney,authorizationLifecycleJourney,signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
@@ -188,9 +188,11 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner,409);
   await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:general.id},h.owner,409);
   a=await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:r.id},h.owner);assert.equal(a.signature_id,r.id);
+  await authorizationLifecycleJourney(h,f,'Record submission');
   assert.match((await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'fax',submittedOn:'2026-10-22'},h.owner,409)).error,/IRS\.gov\/Submit2848/);
   a=await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner);
   await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.prep,409);
+  await authorizationLifecycleJourney(h,f,'Record agency answer');
   a=await h.json(`/authorizations/${a.id}/status`,{revision:a.revision,status:'recorded',cafNumber:'0300-12345R'},h.owner);assert.deepEqual([a.status,a.caf_number],['recorded','0300-12345R']);
   // Scope: a 2021 transcript is refused, a 2024 transcript proceeds.
   assert.match((await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2021},f.prep,409)).error,/outside the authorization's scope/);
@@ -209,6 +211,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await h.scheduled('2025-10-02T15:00:00Z');await h.scheduled('2025-10-02T16:00:00Z');
   const alerts=(await h.json('/notifications',undefined,f.prep)).filter(n=>n.kind==='authorization_expiring');
   assert.equal(alerts.length,1);assert.match(alerts[0].summary,/Form 2848 for Mia Chen covers through 2025/);
+  await authorizationLifecycleJourney(h,f,'Withdraw authorization');
   // Withdrawal flags the dependent notice work and refuses new transcript requests.
   const withdrawn=await h.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Client revoked the power of attorney'},h.owner);
   assert.deepEqual(new Set(withdrawn.flaggedNotices),new Set([covered,overlapping]));
