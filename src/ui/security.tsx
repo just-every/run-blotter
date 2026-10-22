@@ -96,6 +96,7 @@ export function Security({ actor, run, tick }: { actor: Row; run: Run; tick: num
           </div>
         </Form>
       </details>
+      <ClientPortalPolicy run={run} tick={tick} />
       <details><summary>Reset someone's lost second factor</summary>
         <Form danger label="Reset and sign them out" submit={async data => run(() => api('/team/mfa-reset', { email: data.email, reason: data.reason }), 'Second factor reset; all their sessions were signed out')}>
           <Field label="Person" name="email"><select name="email">{firm.people.filter((p: Row) => p.role !== 'owner').map((p: Row) => <option key={p.email} value={p.email}>{p.name}</option>)}</select></Field>
@@ -104,4 +105,17 @@ export function Security({ actor, run, tick }: { actor: Row; run: Run; tick: num
       </details>
     </>}
   </section>;
+}
+
+/** PORTAL-002: the firm's client portal sign-in policy; with nothing recorded a second factor is required. */
+function ClientPortalPolicy({ run, tick }: { run: Run; tick: number }) {
+  const [policy, setPolicy] = useState<Row>();
+  useEffect(() => { api('/portal-policy').then(setPolicy).catch(e => run(async () => { throw e; })); }, [tick]);
+  if (!policy) return null;
+  return <details><summary>Client portal sign-in</summary>
+    <p>Client portal accounts {policy.mfaRequired ? 'must use a second factor at every sign-in' : 'may sign in with the emailed link alone unless they set up a second factor'}.{policy.setBy && ` Set by ${policy.setBy} ${when(policy.setAt)}: ${policy.reason}`}</p>
+    <Form label={policy.mfaRequired ? 'Stop requiring a second factor for clients' : 'Require a second factor for clients'} submit={async data => run(async () => setPolicy(await api('/portal-policy', { mfaRequired: !policy.mfaRequired, reason: data.reason })), 'Client portal policy saved')}>
+      <Field label="Reason (recorded in the audit)" name="reason" />
+    </Form>
+  </details>;
 }

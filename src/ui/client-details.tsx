@@ -48,6 +48,7 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
       </Form></details>
       <button className="quiet" onClick={() => run(() => api(`/clients/${clientId}/lifecycle`, {revision:detail.revision,lifecycle:detail.lifecycle === 'active' ? 'archived' : 'active'}), detail.lifecycle === 'active' ? 'Client archived; history retained' : 'Client reactivated')}>{detail.lifecycle === 'active' ? 'Archive client' : 'Reactivate client'}</button>
       {detail.contacts.map((c: Row) => <details key={c.id}><summary>{c.name || c.email} · {c.roles.join(', ') || 'no routing role'}{!c.authorized && ' · no entity authority'}{!c.active && ' · inactive'}</summary><ContactForm contact={c} clientId={clientId} run={run} /></details>)}
+      {state.actor.role !== 'preparer' && <details><summary>Client portal access</summary><PortalAccess clientId={clientId} contacts={detail.contacts} owner={state.actor.role === 'owner'} run={run} tick={tick} /></details>}
       <details><summary>Add another contact</summary><ContactForm clientId={clientId} run={run} /></details>
     </div>}
   </details>;
@@ -62,4 +63,26 @@ function CreditHold({ clientId, hold, partner, run }: { clientId: string; hold: 
     {!partner ? null : hold.onHold ? <details><summary>Override the credit hold</summary><Form label="Override credit hold" submit={data => run(() => api(`/clients/${clientId}/credit-hold/override`, data), 'Credit hold overridden; reason recorded')}><Field label="Override reason" name="reason" /></Form></details>
       : <Form danger label="Restore credit hold" submit={data => run(() => api(`/clients/${clientId}/credit-hold/override`, { ...data, revoke: true }), 'Credit hold restored')}><Field label="Reason to restore" name="reason" /></Form>}
   </section>;
+}
+
+/** PORTAL-002: invite a contact to the signed-in client portal for this entity, revoke that access, or (principal) reset a lost second factor. */
+function PortalAccess({ clientId, contacts, owner, run, tick }: { clientId: string; contacts: Row[]; owner: boolean; run: Run; tick: number }) {
+  const [access, setAccess] = useState<Row>();
+  const reload = async () => setAccess(await api(`/clients/${clientId}/portal-access`));
+  useEffect(() => { reload().catch(e => run(async () => { throw e; })); }, [clientId, tick]);
+  if (!access) return null;
+  const grantOf = (contactId: string) => access.grants.find((g: Row) => g.contactId === contactId);
+  const eligible = contacts.filter((c: Row) => c.active && c.authorized && c.portal && c.email && c.email_consent);
+  return <div className="stack">
+    <p className="muted">Each invitation opens this entity only, for that contact's email address. The client signs in with an emailed link{access.policy.mfaRequired ? ' and a required second factor' : ''}; revoking access ends it on their next request.</p>
+    {eligible.length === 0 ? <p className="muted">No contact can be invited: a contact needs entity authority, portal permission, an email address and email consent.</p>
+      : <ul className="list">{eligible.map((c: Row) => { const g = grantOf(c.id); return <li key={c.id}>
+        <strong>{c.name || c.email}</strong> <small className="muted">{c.email} · {g ? `${g.status}${g.acceptedAt ? ` since ${when(g.acceptedAt)}` : ` (invited ${when(g.invitedAt)})`}${g.factor ? ' · second factor set' : ''}` : 'no portal access'}</small>
+        <div className="actions">
+          <button className="quiet" onClick={() => run(async () => { await api(`/clients/${clientId}/contacts/${c.id}/portal-invite`, {}); await reload(); }, `Portal invitation sent to ${c.email}`)}>{g && g.status !== 'revoked' ? 'Send a new invitation' : 'Invite to the client portal'}</button>
+        </div>
+        {g && g.status !== 'revoked' && <Form danger label={`Revoke portal access for ${c.name || c.email}`} submit={async data => run(async () => { await api(`/clients/${clientId}/contacts/${c.id}/portal-revoke`, data); await reload(); }, 'Portal access revoked')}><Field label="Reason to revoke" name="reason" /></Form>}
+        {owner && g?.factor && <Form danger label={`Reset ${c.name || c.email}'s second factor`} submit={async data => run(async () => { await api(`/portal-accounts/${g.accountId}/reset`, data); await reload(); }, 'Second factor reset; their portal sessions ended')}><Field label="Reason (recorded in the audit)" name="reason" /></Form>}
+      </li>; })}</ul>}
+  </div>;
 }

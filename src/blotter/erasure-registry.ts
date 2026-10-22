@@ -34,8 +34,8 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('signed_documents','b_signatures','b_signature_signers','b_signature_attestations','b_signature_events','b_signature_deliveries','b_authorizations'),
   ...by('engagement', 'b_engagements'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),
-  ...by('contact', 'b_client_contacts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
-  ...by('link', 'b_access_grants','b_access_team_clients','b_sensitive_documents','b_sensitive_grants', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
+  ...by('contact', 'b_client_contacts', 'b_portal_accounts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
+  ...by('link', 'b_portal_grants', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_access_grants','b_access_team_clients','b_sensitive_documents','b_sensitive_grants', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
   ...by('message', 'b_portal_items', 'b_reminders', 'b_threads', 'b_thread_messages', 'b_thread_reads', 'b_notices', 'b_notice_events', 'b_bulk_batches', 'b_bulk_recipients', 'b_bulk_exclusions', 'b_bulk_events', 'b_unsubscribe_tokens', 'b_organizer_deliveries'),
   ...by('notification', 'b_notifications', 'b_notification_digests'),
   ...by('organizer', 'b_job_organizers', 'b_organizer_answers', 'b_organizer_submissions', 'b_organizer_requests'),
@@ -46,7 +46,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('api', 'b_api_client_writes'),
   ...by('structure', 'b_transcript_requests', 'b_clients', 'b_jobs', 'b_job_status_history', 'b_requests', 'b_job_deadlines', 'b_rule_periods', 'b_recurrence_rules', 'b_recurrence_imports', 'b_recurrence_import_items', 'b_client_obligations',
     'b_client_group_members', 'b_client_import_bindings', 'b_duplicate_dismissals', 'b_client_merges', 'b_timers', 'b_time_suggestions', 'b_plan_items', 'b_automation_events', 'b_automation_attempts', 'b_time_status', 'b_coverage_conflicts'),
-  ...by('firm', 'b_firm', 'b_meta', 'b_guard', 'b_templates', 'b_msg_templates', 'b_msg_template_versions', 'b_msg_template_translations', 'b_msg_template_files', 'b_organizer_versions', 'b_starter_adoptions', 'b_starter_releases', 'b_client_fields', 'b_client_groups',
+  ...by('firm', 'b_firm', 'b_meta', 'b_guard', 'b_templates', 'b_msg_templates', 'b_msg_template_versions', 'b_msg_template_translations', 'b_msg_template_files', 'b_portal_policy', 'b_organizer_versions', 'b_starter_adoptions', 'b_starter_releases', 'b_client_fields', 'b_client_groups',
     'b_deadline_rules', 'b_deadline_revisions', 'b_deadline_relief', 'b_work_types', 'b_sub_statuses', 'b_saved_views', 'b_view_filters', 'b_rates', 'b_rate_cards', 'b_rate_cards_next', 'b_mileage_rates', 'b_periods', 'b_capacity', 'b_capacity_blocks',
     'b_capacity_scenarios', 'b_coverage_plans', 'b_automation_rules', 'b_report_views', 'b_report_schedules', 'b_report_runs', 'b_scheduler_runs', 'b_notification_settings', 'b_notification_defaults', 'b_notification_task_owners',
     'b_notification_job_owners', 'b_notification_events', 'b_intake_limits', 'b_intake_tokens', 'b_prospect_stages', 'b_vault_keys', 'b_vault_stepups', 'b_agent_keys'),
@@ -58,7 +58,7 @@ const REGISTRY = new Map<string, TableClass>([
 const BYTES: Record<string, string[]> = {b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
-  b_msg_template_files: ['content_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],
+  b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],
 };
 const BYTE_LIKE = /base64|sealed|csv|ciphertext|blob|bytes/i, DIGEST = /sha256/i;
 /** Base's own stores: identity, portability and the import kit (import originals are redacted through Base's import erasure). */

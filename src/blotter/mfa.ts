@@ -26,7 +26,7 @@ function unbase32(text: string) {
   return new Uint8Array(out);
 }
 /** RFC 6238 TOTP: HMAC-SHA-1, 30-second steps, 6 digits. */
-async function totp(secret: string, step: number) {
+export async function totp(secret: string, step: number) {
   const key = await crypto.subtle.importKey('raw', unbase32(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
   const counter = new Uint8Array(8);
   for (let i = 7, n = step; i >= 0; i--, n = Math.floor(n / 256)) counter[i] = n & 255;
@@ -39,12 +39,12 @@ async function sealing(sessionSecret: string) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(sessionSecret), 'HKDF', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('blotter-mfa-totp') }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
-async function seal(sessionSecret: string, value: string) {
+export async function seal(sessionSecret: string, value: string) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await sealing(sessionSecret), new TextEncoder().encode(value)));
   return btoa(String.fromCharCode(...iv, ...sealed));
 }
-async function unseal(sessionSecret: string, value: string) {
+export async function unseal(sessionSecret: string, value: string) {
   const bytes = Uint8Array.from(atob(value), c => c.charCodeAt(0));
   return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, await sealing(sessionSecret), bytes.slice(12)));
 }
@@ -126,7 +126,7 @@ async function matchingStep(sessionSecret: string, factor: Data, code: string) {
   for (const step of [current + 1, current, current - 1]) if (step > Number(factor.last_step) && await totp(secret, step) === code) return step;
   return null;
 }
-const sixDigits = (value: unknown) => { const code = text(value, 'Code', 12).replace(/\s/g, ''); insist(/^\d{6}$/.test(code), 'Enter the 6-digit code'); return code; };
+export const sixDigits = (value: unknown) => { const code = text(value, 'Code', 12).replace(/\s/g, ''); insist(/^\d{6}$/.test(code), 'Enter the 6-digit code'); return code; };
 
 export async function confirmTotp(db: D1Database, actor: Actor, sessionSecret: string, body: Data) {
   human(actor); await mayEnroll(db, actor); await failures(db, actor.email);
@@ -143,10 +143,10 @@ export async function confirmTotp(db: D1Database, actor: Actor, sessionSecret: s
   return { id: factor.id, recoveryCodes: codes };
 }
 
-function recoveryCodes() {
+export function recoveryCodes() {
   return Array.from({ length: RECOVERY_CODES }, () => { const c = base32(crypto.getRandomValues(new Uint8Array(5))).toLowerCase(); return `${c.slice(0, 4)}-${c.slice(4)}`; });
 }
-const normalCode = (value: string) => value.toLowerCase().replace(/[^a-z2-7]/g, '');
+export const normalCode = (value: string) => value.toLowerCase().replace(/[^a-z2-7]/g, '');
 async function recoveryStatements(db: D1Database, address: string, codes: string[]) {
   if (!codes.length) return [];
   return [stmt(db, 'DELETE FROM b_mfa_recovery WHERE email=?', address),

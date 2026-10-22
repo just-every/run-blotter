@@ -1,5 +1,6 @@
 import { signatureRoutes } from './signature-routes';
 import { invoiceRoutes } from './invoice-routes';
+import { portalAccountRoutes } from './portal-account-routes';
 import { accessGate, redactAccess } from './access-gate';
 import { permissions, saveDelegations, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
 import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
@@ -118,6 +119,7 @@ const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAUL
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
 invoiceRoutes(api,{as,body,db,param});
+portalAccountRoutes(api,{as,body,db,param});
 signatureRoutes(api,{as,body,db,param,sameOrigin});
 api.get(`${P}/access`,as((a,c)=>permissions(db(c),a)));
 api.post(`${P}/access/step-up`,as(async(a,c)=>stepUp(db(c),a,site(c),await body(c))));
