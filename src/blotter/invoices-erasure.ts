@@ -35,13 +35,13 @@ export function invoiceRetainedRows(clientId: string, owner: string) {
 /** Billing's clock advances for later credits/allocations and voids; whole years use the firm zone. */
 export async function invoiceClocks(db: D1Database, timeZone: string, years: number) {
   const result: { kind: 'invoice'; id: string; cls: 'billing'; clientIds: string[]; jobId: string; label: string; clock: string; years: number; expiry: string }[] = [];
-  for (const invoice of await rows(db, 'SELECT id,client_id,job_id,title,issued_at,voided_at FROM b_invoices WHERE number IS NOT NULL AND erased_at IS NULL')) {
+  for (const invoice of await rows(db, 'SELECT i.id,i.client_id,i.job_id,i.title,i.issued_at,i.voided_at,c.erased_at client_erased_at FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE i.number IS NOT NULL AND i.erased_at IS NULL')) {
     const events = [invoice.issued_at, invoice.voided_at,
       ...(await rows(db, 'SELECT c.recorded_at FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=?', invoice.id)).map(c => c.recorded_at),
       ...(await rows(db, "SELECT at FROM b_audit WHERE object_id=? AND action='invoice.credit_applied'", invoice.id)).map(e => e.at),
     ].filter(Boolean).map(at => localDate(at, timeZone)).sort();
     const clock = events.at(-1)!;
-    result.push({ kind: 'invoice', id: invoice.id, cls: 'billing', clientIds: [invoice.client_id], jobId: invoice.job_id, label: invoice.title, clock, years, expiry: addYears(clock, years) });
+    result.push({ kind: 'invoice', id: invoice.id, cls: 'billing', clientIds: [invoice.client_id], jobId: invoice.job_id, label: invoice.client_erased_at?'Retained invoice '+invoice.id.slice(0,8):invoice.title, clock, years, expiry: addYears(clock, years) });
   }
   return result;
 }

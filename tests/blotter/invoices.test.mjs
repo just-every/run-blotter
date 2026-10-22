@@ -206,6 +206,8 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     const receipt = await h.json(`/clients/${s.client.id}/erasure`, { planHash: preview.planHash, confirm: s.client.name, reason: 'Client requested deletion with billing evidence retained' }, h.owner);
     assert.ok(JSON.stringify(receipt).includes('billing_invoices')); assert.deepEqual(await pdf(h, invoice.id), bytes);
     assert.ok(!JSON.stringify(await h.json('/invoices',undefined,h.owner)).includes(s.client.name),'Normal billing lists exclude retained identity payloads');
+    const explicitRetained=await h.json(`/invoices/${invoice.id}`,undefined,h.owner);assert.equal(explicitRetained.snapshot.client.name,s.client.name);
+    assert.ok((await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner)).history.some(e=>e.action==='invoice.retained_read'),'Explicit retained-record reads are attributed');
     const retainedReviewer=await h.login('reviewer@example.test');await h.json(`/invoices/${invoice.id}`,undefined,retainedReviewer,403);assert.equal((await h.request(`/api/blotter/invoices/${invoice.id}/pdf`,undefined,retainedReviewer)).status,403);
     assert.ok(!JSON.stringify(await h.json('/retention/ready',undefined,h.owner)).includes(s.client.name),'Expiry queues use opaque retained-record labels');
     const ready = (await h.json('/retention/ready', undefined, h.owner)).ready.find(r => r.kind === 'invoice' && r.id === invoice.id); assert.ok(ready);

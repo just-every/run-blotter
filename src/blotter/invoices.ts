@@ -81,19 +81,22 @@ const invoiceFields = `i.id,i.client_id,i.job_id,i.title,i.status,i.number,i.cur
  CASE WHEN i.status='void' THEN 0 ELSE i.subtotal_cents+i.tax_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0) END balance_cents`;
 export async function invoiceState(db: D1Database, actor: Actor) {
   need(actor, 'owner', 'reviewer'); insist(actor.channel === 'person', 'A native staff session is required', 403);
+  const visibleJobs=new Set((await rows(db,'SELECT j.id FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE c.erased_at IS NULL')).map(j=>j.id));
+  const visibleClients=new Set((await rows(db,'SELECT id FROM b_clients WHERE erased_at IS NULL')).map(c=>c.id));
   const [settings, invoices, sources, entitlements, retainers, credits, contacts, amendments] = await Promise.all([
-    stmt(db, 'SELECT * FROM b_invoice_settings WHERE id=1').first<Data>(), rows(db, `SELECT ${invoiceFields} FROM b_invoices i ORDER BY i.prepared_at DESC,i.id`),
-    availableInvoiceSources(db), rows(db, 'SELECT * FROM b_invoice_entitlements ORDER BY authorized_at DESC'),
-    rows(db, 'SELECT * FROM b_invoice_retainers ORDER BY created_at DESC'), invoiceCredits(db),
-    rows(db, "SELECT id,client_id,name,email FROM b_client_contacts WHERE active=1 AND authorized=1 AND portal=1 AND email_consent=1 AND email<>'' AND EXISTS(SELECT 1 FROM json_each(roles) WHERE value='billing') ORDER BY name,id"),
-    rows(db, 'SELECT * FROM b_invoice_amendments ORDER BY authorized_at,id'),
+    stmt(db, 'SELECT * FROM b_invoice_settings WHERE id=1').first<Data>(), rows(db, `SELECT ${invoiceFields} FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE c.erased_at IS NULL ORDER BY i.prepared_at DESC,i.id`),
+    availableInvoiceSources(db), rows(db, 'SELECT * FROM b_invoice_entitlements WHERE client_id IN (SELECT id FROM b_clients WHERE erased_at IS NULL) ORDER BY authorized_at DESC'),
+    rows(db, 'SELECT * FROM b_invoice_retainers WHERE client_id IN (SELECT id FROM b_clients WHERE erased_at IS NULL) ORDER BY created_at DESC'), invoiceCredits(db),
+    rows(db, "SELECT id,client_id,name,email FROM b_client_contacts WHERE client_id IN (SELECT id FROM b_clients WHERE erased_at IS NULL) AND active=1 AND authorized=1 AND portal=1 AND email_consent=1 AND email<>'' AND EXISTS(SELECT 1 FROM json_each(roles) WHERE value='billing') ORDER BY name,id"),
+    rows(db, 'SELECT * FROM b_invoice_amendments WHERE retainer_id IN (SELECT r.id FROM b_invoice_retainers r JOIN b_clients c ON c.id=r.client_id WHERE c.erased_at IS NULL) ORDER BY authorized_at,id'),
   ]);
-  return { settings, invoices, sources, entitlements, retainers, credits, contacts, amendments };
+  return { settings, invoices, sources:sources.filter(s=>visibleJobs.has(s.job_id)), entitlements, retainers, credits:credits.filter(c=>visibleClients.has(c.client_id)), contacts, amendments };
 }
 export async function invoiceDetail(db: D1Database, actor: Actor, invoiceId: string): Promise<Data> {
   need(actor, 'owner', 'reviewer'); insist(actor.channel === 'person', 'A native staff session is required', 403);
-  const invoice = await stmt(db, `SELECT ${invoiceFields} FROM b_invoices i WHERE i.id=?`, invoiceId).first<Data>();
+  const invoice = await stmt(db, `SELECT ${invoiceFields},c.erased_at client_erased_at FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE i.id=?`, invoiceId).first<Data>();
   insist(invoice, 'Invoice not found', 404);
+  if(invoice.client_erased_at){need(actor,'owner');await audit(db,actor,'invoice.retained_read',invoiceId,'Principal read retained invoice record').run();}
   const deliveries = await rows(db, 'SELECT id,contact_id,recipient_email,recipient_name,status,delivery,sent_by,sent_at,resolved_by,resolved_at,resolution FROM b_invoice_deliveries WHERE invoice_id=? ORDER BY sent_at,id', invoiceId);
   return { ...invoice, snapshot: JSON.parse(invoice.snapshot), snapshotHash: await digest(invoice.snapshot), deliveries, history: await rows(db, "SELECT * FROM b_audit WHERE object_id=? OR object_id IN (SELECT id FROM b_invoice_deliveries WHERE invoice_id=?) ORDER BY at,id", invoiceId, invoiceId) };
 }
@@ -126,8 +129,9 @@ export async function voidInvoice(db: D1Database, actor: Actor, invoiceId: strin
 }
 export async function downloadInvoice(db: D1Database, actor: Actor, invoiceId: string) {
   need(actor, 'owner', 'reviewer'); insist(actor.channel === 'person', 'A native staff session is required', 403);
-  const invoice = await stmt(db, 'SELECT * FROM b_invoices WHERE id=? AND number IS NOT NULL', invoiceId).first<Data>();
+  const invoice = await stmt(db, 'SELECT i.*,c.erased_at client_erased_at FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE i.id=? AND i.number IS NOT NULL', invoiceId).first<Data>();
   insist(invoice?.pdf_base64, 'Issued invoice PDF not found or erased', 404);
+  if(invoice.client_erased_at)need(actor,'owner');
   await atomic(db, actor, [audit(db, actor, 'invoice.downloaded', invoiceId, invoice.pdf_sha256)]);
   return invoicePdfResponse(invoice);
 }
