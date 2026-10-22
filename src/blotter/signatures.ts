@@ -10,12 +10,12 @@ export { signatureDetail, pendingSignatures, transferSignatures } from './signat
 
 export async function jobSignatures(db:D1Database,actor:Actor,jobId:string) {
   need(actor,'owner','reviewer','preparer');await job(db,actor,jobId);
-  return rows(db,'SELECT id,title,status,mode,attempt,requester_email,created_at,sent_at,completed_at,revision,signed_sha256,certificate_sha256,erased_at FROM b_signatures WHERE job_id=? ORDER BY created_at,id',jobId);
+  return rows(db,'SELECT id,title,status,mode,attempt,requester_email,created_at,sent_at,completed_at,revision,signed_sha256,certificate_sha256,erased_at FROM b_signatures WHERE job_id=? AND EXISTS(SELECT 1 FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE j.id=b_signatures.job_id AND c.erased_at IS NULL) ORDER BY created_at,id',jobId);
 }
 export async function clientSignatures(db:D1Database,actor:Actor,clientId:string) {
   await requireClient(db,actor,clientId);
   need(actor,'owner','reviewer','preparer');
-  const jobs=await rows(db,"SELECT id FROM b_jobs WHERE client_id=? AND (? IN ('owner','reviewer') OR preparer_email=?)",clientId,actor.role,actor.email);
+  const jobs=await rows(db,"SELECT id FROM b_jobs WHERE client_id=? AND EXISTS(SELECT 1 FROM b_clients c WHERE c.id=b_jobs.client_id AND c.erased_at IS NULL) AND (? IN ('owner','reviewer') OR preparer_email=?)",clientId,actor.role,actor.email);
   insist(jobs.length||actor.role!=='preparer','Client not found',404);
   return rows(db,'SELECT s.id,s.job_id,s.title,s.status,s.mode,s.attempt,s.requester_email,s.completed_at,s.revision,s.signed_sha256,s.certificate_sha256 FROM b_signatures s WHERE s.job_id IN (SELECT value FROM json_each(?)) ORDER BY s.created_at,s.id',JSON.stringify(jobs.map(j=>j.id)));
 }

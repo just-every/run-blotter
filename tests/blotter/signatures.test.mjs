@@ -75,7 +75,7 @@ test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized seq
 
 test('SIGN-002 / ERASURE-002: record/class/job holds, clocks, pending refusal, preview counts, retained signatures, named outside copies, approved expiry receipt and stale restore fence',async()=>{
  const h=await harness();let copy;try{
-  const f=await fixture(h),r=await sent(h,f),done=await complete(h,r),pending=await sent(h,f,{title:'synthetic-blotter-18'});
+  const f=await fixture(h),r=await sent(h,f,{title:f.client.name+' management representation'}),done=await complete(h,r),pending=await sent(h,f,{title:'synthetic-blotter-18'});
   let preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.blockers.some(b=>/Pending signature/.test(b)));
   await h.json(`/signatures/${pending.id}/void`,{revision:pending.revision,reason:'No longer required'},f.prep);
   await finishJob(h,f);
@@ -99,7 +99,11 @@ test('SIGN-002 / ERASURE-002: record/class/job holds, clocks, pending refusal, p
   const stale=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);
   const receipt=await h.json(`/clients/${f.client.id}/erasure`,{planHash:preview.planHash,confirm:f.client.name,reason:'Client requested erasure'},h.owner);assert.ok(receipt.steps.some(s=>s.table==='b_signatures'&&s.count>0));assert.ok(receipt.retained.records.some(x=>x.kind==='signature'));assert.ok(receipt.retained.externalCopies.some(x=>x.source==='signature-invitations'));
-  assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).status,200);assert.equal((await h.request(`/api/blotter/signatures/${pending.id}/files/original`,undefined,h.owner)).status,404);
+  assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).status,200);
+  for(const path of [`/jobs/${f.job.id}/signatures`,`/clients/${f.client.id}/signatures`,'/retention/ready'])assert.ok(!JSON.stringify(await h.json(path,undefined,h.owner)).includes(f.client.name),'Normal lists and expiry queues hide retained signed identity');
+  await h.json(`/signatures/${r.id}`,undefined,f.prep,403);assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,f.prep)).status,403);
+  assert.equal((await h.json(`/signatures/${r.id}`,undefined,h.owner)).title,f.client.name+' management representation');
+  assert.ok((await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>e.action==='signature.retained_read'),'Principal retained-document reads are attributed');assert.equal((await h.request(`/api/blotter/signatures/${pending.id}/files/original`,undefined,h.owner)).status,404);
   await h.json('/retention/ready/confirm',{kind:'signature',id:r.id,reason:'Retention period ended'},f.prep,403);
   const expiry=await h.json('/retention/ready/confirm',{kind:'signature',id:r.id,reason:'Retention period ended'},h.owner);assert.ok(expiry.effects.some(e=>e.table==='b_signatures'&&e.count>0));const erased=await h.json(`/signatures/${r.id}`,undefined,h.owner);assert.equal(erased.signed_sha256,done.signed_sha256);assert.equal(erased.hasSigned,false);assert.equal(erased.hasCertificate,false);assert.equal((await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).status,404);assert.ok(!(await h.json('/retention/ready',undefined,h.owner)).ready.some(x=>x.kind==='signature'&&x.id===r.id));
   const latest=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();copy=await harness();await copy.json('/restore',{archive:stale,journal:latest,confirm:'RESTORE'},copy.owner,409);const journal=await h.json('/erasure-journal',undefined,h.owner);assert.ok(journal.epoch>0&&journal.receipts.some(x=>x.id===receipt.id));

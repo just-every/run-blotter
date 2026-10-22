@@ -4,9 +4,9 @@ import { rows, type Data } from './model';
 import { addYears, localDate, type Clocked } from './retention-clock';
 
 export async function signatureClocks(db:D1Database,timeZone:string,years:number):Promise<Clocked[]> {
-  return (await rows(db,`SELECT s.id,s.title,s.completed_at,j.client_id,j.signed_off_at FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.status='completed' AND s.erased_at IS NULL`)).map(s=>{
+  return (await rows(db,`SELECT s.id,s.title,s.completed_at,j.client_id,j.signed_off_at,c.erased_at client_erased_at FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id WHERE s.status='completed' AND s.erased_at IS NULL`)).map(s=>{
     const clock=[localDate(s.completed_at,timeZone),...(s.signed_off_at?[localDate(s.signed_off_at,timeZone)]:[])].sort().at(-1)!;
-    return {kind:'signature',id:s.id,cls:'signed_documents',clientIds:[s.client_id],label:s.title,clock,years,expiry:addYears(clock,years)};
+    return {kind:'signature',id:s.id,cls:'signed_documents',clientIds:[s.client_id],label:s.client_erased_at?'Retained signed document '+s.id.slice(0,8):s.title,clock,years,expiry:addYears(clock,years)};
   });
 }
 export function signatureExpiryEffects(requestId:string,at:string) {

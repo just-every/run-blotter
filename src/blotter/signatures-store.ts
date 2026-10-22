@@ -1,15 +1,14 @@
 // Shared scope, race fences and attributable signature events.
 import { atomic, audit, guard, human, id, insist, job, need, now, rows, stmt, visibleJobSql, visibleJobParams, type Actor, type Data } from './model';
 export async function signatureRecord(db:D1Database,requestId:string) {
-  const r=await stmt(db,'SELECT s.*,j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',requestId).first<Data>();
+  const r=await stmt(db,'SELECT s.*,j.client_id,c.erased_at client_erased_at FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id WHERE s.id=?',requestId).first<Data>();
   insist(r,'Signature request not found',404);return r;
 }
 export async function staffSignature(db:D1Database,actor:Actor,requestId:string,write=false) {
   need(actor,'owner','reviewer','preparer');if(write){human(actor);insist(!actor.automation,'A person must approve signature requests',403);}
   const r=await signatureRecord(db,requestId);await job(db,actor,r.job_id);
   // Erased-client retained evidence has a separate principal-only door.
-  const c=await stmt(db,'SELECT erased_at FROM b_clients WHERE id=?',r.client_id).first<Data>();
-  if(c?.erased_at)need(actor,'owner');return r;
+  if(r.client_erased_at)need(actor,'owner');return r;
 }
 export const signerRows=(db:D1Database,r:Data)=>rows(db,'SELECT * FROM b_signature_signers WHERE request_id=? AND attempt=? ORDER BY ordinal',r.id,r.attempt);
 export function sameRequest(db:D1Database,r:Data,actor?:Actor) {
@@ -30,6 +29,7 @@ export function signatureEvent(db:D1Database,r:Data,action:string,actor:string,d
 }
 export async function signatureDetail(db:D1Database,actor:Actor,requestId:string) {
   const r=await staffSignature(db,actor,requestId);
+  if(r.client_erased_at)await audit(db,actor,'signature.retained_read',r.job_id,JSON.stringify({requestId:r.id,note:'Principal read retained signed document'})).run();
   const {source_base64,signed_base64,certificate_base64,...safe}=r;
   return {...safe,fields:JSON.parse(r.fields),pages:JSON.parse(r.pages),signers:await signerRows(db,r),events:await rows(db,'SELECT * FROM b_signature_events WHERE request_id=? ORDER BY at,id',r.id),deliveries:await rows(db,'SELECT * FROM b_signature_deliveries WHERE request_id=? ORDER BY sent_at,id',r.id),hasSigned:!!signed_base64,hasCertificate:!!certificate_base64};
 }
