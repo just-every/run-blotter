@@ -446,7 +446,16 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
     const refused = await file(final); assert.equal(refused.status, 402); assert.match((await refused.json()).error, /locked until invoice INV-\d+ is paid/);
     const versionRef = encodeURIComponent('deliverable:' + final.id), access = await h.json(`/documents/${versionRef}/access`, undefined, h.owner), share = await h.json(`/documents/${versionRef}/shares`, { revision: access.revision, contactId: s.billing.id, days: 1 }, h.owner);
     assert.equal((await h.request('/api/blotter/shared-files/' + share.token)).status, 402);
+    await h.json(`/documents/${versionRef}/shares/${share.id}/revoke`, { revision: access.revision }, h.owner);
+    const revoked = await h.request('/api/blotter/shared-files/' + share.token);
+    assert.equal(revoked.status, 404, 'A revoked gated share reveals no invoice information');
+    assert.doesNotMatch(await revoked.text(), /INV-|paid|locked/);
     assert.equal(await ownCopy(), 'Client supplied record');
+    const unshared = await h.json(`/documents/${versionRef}/access`, { revision: access.revision, visibility: 'internal', contactIds: [] }, h.owner);
+    const ungranted = await file(final);
+    assert.equal(ungranted.status, 404, 'A contact without a current grant sees no payment-gate information');
+    assert.doesNotMatch(await ungranted.text(), /INV-|paid|locked/);
+    await h.json(`/documents/${versionRef}/access`, { revision: unshared.revision, visibility: 'contacts', contactIds: [s.billing.id] }, h.owner);
     await gateJourney(h, s, third.portalUrl);
     assert.equal((await h.request(`/api/blotter/deliverables/versions/${final.id}/file`, undefined, h.owner)).status, 200, 'Staff always read their own work');
     assert.equal((await h.json(`/jobs/${s.job.id}`, undefined, h.owner)).deliverables.find(d => d.id === final.deliverableId).paymentGate.locked, true);
