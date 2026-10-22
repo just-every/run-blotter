@@ -17,6 +17,8 @@ const inactive = (table, row) => {
   if (table === 'b_bulk_recipients' && ['pending', 'claimed'].includes(row.status)) return { ...row, status: 'held', held_reason: 'held: not sent (restored history; never replayed)' };
   if (table === 'b_notifications' && ['pending', 'in-app only', 'deferred: outside firm notification hours'].includes(row.delivery)) return { ...row, delivery: 'held after restore: ' + row.delivery };
   if(table==='b_invoice_retainers')return {...row,status:'paused',principal_id:null,auto_consent:null};
+  if(table==='b_invoice_reminder_policy')return {...row,status:'paused',consenter_id:null};
+  if(table==='b_invoice_reminders' && row.status==='dispatching')return {...row,status:'held',delivery:'held after restore: '+row.delivery};
   if(table==='b_invoice_deliveries')return {...row,digest:'restored:'+row.id,revoked_at:row.revoked_at??row.sent_at,status:row.status==='dispatching'?'held':row.status};
   if(table==='b_signatures' && ['draft','pending','declined'].includes(row.status))return {...row,status:'held'};
   if(table==='b_signature_deliveries' && /uncertain|pending/.test(row.delivery))return {...row,delivery:'held after restore: '+row.delivery};

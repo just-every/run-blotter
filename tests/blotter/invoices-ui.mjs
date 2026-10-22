@@ -84,3 +84,37 @@ export async function invoiceJourney(h, fixture, rule) {
     await client.close();await context.close();
   } finally { await browser.close(); }
 }
+
+/** BILL-004 screens: the consented reminder schedule, a client statement and the bulk resend preview. */
+export async function collectionsJourney(h, fixture) {
+  const directory = process.env.BLOTTER_INVOICE_EVIDENCE;
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  await h.stepUp(h.owner);
+  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
+  try {
+    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    await context.addCookies(h.owner.split('; ').map(cookie => { const at = cookie.indexOf('='); return { name: cookie.slice(0, at), value: cookie.slice(at + 1), url: h.origin }; }));
+    const page = await context.newPage(); await page.goto(h.origin + '/app');
+    if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup' }).click(); await page.waitForURL('**/app'); }
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Time & billing', exact: true }).click();
+    const panel = page.getByRole('region', { name: 'Collections', exact: true });
+    await panel.getByText('Reminders are', { exact: false }).waitFor();
+    const capture = async name => { for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await panel.scrollIntoViewIfNeeded(); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name} ${width} overflows`); await panel.screenshot({ path: `${directory}/${name}-${width}.png` }); } await page.setViewportSize({ width: 1440, height: 1000 }); };
+    await capture('collections-schedule');
+    await panel.getByText('Client statement', { exact: true }).click();
+    await panel.getByLabel('Statement client', { exact: true }).selectOption(fixture.client.id);
+    await panel.getByLabel('Statement date', { exact: true }).fill('2026-12-27');
+    await panel.getByRole('button', { name: 'Prepare statement', exact: true }).click();
+    await panel.getByText('statement as of', { exact: false }).waitFor();
+    const [file] = await Promise.all([page.waitForEvent('download'), panel.getByRole('link', { name: 'Download statement CSV', exact: true }).click()]); assert.equal(await file.failure(), null);
+    await capture('collections-statement');
+    await panel.getByText('Resend invoices', { exact: true }).click();
+    await panel.getByRole('checkbox', { name: /Invoice MS-2/ }).check();
+    await panel.getByLabel('Reason to resend', { exact: true }).fill('Client asked for a copy');
+    await panel.getByRole('button', { name: 'Preview resend', exact: true }).click();
+    await panel.getByRole('button', { name: /^Resend 1 invoices$/ }).waitFor();
+    await capture('collections-resend-preview');
+    await context.close();
+  } finally { await browser.close(); }
+}

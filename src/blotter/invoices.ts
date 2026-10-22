@@ -78,7 +78,7 @@ export async function prepareInvoice(db: D1Database, actor: Actor, body: Data) {
 }
 
 const invoiceFields = `i.id,i.client_id,i.job_id,i.title,i.status,i.number,i.currency,i.snapshot,i.subtotal_cents,i.tax_cents,i.credit_cents,i.total_cents,i.revision,i.owner_email,i.issue_date,i.due_date,i.retainer_id,i.period,
- i.prepared_by,i.prepared_at,i.issued_by,i.issued_at,i.pdf_sha256,i.voided_by,i.voided_at,i.void_reason,i.erased_at,i.auto_revision,i.auto_exception,
+ i.prepared_by,i.prepared_at,i.issued_by,i.issued_at,i.pdf_sha256,i.voided_by,i.voided_at,i.void_reason,i.erased_at,i.auto_revision,i.auto_exception,i.collection_hold,i.collection_note,
  CASE WHEN i.status='void' THEN 0 ELSE i.subtotal_cents+i.tax_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0) END balance_cents`;
 export async function invoiceState(db: D1Database, actor: Actor) {
   insist(canReadBilling(actor), 'Your role cannot perform this action', 403); insist(actor.channel === 'person', 'A native staff session is required', 403);
@@ -101,7 +101,8 @@ export async function invoiceDetail(db: D1Database, actor: Actor, invoiceId: str
   insist(invoice, 'Invoice not found', 404);
   if(invoice.client_erased_at){need(actor,'owner');await audit(db,actor,'invoice.retained_read',invoiceId,'Principal read retained invoice record').run();}
   const deliveries = await rows(db, 'SELECT id,contact_id,recipient_email,recipient_name,status,delivery,sent_by,sent_at,resolved_by,resolved_at,resolution FROM b_invoice_deliveries WHERE invoice_id=? ORDER BY sent_at,id', invoiceId);
-  return { ...invoice, snapshot: JSON.parse(invoice.snapshot), snapshotHash: await digest(invoice.snapshot), deliveries, history: await rows(db, "SELECT * FROM b_audit WHERE object_id=? OR object_id IN (SELECT id FROM b_invoice_deliveries WHERE invoice_id=?) ORDER BY at,id", invoiceId, invoiceId) };
+  const reminders = await rows(db, 'SELECT id,step,scheduled_on,status,recipient_email,delivery,created_at FROM b_invoice_reminders WHERE invoice_id=? ORDER BY step', invoiceId);
+  return { ...invoice, snapshot: JSON.parse(invoice.snapshot), snapshotHash: await digest(invoice.snapshot), deliveries, reminders, history: await rows(db, "SELECT * FROM b_audit WHERE object_id=? OR object_id IN (SELECT id FROM b_invoice_deliveries WHERE invoice_id=?) ORDER BY at,id", invoiceId, invoiceId) };
 }
 
 /** `auto` is only passed by the scheduled run, inside the consent's cap, and is printed on the numbered document. */

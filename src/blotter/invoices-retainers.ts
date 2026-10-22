@@ -4,11 +4,11 @@
 // draft with a named exception. Price changes never rewrite generated entitlements.
 import { type Bindings } from '../auth.server';
 import { firmSettings, localClock } from './firm';
-import { atomic, audit, canBill, date, digest, guard, id, insist, integer, job, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, date, digest, guard, id, insist, integer, job, now, rows, stmt, text, type Actor, type Data } from './model';
 import { buildInvoicePreview, invoiceDetail, invoiceDraftStatements, invoiceRecipientGuard, issueInvoice } from './invoices';
 import { previewInvoiceDelivery, sendInvoice } from './invoices-delivery';
-import { accessActor, canAccessClient } from './permissions';
-import { activeInvoiceClientSql, billed, invoiceAuthority, invoiceAuthorityGuard, invoiceHuman } from './invoices-sources';
+import { canAccessClient } from './permissions';
+import { activeInvoiceClientSql, billed, invoiceAuthority, invoiceAuthorityGuard, invoiceHuman, liveBillingActor } from './invoices-sources';
 
 function month(value: unknown, label = 'Month') {
   const v = text(value, label, 7); insist(/^\d{4}-\d{2}$/.test(v), `${label}: use YYYY-MM`); date(v + '-01', label); return v;
@@ -137,17 +137,6 @@ export async function setInvoiceAutoConsent(db: D1Database, actor: Actor, retain
     stmt(db, 'UPDATE b_invoice_retainers SET auto_consent=? WHERE id=?', JSON.stringify(consent), r.id), done, release,
     audit(db, actor, 'invoice.auto_consent', r.id, `rule revision ${r.revision_no}; cap ${consent.capCents} USD cents; recipient ${consent.contactId}; ${consent.reason}`)]));
   return { id: r.id, autoConsent: consent };
-}
-
-/** The person who may act for an operator right now: the principal, or a member who still holds financial authority. */
-async function liveBillingActor(db: D1Database, operatorId: string | null): Promise<Actor | null> {
-  const o = operatorId ? await stmt(db, "SELECT id,email,display_name,role FROM oa_operators WHERE id=? AND status='active'", operatorId).first<Data>() : null;
-  if (!o) return null;
-  const member = o.role === 'owner' ? null : await stmt(db, 'SELECT role FROM b_members WHERE email=? AND active=1', o.email).first<Data>();
-  const role = o.role === 'owner' ? 'owner' : member?.role;
-  if (!role) return null;
-  const actor = await accessActor(db, { id: o.id, email: o.email, name: o.display_name ?? o.email, role, channel: 'person' });
-  return canBill(actor) && !actor.readOnly ? actor : null;
 }
 
 /** Issue and send one period's draft only inside the live consent; every other case leaves a draft with a named exception. */

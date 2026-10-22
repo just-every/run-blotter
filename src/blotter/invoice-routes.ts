@@ -7,6 +7,7 @@ import {authorizeInvoiceEntitlement} from './invoices-sources';
 import {recordInvoiceCredit,allocateInvoiceCredit} from './invoices-credits';
 import {createInvoiceRetainer,generateRetainerInvoice,previewRetainerAmendment,amendInvoiceRetainer,setInvoiceAutoConsent,setInvoiceRetainerStatus} from './invoices-retainers';
 import {previewInvoiceDelivery,sendInvoice,reconcileInvoiceDelivery,invoicePortalView,invoicePortalPdf} from './invoices-delivery';
+import {bulkResend,clientStatement,clientStatementCsv,previewResend,quickCollect,reminderState,setClientReminders,setCollectionHold,setReminderPolicy} from './invoices-collections';
 export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:any){
  const P='/api/blotter';
  api.get(`${P}/invoices`,as((a:any,c:any)=>invoiceState(db(c),a)));
@@ -15,7 +16,16 @@ export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:a
  api.post(`${P}/invoice-credits`,as(async(a:any,c:any)=>recordInvoiceCredit(db(c),a,await body(c))));
  api.post(`${P}/invoices/preview`,as(async(a:any,c:any)=>previewInvoice(db(c),a,await body(c))));
  api.post(`${P}/invoices`,as(async(a:any,c:any)=>prepareInvoice(db(c),a,await body(c))));
+ api.get(`${P}/invoices/reminders`,as((a:any,c:any)=>reminderState(db(c),a)));
+ api.post(`${P}/invoices/reminders`,as(async(a:any,c:any)=>setReminderPolicy(db(c),a,await body(c))));
+ api.post(`${P}/invoices/resend-preview`,as(async(a:any,c:any)=>previewResend(db(c),a,await body(c))));
+ api.post(`${P}/invoices/resend`,as(async(a:any,c:any)=>bulkResend(c.env,a,await body(c))));
+ api.get(`${P}/clients/:id/statement`,as((a:any,c:any)=>clientStatement(db(c),a,param(c),c.req.query())));
+ api.get(`${P}/clients/:id/statement/csv`,as((a:any,c:any)=>clientStatementCsv(db(c),a,param(c),c.req.query())));
+ api.post(`${P}/clients/:id/invoice-reminders`,as(async(a:any,c:any)=>setClientReminders(db(c),a,param(c),await body(c))));
  api.get(`${P}/invoices/:id`,as((a:any,c:any)=>invoiceDetail(db(c),a,param(c))));
+ api.post(`${P}/invoices/:id/collection`,as(async(a:any,c:any)=>setCollectionHold(db(c),a,param(c),await body(c))));
+ api.post(`${P}/invoices/:id/quick-collect`,as((a:any,c:any)=>quickCollect(db(c),a,param(c))));
  api.post(`${P}/invoices/:id/issue`,as(async(a:any,c:any)=>issueInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/void`,as(async(a:any,c:any)=>voidInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/credits`,as(async(a:any,c:any)=>allocateInvoiceCredit(db(c),a,param(c),await body(c))));

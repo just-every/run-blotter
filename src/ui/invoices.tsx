@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { InvoiceCollectionControls, InvoiceCollections } from './invoice-collections';
 import { api, day, Empty, Field, Form, money, prose, Status, today, when, type Row, type Run, ExportLink } from './common';
 
 function InvoiceLines({ snapshot }: { snapshot: Row }) {
@@ -48,6 +49,7 @@ function InvoiceRecord({ item, contacts, owner, run, tick }: { item: Row; contac
           </Form>}
           <details><summary>Apply a recorded credit to the balance</summary><Form label="Apply recorded credit" submit={data => run(() => api(`/invoices/${item.id}/credits`, data), 'Credit allocated; issued PDF unchanged')}><Field label="Credit ID" name="creditId" /><Field label="Applied USD cents" name="amountCents" type="number" /><Field label="Allocation reason" name="reason" /></Form></details>
         </>}
+        <InvoiceCollectionControls detail={detail} billing={owner} run={run} />
         {owner && detail.status !== 'void' && <details><summary>Void invoice</summary><p>{detail.number ? 'The numbered PDF and source reservations remain in history.' : 'Voiding a draft releases its source reservations.'}</p><Form danger label="Void invoice" submit={data => run(() => api(`/invoices/${item.id}/void`, { ...data, revision: detail.revision }), 'Invoice voided')}><Field label="Void reason" name="reason" /></Form></details>}
         <ul>{detail.deliveries.map((d: Row) => <li key={d.id}>{d.recipient_name} · {d.recipient_email} · {d.delivery} · {when(d.sent_at)}</li>)}</ul>
         <details><summary>Audited invoice history</summary><ul>{detail.history.map((event: Row) => <li key={event.id}>{when(event.at)} · {event.actor} · {event.action}: {prose(event.detail)}</li>)}</ul></details>
@@ -91,7 +93,7 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
   useEffect(() => { api('/invoices').then(setState).catch(e => run(async () => { throw e; })); }, [tick]);
   if (!state) return <p>Opening invoices…</p>;
   const principal = actor.role === 'owner', owner = !!actor.financial, job = jobs.find(j => j.id === jobId), clientId = job?.client_id, contacts = state.contacts.filter((c: Row) => c.client_id === clientId);
-  return <section className="panel stack"><h2>Invoices and retainers</h2>
+  return <><section className="panel stack"><h2>Invoices and retainers</h2>
     <p>Native USD invoices separate fee entitlement from work completion. The principal, or a member with financial authority, approves supplied tax treatment, sources, credits and recipients before issuing a numbered PDF.</p>
     <p>Invoice authority: <strong>{state.settings ? 'Blotter' : 'Not selected'}</strong></p>
     {principal && !state.settings && <Form label="Select Blotter invoice authority" submit={data => run(() => api('/invoices/authority', { ...data, authority: 'blotter' }), 'Blotter selected as the invoice authority')}><Field label="Authority decision" name="reason" /></Form>}
@@ -124,7 +126,7 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
     </>}
     <h3>Monthly retainers</h3>{!state.retainers.length && <Empty>No monthly retainers.</Empty>}{state.retainers.map((r: Row) => <RetainerRecord key={r.id} item={r} amendments={state.amendments} contacts={state.contacts} owner={owner} run={run} />)}
     <h3>Invoice documents</h3>{!state.invoices.length && <Empty>No invoice documents.</Empty>}{state.invoices.map((i: Row) => <InvoiceRecord key={i.id} item={i} contacts={state.contacts} owner={owner} run={run} tick={tick} />)}
-  </section>;
+  </section>{state.settings && <InvoiceCollections state={state} clients={clients} billing={owner} run={run} tick={tick} />}</>;
 }
 
 export function InvoicePortal({ token }: { token: string }) {

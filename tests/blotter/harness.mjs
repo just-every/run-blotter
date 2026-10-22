@@ -11,7 +11,15 @@ const require=createRequire(await realpath('node_modules/wrangler/package.json')
 const {Miniflare,convertV4MiniflareOptions}=require('miniflare');
 const {unstable_splitSqlQuery:splitSql}=require('wrangler');
 // `bindings` adds Worker bindings; with RER_DEMO the owner keeps the bootstrap session (demo mail sends nothing).
-export async function harness({bindings={},mailResponse}={}){
+// A probed free port can be taken by another runtime before Miniflare binds it (parallel
+// test files start several); a start that loses that race tries again on a fresh port.
+export async function harness(settings={}){
+ for(let attempt=0;;attempt++){
+  try{return await start(settings);}
+  catch(e){if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=3)throw e;}
+ }
+}
+async function start({bindings={},mailResponse}={}){
  const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
  const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[];
  const config=JSON.parse(await readFile('dist/server/wrangler.json','utf8'));
@@ -61,6 +69,6 @@ export async function harness({bindings={},mailResponse}={}){
   if(vars.RER_DEMO)await remember(owner,vars.OWNER_EMAIL);
   // The Worker's Cron Trigger door, fired as of a chosen time.
   const scheduled=async at=>(await mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'17 * * * *'});
-  return {origin,owner,request,send,json,login,stepUp,mails,scheduled,db,restart:async()=>{await mf.dispose();mf=new Miniflare(options);await mf.ready;},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
+  return {origin,owner,request,send,json,login,stepUp,mails,scheduled,db,restart:async()=>{await mf.dispose();for(let attempt=0;;attempt++){mf=new Miniflare(options);try{await mf.ready;return;}catch(e){await mf.dispose();if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=5)throw e;await new Promise(r=>setTimeout(r,250));}}},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
  }catch(e){await mf.dispose();await rm(directory,{recursive:true,force:true});throw e;}
 }

@@ -2,7 +2,7 @@
 // expenses keep their existing approval and integer-cent snapshots.
 import { unbilled } from './billing';
 import { atomic, audit, canBill, guard, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
-import { delegated } from './permissions';
+import { accessActor, delegated } from './permissions';
 
 /** Prepare, issue, send and void belong to the principal and to financial-authority holders (ct, 22 Oct). */
 export function invoiceHuman(actor: Actor) {
@@ -16,6 +16,17 @@ export function principalHuman(actor: Actor) {
 }
 /** Every holder write re-reads the delegation inside its own batch; the principal's batches are unchanged. */
 export const billed = (db: D1Database, actor: Actor, statements: D1PreparedStatement[]) => delegated(db, actor, 'financial_authority', statements);
+/** The person who may act for an operator right now: the principal, or a member who still holds financial authority. */
+export async function liveBillingActor(db: D1Database, operatorId: string | null): Promise<Actor | null> {
+  const o = operatorId ? await stmt(db, "SELECT id,email,display_name,role FROM oa_operators WHERE id=? AND status='active'", operatorId).first<Data>() : null;
+  if (!o) return null;
+  const member = o.role === 'owner' ? null : await stmt(db, 'SELECT role FROM b_members WHERE email=? AND active=1', o.email).first<Data>();
+  const role = o.role === 'owner' ? 'owner' : member?.role;
+  if (!role) return null;
+  const actor = await accessActor(db, { id: o.id, email: o.email, name: o.display_name ?? o.email, role, channel: 'person' });
+  return canBill(actor) && !actor.readOnly ? actor : null;
+}
+
 export const activeInvoiceClientSql = "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL AND erased_at IS NULL)";
 export async function invoiceAuthority(db: D1Database) {
   const settings = await stmt(db, 'SELECT * FROM b_invoice_settings WHERE id=1').first<Data>();
