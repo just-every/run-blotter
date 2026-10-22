@@ -4,6 +4,8 @@
 const inactive = (table, row) => {
   // VAULT-001: the principal's "exclude" choice drops credential ciphertext; "encrypt" carries it sealed.
   if (table === 'b_vault_credentials' && row.archive_mode === 'exclude') return { ...row, sealed: null };
+  // PORTAL-002: accounts and grants cross; second factors never do, so a restored account sets up a new one.
+  if (table === 'b_portal_accounts') return { ...row, totp_sealed: null, totp_pending_sealed: null, totp_confirmed_at: null, totp_last_step: 0 };
   if (table === 'b_notification_settings') return { ...row, settings: JSON.stringify({ ...JSON.parse(row.settings), digestEnabled: false }) };
   if (table === 'b_notification_digests' && row.delivery === 'pending') return { ...row, delivery: 'held after restore: pending' };
   if (table === 'b_report_schedules') return { ...row, status: 'paused', principal_id: null };
@@ -26,7 +28,7 @@ const inactive = (table, row) => {
 };
 export default {
   product: 'accounting/blotter',
-  excludeTables: ['b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
+  excludeTables: ['b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
   // Retained rules and unsent staff alerts are history until explicitly reviewed.
   exportRow: inactive,
   importSafety: { b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },

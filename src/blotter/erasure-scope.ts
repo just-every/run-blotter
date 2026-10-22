@@ -51,6 +51,10 @@ export function selectors(x: Context) {
   };
 }
 
+/** Accounts whose every unrevoked grant is on this client (portal accounts span entities by address). */
+const portalOnly = (c: string) => `(SELECT a.id FROM b_portal_accounts a WHERE a.id IN (SELECT account_id FROM b_portal_grants WHERE client_id=${c})
+  AND NOT EXISTS(SELECT 1 FROM b_portal_grants o WHERE o.account_id=a.id AND o.client_id<>${c} AND o.revoked_at IS NULL))`;
+
 /** Steps run in this order inside one atomic batch. Predicates never read a column an earlier step rewrites. */
 export function steps(x: Context, audited: { where: string; set: string } | null): Step[] {
   const s = selectors(x), at = lit(x.at), who = lit(x.who), why = lit(x.reason);
@@ -70,6 +74,13 @@ export function steps(x: Context, audited: { where: string; set: string } | null
       set: `address='',subject=NULL,body=NULL,preview_language='en',template_wording_hash=NULL,attachments='[]',misclassified_reason=NULL,held_reason=CASE WHEN status IN ('pending','claimed') THEN 'client erased' ELSE held_reason END,status=CASE WHEN status IN ('pending','claimed') THEN 'held' ELSE status END` },
     { cls: 'message', table: 'b_bulk_exclusions', action: 'redact', label: 'Bulk message exclusions: address', where: `client_id=${s.c}`, set: `address=''` },
     { cls: 'contact', table: 'b_mail_suppressions', action: 'delete', label: 'Plain-text bounce suppressions (a bounced address is dropped, not digested)', where: `address IN (SELECT email FROM b_client_contacts WHERE client_id=${s.c} AND email<>'')` },
+    // PORTAL-002: an account that opens no other entity goes with this one; one that does keeps its other entities.
+    ...(['b_portal_sessions', 'b_portal_signins', 'b_portal_recovery', 'b_portal_failures'] as const).map((table): Step => ({ cls: 'link', table, action: 'delete', label: `Client portal ${table.slice(9)} of accounts that open no other entity`, where: `account_id IN ${portalOnly(s.c)}` })),
+    { cls: 'contact', table: 'b_portal_accounts', action: 'redact', label: 'Client portal accounts that open no other entity: address and second factor (disabled)', where: `id IN ${portalOnly(s.c)}`,
+      set: `email='erased+'||id||'@erased.invalid',status='disabled',totp_sealed=NULL,totp_pending_sealed=NULL,totp_confirmed_at=NULL` },
+    { cls: 'link', table: 'b_portal_invitations', action: 'delete', label: 'Client portal invitations', where: `contact_id IN ${s.K}` },
+    { cls: 'link', table: 'b_portal_grants', action: 'redact', label: 'Client portal grants (revoked; who invited and when stay)', where: `client_id=${s.c}`,
+      set: `revoked_at=COALESCE(revoked_at,${at}),revoked_by=COALESCE(revoked_by,${who}),revoke_reason=CASE WHEN revoke_reason IS NULL THEN 'client erased' ELSE '[erased]' END` },
     { cls: 'link', table: 'b_document_grants', action: 'delete', label: 'Document grants to contacts', where: `contact_id IN ${s.K}` },
     { cls: 'link', table: 'b_document_shares', action: 'delete', label: 'Document share links', where: `contact_id IN ${s.K}` },
     { cls: 'link', table: 'b_portal_links', action: 'redact', label: 'Client upload links (revoked)', where: `job_id IN ${s.JALL} AND revoked_at IS NULL`, set: `revoked_at=${at}` },

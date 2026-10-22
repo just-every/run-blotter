@@ -82,7 +82,7 @@ export async function recordConsent(db: D1Database, actor: Actor, body: Data) {
 }
 
 /** A withdrawal of the whole address, effective immediately (unsubscribe page, one-click header or provider complaint). */
-export function withdrawStatements(db: D1Database, address: string, source: 'unsubscribe_link' | 'one_click' | 'provider_complaint', who: string, evidence: string, clientId: string | null) {
+export function withdrawStatements(db: D1Database, address: string, source: 'unsubscribe_link' | 'one_click' | 'provider_complaint' | 'portal_preference', who: string, evidence: string, clientId: string | null) {
   const at = now(), eventId = id();
   return [stmt(db, `INSERT INTO b_marketing_consents(id,client_id,address,channel,kind,source,acted_at,recorded_at,actor,evidence) VALUES(?,?,?,'email','withdraw',?,?,?,?,?)`, eventId, clientId, address, source, at, at, who, evidence),
     stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, 'consent.marketing_withdrawn', clientId ?? 'firm', `${address}: ${source}`, at)];

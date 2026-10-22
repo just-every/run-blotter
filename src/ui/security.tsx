@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, when, type Row, type Run, ExportLink } from './common';
+import { api, Empty, Field, Form, readFile, when, type Row, type Run, ExportLink } from './common';
 
 function Codes({ codes }: { codes: string[] }) {
   if (!codes.length) return null;
@@ -96,6 +96,7 @@ export function Security({ actor, run, tick }: { actor: Row; run: Run; tick: num
           </div>
         </Form>
       </details>
+      <ClientPortalPolicy run={run} tick={tick} />
       <details><summary>Reset someone's lost second factor</summary>
         <Form danger label="Reset and sign them out" submit={async data => run(() => api('/team/mfa-reset', { email: data.email, reason: data.reason }), 'Second factor reset; all their sessions were signed out')}>
           <Field label="Person" name="email"><select name="email">{firm.people.filter((p: Row) => p.role !== 'owner').map((p: Row) => <option key={p.email} value={p.email}>{p.name}</option>)}</select></Field>
@@ -104,4 +105,25 @@ export function Security({ actor, run, tick }: { actor: Row; run: Run; tick: num
       </details>
     </>}
   </section>;
+}
+
+/** PORTAL-002: the firm's client portal sign-in policy; with nothing recorded a second factor is required. */
+function ClientPortalPolicy({ run, tick }: { run: Run; tick: number }) {
+  const [policy, setPolicy] = useState<Row>();
+  useEffect(() => { api('/portal-policy').then(setPolicy).catch(e => run(async () => { throw e; })); }, [tick]);
+  if (!policy) return null;
+  return <details><summary>Client portal sign-in</summary>
+    <p>Client portal accounts {policy.mfaRequired ? 'must use a second factor at every sign-in' : 'may sign in with the emailed link alone unless they set up a second factor'}.{policy.setBy && ` Set by ${policy.setBy} ${when(policy.setAt)}: ${policy.reason}`}</p>
+    <Form label={policy.mfaRequired ? 'Stop requiring a second factor for clients' : 'Require a second factor for clients'} submit={async data => run(async () => setPolicy(await api('/portal-policy', { mfaRequired: !policy.mfaRequired, reason: data.reason })), 'Client portal policy saved')}>
+      <Field label="Reason (recorded in the audit)" name="reason" />
+    </Form>
+    <h4>Portal branding</h4>
+    <p className="muted">Clients see this logo and accent colour on the client portal, including its sign-in page.</p>
+    <Form label="Save portal branding" submit={async (data, form) => run(async () => { const file = (form.elements.namedItem('logo') as HTMLInputElement).files?.[0];
+      await api('/portal-branding', { accent: data.accent, ...(file ? { logo: await readFile(file) } : {}), removeLogo: data.removeLogo === 'on' }); form.reset(); }, 'Portal branding saved')}>
+      <Field label="Logo (PNG or JPEG, up to 256 KiB)" name="logo"><input name="logo" type="file" accept="image/png,image/jpeg" /></Field>
+      <Field label="Accent colour" name="accent"><input name="accent" type="color" defaultValue="#4b3fa5" /></Field>
+      <label><input type="checkbox" name="removeLogo" /> Remove the current logo</label>
+    </Form>
+  </details>;
 }
