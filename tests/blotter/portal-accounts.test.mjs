@@ -66,7 +66,8 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     assert.equal((await pat.get('/me')).mfa, 'verify'); await pat.get(`/entities/${birch.id}`, 403);
     await pat.post('/verify', { code: '123456' }, 400);
     await pat.post('/verify', { code: code(patKey) });
-    assert.deepEqual((await pat.get('/me')).entities.map(e => e.name), ['Birch Street Cafe', 'Cedar Lane LLC']);
+    const patMe = await pat.get('/me');
+    assert.deepEqual([patMe.firm, patMe.entities.map(e => e.name)], ['Cedar Practice', ['Birch Street Cafe', 'Cedar Lane LLC']]);
     const cedarView = await pat.get(`/entities/${cedar.id}`);
     assert.deepEqual([cedarView.work.map(w => w.title), cedarView.documents.map(d => d.name), cedarView.bills.map(b => b.balanceCents)], [['Monthly bookkeeping'], ['cedar.pdf'], [25000]]);
     const fileDoor = `/api/blotter/client/entities/${cedar.id}/files/${encodeURIComponent(cedarView.documents[0].ref)}`, billDoor = `/api/blotter/client/entities/${cedar.id}/bills/${cedarView.bills[0].id}/pdf`;

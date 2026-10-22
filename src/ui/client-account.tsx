@@ -41,7 +41,7 @@ type PageProps = { me?: Row | null; entity?: Row; chosen: string; link?: { kind:
 function Page(p: PageProps) {
   const t = useT();
   return <div className="portal"><main id="portal-main" className="stack">
-    <h1>{t('account.title')}</h1>
+    {p.me?.firm && <p className="eyebrow">{p.me.firm}</p>}<h1>{t('account.title')}</h1>
     {p.notice && <p className="notice" role="status">{p.notice}</p>}{p.failure && <p className="error" role="alert">{p.failure}</p>}
     {p.link ? <section className="panel"><button onClick={p.spend}>{t(p.link.kind === 'invite' ? 'account.accept' : 'account.continue')}</button></section>
       : p.me === undefined ? null : p.me === null ? <SignIn act={p.act} />

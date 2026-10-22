@@ -195,6 +195,6 @@ export async function clientMe(db: D1Database, client: Client) {
   const mfa = !(client.mfaRequired || client.factor || client.recovered) ? null : !client.factor || client.recovered ? 'enroll' : !client.verified ? 'verify' : null;
   const entities = mfa ? [] : await rows(db, `SELECT g.client_id,g.contact_id,e.name,c.name contact_name,c.language FROM b_portal_grants g JOIN b_clients e ON e.id=g.client_id JOIN b_client_contacts c ON c.id=g.contact_id
     WHERE g.account_id=? AND ${liveGrantSql('g')} ORDER BY e.name,e.id`, client.accountId);
-  return { email: client.email, factor: client.factor, mfaRequired: client.mfaRequired, mfa, language: mfa ? await accountLanguage(db, client.accountId) : undefined,
+  return { email: client.email, firm: (await firmSettings(db)).name ?? '', factor: client.factor, mfaRequired: client.mfaRequired, mfa, language: mfa ? await accountLanguage(db, client.accountId) : undefined,
     entities: entities.map(e => ({ clientId: e.client_id, name: e.name, contactId: e.contact_id, contactName: e.contact_name, language: isLanguage(e.language) ? e.language : 'en' })) };
 }
