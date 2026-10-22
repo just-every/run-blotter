@@ -37,7 +37,7 @@ export async function authorizationPdf(a: Data, body: Data, signerName: string) 
     insist(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'k', 'r'].includes(designation), 'Choose the representative designation printed on Form 2848');
     set('Designation1', designation); set('Jurisdiction1', text(body.jurisdiction, 'Licensing jurisdiction or other authority', 60));
     set('Bar1', optional(body.licenseNumber, 'License, bar or enrollment number', 40));
-    set('PrintName', signerName); set('Title', title); set('PrintNameTaxpayer', name);
+    set('PrintName', signerName); set('Title', title); set('PrintNameTaxpayer', name === signerName ? '' : name);
     rows.forEach((m, i) => { set(`Description${i + 1}`, m.matter); set(`TaxForm${i + 1}`, m.form); set(`Years${i + 1}`, m.from ? `${m.from}-${m.to}` : 'See attachment'); });
   } else {
     set('f1_6', `${name}\n${address}`); set('f1_7', formattedTin); set('f1_8', phone);

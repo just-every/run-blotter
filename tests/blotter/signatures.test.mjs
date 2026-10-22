@@ -9,9 +9,9 @@ const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blo
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
 const contact=n=>({name:({5:'Mia Chen',6:'Jonah Chen',7:'Avery Lane'})[n],firstName:({5:'Mia',6:'Jonah',7:'Avery'})[n],email:`synthetic-blotter-${n}@example.test`,roles:['primary'],authorized:true,signer:true,portal:true,requestConsent:true,emailConsent:true,consentNote:'Explicit synthetic entity and signer authority'});
-async function fixture(h){
+async function fixture(h,clientValues={}){
   const sessions={};for(const [email,name] of [[prepEmail,'Pat Harper'],[successorEmail,'Cameron Morgan'],[outsideEmail,'Casey Drew']]){await h.json('/team',{email,name,role:'preparer'},h.owner);await h.json('/team/invite',{email},h.owner);sessions[email]=await h.login(email);}
-  const client=await h.json('/clients',{name:'Cedar Lane Manufacturing LLC',contacts:[contact(5),contact(6),contact(7)]},h.owner);
+  const client=await h.json('/clients',{name:'Cedar Lane Manufacturing LLC',...clientValues,contacts:[contact(5),contact(6),contact(7)]},h.owner);
   const template=await h.json('/templates',{name:'Annual financial statement review',recurrence:'annual',steps:'Inspect evidence',requests:'Evidence'},h.owner);
   const job=await h.json('/jobs',{clientId:client.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Client agreed date',preparerEmail:prepEmail,reviewerEmail:'owner@example.test'},h.owner);
   const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica);pdf.addPage([612,792]).drawText('Management representation for the annual review',{x:40,y:740,font,size:12});
@@ -157,18 +157,18 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
 
 test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attest a 2848, record online submission and CAF status, scope transcripts and agency contact, alert once and withdraw',async()=>{
  const h=await harness();try{
-  const f=await fixture(h),rep='staff:'+prepEmail,client=f.client.contacts[0];
+  const f=await fixture(h,{name:'Mia Chen',entityType:'individual'}),client=f.client.contacts.find(c=>c.name==='Mia Chen');
   const body={kind:'2848',representative:'Pat Harper',representativeEmail:prepEmail,matters:[{form:'Form 1040',from:2022,to:2025}]};
   await h.json(`/clients/${f.client.id}/authorizations`,body,f.prep,403);
   let a=await h.json(`/clients/${f.client.id}/authorizations`,body,h.owner);assert.deepEqual(a.matters,[{form:'1040',from:2022,to:2025,matter:'Income'}]);
-  const input={revision:a.revision,jobId:f.job.id,contactId:client.id,taxpayerName:f.client.name,taxpayerAddress:'123 Cedar Lane\nDenver CO 80202',tinType:'ein',taxpayerTin:'12-3456789',taxpayerTitle:'President',representativeAddress:'456 Review Avenue\nDenver CO 80203',representativePhone:'303-555-0142',designation:'b',jurisdiction:'Colorado',licenseNumber:'synthetic-blotter-31',reviewed:true};
+  const input={revision:a.revision,jobId:f.job.id,contactId:client.id,taxpayerName:f.client.name,taxpayerAddress:'123 Cedar Lane\nDenver CO 80202',tinType:'ssn',taxpayerTin:'111-22-3333',taxpayerTitle:'',representativeAddress:'456 Review Avenue\nDenver CO 80203',representativePhone:'303-555-0142',designation:'b',jurisdiction:'Colorado',licenseNumber:'synthetic-blotter-31',reviewed:true};
   await h.json(`/authorizations/${a.id}/prepare`,input,f.prep,403);
   await h.json(`/authorizations/${a.id}/prepare`,{...input,reviewed:false},h.owner,400);
   const before=h.mails.length,d=await h.json(`/authorizations/${a.id}/prepare`,input,h.owner);
   assert.equal(d.status,'draft');assert.equal(h.mails.length,before,'Preparation sends no invitations');assert.equal(d.attestation_required,1);
   const original=Buffer.from(await(await h.request(`/api/blotter/signatures/${d.id}/files/original`,undefined,h.owner)).arrayBuffer()),prepared=await PDFDocument.load(original);
   assert.equal(prepared.getPageCount(),2);assert.equal(prepared.getForm().getFields().length,0);
-  for(const value of [f.client.name,'123 Cedar Lane','12-3456789','Pat Harper','1040','2022-2025','Colorado'])assert.ok(pdfText(original).includes(value),value);
+  for(const value of [f.client.name,'123 Cedar Lane','111-22-3333','Pat Harper','1040','2022-2025','Colorado'])assert.ok(pdfText(original).includes(value),value);
   if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {mkdir,writeFile}=await import('node:fs/promises');await mkdir(process.env.BLOTTER_SIGNATURE_EVIDENCE,{recursive:true});await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/prepared-2848.pdf',original);}
   await h.json(`/authorizations/${a.id}/prepare`,input,f.outside,403);
   await h.json(`/clients/${f.client.id}/authorizations`,undefined,f.outside,404);
@@ -200,7 +200,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await h.scheduled('2025-09-30T15:00:00Z');assert.ok(!(await h.json('/notifications',undefined,f.prep)).some(n=>n.kind==='authorization_expiring'));
   await h.scheduled('2025-10-02T15:00:00Z');await h.scheduled('2025-10-02T16:00:00Z');
   const alerts=(await h.json('/notifications',undefined,f.prep)).filter(n=>n.kind==='authorization_expiring');
-  assert.equal(alerts.length,1);assert.match(alerts[0].summary,/Form 2848 for Cedar Lane Manufacturing LLC covers through 2025/);
+  assert.equal(alerts.length,1);assert.match(alerts[0].summary,/Form 2848 for Mia Chen covers through 2025/);
   // Withdrawal flags the dependent notice work and refuses new transcript requests.
   const withdrawn=await h.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Client revoked the power of attorney'},h.owner);
   assert.deepEqual(withdrawn.flaggedNotices,[covered]);
@@ -216,7 +216,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   const infoDraft=await h.json(`/authorizations/${info.id}/prepare`,{...input,revision:info.revision},h.owner);
   const infoPdf=Buffer.from(await(await h.request(`/api/blotter/signatures/${infoDraft.id}/files/original`,undefined,h.owner)).arrayBuffer());
   assert.equal((await PDFDocument.load(infoPdf)).getPageCount(),1);assert.equal(infoDraft.signers.length,1);assert.ok(infoDraft.fields.every(f=>f.contactId===client.id));
-  for(const value of [f.client.name,'12-3456789','Pat Harper','1040','2022-2025'])assert.ok(pdfText(infoPdf).includes(value),value);
+  for(const value of [f.client.name,'111-22-3333','Pat Harper','1040','2022-2025'])assert.ok(pdfText(infoPdf).includes(value),value);
   if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {writeFile}=await import('node:fs/promises');await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/prepared-8821.pdf',infoPdf);}
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   const copy=await harness();try{
@@ -226,7 +226,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
    assert.equal((await copy.json(`/signatures/${d.id}`,undefined,copy.owner)).signed_sha256,(await h.json(`/signatures/${d.id}`,undefined,h.owner)).signed_sha256);
    await copy.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},copy.owner,409);
   }finally{await copy.close();}
-  assert.ok(!(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>String(e.detail).includes('12-3456789')),'The TIN stays out of audit detail');
+  assert.ok(!(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>String(e.detail).includes('111-22-3333')),'The TIN stays out of audit detail');
   await authorizationJourney(h,f,info);
 
  }finally{await h.close();}

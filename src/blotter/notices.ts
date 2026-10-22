@@ -7,7 +7,7 @@ import { staffDownload } from './document-shares';
 import { decodeFile } from './documents';
 import { agencyContactAuthority } from './authorizations';
 import { eligible } from './jobs';
-import { atomic, audit, date, digest, Fault, human, id, insist, job, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, date, digest, Fault, guard, human, id, insist, job, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 const KINDS = ['research', 'client_question', 'agency_contact', 'response_submitted', 'follow_up', 'transcript', 'receipt', 'note'] as const;
 /** Evidence that can back an acknowledged resolution: a file on one of these entries. */
@@ -95,7 +95,8 @@ export async function addNoticeEvent(db: D1Database, actor: Actor, noticeId: str
   const kind = body.kind;
   insist(KINDS.includes(kind), 'Choose what happened');
   // AUTHZ-001: the recorded authorization must cover the form and the notice year.
-  if (kind === 'agency_contact') await agencyContactAuthority(db, n, body.taxForm);
+  const authorization = kind === 'agency_contact' ? await agencyContactAuthority(db, n, body.taxForm) : null;
+  const live = authorization ? guard(db, "EXISTS(SELECT 1 FROM b_authorizations WHERE id=? AND revision=? AND status='recorded')", authorization.id, authorization.revision) : [];
   const note = `${kind === 'agency_contact' ? `Form ${body.taxForm}: ` : ''}${text(body.note, 'Note', 4000)}`;
   const result = kind === 'response_submitted' ? body.result : null;
   insist(kind !== 'response_submitted' || ['pending', 'failed', 'accepted'].includes(result), 'Record whether the response is pending, failed or accepted');
@@ -104,9 +105,10 @@ export async function addNoticeEvent(db: D1Database, actor: Actor, noticeId: str
   insist(!['transcript', 'receipt'].includes(kind) || file, 'Attach the transcript or receipt file');
   const eventId = id();
   await atomic(db, actor, [
+    ...live.slice(0, 1),
     stmt(db, `INSERT INTO b_notice_events(id,notice_id,kind,note,result,follow_up_on,file_name,file_mime,file_size,file_sha256,file_base64,by_email,at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       eventId, n.id, kind, note, result, followUp, file?.name ?? null, file?.mime ?? null, file?.bytes.length ?? null, file ? await digest(file.bytes) : null, file?.encoded ?? null, actor.email, now()),
-    audit(db, actor, `notice.${kind}`, n.id, result ? `${result}: ${note}` : note)]);
+    audit(db, actor, `notice.${kind}`, n.id, result ? `${result}: ${note}` : note), ...live.slice(1)]);
   return { id: eventId, kind, result, followUpOn: followUp };
 }
 

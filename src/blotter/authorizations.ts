@@ -6,7 +6,7 @@
 import { firmSettings, localClock } from './firm';
 import { eligible } from './jobs';
 import { readableClient } from './client-contacts';
-import { atomic, audit, date, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, date, guard, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
 type Matter = { form: string; from: number; to: number; matter: string };
 const KINDS = ['2848', '8821', 'state'], METHODS = ['irs_online', 'tax_pro_account', 'fax'];
@@ -130,9 +130,9 @@ export async function requestTranscript(db: D1Database, actor: Actor, clientId: 
   const form = text(body.form, 'Tax form', 20).replace(/^Form\s+/i, ''), year = integer(body.year, 'Tax year', 1990, 2100), type = optional(body.transcriptType, 'Transcript type', 60) || 'Account transcript';
   const a = await covering(db, clientId, ['2848', '8821'], form, year);
   insist(a, `No recorded Form 2848 or 8821 covers Form ${form} for ${year}; this transcript request is outside the authorization's scope`, 409);
-  const requestId = id();
-  await atomic(db, actor, [stmt(db, "INSERT INTO b_transcript_requests(id,client_id,authorization_id,form,year,transcript_type,status,requested_by,requested_at) VALUES(?,?,?,?,?,?,'requested',?,?)", requestId, clientId, a.id, form, year, type, actor.email, now()),
-    audit(db, actor, 'authorization.transcript_requested', clientId, `${type}: Form ${form} ${year} under Form ${a.kind}`)]);
+  const requestId = id(), [live, release] = guard(db, "EXISTS(SELECT 1 FROM b_authorizations WHERE id=? AND revision=? AND status='recorded')", a.id, a.revision);
+  await atomic(db, actor, [live, stmt(db, "INSERT INTO b_transcript_requests(id,client_id,authorization_id,form,year,transcript_type,status,requested_by,requested_at) VALUES(?,?,?,?,?,?,'requested',?,?)", requestId, clientId, a.id, form, year, type, actor.email, now()),
+    audit(db, actor, 'authorization.transcript_requested', clientId, `${type}: Form ${form} ${year} under Form ${a.kind}`), release]);
   return { id: requestId, authorizationId: a.id, form, year, status: 'requested' };
 }
 /** Agency contact on a notice needs a recorded 2848 (federal) or the state's authorization covering the notice year. */
@@ -158,7 +158,7 @@ export async function runAuthorizationAlerts(db: D1Database, at = new Date()) {
     if (today < `${last}-10-01`) continue;
     const work = await stmt(db, "SELECT id FROM b_jobs WHERE client_id=? AND status<>'signed_off' ORDER BY due_date LIMIT 1", a.client_id).first<Data>();
     if (!work && !await stmt(db, "SELECT 1 FROM b_recurrence_rules WHERE client_id=? AND status='active'", a.client_id).first()) continue;
-    const to = a.representative_email ?? (await stmt(db, "SELECT email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<Data>())?.email;
+    const to = (work && a.representative_email) || (await stmt(db, "SELECT email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<Data>())?.email;
     if (!to) continue;
     const label = a.kind === 'state' ? `${a.agency} authorization` : `Form ${a.kind}`;
     await db.batch([stmt(db, `INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at) VALUES(?,?,'authorization_expiring',?,?,'deferred: outside firm notification hours',?)`,
