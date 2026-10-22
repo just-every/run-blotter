@@ -268,6 +268,13 @@ Person-session doors; the principal and reviewers preview and schedule, and the 
 - `GET`/`POST /unsubscribe?t=…`: the public one-page unsubscribe (link token or typed address) and the RFC 8058 one-click POST.
 
 
+Mapped marketing imports recheck erased-withdrawal digests inside every apply/resume
+chunk, including a plan reviewed before the erasure. A grant captured at or before
+the latest erasure refuses the whole chunk with 409; no client, contact, consent,
+audit or checkpoint from that chunk commits. Review a source with a genuinely
+later explicit opt-in before committing it. Repeated erasures advance the same
+hashed-address cutoff; the address itself is not retained in the suppression.
+
 ### Reviewed recurring-series carry-over (MIGRATE-006, partial)
 
 The principal can use these authenticated person-session doors. They share the

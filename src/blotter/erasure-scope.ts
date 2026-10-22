@@ -157,13 +157,4 @@ export function retained(x: Context): { key: string; cls: ClientClass; label: st
 export const rowsOf = (result: Data | null) => Number(result?.n ?? 0);
 export const stepClass = (table: string) => classOf(table);
 
-/** One-way digest of an address; the address itself is erased with its client. */
-export const suppressionDigest = (address: string) => digest('blotter-suppression:v1:' + address.trim().toLowerCase());
-/** True when the address withdrew consent before an erasure and the person has not acted since. */
-export async function erasedAddress(db: D1Database, address: string, actedAt: string) {
-  const row = await stmt(db, 'SELECT at FROM b_erased_suppressions WHERE digest=?', await suppressionDigest(address)).first<Data>();
-  return !!row && actedAt <= String(row.at);
-}
-export async function refuseErasedAddress(db: D1Database, address: string, actedAt: string) {
-  insist(!await erasedAddress(db, address, actedAt), 'This address withdrew consent before a client erasure. Record a grant only for an opt-in the person made after that erasure.', 409);
-}
+export { suppressionDigest, erasedAddress, refuseErasedAddress } from './marketing-suppression';

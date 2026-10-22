@@ -34,7 +34,7 @@ export async function importAction(db: D1Database, actor: Actor, op: string, bod
     if (['IMPORT_JOB_NOT_FOUND', 'JOB_BINDING_MISMATCH'].includes(message)) throw new Fault('Import job not found', 404);
     if (['SOURCE_ID_CONTENT_CONFLICT', 'NATIVE_EDIT_CONFLICT', 'TARGET_REVISION_CONFLICT'].includes(message)) throw new Fault('This client already exists with different details or has been edited. Reconcile the client before importing it again.', 409);
     if (message === 'UNDO_REQUIRES_COMPLETED_IMPORT') throw new Fault('Resume the import to completion before undoing it', 409);
-    if (/IMPORT_ATOMIC_GUARD|IMPORT_FINAL_GUARD/.test(message)) throw new Fault('Import authority or data changed. Refresh before continuing.', 409);
+    if (/IMPORT_ATOMIC_GUARD|IMPORT_FINAL_GUARD/.test(message)) throw new Fault('Import authority, data or erased marketing consent changed. Refresh before continuing.', 409);
     throw error;
   }
 }

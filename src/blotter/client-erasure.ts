@@ -39,7 +39,7 @@ export async function eraseClient(db: D1Database, actor: Actor, site: VaultSite,
   ];
   // Only an address that withdrew consent is kept, as a one-way digest; a bounced address is dropped.
   const digests = x.held.client || x.held.classes.includes('contact') ? new Map() : await digestsOf(p.withdrawn);
-  for (const [d, why] of digests) batch.push(stmt(db, 'INSERT OR IGNORE INTO b_erased_suppressions(digest,reason,erasure_id,at) VALUES(?,?,?,?)', d, why, erasureId, x.at));
+  for (const [d, why] of digests) batch.push(stmt(db, 'INSERT INTO b_erased_suppressions(digest,reason,erasure_id,at) VALUES(?,?,?,?) ON CONFLICT(digest) DO UPDATE SET reason=excluded.reason,erasure_id=excluded.erasure_id,at=excluded.at WHERE excluded.at>b_erased_suppressions.at', d, why, erasureId, x.at));
   // The legal name, taxpayer identifier and address a retained record needs stay sealed, never in plain rows.
   if (p.remainder) batch.push(stmt(db, 'INSERT INTO b_retained_identity(client_id,sealed,erasure_id,at) VALUES(?,?,?,?)', clientId, await sealIdentity(db, site, clientId, await identityOf(db, p.client)), erasureId, x.at));
   for (const [n, step] of list.entries()) {

@@ -173,3 +173,55 @@ test('MSG-002 / IMPORT-001 / BASE-001 native-match consent: provenance never gra
   await restored.json('/marketing-consents/confirm',{note:'Confirmed the imported log after restore'},restored.owner);assert.equal((await restored.json('/marketing-consents',undefined,restored.owner)).hold,'');
  }finally{await restored?.close();await h.close();}
 });
+
+
+test('MSG-002 / ERASURE-002 / IMPORT-001: an erasure between import chunks refuses stale opt-ins atomically; only later consent survives the latest repeated erasure and restore', async()=>{
+ const h=await harness();let restored;
+ try {
+  const address='synthetic-blotter-390@example.test';
+  const native=async name=>h.json('/clients',{name,contacts:[{name:'Synthetic contact',email:address,roles:['primary'],authorized:true,emailConsent:true}]},h.owner);
+  const withdraw=async c=>h.json('/marketing-consents',{contactId:c.contacts[0].id,kind:'withdraw',source:'staff_reply',actedAt:'2026-09-01T00:00:00Z',evidence:'Synthetic contact requested withdrawal'},h.owner);
+  const erase=async c=>{
+   const d=await h.json(`/clients/${c.id}/detail`,undefined,h.owner);
+   await h.json(`/clients/${c.id}/lifecycle`,{lifecycle:'archived',revision:d.revision},h.owner);
+   const p=await h.json(`/clients/${c.id}/erasure/preview`,undefined,h.owner);assert.deepEqual(p.blockers,[]);
+   return h.json(`/clients/${c.id}/erasure`,{planHash:p.planHash,confirm:c.name,reason:'Synthetic deletion request'},h.owner);
+  };
+  const original=await native('synthetic-blotter-391');await withdraw(original);
+  const records=Array.from({length:45},(_,i)=>importedContact('erasure-'+String(i).padStart(2,'0')));
+  records[44]={...records[44],contact_email:address,...sourceGrant};
+  const body={csv:consentCsv(records),mapping:marketingMapping,filename:'synthetic-blotter-392.csv'};
+  const preview=await h.json('/import/preview',body,h.owner);assert.deepEqual(preview.summary.errors,[]);
+  const first=await h.json('/import/commit',{...body,fingerprint:preview.fingerprint,marketingAttested:true},h.owner);
+  assert.ok(first.job.checkpoint>0&&first.job.checkpoint<44,'The grant is beyond the first committed chunks');
+  const oldArchive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const receipt=await erase(original);assert.equal(receipt.retained.suppressionDigests,1);
+  const before=(await h.json('/state',undefined,h.owner)).clients.map(c=>c.id);
+  await h.json('/import/resume',{id:first.job.id},h.owner,409);
+  assert.deepEqual((await h.json('/state',undefined,h.owner)).clients.map(c=>c.id),before,'No client or contact in the refused chunk is committed');
+  assert.equal((await h.json('/import/status',{id:first.job.id},h.owner)).job.checkpoint,first.job.checkpoint,'The refused chunk cannot advance progress');
+  assert.equal((await h.json('/marketing-consents',undefined,h.owner)).events.filter(e=>e.source==='import').length,0,'No stale grant or audit is committed');
+  const blocked=await h.json('/import/preview',body,h.owner);assert.match(blocked.summary.errors.join(' '),/withdrew consent before a client erasure/);
+
+  // Re-reviewing a genuinely later opt-in works; resuming the stale job never silently substitutes it.
+  const later=new Date().toISOString();assert.ok(later>receipt.approvedAt);
+  records[44]={...records[44],marketing_captured_at:later};
+  const changed={...body,csv:consentCsv(records)},review=await h.json('/import/preview',changed,h.owner);assert.deepEqual(review.summary.errors,[]);
+  let next=await h.json('/import/commit',{...changed,fingerprint:review.fingerprint,marketingAttested:true},h.owner);
+  while(next.job.state!=='completed')next=await h.json('/import/resume',{id:next.job.id},h.owner);
+  assert.equal((await h.json('/marketing-consents',undefined,h.owner)).events.filter(e=>e.source==='import'&&e.kind==='grant').length,1);
+  const imported=(await h.json('/state',undefined,h.owner)).clients.find(c=>c.contact_email===address),contacts=await h.json(`/clients/${imported.id}/contacts`,undefined,h.owner);
+  const second=await native('synthetic-blotter-393');await withdraw(second);
+  const latestReceipt=await erase(second);assert.ok(latestReceipt.approvedAt>later);
+  const oldGrant={contactId:contacts[0].id,kind:'grant',actedAt:later,wording:'Send the newsletter',wordingVersion:'synthetic-blotter-394',evidence:'Synthetic opt-in before the second erasure'};
+  await h.json('/marketing-consents',oldGrant,h.owner,409);
+  const latest=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const suppressions=latest.trim().split('\n').map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).filter(i=>i.kind==='row'&&i.table==='b_erased_suppressions');
+  assert.equal(suppressions.length,1);assert.ok(!JSON.stringify(suppressions).includes(address),'Suppression stores only the digest, never the erased address');
+  restored=await harness();await restored.json('/restore',{archive:oldArchive,journal:latest,confirm:'RESTORE'},restored.owner,409);
+  await restored.json('/restore',{archive:latest,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
+  await restored.json('/marketing-consents',oldGrant,restored.owner,409);
+  await restored.json('/marketing-consents',{...oldGrant,actedAt:new Date().toISOString(),evidence:'Synthetic opt-in after the latest erasure'},restored.owner);
+  assert.equal((await restored.json(`/marketing-consents?clientId=${imported.id}`,undefined,restored.owner)).contacts[0].marketing,true,'A later explicit act remains usable under the existing rule');
+ }finally{await restored?.close();await h.close();}
+});

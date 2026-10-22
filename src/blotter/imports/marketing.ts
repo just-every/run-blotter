@@ -1,6 +1,8 @@
 // MSG-002 / IMPORT-001: explicit source consent, never inferred from email permission.
 import { canonicalJson, sha256, type D1Sql } from '../../modules/import-kit/src/d1/index';
 import { insist, type Data } from '../model';
+import { guard } from '../../modules/import-kit/src/d1/database';
+import { allowedMarketingGrant } from '../marketing-suppression';
 
 export const MARKETING_FIELDS = ['marketing_opt_in', 'marketing_status', 'marketing_captured_at', 'marketing_wording', 'marketing_wording_version', 'marketing_language', 'marketing_evidence'];
 export const MARKETING_ATTESTATION = 'I attest that each imported marketing opt-in is the contact’s explicit email marketing consent, with the recorded capture date, exact wording and evidence.';
@@ -33,7 +35,11 @@ export function importedMarketing(v: Data, targetId: string, at: string): D1Sql[
   return (v.marketing ?? []).flatMap((event: Data) => {
     const eventId = 'import-consent:' + sha256(canonicalJson([targetId, event]));
     const evidence = event.evidence + (event.kind === 'grant' ? `\nPrincipal attestation: ${MARKETING_ATTESTATION}` : '');
-    return [{ sql: `INSERT INTO b_marketing_consents(id,contact_id,client_id,address,channel,kind,source,acted_at,recorded_at,actor,wording,wording_version,language,evidence) VALUES(?,?,?,?,'email',?,'import',?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`,
+    // A saved plan can resume after preview's erasure check. Fence the grant
+    // inside the same batch as client/contact creation and import progress.
+    const predicate = allowedMarketingGrant(event.address, event.actedAt);
+    return [...(event.kind === 'grant' ? [guard(predicate)] : []),
+    { sql: `INSERT INTO b_marketing_consents(id,contact_id,client_id,address,channel,kind,source,acted_at,recorded_at,actor,wording,wording_version,language,evidence) VALUES(?,?,?,?,'email',?,'import',?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`,
       params: [eventId, event.contactId, v.clientId, event.address, event.kind, event.actedAt || at, at, v.marketingActor, event.wording, event.version, event.language, evidence] },
     { sql: 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING', params: ['audit:' + eventId, v.marketingActor, event.kind === 'grant' ? 'consent.marketing_granted' : 'consent.marketing_withdrawn', v.clientId, `${event.address}: import (${event.status || 'explicit opt-in'}); source ${targetId}`, at] }];
   });
