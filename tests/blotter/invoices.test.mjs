@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { inflateSync } from 'node:zlib';
+import { pdfText } from './pdf-text.mjs';
 import { PDFDocument } from 'pdf-lib';
 import { harness } from './harness.mjs';
 import { collectionsJourney, invoiceJourney } from './invoices-ui.mjs';
@@ -34,9 +34,6 @@ const draft = async (h, input) => {
 };
 const issue = (h, invoice) => h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Compared entitlement, hourly approvals, supplied tax treatment and client recipient' }, h.owner);
 const pdf = async (h, id, actor = h.owner) => Buffer.from(await (await h.request(`/api/blotter/invoices/${id}/pdf`, undefined, actor)).arrayBuffer());
-// The words drawn on a pdf-lib page: inflate each content stream and read the hex strings its text operators show.
-const pdfWords = bytes => [...bytes.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map(m => { try { return inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1'); } catch { return ''; } })
-  .flatMap(stream => [...stream.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)].map(t => Buffer.from(t[1], 'hex').toString('latin1'))).join('\n');
 
 test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and approved extras, supplied tax, deposit, numbered immutable PDF, explicit portal delivery and source locks', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-1' } });
@@ -260,7 +257,7 @@ test('BILL-002 / ACCESS-002: a financial-authority holder bills and sends by ema
     await h.scheduled('2026-11-28T15:00:00Z');
     let [november] = await periods(); assert.equal(november.status, 'issued'); assert.equal(november.auto_revision, 1); assert.equal(november.auto_exception, null);
     const doc = await pdf(h, november.id); assert.equal(doc.subarray(0, 5).toString(), '%PDF-', doc.toString().slice(0, 200));
-    assert.match(pdfWords(doc), /This invoice was auto-issued under rule revision 1/);
+    assert.match(await pdfText(doc), /This invoice was auto-issued under rule revision 1/);
     await h.scheduled('2026-11-28T16:00:00Z'); await h.restart(); await h.scheduled('2026-11-28T17:00:00Z');
     assert.equal((await periods()).length, 1); assert.equal(h.mails.length, mailsBefore + 1, 'A restart does not issue or send the period twice');
     await h.scheduled('2026-12-28T15:00:00Z'); await h.scheduled('2026-12-28T16:00:00Z');
