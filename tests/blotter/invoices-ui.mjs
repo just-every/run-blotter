@@ -160,3 +160,66 @@ export async function receivablesJourney(h, fixture, invoice) {
     await context.close();
   } finally { await browser.close(); }
 }
+
+const signedIn = async (h, browser, width = 1440) => {
+  await h.stepUp(h.owner);
+  const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width, height: 1000 } });
+  await context.addCookies(h.owner.split('; ').map(cookie => { const at = cookie.indexOf('='); return { name: cookie.slice(0, at), value: cookie.slice(at + 1), url: h.origin }; }));
+  const page = await context.newPage();
+  return { context, page };
+};
+const capture = async (page, locator, directory, name) => {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 }); await locator.scrollIntoViewIfNeeded();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name} ${width} overflows`);
+    await locator.screenshot({ path: `${directory}/${name}-${width}.png` });
+  }
+};
+
+/** BILL-005 screens: the staff payment-gate panel on a deliverable and the client's locked file on the portal. */
+export async function gateJourney(h, fixture, portalUrl) {
+  const directory = process.env.BLOTTER_INVOICE_EVIDENCE;
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
+  try {
+    const { context, page } = await signedIn(h, browser);
+    await page.goto(`${h.origin}/app?job=${fixture.job.id}`);
+    if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup' }).click(); await page.waitForURL('**/app'); await page.goto(`${h.origin}/app?job=${fixture.job.id}`); }
+    const panel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Deliverables for client approval', exact: true }) });
+    await panel.getByText('Locked for the client', { exact: false }).first().waitFor();
+    await panel.getByText('Partner controls', { exact: true }).first().click();
+    await capture(page, panel, directory, 'payment-gate-staff');
+    const client = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } }), portal = await client.newPage();
+    await portal.goto(portalUrl);
+    const locked = portal.getByText('This file is locked until invoice', { exact: false }).first(); await locked.waitFor();
+    assert.equal(await portal.getByRole('link', { name: /Version 1: Final return copy/ }).count(), 0, 'A locked version has no download link');
+    await capture(portal, portal.locator('main'), directory, 'payment-gate-client');
+    await client.close(); await context.close();
+  } finally { await browser.close(); }
+}
+
+/** BILL-005 screens: the credit hold on a client with its partner override, and the firm payment policy. */
+export async function holdJourney(h, fixture) {
+  const directory = process.env.BLOTTER_INVOICE_EVIDENCE;
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
+  try {
+    const { context, page } = await signedIn(h, browser);
+    await page.goto(h.origin + '/app');
+    if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup' }).click(); await page.waitForURL('**/app'); }
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Time & billing', exact: true }).click();
+    const panel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Invoices and retainers', exact: true }) });
+    await panel.getByText('Payment policy: gated files and credit hold', { exact: true }).click();
+    await panel.getByText('Clients with', { exact: false }).waitFor();
+    await capture(page, panel.locator('details').filter({ hasText: 'Payment policy: gated files and credit hold' }).first(), directory, 'payment-policy');
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Clients & templates', exact: true }).click();
+    const entry = page.locator('ul.list > li').filter({ hasText: fixture.client.name }).first();
+    await entry.getByText('Client details and contacts', { exact: true }).click();
+    const hold = entry.getByRole('status', { name: 'Credit hold' }); await hold.waitFor();
+    await hold.getByText('Override the credit hold', { exact: true }).click();
+    await capture(page, hold, directory, 'credit-hold');
+    await context.close();
+  } finally { await browser.close(); }
+}

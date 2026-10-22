@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { pdfText } from './pdf-text.mjs';
 import { PDFDocument } from 'pdf-lib';
 import { harness } from './harness.mjs';
-import { collectionsJourney, invoiceJourney, receivablesJourney } from './invoices-ui.mjs';
+import { collectionsJourney, gateJourney, holdJourney, invoiceJourney, receivablesJourney } from './invoices-ui.mjs';
 import {assertInvoiceReport} from './invoice-report-proof.mjs';
 import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
 
@@ -447,6 +447,7 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
     const versionRef = encodeURIComponent('deliverable:' + final.id), access = await h.json(`/documents/${versionRef}/access`, undefined, h.owner), share = await h.json(`/documents/${versionRef}/shares`, { revision: access.revision, contactId: s.billing.id, days: 1 }, h.owner);
     assert.equal((await h.request('/api/blotter/shared-files/' + share.token)).status, 402);
     assert.equal(await ownCopy(), 'Client supplied record');
+    await gateJourney(h, s, third.portalUrl);
     assert.equal((await h.request(`/api/blotter/deliverables/versions/${final.id}/file`, undefined, h.owner)).status, 200, 'Staff always read their own work');
     assert.equal((await h.json(`/jobs/${s.job.id}`, undefined, h.owner)).deliverables.find(d => d.id === final.deliverableId).paymentGate.locked, true);
     // A card receipt for part of the invoice does not release it; a pending ACH deposit does not release it while settlement is required.
@@ -500,6 +501,7 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
     assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.configured, false);
     const hold = { achUnlock: 'settled', holdThresholdCents: 25000, holdGraceDays: 0, reason: 'Clients owing USD 250 past due go on hold' };
     await h.json('/payment-policy', hold, h.owner);
+    await holdJourney(h, s);
     const owner = (await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold, staff = (await h.json(`/clients/${s.client.id}/detail`, undefined, s.preparer)).creditHold;
     assert.deepEqual([owner.onHold, owner.overdueCents, owner.thresholdCents], [true, 39000, 25000]);
     assert.deepEqual([staff.onHold, staff.overdueCents, staff.thresholdCents], [true, null, null], 'Staff who cannot read billing see the hold, not the amounts');
