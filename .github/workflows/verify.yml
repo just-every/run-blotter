@@ -1,7 +1,7 @@
 name: Verify
 
 # One run per main commit, pull request or candidate dispatch. Structural
-# checks run once. Three file shards each run Base verification, build,
+# checks run once. Four file shards each run Base verification, build,
 # typecheck, email-link and hosted-output checks; together they run every
 # Blotter journey within the unchanged 15-minute job limit.
 on:
@@ -42,11 +42,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      BLOTTER_TEST_SHARD: ${{ matrix.shard }}/3
+      BLOTTER_TEST_SHARD: ${{ matrix.shard }}/4
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
     steps:
