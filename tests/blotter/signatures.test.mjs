@@ -247,6 +247,17 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
    await copy.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Denied after client grant revoked'},staff,404);
 
   }finally{await copy.close();}
+  // State equivalents carry their agency, matters, signed copy, submission and answer too.
+  let stateAuthorization=await h.json(`/clients/${f.client.id}/authorizations`,{kind:'state',agency:'Colorado Department of Revenue',representative:'Pat Harper',matters:[{form:'DR 0104',from:2022,to:2025,matter:'Individual income tax'}]},h.owner);
+  assert.equal(stateAuthorization.agency,'Colorado Department of Revenue');
+  const statePdf=await PDFDocument.create(),stateFont=await statePdf.embedFont(StandardFonts.Helvetica);statePdf.addPage([612,792]).drawText('State tax authorization: DR 0104, 2022-2025',{x:40,y:740,font:stateFont,size:12});
+  const stateDraft=await h.json(`/jobs/${f.job.id}/signatures`,{title:'Colorado tax authorization',formKind:'state authorization',mode:'sequential',contactIds:[client.id],fields:[{type:'signature',contactId:client.id,page:1,x:40,y:300,width:240,height:28,label:'Taxpayer signature'}],file:{name:'state-authorization.pdf',mime:'application/pdf',contentBase64:Buffer.from(await statePdf.save()).toString('base64')}},h.owner);
+  const stateSent=await h.json(`/signatures/${stateDraft.id}/send`,{revision:stateDraft.revision},h.owner),stateToken=token(stateSent.invitations[0]);
+  await sign(h,stateToken,stateSent.id,await open(h,stateToken,stateSent.id));
+  stateAuthorization=await h.json(`/authorizations/${stateAuthorization.id}/signature`,{revision:stateAuthorization.revision,signatureId:stateSent.id},h.owner);
+  stateAuthorization=await h.json(`/authorizations/${stateAuthorization.id}/submission`,{revision:stateAuthorization.revision,method:'fax',submittedOn:'2026-10-22'},h.owner);
+  stateAuthorization=await h.json(`/authorizations/${stateAuthorization.id}/status`,{revision:stateAuthorization.revision,status:'rejected',reason:'Agency requested its updated form'},h.owner);
+  assert.equal(stateAuthorization.status,'rejected');assert.equal(stateAuthorization.status_reason,'Agency requested its updated form');assert.equal(stateAuthorization.submission_method,'fax');
   assert.ok(!(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>String(e.detail).includes('111-22-3333')),'The TIN stays out of audit detail');
   await authorizationJourney(h,f,info);
   // BASE-001 activation: the real client-erasure door redacts this record kind,
