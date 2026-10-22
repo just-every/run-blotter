@@ -6,7 +6,7 @@ import { sendMail } from './documents';
 import { atomic, audit, digest, guard, id, insist, now, rows, secret, stmt, text, type Actor, type Data } from './model';
 import { invoiceNumber, invoicePdfResponse } from './invoices-pdf';
 import { invoiceDetail, invoiceRecipientGuard } from './invoices';
-import { billed, invoiceAuthority, invoiceAuthorityGuard, invoiceHuman } from './invoices-sources';
+import { billed, invoiceAuthority, invoiceAuthorityGuard, invoiceDischargedSql, invoiceHuman } from './invoices-sources';
 
 export async function previewInvoiceDelivery(db: D1Database, actor: Actor, invoiceId: string, body: Data) {
   invoiceHuman(actor); await invoiceAuthority(db);
@@ -83,7 +83,7 @@ async function invoicePortalContext(db: D1Database, token: string) {
 }
 export async function invoicePortalView(db: D1Database, token: string) {
   const { delivery, invoice } = await invoicePortalContext(db, token), snapshot = JSON.parse(invoice.snapshot);
-  const used = Number((await stmt(db, 'SELECT COALESCE(sum(amount_cents),0) n FROM b_invoice_credit_uses WHERE invoice_id=?', invoice.id).first<Data>())!.n);
+  const used = Number((await stmt(db, `SELECT ${invoiceDischargedSql('i')} n FROM b_invoices i WHERE i.id=?`, invoice.id).first<Data>())!.n);
   // No broader client or job records are exposed by this credential.
   return { id: invoice.id, number: invoiceNumber(invoice.number), title: invoice.title, currency: 'USD', status: invoice.status,
     issueDate: invoice.issue_date, dueDate: invoice.due_date, totalCents: invoice.total_cents, balanceCents: invoice.subtotal_cents + invoice.tax_cents - used,

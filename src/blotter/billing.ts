@@ -72,25 +72,26 @@ export async function deleteTime(db: D1Database, actor: Actor, entryId: string) 
 }
 
 /** Billable sources not yet in a live export: approved billable time and its adjustments, fixed fees of signed-off jobs and approved billable expenses (TIME-004). */
+/** Ready-to-bill work: approved sources no billing export or invoice (draft or issued) has reserved. */
 export async function unbilled(db: D1Database) {
   const time = await rows(db, `SELECT 'time:'||t.id source_key,'time' kind,t.id source_id,t.job_id,t.date,t.person_email person,t.description,t.minutes,t.rate_cents,t.rate_source,t.amount_cents,t.currency,
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_time t JOIN b_time_status st ON st.entry_id=t.id AND st.status='approved' JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id
-    WHERE t.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='time:'||t.id) ORDER BY c.name,t.date,t.created_at`);
+    WHERE t.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='time:'||t.id) AND NOT EXISTS(SELECT 1 FROM b_invoice_sources s WHERE s.source_key='time:'||t.id) ORDER BY c.name,t.date,t.created_at`);
   const adjustments = await rows(db, `SELECT 'adj:'||a.id source_key,'adjustment' kind,a.id source_id,t.job_id,substr(a.created_at,1,10) date,t.person_email person,
       'Adjustment to '||t.date||' time: '||a.reason description,a.minutes,t.rate_cents,t.rate_source,a.amount_cents,t.currency,j.title job,j.period_label period,c.name client,c.abn
     FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id JOIN b_jobs j ON j.id=t.job_id JOIN b_clients c ON c.id=j.client_id
-    WHERE t.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='adj:'||a.id) ORDER BY c.name,a.created_at`);
+    WHERE t.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='adj:'||a.id) AND NOT EXISTS(SELECT 1 FROM b_invoice_sources s WHERE s.source_key='adj:'||a.id) ORDER BY c.name,a.created_at`);
   const fees = await rows(db, `SELECT 'fee:'||j.id source_key,'fee' kind,j.id source_id,j.id job_id,substr(j.signed_off_at,1,10) date,j.signed_off_by person,'Fixed fee' description,NULL minutes,NULL rate_cents,NULL rate_source,j.fee_cents amount_cents,j.currency,
       j.title job,j.period_label period,c.name client,c.abn
     FROM b_jobs j JOIN b_clients c ON c.id=j.client_id
-    WHERE j.status='signed_off' AND j.fee_cents>0 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='fee:'||j.id) ORDER BY c.name,j.signed_off_at`);
+    WHERE j.status='signed_off' AND j.fee_cents>0 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='fee:'||j.id) AND NOT EXISTS(SELECT 1 FROM b_invoice_sources s WHERE s.source_key='fee:'||j.id) ORDER BY c.name,j.signed_off_at`);
   const expenses = await rows(db, `SELECT 'exp:'||e.id source_key,'expense' kind,e.id source_id,e.job_id,e.date,e.person_email person,
       CASE e.kind WHEN 'filing_fee' THEN 'Filing fee' WHEN 'postage' THEN 'Postage' WHEN 'mileage' THEN 'Mileage' WHEN 'software' THEN 'Software pass-through' ELSE 'Expense' END||': '||e.description
         ||CASE WHEN e.markup_percent>0 THEN ' (cost '||e.cost_cents||' cents + '||e.markup_percent||'% markup)' ELSE '' END description,
       NULL minutes,NULL rate_cents,NULL rate_source,e.charge_cents amount_cents,e.currency,e.cost_cents,e.markup_percent,e.receipt_sha256,j.title job,j.period_label period,c.name client,c.abn
     FROM b_expenses e JOIN b_jobs j ON j.id=e.job_id JOIN b_clients c ON c.id=e.client_id
-    WHERE e.status='approved' AND e.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='exp:'||e.id) ORDER BY c.name,e.date,e.created_at`);
+    WHERE e.status='approved' AND e.billable=1 AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key='exp:'||e.id) AND NOT EXISTS(SELECT 1 FROM b_invoice_sources s WHERE s.source_key='exp:'||e.id) ORDER BY c.name,e.date,e.created_at`);
   return [...fees, ...time, ...adjustments, ...expenses];
 }
 

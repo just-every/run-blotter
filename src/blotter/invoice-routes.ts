@@ -5,6 +5,7 @@ import type {Bindings} from '../auth.server';
 import {invoiceState,selectInvoiceAuthority,previewInvoice,prepareInvoice,invoiceDetail,issueInvoice,voidInvoice,downloadInvoice} from './invoices';
 import {authorizeInvoiceEntitlement} from './invoices-sources';
 import {recordInvoiceCredit,allocateInvoiceCredit} from './invoices-credits';
+import {approveInvoiceWriteOff} from './invoices-writeoffs';
 import {createInvoiceRetainer,generateRetainerInvoice,previewRetainerAmendment,amendInvoiceRetainer,setInvoiceAutoConsent,setInvoiceRetainerStatus} from './invoices-retainers';
 import {previewInvoiceDelivery,sendInvoice,reconcileInvoiceDelivery,invoicePortalView,invoicePortalPdf} from './invoices-delivery';
 import {bulkResend,clientStatement,clientStatementCsv,previewResend,quickCollect,reminderState,setClientReminders,setCollectionHold,setReminderPolicy} from './invoices-collections';
@@ -29,6 +30,7 @@ export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:a
  api.post(`${P}/invoices/:id/issue`,as(async(a:any,c:any)=>issueInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/void`,as(async(a:any,c:any)=>voidInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/credits`,as(async(a:any,c:any)=>allocateInvoiceCredit(db(c),a,param(c),await body(c))));
+ api.post(`${P}/invoices/:id/write-off`,as(async(a:any,c:any)=>approveInvoiceWriteOff(db(c),a,param(c),await body(c))));
  api.get(`${P}/invoices/:id/pdf`,as((a:any,c:any)=>downloadInvoice(db(c),a,param(c))));
  api.post(`${P}/invoices/:id/delivery-preview`,as(async(a:any,c:any)=>previewInvoiceDelivery(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/send`,as(async(a:any,c:any)=>sendInvoice(c.env,a,param(c),await body(c))));

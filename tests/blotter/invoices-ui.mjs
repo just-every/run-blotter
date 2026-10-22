@@ -118,3 +118,45 @@ export async function collectionsJourney(h, fixture) {
     await context.close();
   } finally { await browser.close(); }
 }
+
+/** BILL-003 screens: a partner-approved write-off on an issued invoice and the receivables report it changes. */
+export async function receivablesJourney(h, fixture, invoice) {
+  const directory = process.env.BLOTTER_INVOICE_EVIDENCE;
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
+  try {
+    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    await context.addCookies(h.owner.split('; ').map(cookie => { const at = cookie.indexOf('='); return { name: cookie.slice(0, at), value: cookie.slice(at + 1), url: h.origin }; }));
+    const page = await context.newPage(); await page.goto(h.origin + '/app');
+    if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup' }).click(); await page.waitForURL('**/app'); }
+    await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Time & billing', exact: true }).click();
+    const panel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Invoices and retainers', exact: true }) });
+    await panel.getByLabel('Invoice work item', { exact: true }).selectOption(fixture.job.id);
+    const record = panel.locator('article.record').filter({ hasText: invoice.title }).first();
+    await record.getByText('Review invoice, sources and history', { exact: true }).click();
+    await record.getByText('Write off part of the balance', { exact: true }).click();
+    await record.getByLabel('Write-off USD cents', { exact: true }).fill('1000');
+    await record.getByLabel('Write-off reason', { exact: true }).fill('Partner approved a small write-off after the client call');
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 }); await record.scrollIntoViewIfNeeded();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `write-off ${width} overflows`);
+      await record.screenshot({ path: `${directory}/invoice-writeoff-${width}.png` });
+    }
+    await record.getByRole('button', { name: 'Approve write-off', exact: true }).click();
+    await page.getByRole('status').filter({ hasText: 'Write-off approved' }).waitFor();
+    await record.getByText('Approved write-offs', { exact: true }).waitFor();
+    const reports = page.getByRole('region', { name: 'Performance reports', exact: true });
+    await reports.getByLabel('Period from', { exact: true }).fill('2026-11-01'); await reports.getByLabel('Period to', { exact: true }).fill('2026-11-30');
+    await reports.getByLabel('Report client', { exact: true }).selectOption(fixture.client.id); await reports.getByRole('button', { name: 'Run report', exact: true }).click();
+    const section = reports.getByRole('region', { name: 'Receivables and profitability', exact: true }); await section.waitFor();
+    await section.getByText('Aged receivables', { exact: true }).waitFor();
+    await section.getByText('written off USD 76.00', { exact: false }).first().waitFor();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 }); await section.scrollIntoViewIfNeeded();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `receivables ${width} overflows`);
+      await section.screenshot({ path: `${directory}/receivables-report-${width}.png` });
+    }
+    await context.close();
+  } finally { await browser.close(); }
+}

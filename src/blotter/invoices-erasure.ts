@@ -31,6 +31,8 @@ export function invoiceRetainedRows(clientId: string, owner: string) {
       sql: `SELECT count(*) n FROM b_invoices WHERE client_id=${c} AND number IS NOT NULL AND erased_at IS NULL` },
     { key: 'billing_invoice_credits', cls: 'billing' as const, label: 'Recorded deposits, credits and allocation references', reason: 'Billing evidence stays with its invoiced allocations until confirmed expiry.', owner,
       sql: `SELECT count(*) n FROM b_invoice_credits WHERE client_id=${c}` },
+    { key: 'billing_invoice_writeoffs', cls: 'billing' as const, label: 'Approved write-offs with their reasons and approvers', reason: 'Billing evidence stays with its invoice until confirmed expiry.', owner,
+      sql: `SELECT count(*) n FROM b_invoice_writeoffs WHERE client_id=${c}` },
   ];
 }
 
@@ -41,6 +43,7 @@ export async function invoiceClocks(db: D1Database, timeZone: string, years: num
     const events = [invoice.issued_at, invoice.voided_at,
       ...(await rows(db, 'SELECT c.recorded_at FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=?', invoice.id)).map(c => c.recorded_at),
       ...(await rows(db, "SELECT at FROM b_audit WHERE object_id=? AND action='invoice.credit_applied'", invoice.id)).map(e => e.at),
+      ...(await rows(db, 'SELECT approved_at FROM b_invoice_writeoffs WHERE invoice_id=?', invoice.id)).map(w => w.approved_at),
     ].filter(Boolean).map(at => localDate(at, timeZone)).sort();
     const clock = events.at(-1)!;
     result.push({ kind: 'invoice', id: invoice.id, cls: 'billing', clientIds: [invoice.client_id], jobId: invoice.job_id, label: invoice.client_erased_at?'Retained invoice '+invoice.id.slice(0,8):invoice.title, clock, years, expiry: addYears(clock, years) });
@@ -55,6 +58,7 @@ export function invoiceExpiryEffects(invoiceId: string, at: string) {
     { table: 'b_invoices', label: 'Numbered invoice PDF and personal snapshot (number, totals, revision, authors and SHA-256 stay)', where: `id=${r} AND erased_at IS NULL`, set: `pdf_base64=NULL,title='[erased]',snapshot=json_object('erased',1,'currency',currency,'totalCents',total_cents),erased_at=${lit(at)}`, action: 'redact' as const },
     { table: 'b_invoice_reminders', label: 'Invoice reminder recipients and bodies (steps, dates and outcomes stay)', where: `invoice_id=${r}`, set: "recipient_email=NULL,subject='[erased]',message='[erased]'", action: 'redact' as const },
     { table: 'b_invoice_deliveries', label: 'Invoice notice recipients, bodies and portal access', where: `invoice_id=${r}`, set: `recipient_email='',recipient_name='[erased]',subject='[erased]',message='[erased]',resolution=NULL,revoked_at=COALESCE(revoked_at,${lit(at)})`, action: 'redact' as const },
+    { table: 'b_invoice_writeoffs', label: 'Write-off reasons (amounts, approvers and times stay)', where: `invoice_id=${r}`, set: "reason='[erased]'", action: 'redact' as const },
     { table: 'b_invoice_entitlements', label: 'Snapshotted fee descriptions and supplied authority', where: `id IN (SELECT entitlement_id FROM b_invoice_sources WHERE invoice_id=${r}) AND NOT EXISTS(SELECT 1 FROM b_invoice_sources s JOIN b_invoices i ON i.id=s.invoice_id WHERE s.entitlement_id=b_invoice_entitlements.id AND i.id<>${r} AND i.erased_at IS NULL)`, set: "description='[erased]',reference='erased:'||id,authorization='[erased]'", action: 'redact' as const },
     { table: 'b_invoice_credits', label: 'Deposits and credit personal references (amounts and attribution stay)', where: `id IN (SELECT credit_id FROM b_invoice_credit_uses WHERE invoice_id=${r}) AND NOT EXISTS(SELECT 1 FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=b_invoice_credits.id AND i.id<>${r} AND i.erased_at IS NULL)`, set: "reference='erased:'||id,reason='[erased]'", action: 'redact' as const },
     { table: 'b_time_adjustments', label: 'Invoiced time-adjustment reasons (amounts and attribution stay)', where: `id IN (SELECT substr(source_key,5) FROM b_invoice_sources WHERE invoice_id=${r} AND source_key LIKE 'adj:%')`, set: "reason='[erased]'", action: 'redact' as const },

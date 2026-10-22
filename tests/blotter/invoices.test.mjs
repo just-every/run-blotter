@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { pdfText } from './pdf-text.mjs';
 import { PDFDocument } from 'pdf-lib';
 import { harness } from './harness.mjs';
-import { collectionsJourney, invoiceJourney } from './invoices-ui.mjs';
+import { collectionsJourney, invoiceJourney, receivablesJourney } from './invoices-ui.mjs';
 import {assertInvoiceReport} from './invoice-report-proof.mjs';
 import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
 
@@ -157,7 +157,7 @@ async function historicalArchive(source) {
   const records = source.trim().split('\n').map(JSON.parse), manifest = records[0], parts = [], content = new ContentVerifier(manifest), archive = new ArchiveVerifier(manifest);
   for (const part of records.filter(r => r.kind === 'part')) {
     for (const item of part.items) if (item.kind === 'row') {
-      if (['b_invoices', 'b_invoice_entitlements', 'b_invoice_credits', 'b_invoice_amendments', 'b_audit'].includes(item.table)) {
+      if (['b_invoices', 'b_invoice_entitlements', 'b_invoice_credits', 'b_invoice_amendments', 'b_invoice_writeoffs', 'b_audit'].includes(item.table)) {
         for (const key of Object.keys(item.row)) if ((key.endsWith('_at') || key === 'at') && item.row[key]) item.row[key] = '2015-01-02T12:00:00.000Z';
       }
       if (item.table === 'b_jobs' && item.row.signed_off_at) { item.row.signed_off_at = '2015-01-02T12:00:00.000Z'; item.row.due_date = '2015-01-02'; }
@@ -189,11 +189,13 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     await source.json(`/clients/${s.client.id}/erasure`, { planHash: preview.planHash, confirm: s.client.name, reason: 'Client request' }, source.owner, 409);
     // Reactivate only to record/apply the client-supplied settlement credit.
     let c = await source.json(`/clients/${s.client.id}/detail`, undefined, source.owner); await source.json(`/clients/${s.client.id}/lifecycle`, { revision: c.revision, lifecycle: 'active' }, source.owner);
-    const deposit = await source.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', reference: 'SUPPLIED-SETTLEMENT-1', amountCents: 10000, reason: 'Principal recorded supplied deposit evidence; no provider settlement inferred' }, source.owner);
+    const deposit = await source.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', reference: 'SUPPLIED-SETTLEMENT-1', amountCents: 7000, reason: 'Principal recorded supplied deposit evidence; no provider settlement inferred' }, source.owner);
     c = await source.json(`/clients/${s.client.id}/detail`, undefined, source.owner); await source.json(`/clients/${s.client.id}/lifecycle`, { revision: c.revision, lifecycle: 'archived' }, source.owner);
     preview = await source.json(`/clients/${s.client.id}/erasure/preview`, undefined, source.owner); assert.ok(preview.blockers.some(b => /deposit|credit|unapplied/i.test(b)));
     c = await source.json(`/clients/${s.client.id}/detail`, undefined, source.owner); await source.json(`/clients/${s.client.id}/lifecycle`, { revision: c.revision, lifecycle: 'active' }, source.owner);
-    const allocation = await source.json(`/invoices/${invoice.id}/credits`, { creditId: deposit.id, amountCents: 10000, reason: 'Allocate this recorded deposit to the invoice' }, source.owner); assert.equal(allocation.balanceCents, 0);
+    const allocation = await source.json(`/invoices/${invoice.id}/credits`, { creditId: deposit.id, amountCents: 7000, reason: 'Allocate this recorded deposit to the invoice' }, source.owner); assert.equal(allocation.balanceCents, 3000);
+    const writeOffReason = 'Partner approved write-off for ' + s.client.name + ' after a settlement discussion';
+    assert.equal((await source.json(`/invoices/${invoice.id}/write-off`, { amountCents: 3000, reason: writeOffReason }, source.owner)).balanceCents, 0);
     assert.deepEqual(await pdf(source, invoice.id), bytes);
     c = await source.json(`/clients/${s.client.id}/detail`, undefined, source.owner); await source.json(`/clients/${s.client.id}/lifecycle`, { revision: c.revision, lifecycle: 'archived' }, source.owner);
     const original = await (await source.request('/api/blotter/backup', undefined, source.owner)).text(), historical = await historicalArchive(original);
@@ -207,7 +209,7 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     assert.equal(preview.eligible, true); assert.ok(preview.records.some(r => r.kind === 'invoice' && r.clock === '2015-01-02'));
     assert.ok(preview.classes.find(c => c.class === 'billing').retained > 0);
     const receipt = await h.json(`/clients/${s.client.id}/erasure`, { planHash: preview.planHash, confirm: s.client.name, reason: 'Client requested deletion with billing evidence retained' }, h.owner);
-    assert.ok(JSON.stringify(receipt).includes('billing_invoices')); assert.deepEqual(await pdf(h, invoice.id), bytes);
+    assert.ok(JSON.stringify(receipt).includes('billing_invoices')); assert.ok(JSON.stringify(receipt).includes('billing_invoice_writeoffs')); assert.deepEqual(await pdf(h, invoice.id), bytes);
     assert.ok(!JSON.stringify(await h.json('/invoices',undefined,h.owner)).includes(s.client.name),'Normal billing lists exclude retained identity payloads');
     const explicitRetained=await h.json(`/invoices/${invoice.id}`,undefined,h.owner);assert.equal(explicitRetained.snapshot.client.name,s.client.name);
     const retainedHistory=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);
@@ -222,6 +224,7 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     const expiry = await h.json('/retention/ready/confirm', { kind: 'invoice', id: invoice.id, reason: 'Billing retention ended; client requested deletion' }, h.owner); assert.equal(expiry.kind, 'invoice');
     assert.equal((await h.request(`/api/blotter/invoices/${invoice.id}/pdf`, undefined, h.owner)).status, 404);
     const retained = await h.json(`/invoices/${invoice.id}`, undefined, h.owner); assert.deepEqual([retained.number, retained.total_cents, retained.pdf_sha256], [issued.number, 10000, issued.sha256]); assert.equal(retained.snapshot.erased, 1);
+    assert.deepEqual(retained.writeOffs.map(w => [w.amount_cents, w.reason, w.approved_by]), [[3000, '[erased]', 'owner@example.test']], 'Expiry erases the write-off reason and keeps its amount and approver');
     const journal = await h.json('/erasure-journal', undefined, h.owner); assert.ok(journal.expiries.some(e => e.kind === 'invoice' && e.record_id === invoice.id));
     const latest = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     target = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-6' } }); await target.json('/restore', { archive: historical, journal: latest, confirm: 'RESTORE' }, target.owner, 409);
@@ -290,6 +293,118 @@ test('BILL-002 / ACCESS-002: a financial-authority holder bills and sends by ema
   } finally { await restored?.close(); await h.close(); }
 });
 
+test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile to approved sources and recorded receipts; a partner-approved write-off changes the period report and statement while the issued invoice stays byte-identical', async () => {
+  const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-11' } }); let restored;
+  const day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const monthAt = n => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 7); };
+  try {
+    const s = await fixture(h);
+    await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
+    await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 10000, effectiveFrom: '2026-01-01', currency: 'USD' }, h.owner);
+    const hourly = await h.json(`/jobs/${s.job.id}/time`, { date: '2026-11-02', minutes: 60, description: 'Hourly bookkeeping' }, s.preparer);
+    const spare = await h.json(`/jobs/${s.job.id}/time`, { date: '2026-11-03', minutes: 30, description: 'Approved work not yet invoiced' }, s.preparer);
+    await h.json('/timesheets/submit', { weekStart: '2026-11-02' }, s.preparer);
+    for (const t of [hourly, spare]) await h.json(`/time/${t.id}/review`, { decision: 'approve' }, s.reviewer);
+    const adjustment = await h.json(`/time/${hourly.id}/adjust`, { minutes: -15, reason: 'Write down a slow reconciliation' }, h.owner);
+    const expense = await h.json(`/jobs/${s.job.id}/expenses`, { kind: 'filing_fee', date: '2026-11-02', description: 'Filing disbursement', costCents: 1000, billable: true, markupPercent: 10, receipt: { name: 'receipt.txt', mime: 'text/plain', contentBase64: Buffer.from('Filing receipt').toString('base64') } }, s.preparer);
+    await h.json(`/expenses/${expense.id}/decide`, { decision: 'approve' }, s.reviewer);
+    const fixed = await authorize(h, s, { amountCents: 20000 });
+    const a = await draft(h, { ...terms, title: 'Fixed fee, hours and filing', issueDate: day(-60), dueDate: day(-45), jobId: s.job.id, sourceKeys: [fixed.sourceKey, `time:${hourly.id}`, `adj:${adjustment.id}`, `exp:${expense.id}`], contactId: s.billing.id });
+    await issue(h, a);
+    const rule = await h.json('/invoice-retainers', { ...terms, jobId: s.job.id, title: 'Monthly bookkeeping retainer', startMonth: monthAt(-2), amountCents: 12000, billDay: 1, dueDays: 14, contactId: s.billing.id, authorization: 'Client agreement authorizes a monthly fee' }, h.owner);
+    const earned = await h.json(`/invoice-retainers/${rule.id}/generate`, { period: monthAt(-2) }, h.owner), deferred = await h.json(`/invoice-retainers/${rule.id}/generate`, { period: monthAt(2) }, h.owner);
+    await issue(h, earned); await issue(h, deferred);
+    // A partial payment (a recorded bank receipt) and a credit memo discharge part of the first invoice.
+    const receipt = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', reference: 'BANK-RECEIPT-B3-1', amountCents: 10000, reason: 'Client paid part by bank transfer; receipt supplied' }, h.owner);
+    const memo = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'credit', reference: 'CREDIT-MEMO-B3-1', amountCents: 2000, reason: 'Goodwill credit agreed with the client' }, h.owner);
+    await h.json(`/invoices/${a.id}/credits`, { creditId: receipt.id, amountCents: 10000, reason: 'Apply the recorded bank receipt' }, h.owner);
+    await h.json(`/invoices/${a.id}/credits`, { creditId: memo.id, amountCents: 2000, reason: 'Apply the credit memo' }, h.owner);
+
+    const path = '/reports/performance?' + new URLSearchParams({ from: '2026-11-01', to: '2026-11-30', client: s.client.id });
+    const before = await h.json(path, undefined, h.owner), r = before.invoiceReporting.receivables;
+    // Billed 28,600 + two 12,000 retainer months; recorded excludes the 2,500 write-down; settled is the receipt plus the credit.
+    assert.deepEqual([r.totals.recordedCents, r.totals.writeDownCents, r.totals.writeUpCents, r.totals.billedCents, r.totals.collectedCents, r.totals.creditedCents, r.totals.writtenOffCents, r.totals.outstandingCents, r.totals.expenseCostCents],
+      [55100, 2500, 0, 52600, 10000, 2000, 0, 40600, 1000]);
+    assert.deepEqual([r.totals.billedRealizationBps, r.totals.settledBps], [9546, 2281]);
+    assert.deepEqual([r.retainers.earnedCents, r.retainers.deferredCents], [12000, 12000]);
+    assert.deepEqual([r.retainers.earnedInvoiceIds, r.retainers.deferredInvoiceIds], [[earned.id], [deferred.id]]);
+    const client = r.clients.find(c => c.id === s.client.id), service = r.services[0], job = r.jobs.find(j => j.id === s.job.id);
+    assert.deepEqual([client.outstandingCents, client.wipCents, client.netMarginBeforeStaffCostCents], [40600, 5000, 51600]);
+    assert.deepEqual([service.billedCents, job.billedCents], [52600, 52600]);
+    // Staff cost needs a principal-recorded hourly cost rate; invoiced time with none is counted, never guessed.
+    assert.deepEqual([r.totals.staffCostCents, r.totals.unratedStaffMinutes, r.totals.profitCents], [0, 75, 51600]);
+    const cost = { email: 'preparer@example.test', costCents: 4000, effectiveFrom: '2026-01-01', reason: 'Salary and overhead divided by billable hours' };
+    for (const who of [s.reviewer, s.preparer]) await h.json('/team/costs', cost, who, 403);
+    await h.json('/team/costs', { ...cost, costCents: -1 }, h.owner, 400);
+    await h.json('/team/costs', cost, h.owner);
+    const costed = (await h.json(path, undefined, h.owner)).invoiceReporting.receivables.totals;
+    assert.deepEqual([costed.staffCostCents, costed.unratedStaffMinutes, costed.profitCents], [3000, 0, 48600]);
+    assert.deepEqual([(await h.json('/team/costs', undefined, h.owner)).length, (await h.json(path, undefined, s.reviewer)).invoiceReporting.receivables.totals.staffCostCents], [1, null]);
+    await h.json('/team/costs', undefined, s.reviewer, 403);
+    // Totals reconcile to the approved sources, to the invoices' own balances and to the client statement.
+    const wip = (await h.json('/billing', undefined, h.owner)).unbilled.filter(l => l.job_id === s.job.id);
+    assert.deepEqual(wip.map(l => [l.source_key, l.amount_cents]), [[`time:${spare.id}`, 5000]]);
+    const lines = (await h.json(`/invoices/${a.id}`, undefined, h.owner)).snapshot.lines;
+    assert.deepEqual(lines.map(l => [l.kind, l.amount_cents]).sort(), [['adjustment', -2500], ['expense', 1100], ['fixed', 20000], ['time', 10000]].sort());
+    const balances = (await h.json('/invoices', undefined, h.owner)).invoices.filter(i => i.client_id === s.client.id && i.status === 'issued');
+    assert.equal(balances.reduce((n, i) => n + i.balance_cents, 0), 40600); assert.equal(before.invoiceReporting.totals.receivableCents, 40600);
+    assert.equal(r.aging.reduce((n, b) => n + b.cents, 0), 40600); assert.deepEqual(r.aging.find(b => b.bucket === '31-60 days').invoiceIds, [a.id]);
+    const statement = await h.json(`/clients/${s.client.id}/statement`, undefined, h.owner);
+    // The statement lists invoices dated on or before its date, so the retainer month billed ahead is on a later one.
+    assert.equal(statement.totals.openCents, 40600 - 12000); assert.deepEqual(statement.credits.map(c => [c.reference, c.appliedCents]), [['BANK-RECEIPT-B3-1', 10000], ['CREDIT-MEMO-B3-1', 2000]]); assert.deepEqual(statement.payments, []);
+    await h.json(path, undefined, s.preparer, 403);
+
+    // The principal approves a write-off; nobody else can, and it cannot exceed the open balance.
+    const document = await pdf(h, a.id), original = await h.json(`/invoices/${a.id}`, undefined, h.owner), reason = 'Partner approved: the client disputed the reconciliation hours and collection is not pursued';
+    for (const who of [s.preparer, s.reviewer]) await h.json(`/invoices/${a.id}/write-off`, { amountCents: 6600, reason }, who, 403);
+    await h.json(`/invoices/${a.id}/write-off`, { amountCents: 16601, reason }, h.owner, 409);
+    await h.json(`/invoices/${a.id}/write-off`, { amountCents: 0, reason }, h.owner, 400);
+    await h.json(`/invoices/${a.id}/write-off`, { amountCents: 6600, reason: '' }, h.owner, 400);
+    await h.json('/invoices/absent/write-off', { amountCents: 100, reason }, h.owner, 404);
+    const off = await h.json(`/invoices/${a.id}/write-off`, { amountCents: 6600, reason }, h.owner); assert.equal(off.balanceCents, 10000);
+    await h.json(`/invoices/${a.id}/write-off`, { amountCents: 10001, reason }, h.owner, 409);
+    await h.json(`/invoices/${a.id}/credits`, { creditId: (await h.json('/invoice-credits', { clientId: s.client.id, kind: 'credit', reference: 'CREDIT-MEMO-B3-2', amountCents: 20000, reason: 'Second credit memo' }, h.owner)).id, amountCents: 10001, reason: 'Over-apply' }, h.owner, 400);
+    // The issued invoice, its PDF and its totals are never rewritten; only the balance moves.
+    const changed = await h.json(`/invoices/${a.id}`, undefined, h.owner);
+    assert.deepEqual([changed.total_cents, changed.subtotal_cents, changed.snapshotHash, changed.pdf_sha256, changed.balance_cents, changed.written_off_cents], [original.total_cents, original.subtotal_cents, original.snapshotHash, original.pdf_sha256, 10000, 6600]);
+    assert.deepEqual(await pdf(h, a.id), document);
+    assert.deepEqual(changed.writeOffs.map(w => [w.amount_cents, w.reason, w.approved_by]), [[6600, reason, 'owner@example.test']]);
+    // The period report, the statement and the history show the change; an earlier statement date does not.
+    const after = await h.json(path, undefined, h.owner), ra = after.invoiceReporting.receivables;
+    assert.deepEqual([ra.totals.writtenOffCents, ra.totals.outstandingCents, ra.totals.billedCents, ra.totals.netMarginBeforeStaffCostCents, ra.totals.collectedCents], [6600, 34000, 52600, 45000, 10000]); assert.equal(ra.totals.profitCents, 42000);
+    assert.equal(after.invoiceReporting.totals.receivableCents, 34000); assert.equal(ra.aging.find(b => b.bucket === '31-60 days').cents, 10000);
+    assert.deepEqual(after.invoiceReporting.invoices.map(i => [i.id, i.subtotalCents, i.totalCents]), before.invoiceReporting.invoices.map(i => [i.id, i.subtotalCents, i.totalCents]));
+    assert.equal(after.invoiceReporting.invoices.find(i => i.id === a.id).writtenOffCents, 6600);
+    assert.equal((await h.json(`/clients/${s.client.id}/statement`, undefined, h.owner)).totals.openCents, 34000 - 12000);
+    const yesterday = await h.json(`/clients/${s.client.id}/statement?asOf=${day(-1)}`, undefined, h.owner);
+    // Before today's receipts, credit memo and write-off were recorded, the same invoices show their full balances.
+    assert.equal(yesterday.totals.openCents, 28600 + 12000); assert.equal(yesterday.invoices.find(i => i.id === a.id).writtenOffCents, 0);
+    const csv = await (await h.request(`/api/blotter/clients/${s.client.id}/statement/csv`, undefined, h.owner)).text();
+    assert.match(csv, /"Invoice","INV-\d+","Fixed fee, hours and filing","[^"]+","[^"]+","31-60 days","286.00","120.00","66.00","100.00"/);
+    const history = await h.json(`/clients/${s.client.id}/history?kind=billing`, undefined, h.owner);
+    assert.ok(history.history.some(e => e.action === 'invoice.written_off' && e.object_id === a.id && e.detail.includes(reason)));
+    const exported = await (await h.request('/api/blotter/reports/performance/csv?' + new URLSearchParams({ from: '2026-11-01', to: '2026-11-30', client: s.client.id }), undefined, h.owner)).text();
+    assert.ok(exported.includes('"aging_bucket"') && exported.includes(off.id) && exported.includes('Partner approved: the client disputed'));
+    // A restore carries the write-off and the balance it produced.
+    await h.stepUp(h.owner);
+    const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    restored = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-12' } });
+    await restored.json('/restore', { archive, confirm: 'RESTORE', acknowledge }, restored.owner);
+    const back = await restored.json(`/invoices/${a.id}`, undefined, restored.owner);
+    assert.deepEqual([back.balance_cents, back.written_off_cents, back.writeOffs[0].reason], [10000, 6600, reason]);
+    const carried = (await restored.json(path, undefined, restored.owner)).invoiceReporting.receivables.totals;
+    assert.deepEqual([carried.writtenOffCents, carried.staffCostCents, carried.profitCents], [6600, 3000, 42000]);
+    await receivablesJourney(h, s, { title: 'Fixed fee, hours and filing' });
+    // A financial-authority holder approves a write-off in their own name; revoking the grant ends that authority at once.
+    await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: ['financial_authority'], reason: 'Billing partner' }, h.owner);
+    await h.json(`/invoices/${earned.id}/write-off`, { amountCents: 100, reason: 'Billing partner rounding write-off' }, s.reviewer);
+    assert.equal((await h.json(`/invoices/${earned.id}`, undefined, h.owner)).writeOffs[0].approved_by, 'reviewer@example.test');
+    assert.ok((await h.json(`/clients/${s.client.id}/history?kind=billing`, undefined, h.owner)).history.some(e => e.action === 'invoice.written_off' && e.object_id === earned.id && e.actor === 'reviewer@example.test'));
+    await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: [], reason: 'Duties moved' }, h.owner);
+    await h.json(`/invoices/${earned.id}/write-off`, { amountCents: 100, reason: 'After the grant was revoked' }, s.reviewer, 403);
+  } finally { await restored?.close(); await h.close(); }
+});
+
 test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for unpaid, undisputed, deliverable invoices; clients opt out; two invoices resend in bulk; the statement reconciles to open balances; quick collect refuses without PAY-001; a restore pauses the schedule', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-9' } }); let restored;
   try {
@@ -349,7 +464,7 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     assert.deepEqual(statement.invoices.map(i => [i.balanceCents, i.aging, i.hold]), [[20000, '1-30 days', null], [30000, '1-30 days', 'disputed']]);
     assert.deepEqual(statement.credits.map(x => [x.reference, x.appliedCents, x.availableCents]), [['BANK-RECEIPT-A', 10000, 0]]); assert.deepEqual(statement.payments, []);
     const csv = await (await h.request(`/api/blotter/clients/${s.client.id}/statement/csv?asOf=2026-12-27`, undefined, h.owner)).text();
-    assert.match(csv, /"Total","","Cedar Lane LLC statement as of 2026-12-27","","","","","","500.00"/);
+    assert.match(csv, /"Total","","Cedar Lane LLC statement as of 2026-12-27","","","","","","","500.00"/);
     assert.match((await h.json(`/invoices/${b.id}/quick-collect`, {}, h.owner, 409)).error, /PAY-001/);
     await collectionsJourney(h, s);
     // A restore brings the schedule back paused and without its consent.

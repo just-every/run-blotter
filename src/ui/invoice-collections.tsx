@@ -44,8 +44,8 @@ export function InvoiceCollections({ state, clients, billing, run, tick }: { sta
         <Field label="Statement date" name="asOf" type="date" value={today()} />
       </Form>
       {statement && <div className="record stack"><h4>{statement.client.name} · statement as of {day(statement.asOf)}</h4>
-        {!statement.invoices.length ? <Empty>No open invoices.</Empty> : <table className="table"><thead><tr><th>Invoice</th><th>Due</th><th>Aging</th><th className="amount">Balance</th></tr></thead><tbody>
-          {statement.invoices.map((i: Row) => <tr key={i.id}><td data-label="Invoice">{i.number} · {i.title}{i.hold && <small className="muted"> · {i.hold === 'disputed' ? 'disputed' : 'payment plan'}</small>}</td><td data-label="Due">{day(i.dueDate)}</td><td data-label="Aging">{i.aging}</td><td className="amount" data-label="Balance">{money(i.balanceCents)}</td></tr>)}
+        {!statement.invoices.length ? <Empty>No open invoices.</Empty> : <table className="table"><thead><tr><th>Invoice</th><th>Due</th><th>Aging</th><th className="amount">Written off</th><th className="amount">Balance</th></tr></thead><tbody>
+          {statement.invoices.map((i: Row) => <tr key={i.id}><td data-label="Invoice">{i.number} · {i.title}{i.hold && <small className="muted"> · {i.hold === 'disputed' ? 'disputed' : 'payment plan'}</small>}</td><td data-label="Due">{day(i.dueDate)}</td><td data-label="Aging">{i.aging}</td><td className="amount" data-label="Written off">{money(i.writtenOffCents)}</td><td className="amount" data-label="Balance">{money(i.balanceCents)}</td></tr>)}
         </tbody></table>}
         {statement.credits.length > 0 && <ul>{statement.credits.map((c: Row) => <li key={c.id}>{c.kind} {c.reference}: {money(c.amountCents)} recorded, {money(c.appliedCents)} applied, {money(c.availableCents)} available</li>)}</ul>}
         <p>{statement.paymentsNote}</p>

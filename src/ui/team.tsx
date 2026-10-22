@@ -56,6 +56,15 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
           <Field label="Effective from" name="effectiveFrom" type="date" value={today()} />
         </Form>
       </details>
+      <details><summary>Set a staff cost rate</summary>
+        <p className="muted">What an hour of this person costs the practice, in USD. It is used only for profitability reports, never on invoices, and is shown to the principal and financial-authority holders.</p>
+        <Form label="Save staff cost rate" submit={async data => run(() => api('/team/costs', { ...data, costCents: Number(data.costCents) }), 'Staff cost rate saved')}>
+          <Field label="Person (staff cost)" name="email"><select name="email"><option value={state.actor.email}>{state.actor.name} (you)</option>{team.members.map((m: Row) => <option key={m.email} value={m.email}>{m.name}</option>)}</select></Field>
+          <Field label="Hourly staff cost in USD cents" name="costCents" type="number" />
+          <Field label="Effective from (staff cost)" name="effectiveFrom" type="date" value={today()} />
+          <Field label="Source of this cost rate" name="reason" />
+        </Form>
+      </details>
     </section></Blotter>}
     {!owner && <Blotter className="wide"><section className="panel"><h2>Your rate</h2><p>{ownRate === null ? 'The principal has not set your hourly rate yet.' : `${moneyText(ownRate, team.ownRateCurrency)} per hour, unless a client or service rate applies`}</p></section></Blotter>}
     {state.actor.role !== 'preparer' && <section className="panel">

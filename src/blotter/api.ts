@@ -59,6 +59,7 @@ import { confirmPasskey, confirmTotp, enrollmentReport, mfaOverview, mfaState, n
 import { addTime, approveExport, billingState, deleteTime, downloadExport, prepareExport, voidExport } from './billing';
 import { createAgentKey, inviteMember, revokeAgentKey, saveMember, teamState } from './team';
 import { setRate } from './rates';
+import { setStaffCost, staffCosts } from './staff-costs';
 import { commitOffboarding, previewOffboarding } from './offboarding';
 import { changeOwner, clientHistory } from './history';
 import { discardTimer, startTimer, stopTimer } from './timers';
@@ -425,6 +426,8 @@ api.post(`${P}/team`, as(async (a, c) => saveMember(db(c), a, await body(c))));
 api.post(`${P}/team/offboard/preview`, as(async (a, c) => previewOffboarding(db(c), a, await body(c))));
 api.post(`${P}/team/offboard`, as(async (a, c) => commitOffboarding(db(c), a, await body(c))));
 api.post(`${P}/team/rates`, as(async (a, c) => setRate(db(c), a, await body(c))));
+api.post(`${P}/team/costs`, as(async (a, c) => setStaffCost(db(c), a, await body(c))));
+api.get(`${P}/team/costs`, as((a, c) => staffCosts(db(c), a)));
 api.post(`${P}/team/invite`, as(async (a, c) => inviteMember(c.req.raw, c.env, a, await body(c))));
 api.post(`${P}/keys`, as(async (a, c) => createAgentKey(db(c), a, await body(c))));
 api.post(`${P}/keys/:id/revoke`, as((a, c) => revokeAgentKey(db(c), a, param(c))));

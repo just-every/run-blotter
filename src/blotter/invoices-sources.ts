@@ -27,6 +27,9 @@ export async function liveBillingActor(db: D1Database, operatorId: string | null
   return canBill(actor) && !actor.readOnly ? actor : null;
 }
 
+/** An issued invoice's open balance: its gross less applied credits and approved write-offs (BILL-003). */
+export const invoiceDischargedSql = (a: string) => `COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=${a}.id),0)+COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=${a}.id),0)`;
+export const invoiceBalanceSql = (a: string) => `${a}.subtotal_cents+${a}.tax_cents-(${invoiceDischargedSql(a)})`;
 export const activeInvoiceClientSql = "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL AND erased_at IS NULL)";
 export async function invoiceAuthority(db: D1Database) {
   const settings = await stmt(db, 'SELECT * FROM b_invoice_settings WHERE id=1').first<Data>();
@@ -80,12 +83,12 @@ export function invoiceSourceGuards(db: D1Database, lines: Data[]) {
 /** Client erasure and expiry must refuse any non-void invoice that still has an open balance. */
 export async function invoiceOpenBalances(db: D1Database, clientId: string) {
   const invoices = await rows(db, `SELECT i.id,i.number,i.title,i.owner_email,i.due_date,'invoice' kind,
-    i.subtotal_cents+i.tax_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0) balance_cents
-    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.subtotal_cents+i.tax_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0) ORDER BY i.due_date,i.id`, clientId);
+    ${invoiceBalanceSql('i')} balance_cents
+    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND ${invoiceBalanceSql('i')}>0 ORDER BY i.due_date,i.id`, clientId);
   const liabilities = await rows(db, `SELECT c.id,NULL number,'Unapplied '||c.kind||': '||c.reference title,c.recorded_by owner_email,NULL due_date,c.kind,
     c.amount_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) balance_cents
     FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) ORDER BY c.recorded_at,c.id`, clientId);
   return [...invoices, ...liabilities];
 }
-export const noInvoiceOpenBalanceSql = `NOT EXISTS(SELECT 1 FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.subtotal_cents+i.tax_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=i.id),0))
+export const noInvoiceOpenBalanceSql = `NOT EXISTS(SELECT 1 FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND ${invoiceBalanceSql('i')}>0)
  AND NOT EXISTS(SELECT 1 FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0))`;

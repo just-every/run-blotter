@@ -1,5 +1,5 @@
 import {invoiceReport} from './report-invoices';
-import { financialBreakdowns } from './report-financials';
+import { financialBreakdowns as groupFinancials } from './report-financials';
 // REPORT-001: live projections, with no duplicate store of client evidence.
 import { firmSettings, localClock } from './firm';
 import { listJobs, parseFilters } from './filters';
@@ -83,9 +83,12 @@ export async function performanceReport(db: D1Database, actor: Actor, query: Dat
     for (const k of Object.keys(total).filter(k=>k!=='currency')) total[k]+=f[k];
     money.set(f.currency,total);
   }
+  const financialBreakdowns=groupFinancials(details),invoiceReporting=await invoiceReport(db,actor,selected,generatedAt);
+  // Unbilled WIP is the existing USD group figure, read beside each client's receivables.
+  for(const c of invoiceReporting.receivables.clients)(c as Data).wipCents=financialBreakdowns.clients.find(g=>g.id===c.id&&g.currency==='USD')?.unbilledCents??0;
   return { generatedAt,timeZone:clock.timeZone,today:clock.localDate,filters,
     basis:'Period-start cohort, inclusive. Elapsed minutes from native UTC instants. Capacity includes whole Monday–Sunday weeks overlapping the period. Approved native money in stored currency; margin is before staff cost. Reviewed billing-export totals remain separate from native invoice receivables and provider settlement.',
     totals:{jobs:details.length,completed:details.filter(j=>j.status==='signed_off').length,overdue:details.filter(j=>j.status!=='signed_off'&&j.due_date<clock.localDate).length,blocked:details.filter(j=>j.blocked).length,
       averageTurnaroundMinutes:mean(details.flatMap(j=>j.turnaroundMinutes===null?[]:[j.turnaroundMinutes])),averageClientDelayMinutes:mean(details.flatMap(j=>j.requestDelays.flatMap((r:Data)=>r.delayMinutes===null?[]:[r.delayMinutes]))),reviewReturns:details.reduce((n,j)=>n+j.reviewReturns.length,0)},
-    jobs:details,invoiceReporting:await invoiceReport(db,actor,selected,generatedAt),financialBreakdowns:financialBreakdowns(details),statuses:[...statuses.values()],people:[...people.values()],money:[...money.values()] };
+    jobs:details,invoiceReporting,financialBreakdowns,statuses:[...statuses.values()],people:[...people.values()],money:[...money.values()] };
 }

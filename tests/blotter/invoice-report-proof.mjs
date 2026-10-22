@@ -42,7 +42,7 @@ export async function assertInvoiceReport(h, f, issuedId) {
     assert.deepEqual([invoice.number,invoice.status,invoice.subtotalCents,invoice.taxCents,invoice.creditCents,invoice.totalCents,invoice.balanceCents,invoice.issueDate,invoice.dueDate,invoice.issuedAt,invoice.voidedAt],
       [native.number,native.status,native.subtotal_cents,native.tax_cents,native.credit_cents,native.total_cents,native.balance_cents,native.issue_date,native.due_date,native.issued_at,native.voided_at]);
     assert.deepEqual(invoice.sources.map(s => [s.sourceKey,s.amountCents]).sort(), native.snapshot.lines.map(s => [s.source_key,s.amount_cents]).sort());
-    if (invoice.status !== 'void') assert.equal(invoice.allocatedCreditCents, native.subtotal_cents + native.tax_cents - native.balance_cents);
+    if (invoice.status !== 'void') assert.equal(invoice.allocatedCreditCents + invoice.writtenOffCents, native.subtotal_cents + native.tax_cents - native.balance_cents);
     assert.equal(invoice.appliedCreditCents, invoice.status === 'issued' ? invoice.allocatedCreditCents : 0);
     assert.equal(invoice.reservedCreditCents, invoice.status === 'draft' ? invoice.allocatedCreditCents : 0);
     for (const allocation of invoice.allocations) expectedRows.push([invoice.id,allocation.creditId,allocation.kind,allocation.reference,allocation.amountCents,allocation.recordedAt,h.origin + allocation.source]);
