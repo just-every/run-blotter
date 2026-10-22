@@ -3,6 +3,7 @@
 // covered, the SIGN-002 signature that filed the signed copy, the submission and the agency's
 // recorded, rejected or withdrawn status. Only a recorded authorization opens transcript
 // requests (2848 or 8821) and agency contact on a notice (2848, or the state's own form).
+import { firmSettings, localClock } from './firm';
 import { eligible } from './jobs';
 import { atomic, audit, date, human, id, insist, integer, need, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 
@@ -136,4 +137,29 @@ export async function agencyContactAuthority(db: D1Database, notice: Data) {
   const a = notice.jurisdiction === 'federal' ? await covering(db, notice.client_id, ['2848'], null, year) : await covering(db, notice.client_id, ['state'], null, year, notice.agency);
   insist(a, `No recorded ${notice.jurisdiction === 'federal' ? 'Form 2848' : `${notice.agency} authorization`} covers ${Number.isFinite(year) ? year : notice.tax_period}; agency contact on this notice is outside the authorization's scope`, 409);
   return a;
+}
+
+/**
+ * For a continuing engagement (an open job or an active recurring rule), one alert per recorded
+ * authorization from October 1 of its last covered year: to the staff representative, or else the
+ * principal, through the established notification preferences, quiet hours and live authority.
+ */
+export async function runAuthorizationAlerts(db: D1Database, at = new Date()) {
+  const today = localClock(await firmSettings(db), at).localDate, sent: string[] = [];
+  for (const a of await rows(db, `SELECT a.*,c.name client_name FROM b_authorizations a JOIN b_clients c ON c.id=a.client_id
+    WHERE a.status='recorded' AND c.lifecycle='active' AND c.erased_at IS NULL AND c.merged_into IS NULL
+    AND NOT EXISTS(SELECT 1 FROM b_notifications n WHERE n.id='authz-expiry:'||a.id)`)) {
+    const last = Math.max(...(JSON.parse(a.matters) as Matter[]).map(m => m.to));
+    if (today < `${last}-10-01`) continue;
+    const work = await stmt(db, "SELECT id FROM b_jobs WHERE client_id=? AND status<>'signed_off' ORDER BY due_date LIMIT 1", a.client_id).first<Data>();
+    if (!work && !await stmt(db, "SELECT 1 FROM b_recurrence_rules WHERE client_id=? AND status='active'", a.client_id).first()) continue;
+    const to = a.representative_email ?? (await stmt(db, "SELECT email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<Data>())?.email;
+    if (!to) continue;
+    const label = a.kind === 'state' ? `${a.agency} authorization` : `Form ${a.kind}`;
+    await db.batch([stmt(db, `INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at) VALUES(?,?,'authorization_expiring',?,?,'deferred: outside firm notification hours',?)`,
+      'authz-expiry:' + a.id, to, work?.id ?? null, `${label} for ${a.client_name} covers through ${last}; renew it for continuing work`, now()),
+      stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), 'authorization scheduler', 'authorization.expiry_alert', a.client_id, `${label} covers through ${last}; alert to ${to}`, now())]);
+    sent.push(a.id);
+  }
+  return sent;
 }

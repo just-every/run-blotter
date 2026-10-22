@@ -186,6 +186,11 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: a signed and attested 2848 is submitted on
   const covered=(await notice('2023')).notice.id,outside=(await notice('2021')).notice.id;
   await h.json(`/notices/${covered}/events`,{kind:'agency_contact',note:'Called the practitioner priority line about the 2023 CP2000'},f.prep);
   assert.match((await h.json(`/notices/${outside}/events`,{kind:'agency_contact',note:'Call about 2021'},f.prep,409)).error,/outside the authorization's scope/);
+  // Continuing work: one alert from October 1 of the last covered year, to the staff representative.
+  await h.scheduled('2025-09-30T15:00:00Z');assert.ok(!(await h.json('/notifications',undefined,f.prep)).some(n=>n.kind==='authorization_expiring'));
+  await h.scheduled('2025-10-02T15:00:00Z');await h.scheduled('2025-10-02T16:00:00Z');
+  const alerts=(await h.json('/notifications',undefined,f.prep)).filter(n=>n.kind==='authorization_expiring');
+  assert.equal(alerts.length,1);assert.match(alerts[0].summary,/Form 2848 for Cedar Lane Manufacturing LLC covers through 2025/);
   // Withdrawal flags the dependent notice work and refuses new transcript requests.
   const withdrawn=await h.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Client revoked the power of attorney'},h.owner);
   assert.deepEqual(withdrawn.flaggedNotices,[covered]);

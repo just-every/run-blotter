@@ -12,7 +12,7 @@ export const kinds = [
   ['upload','Client upload',false],['organizer_submitted','Organizer submitted',false],
   ['due_soon','Work due soon',false],['overdue','Overdue work',false],['status_changed','Work status changed',false],
   ['delivery_failed','Delivery failed',false],['task_ready','Task ready',true],['partner_sign_off','Partner sign-off',true],
-  ['coverage','Coverage changed',true],['internal_report','Scheduled report',true],
+  ['coverage','Coverage changed',true],['internal_report','Scheduled report',true],['authorization_expiring','Authorization coverage ending',false],
 ].map(([id,label,legacyEmail])=>({id:String(id),label:String(label),legacyEmail:Boolean(legacyEmail)}));
 const legacy = kinds.filter(k=>k.legacyEmail).map(k=>k.id);
 export async function notificationDefaults(db:D1Database) {

@@ -1,5 +1,6 @@
 import { runInvoiceSchedules } from './blotter/invoices-retainers'
 import { runInvoiceReminders } from './blotter/invoices-collections'
+import { runAuthorizationAlerts } from './blotter/authorizations'
 import { runReports } from './blotter/report-schedules'
 import { runAutomation } from './blotter/automation-runner'
 import { purgeDocumentUploads } from './blotter/document-packets'
@@ -55,6 +56,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await purgeDocumentUploads(env.DB,new Date(controller.scheduledTime).toISOString())
     await runInvoiceSchedules(env,new Date(controller.scheduledTime))
     await runInvoiceReminders(env,new Date(controller.scheduledTime))
+    await runAuthorizationAlerts(env.DB,new Date(controller.scheduledTime))
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await runAutomation(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))
