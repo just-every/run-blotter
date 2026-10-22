@@ -212,6 +212,7 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     assert.ok(!JSON.stringify(retainedHistory.history).includes(s.client.name),'Ordinary history removes retained invoice identities');
     assert.equal((await h.json('/search?'+new URLSearchParams({q:s.client.name,type:'invoice'}),undefined,h.owner)).results.length,0);
     assert.ok(!JSON.stringify(await h.json('/reports/performance?'+new URLSearchParams({from:'2026-11-01',to:'2026-11-30',client:s.client.id}),undefined,h.owner)).includes(s.client.name),'Plain reports exclude retained invoice identities');
+    await h.json('/team/invite',{email:'reviewer@example.test'},h.owner);
     const retainedReviewer=await h.login('reviewer@example.test');await h.json(`/invoices/${invoice.id}`,undefined,retainedReviewer,403);assert.equal((await h.request(`/api/blotter/invoices/${invoice.id}/pdf`,undefined,retainedReviewer)).status,403);
     assert.ok(!JSON.stringify(await h.json('/retention/ready',undefined,h.owner)).includes(s.client.name),'Expiry queues use opaque retained-record labels');
     const ready = (await h.json('/retention/ready', undefined, h.owner)).ready.find(r => r.kind === 'invoice' && r.id === invoice.id); assert.ok(ready);
