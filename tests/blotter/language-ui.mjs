@@ -65,7 +65,7 @@ export async function languageJourney(h, { job, client, maria, englishOnly, kbTo
     await page.keyboard.press('Enter'); assert.equal(await page.evaluate(() => document.activeElement?.id), 'portal-main');
     const upload = page.getByLabel('Elija un archivo para cargar').first();
     await tabTo(page, upload, 'The upload control');
-    const chooser = page.waitForEvent('filechooser'); await page.keyboard.press('Enter');
+    const chooser = page.waitForEvent('filechooser'); await page.keyboard.press('Space');
     await (await chooser).setFiles({ name: 'estado-de-cuenta.txt', mimeType: 'text/plain', buffer: Buffer.from('Estado de cuenta bancario') });
     await page.getByRole('status').filter({ hasText: 'Se cargó estado-de-cuenta.txt. Gracias.' }).waitFor();
     // Keyboard only: open the signature request, enter each field, consent and sign.
