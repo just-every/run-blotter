@@ -1,12 +1,21 @@
 // Invoice entitlements are approved independently of work completion. Time and
 // expenses keep their existing approval and integer-cent snapshots.
 import { unbilled } from './billing';
-import { atomic, audit, guard, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, canBill, guard, id, insist, integer, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { delegated } from './permissions';
 
+/** Prepare, issue, send and void belong to the principal and to financial-authority holders (ct, 22 Oct). */
 export function invoiceHuman(actor: Actor) {
+  insist(canBill(actor), 'Only the principal or a financial-authority holder can do this', 403);
+  insist(actor.channel === 'person' && !actor.automation, 'A person must explicitly approve this invoice action', 403);
+}
+/** Selecting the invoice authority stays with the principal. */
+export function principalHuman(actor: Actor) {
   need(actor, 'owner');
   insist(actor.channel === 'person' && !actor.automation, 'The principal must explicitly approve this invoice action', 403);
 }
+/** Every holder write re-reads the delegation inside its own batch; the principal's batches are unchanged. */
+export const billed = (db: D1Database, actor: Actor, statements: D1PreparedStatement[]) => delegated(db, actor, 'financial_authority', statements);
 export const activeInvoiceClientSql = "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL AND erased_at IS NULL)";
 export async function invoiceAuthority(db: D1Database) {
   const settings = await stmt(db, 'SELECT * FROM b_invoice_settings WHERE id=1').first<Data>();
@@ -27,10 +36,10 @@ export async function authorizeInvoiceEntitlement(db: D1Database, actor: Actor, 
   const amountCents = integer(body.amountCents, 'Authorized fee in USD cents', 1), authorization = text(body.authorization, 'Fee authorization and source', 2000);
   const sourceKey = body.kind === 'fixed' ? `fee:${j.id}` : `ent:${eid}`;
   const [check, release] = guard(db, activeInvoiceClientSql, j.client_id), [authorized, done] = invoiceAuthorityGuard(db, authority.revision);
-  await atomic(db, actor, [check, authorized,
+  await atomic(db, actor, billed(db, actor, [check, authorized,
     stmt(db, `INSERT INTO b_invoice_entitlements(id,client_id,job_id,kind,reference,description,amount_cents,source_key,authorized_by,authorized_at,authorization) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
       eid, j.client_id, j.id, body.kind, reference, description, amountCents, sourceKey, actor.email, now(), authorization),
-    done, release, audit(db, actor, 'invoice.entitlement_authorized', eid, `${reference}; ${amountCents} USD cents; ${authorization}`)]);
+    done, release, audit(db, actor, 'invoice.entitlement_authorized', eid, `${reference}; ${amountCents} USD cents; ${authorization}`)]));
   return { id: eid, sourceKey, amountCents, currency: 'USD' };
 }
 

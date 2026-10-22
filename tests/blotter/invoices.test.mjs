@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { inflateSync } from 'node:zlib';
 import { PDFDocument } from 'pdf-lib';
 import { harness } from './harness.mjs';
 import { invoiceJourney } from './invoices-ui.mjs';
@@ -33,6 +34,9 @@ const draft = async (h, input) => {
 };
 const issue = (h, invoice) => h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Compared entitlement, hourly approvals, supplied tax treatment and client recipient' }, h.owner);
 const pdf = async (h, id, actor = h.owner) => Buffer.from(await (await h.request(`/api/blotter/invoices/${id}/pdf`, undefined, actor)).arrayBuffer());
+// The words drawn on a pdf-lib page: inflate each content stream and read the hex strings its text operators show.
+const pdfWords = bytes => [...bytes.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map(m => { try { return inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1'); } catch { return ''; } })
+  .flatMap(stream => [...stream.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)].map(t => Buffer.from(t[1], 'hex').toString('latin1'))).join('\n');
 
 test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and approved extras, supplied tax, deposit, numbered immutable PDF, explicit portal delivery and source locks', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-1' } });
@@ -112,7 +116,7 @@ test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and 
   } finally { await h.close(); }
 });
 
-test('BILL-002 / BASE-001: monthly events generate one draft per entitlement, preview price and cancellation changes, preserve explicit prorations and portable paused rules', async () => {
+test('BILL-002 / BASE-001: monthly events generate one draft per entitlement and, without a recorded consent, only drafts; price and cancellation previews, explicit prorations and portable paused rules', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-2' } }); let restored;
   try {
     const s = await fixture(h);
@@ -130,6 +134,8 @@ test('BILL-002 / BASE-001: monthly events generate one draft per entitlement, pr
     assert.equal((await h.json(`/invoices/${first.id}`, undefined, h.owner)).total_cents, 12000);
     await h.scheduled('2026-12-02T15:00:00Z'); await h.scheduled('2026-12-02T16:00:00Z');
     const state = await h.json('/invoices', undefined, h.owner); assert.equal(state.invoices.filter(i => i.retainer_id === rule.id).length, 2); assert.equal(state.entitlements.filter(e => e.retainer_id === rule.id).length, 2);
+    assert.ok(state.invoices.filter(i => i.retainer_id === rule.id).every(i => i.status === 'draft' && i.auto_revision === null && i.auto_exception === null), 'A rule with no consent never issues or sends');
+    assert.equal(h.mails.filter(m => /INV-/.test(m.subject ?? '')).length, 0);
     const cancellation = { action: 'cancel', effectiveMonth: '2027-01', reason: 'Client ended the engagement at the recorded month boundary' }, cp = await h.json(`/invoice-retainers/${rule.id}/amendment-preview`, cancellation, h.owner);
     await h.json(`/invoice-retainers/${rule.id}/amend`, { ...cancellation, previewHash: cp.previewHash }, h.owner);
     await h.json(`/invoice-retainers/${rule.id}/generate`, { period: '2027-01' }, h.owner, 409);
@@ -223,4 +229,66 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
     const latest = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     target = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-6' } }); await target.json('/restore', { archive: historical, journal: latest, confirm: 'RESTORE' }, target.owner, 409);
   } finally { await target?.close(); await h?.close(); await source.close(); }
+});
+
+test('BILL-002 / ACCESS-002: a financial-authority holder bills and sends by email alone; a consented rule revision auto-issues and sends within its cap once per month, otherwise leaves a draft with a named exception, and a restore returns it without consent', async () => {
+  const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-7' } }); let restored;
+  try {
+    const s = await fixture(h);
+    const pat = await h.json(`/clients/${s.client.id}/contacts`, { name: 'Pat Paper', email: 'pat@example.test', roles: ['billing'], authorized: true, portal: false, requestConsent: false, emailConsent: true, consentNote: 'Client asked for invoices by email only' }, h.owner);
+    await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
+    await h.json('/invoices/authority', { authority: 'blotter', reason: 'A holder cannot choose the authority' }, s.reviewer, 403);
+    // The grant makes the reviewer a billing partner: prepare, issue and send, to a contact with no portal.
+    await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: ['financial_authority'], reason: 'Billing partner' }, h.owner);
+    const fee = await authorize(h, s); const input = { ...terms, jobId: s.job.id, sourceKeys: [fee.sourceKey], contactId: pat.id };
+    const preview = await h.json('/invoices/preview', input, s.reviewer), partnerDraft = await h.json('/invoices', { ...input, previewHash: preview.previewHash }, s.reviewer);
+    await h.json('/invoices/preview', input, s.preparer, 403);
+    const issued = await h.json(`/invoices/${partnerDraft.id}/issue`, { revision: partnerDraft.revision, snapshotHash: partnerDraft.snapshotHash, reviewNote: 'Reviewed by the billing partner' }, s.reviewer);
+    const delivery = await h.json(`/invoices/${partnerDraft.id}/delivery-preview`, { contactId: pat.id }, s.reviewer);
+    const emailed = await h.json(`/invoices/${partnerDraft.id}/send`, { contactId: pat.id, previewHash: delivery.previewHash }, s.reviewer);
+    assert.equal(emailed.status, 'accepted'); assert.equal(emailed.portalUrl, null);
+    const patMail = h.mails.find(m => m.to[0] === 'pat@example.test');
+    assert.equal(patMail.attachments.length, 1); assert.equal(hash(Buffer.from(patMail.attachments[0].content, 'base64')), issued.sha256); assert.ok(!/invoice portal|\/invoice\//i.test(patMail.text ?? patMail.html));
+    // Automatic issue and send: one holder consents to one rule revision, with a cap, a recipient and a reason.
+    const rule = await h.json('/invoice-retainers', { ...terms, jobId: s.job.id, title: 'Monthly bookkeeping retainer', startMonth: '2026-11', amountCents: 12000, billDay: 28, dueDays: 14, contactId: s.billing.id, authorization: 'Client agreement authorizes a monthly fee and recorded invoice calendar' }, h.owner);
+    const rev = (await h.json('/invoices', undefined, h.owner)).retainers.find(r => r.id === rule.id).revision;
+    const consent = { revision: rev, capCents: 15000, contactId: s.billing.id, reason: 'Client agreement authorizes automatic monthly invoices up to USD 150' };
+    await h.json(`/invoice-retainers/${rule.id}/auto-consent`, consent, s.preparer, 403);
+    await h.json(`/invoice-retainers/${rule.id}/auto-consent`, { ...consent, contactId: s.contacts.find(c => c.email === 'tax@example.test').id }, s.reviewer, 409);
+    await h.json(`/invoice-retainers/${rule.id}/auto-consent`, consent, s.reviewer);
+    const mailsBefore = h.mails.length, periods = () => h.json('/invoices', undefined, h.owner).then(x => x.invoices.filter(i => i.retainer_id === rule.id));
+    await h.scheduled('2026-11-28T15:00:00Z');
+    let [november] = await periods(); assert.equal(november.status, 'issued'); assert.equal(november.auto_revision, 1); assert.equal(november.auto_exception, null);
+    const doc = await pdf(h, november.id); assert.equal(doc.subarray(0, 5).toString(), '%PDF-', doc.toString().slice(0, 200));
+    assert.match(pdfWords(doc), /This invoice was auto-issued under rule revision 1/);
+    await h.scheduled('2026-11-28T16:00:00Z'); await h.restart(); await h.scheduled('2026-11-28T17:00:00Z');
+    assert.equal((await periods()).length, 1); assert.equal(h.mails.length, mailsBefore + 1, 'A restart does not issue or send the period twice');
+    await h.scheduled('2026-12-28T15:00:00Z'); await h.scheduled('2026-12-28T16:00:00Z');
+    const issuedPeriods = await periods(); assert.deepEqual(issuedPeriods.map(i => [i.period, i.status]).sort(), [['2026-11', 'issued'], ['2026-12', 'issued']]); assert.equal(h.mails.length, mailsBefore + 2);
+    assert.equal(h.mails.at(-1).to[0], 'alex@example.test');
+    // A price change is a new rule revision: the consent no longer covers it, so the run leaves a draft.
+    const change = { action: 'price', effectiveMonth: '2027-01', amountCents: 20000, taxCents: 0, taxTreatment: terms.taxTreatment, taxAuthorization: terms.taxAuthorization, authorization: 'Client accepted the January price AMEND-2', reason: 'Expanded scope' };
+    const ap = await h.json(`/invoice-retainers/${rule.id}/amendment-preview`, change, h.owner); await h.json(`/invoice-retainers/${rule.id}/amend`, { ...change, previewHash: ap.previewHash }, h.owner);
+    await h.scheduled('2027-01-28T15:00:00Z');
+    const january = (await periods()).find(i => i.period === '2027-01'); assert.equal(january.status, 'draft'); assert.match(january.auto_exception, /rule changed after the consent/);
+    // The holder consents again to the new revision with a cap below the price: over the cap is a draft plus a named exception.
+    const revised = (await h.json('/invoices', undefined, h.owner)).retainers.find(r => r.id === rule.id);
+    await h.json(`/invoice-retainers/${rule.id}/auto-consent`, { ...consent, revision: revised.revision, capCents: 15000 }, s.reviewer);
+    await h.scheduled('2027-02-28T15:00:00Z');
+    const february = (await periods()).find(i => i.period === '2027-02'); assert.equal(february.status, 'draft'); assert.match(february.auto_exception, /exceeds the consented cap USD 150\.00/);
+    // A demoted consenter: the next period is a draft too, naming the lost authority.
+    await h.json('/access/delegations', { email: 'reviewer@example.test', permissions: [], reason: 'Duties moved' }, h.owner);
+    await h.json(`/invoice-retainers/${rule.id}/auto-consent`, { ...consent, revision: revised.revision }, s.reviewer, 403);
+    await h.scheduled('2027-03-28T15:00:00Z');
+    const march = (await periods()).find(i => i.period === '2027-03'); assert.equal(march.status, 'draft'); assert.match(march.auto_exception, /no longer holds financial authority/);
+    assert.equal(h.mails.length, mailsBefore + 2, 'No run past the exceptions sent anything');
+    // A restore brings the rule back paused and without consent.
+    await h.stepUp(h.owner);
+    const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    restored = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-8' } });
+    await restored.json('/restore', { archive, confirm: 'RESTORE', acknowledge }, restored.owner);
+    const carried = (await restored.json('/invoices', undefined, restored.owner)).retainers.find(r => r.id === rule.id);
+    assert.equal(carried.status, 'paused'); assert.equal(carried.autoConsent, null);
+    const quiet = restored.mails.length; await restored.scheduled('2027-04-28T15:00:00Z'); assert.equal(restored.mails.length, quiet, 'A restored rule neither generates nor sends');
+  } finally { await restored?.close(); await h.close(); }
 });

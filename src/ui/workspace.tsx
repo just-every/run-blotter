@@ -53,7 +53,7 @@ export function Workspace() {
     <header className="topbar">
       <a className="brand" href="/app"><img src="/brand/mark-32.svg" alt="" width="30" height="30" /><span data-rer-name>Blotter</span></a>
       <nav aria-label="Workspace" className="tabs">
-        {(actor && !gate ? (actor.readOnly || actor.accessScoped ? ['Inbox','Jobs','Team & safety'] as Tab[] : visible(actor.role)) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => go(t)}>{t}</button>)}
+        {(actor && !gate ? (actor.readOnly || actor.accessScoped ? ['Inbox','Jobs',...(actor.financial&&!actor.readOnly?['Time & billing']:[]),'Team & safety'] as Tab[] : visible(actor.role)) : []).map(t => <button key={t} className={t === tab ? 'selected' : ''} aria-current={t === tab ? 'page' : undefined} onClick={() => go(t)}>{t}</button>)}
       </nav>
       {state && !gate && <Search state={state} run={run} open={open} />}
       {actor && <Account actor={actor} />}

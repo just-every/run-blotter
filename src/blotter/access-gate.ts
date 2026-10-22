@@ -21,10 +21,13 @@ const resources:Record<string,string>={
   rules:'SELECT client_id FROM b_recurrence_rules WHERE id=?',
   signatures:'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   invoices:'SELECT client_id FROM b_invoices WHERE id=?',
+  'invoice-retainers':'SELECT client_id FROM b_invoice_retainers WHERE id=?',
+  'invoice-deliveries':'SELECT i.client_id FROM b_invoice_deliveries d JOIN b_invoices i ON i.id=d.invoice_id WHERE d.id=?',
 };
-// Financial authority opens the firm financial report to a scoped holder; it covers only the clients the holder holds.
-const financialReads = new Set(['/reports/performance','/reports/performance/csv','/reports/performance/pdf']);
-const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents|delegations)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority)/.test(path);
+// Financial authority opens these firm-wide doors to a scoped holder; each reads or writes only the clients the holder holds.
+const financialReads = new Set(['/invoices','/reports/performance','/reports/performance/csv','/reports/performance/pdf']);
+const financialCreates = ['/invoices/preview','/invoices','/invoice-entitlements','/invoice-credits','/invoice-retainers'];
+const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents|delegations)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority|invoice-retainers\/[^/]+\/auto-consent)/.test(path);
 const exporting = (path:string) => /^\/(backup|portability\/exports|erasure-journal|exports($|\/)|reports\/.*\/(csv|pdf)$|team\/mfa-report|invoices\/[^/]+\/pdf$)/.test(path);
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');
@@ -55,13 +58,13 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
     const value=await stmt(db,'SELECT j.client_id FROM b_deliverable_versions v JOIN b_jobs j ON j.id=v.job_id WHERE v.id=?',path.split('/')[3]).first<Data>();
     insist(value,'Not found',404);await requireClient(db,actor,value.client_id);return;
   }
-  if(resources[kind] && key) {
+  if(resources[kind] && key && !(write && actor.financial && financialCreates.includes(path))) {
     const value=await stmt(db,resources[kind],decodeURIComponent(key)).first<Data>();
     insist(value,'Not found',404);await requireClient(db,actor,value.client_id);return;
   }
   // New writes often carry their target in the body. Only these established
   // resource-creation doors accept that authority; unknown doors fail closed.
-  if(write && (['/jobs','/plan','/notices','/rules','/prepare-reminder','/prepare-rollforward'].includes(path))) {
+  if(write && (['/jobs','/plan','/notices','/rules','/prepare-reminder','/prepare-rollforward'].includes(path) || (actor.financial && financialCreates.includes(path)))) {
     const body=await request.clone().json() as Data;
     if(body.clientId) {await requireClient(db,actor,String(body.clientId));return;}
     if(body.jobId) {const j=await stmt(db,'SELECT client_id FROM b_jobs WHERE id=?',String(body.jobId)).first<Data>();insist(j,'Not found',404);await requireClient(db,actor,j.client_id);return;}

@@ -5,7 +5,7 @@ import type {Bindings} from '../auth.server';
 import {invoiceState,selectInvoiceAuthority,previewInvoice,prepareInvoice,invoiceDetail,issueInvoice,voidInvoice,downloadInvoice} from './invoices';
 import {authorizeInvoiceEntitlement} from './invoices-sources';
 import {recordInvoiceCredit,allocateInvoiceCredit} from './invoices-credits';
-import {createInvoiceRetainer,generateRetainerInvoice,previewRetainerAmendment,amendInvoiceRetainer,setInvoiceRetainerStatus} from './invoices-retainers';
+import {createInvoiceRetainer,generateRetainerInvoice,previewRetainerAmendment,amendInvoiceRetainer,setInvoiceAutoConsent,setInvoiceRetainerStatus} from './invoices-retainers';
 import {previewInvoiceDelivery,sendInvoice,reconcileInvoiceDelivery,invoicePortalView,invoicePortalPdf} from './invoices-delivery';
 export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:any){
  const P='/api/blotter';
@@ -27,6 +27,7 @@ export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:a
  api.post(`${P}/invoice-retainers/:id/generate`,as(async(a:any,c:any)=>generateRetainerInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoice-retainers/:id/amendment-preview`,as(async(a:any,c:any)=>previewRetainerAmendment(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoice-retainers/:id/amend`,as(async(a:any,c:any)=>amendInvoiceRetainer(db(c),a,param(c),await body(c))));
+ api.post(`${P}/invoice-retainers/:id/auto-consent`,as(async(a:any,c:any)=>setInvoiceAutoConsent(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoice-retainers/:id/status`,as(async(a:any,c:any)=>setInvoiceRetainerStatus(db(c),a,param(c),await body(c))));
  api.get(`${P}/invoice-portal/:token`,async c=>c.json(await invoicePortalView(db(c),c.req.param('token'))));
  api.get(`${P}/invoice-portal/:token/pdf`,async c=>invoicePortalPdf(db(c),c.req.param('token')));

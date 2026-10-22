@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, day, Empty, Field, Form, money, prose, Status, today, when, type Row, type Run } from './common';
+import { api, day, Empty, Field, Form, money, prose, Status, today, when, type Row, type Run, ExportLink } from './common';
 
 function InvoiceLines({ snapshot }: { snapshot: Row }) {
   return <div className="stack">
@@ -28,19 +28,21 @@ function InvoiceRecord({ item, contacts, owner, run, tick }: { item: Row; contac
   return <article className="record">
     <div className="split"><strong>{item.number ? `INV-${String(item.number).padStart(6, '0')}` : 'Draft'} · {item.title}</strong><Status value={item.status} /></div>
     <p>Issued amount {money(item.total_cents)} · balance {money(item.balance_cents)} · due {day(item.due_date)}</p>
+    {item.auto_revision !== null && item.auto_revision !== undefined && <p>Auto-issued under rule revision {item.auto_revision}.</p>}
+    {item.auto_exception && <p role="status"><strong>Automatic issue and send held:</strong> {item.auto_exception}</p>}
     <details onToggle={event => setOpened(event.currentTarget.open)}><summary>Review invoice, sources and history</summary>
       {detail && <div className="stack">
         {detail.snapshot.erased ? <p>Personal snapshot erased after confirmed retention expiry.</p> : <InvoiceLines snapshot={detail.snapshot} />}
         <p>Prepared by {detail.prepared_by} {when(detail.prepared_at)}{detail.issued_by && ` · issued by ${detail.issued_by} ${when(detail.issued_at)}`}</p>
-        {item.number && !item.erased_at && <p><a className="button" href={`/api/blotter/invoices/${item.id}/pdf`}>Download invoice PDF</a></p>}
+        {item.number && !item.erased_at && <p><ExportLink className="button" href={`/api/blotter/invoices/${item.id}/pdf`}>Download invoice PDF</ExportLink></p>}
         {owner && detail.status === 'draft' && <Form label="Approve and issue numbered PDF" submit={data => run(() => api(`/invoices/${item.id}/issue`, { ...data, revision: detail.revision, snapshotHash: detail.snapshotHash }), 'Invoice issued with fixed PDF and source links')}><Field label="Approval note" name="reviewNote" /></Form>}
         {owner && detail.status === 'issued' && !detail.erased_at && <>
           <Form label="Preview invoice delivery" submit={async data => run(async () => { const input = { ...data, previousDeliveryId: last?.id }; setSendInput(input); setSendPreview(await api(`/invoices/${item.id}/delivery-preview`, input)); })}>
             <Field label="Invoice recipient" name="contactId"><select name="contactId" defaultValue={detail.snapshot.recipient?.id}>{contacts.filter(c => c.client_id === detail.client_id).map(c => <option key={c.id} value={c.id}>{c.name} · {c.email}</option>)}</select></Field>
             {last && <Field label="Reason to deliver again" name="resendReason" />}
           </Form>
-          {sendPreview && <div className="record"><p>Send {sendPreview.subject} to <strong>{sendPreview.recipient.name} · {sendPreview.recipient.email}</strong>, with the approved PDF and a private invoice link.</p>
-            <button onClick={() => run(async () => { await api(`/invoices/${item.id}/send`, { ...sendInput, previewHash: sendPreview.previewHash }); setSendPreview(undefined); }, 'Invoice delivery recorded')}>Deliver PDF and portal invoice</button></div>}
+          {sendPreview && <div className="record"><p>Send {sendPreview.subject} to <strong>{sendPreview.recipient.name} · {sendPreview.recipient.email}</strong>, with the approved PDF{sendPreview.recipient.portal ? ' and a private invoice link' : ' by email only (this contact has no portal access)'}.</p>
+            <button onClick={() => run(async () => { await api(`/invoices/${item.id}/send`, { ...sendInput, previewHash: sendPreview.previewHash }); setSendPreview(undefined); }, 'Invoice delivery recorded')}>{sendPreview.recipient.portal ? 'Deliver PDF and portal invoice' : 'Deliver PDF by email'}</button></div>}
           {last && ['dispatching', 'held'].includes(last.status) && <Form label="Record provider reconciliation" submit={data => run(() => api(`/invoice-deliveries/${last.id}/reconcile`, data), 'Provider outcome recorded; no email replayed')}>
             <Field label="Provider outcome" name="outcome"><select name="outcome"><option value="accepted">Provider accepted</option><option value="not_sent">Provider confirms not sent</option></select></Field><Field label="Provider evidence and reason" name="evidence" />
           </Form>}
@@ -54,11 +56,11 @@ function InvoiceRecord({ item, contacts, owner, run, tick }: { item: Row; contac
   </article>;
 }
 
-function RetainerRecord({ item, amendments, owner, run }: { item: Row; amendments: Row[]; owner: boolean; run: Run }) {
+function RetainerRecord({ item, amendments, contacts, owner, run }: { item: Row; amendments: Row[]; contacts: Row[]; owner: boolean; run: Run }) {
   const [preview, setPreview] = useState<Row>(), [input, setInput] = useState<Row>();
   const definition = JSON.parse(item.definition);
   return <article className="record"><div className="split"><strong>{item.title} · {money(definition.amountCents ?? 0)} monthly</strong><Status value={item.status} /></div>
-    <p>From {item.start_month}; bill on day {definition.billDay}, due {definition.dueDays} days later. Drafts require principal approval.{item.cancelled_from && ` Cancelled from ${item.cancelled_from}.`}</p>
+    <p>From {item.start_month}; bill on day {definition.billDay}, due {definition.dueDays} days later. {item.autoConsent ? <> Automatic issue and send is allowed for rule revision {item.autoConsent.ruleRevision} by {item.autoConsent.consentedBy}: up to {money(item.autoConsent.capCents)} per invoice, to one recipient. {item.autoConsent.reason}</> : ' Drafts need a person to issue and send them.'}{item.cancelled_from && ` Cancelled from ${item.cancelled_from}.`}</p>
     {owner && <details><summary>Generate or amend this retainer</summary>
       <Form label="Generate monthly draft" submit={data => run(() => api(`/invoice-retainers/${item.id}/generate`, data), 'Monthly draft found or generated once')}><Field label="Billing month" name="period" type="month" value={today().slice(0, 7)} /></Form>
       <Form label="Preview fee amendment" submit={data => run(async () => { setInput(data); setPreview(await api(`/invoice-retainers/${item.id}/amendment-preview`, data)); })}>
@@ -71,6 +73,13 @@ function RetainerRecord({ item, amendments, owner, run }: { item: Row; amendment
       {preview && <div className="record"><h4>Fee amendment preview</h4><p>Effective {preview.effectiveMonth}: {preview.action === 'cancel' ? 'Cancel future monthly fees' : <>{money(preview.before.amountCents)} → {money(preview.after.amountCents)} monthly</>}.</p>
         <p>{preview.retainedEntitlements.length} existing entitlements keep their recorded prices and source links. {preview.proration}</p><p>{preview.reason}</p>
         <button onClick={() => run(async () => { await api(`/invoice-retainers/${item.id}/amend`, { ...input, previewHash: preview.previewHash }); setPreview(undefined); }, 'Retainer amendment recorded')}>Approve fee amendment</button></div>}
+      {item.status === 'active' && <>
+        <Form label="Allow automatic issue and send for this rule revision" submit={data => run(() => api(`/invoice-retainers/${item.id}/auto-consent`, { ...data, revision: item.revision }), 'Automatic issue and send allowed for this rule revision')}>
+          <p className="muted">Each run rechecks your authority, the rule, the recipient's billing role and email consent. It issues and sends only within the cap with no exception; otherwise it leaves a draft naming the exception. Any change to the rule ends this consent.</p>
+          <Field label="Per-invoice cap in USD cents" name="capCents" type="number" /><Field label="Recipient" name="contactId"><select name="contactId">{contacts.filter(c => c.client_id === item.client_id).map(c => <option key={c.id} value={c.id}>{c.name} · {c.email}</option>)}</select></Field><Field label="Reason recorded in audit" name="reason" />
+        </Form>
+        {item.autoConsent && <Form label="Stop automatic issue and send" submit={data => run(() => api(`/invoice-retainers/${item.id}/auto-consent`, { enabled: false, revision: item.revision }), 'Automatic issue and send stopped')}><span /></Form>}
+      </>}
       <Form label={item.status === 'active' ? 'Pause monthly drafts' : 'Review and activate monthly drafts'} submit={data => run(() => api(`/invoice-retainers/${item.id}/status`, { ...data, status: item.status === 'active' ? 'paused' : 'active', revision: item.revision }), 'Retainer schedule reviewed')}><Field label="Rule review and reason" name="reason" /></Form>
     </details>}
     <ul>{amendments.filter(a => a.retainer_id === item.id).map(a => <li key={a.id}>Effective {a.effective_month}: {a.reason} · {a.authorized_by} · {when(a.authorized_at)}</li>)}</ul>
@@ -81,11 +90,11 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
   const [state, setState] = useState<Row>(), [jobId, setJobId] = useState(''), [chosen, setChosen] = useState<string[]>([]), [preview, setPreview] = useState<Row>(), [input, setInput] = useState<Row>();
   useEffect(() => { api('/invoices').then(setState).catch(e => run(async () => { throw e; })); }, [tick]);
   if (!state) return <p>Opening invoices…</p>;
-  const owner = actor.role === 'owner', job = jobs.find(j => j.id === jobId), clientId = job?.client_id, contacts = state.contacts.filter((c: Row) => c.client_id === clientId);
+  const principal = actor.role === 'owner', owner = !!actor.financial, job = jobs.find(j => j.id === jobId), clientId = job?.client_id, contacts = state.contacts.filter((c: Row) => c.client_id === clientId);
   return <section className="panel stack"><h2>Invoices and retainers</h2>
-    <p>Native USD invoices separate fee entitlement from work completion. The principal approves supplied tax treatment, sources, credits and recipients before issuing a numbered PDF.</p>
+    <p>Native USD invoices separate fee entitlement from work completion. The principal, or a member with financial authority, approves supplied tax treatment, sources, credits and recipients before issuing a numbered PDF.</p>
     <p>Invoice authority: <strong>{state.settings ? 'Blotter' : 'Not selected'}</strong></p>
-    {owner && !state.settings && <Form label="Select Blotter invoice authority" submit={data => run(() => api('/invoices/authority', { ...data, authority: 'blotter' }), 'Blotter selected as the invoice authority')}><Field label="Authority decision" name="reason" /></Form>}
+    {principal && !state.settings && <Form label="Select Blotter invoice authority" submit={data => run(() => api('/invoices/authority', { ...data, authority: 'blotter' }), 'Blotter selected as the invoice authority')}><Field label="Authority decision" name="reason" /></Form>}
     {owner && state.settings && <>
       <Field label="Invoice work item" name="invoiceJob"><select name="invoiceJob" value={jobId} onChange={e => { setJobId(e.target.value); setChosen([]); setPreview(undefined); }}><option value="">Choose work</option>{jobs.filter(j => j.currency === 'USD').map(j => <option key={j.id} value={j.id}>{clients.find(c => c.id === j.client_id)?.name} · {j.title} · {j.period_label}</option>)}</select></Field>
       {job && <>
@@ -113,7 +122,7 @@ export function Invoices({ actor, jobs, clients, run, tick }: { actor: Row; jobs
         </Form></details>
       </>}
     </>}
-    <h3>Monthly retainers</h3>{!state.retainers.length && <Empty>No monthly retainers.</Empty>}{state.retainers.map((r: Row) => <RetainerRecord key={r.id} item={r} amendments={state.amendments} owner={owner} run={run} />)}
+    <h3>Monthly retainers</h3>{!state.retainers.length && <Empty>No monthly retainers.</Empty>}{state.retainers.map((r: Row) => <RetainerRecord key={r.id} item={r} amendments={state.amendments} contacts={state.contacts} owner={owner} run={run} />)}
     <h3>Invoice documents</h3>{!state.invoices.length && <Empty>No invoice documents.</Empty>}{state.invoices.map((i: Row) => <InvoiceRecord key={i.id} item={i} contacts={state.contacts} owner={owner} run={run} tick={tick} />)}
   </section>;
 }

@@ -43,6 +43,7 @@ export async function invoicePdf(snapshot: Data, number: number) {
   add(`Amount due at issue: ${usd(snapshot.totalCents)}`, true);
   add(''); add(`Terms: ${snapshot.terms}`);
   add(`Approved by: ${snapshot.approvedBy}`);
+  if (snapshot.autoIssued) add(`This invoice was auto-issued under rule revision ${snapshot.autoIssued.ruleRevision}`, true);
   let page = doc.addPage([612, 792]), y = 744, pageNumber = 1;
   const footer = () => page.drawText(`${invoiceNumber(number)} | Page ${pageNumber}`, { x: 42, y: 28, size: 9, font: regular, color: rgb(.35, .35, .35) });
   for (const line of lines) {

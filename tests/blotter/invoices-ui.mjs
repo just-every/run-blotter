@@ -7,6 +7,8 @@ export async function invoiceJourney(h, fixture, rule) {
   const directory = process.env.BLOTTER_INVOICE_EVIDENCE;
   if (!directory) return;
   await mkdir(directory, { recursive: true });
+  // Downloads and the consent below are export/administration doors: this session confirms its second factor first.
+  await h.stepUp(h.owner);
   const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
@@ -31,6 +33,11 @@ export async function invoiceJourney(h, fixture, rule) {
     const retainer = panel.locator('article.record').filter({ has: page.getByText(rule.definition ? 'Monthly bookkeeping retainer' : rule.title, { exact: false }) }).filter({ has: page.getByText('Generate or amend this retainer', { exact: true }) });
     // The page shows both recorded monthly invoices and the retainer's retained amendment history.
     await retainer.getByText('Generate or amend this retainer', { exact: true }).click();
+    await retainer.getByLabel('Per-invoice cap in USD cents', { exact: true }).fill('15000');
+    await retainer.getByLabel('Reason recorded in audit', { exact: true }).fill('Client agreement authorizes automatic monthly invoices up to USD 150');
+    await retainer.getByRole('button', { name: 'Allow automatic issue and send for this rule revision', exact: true }).click();
+    await page.getByRole('status').filter({ hasText: 'Automatic issue and send allowed for this rule revision' }).waitFor();
+    await retainer.getByText('Automatic issue and send is allowed for rule revision', { exact: false }).waitFor();
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 }); await retainer.scrollIntoViewIfNeeded();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);

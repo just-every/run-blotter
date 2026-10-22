@@ -52,7 +52,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async scheduled(controller, env) {
     await clearIntakeChecks(env.DB)
     await purgeDocumentUploads(env.DB,new Date(controller.scheduledTime).toISOString())
-    await runInvoiceSchedules(env.DB,new Date(controller.scheduledTime))
+    await runInvoiceSchedules(env,new Date(controller.scheduledTime))
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await runAutomation(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))
