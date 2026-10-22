@@ -22,6 +22,7 @@ const resources:Record<string,string>={
   signatures:'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   invoices:'SELECT client_id FROM b_invoices WHERE id=?',
   'invoice-retainers':'SELECT client_id FROM b_invoice_retainers WHERE id=?',
+  authorizations:'SELECT client_id FROM b_authorizations WHERE id=?',
   'invoice-deliveries':'SELECT i.client_id FROM b_invoice_deliveries d JOIN b_invoices i ON i.id=d.invoice_id WHERE d.id=?',
 };
 // Financial authority opens these firm-wide doors to a scoped holder; each reads or writes only the clients the holder holds.

@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {inflateSync} from 'node:zlib';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
-import {signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
+import {authorizationJourney,signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
@@ -152,5 +152,50 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
   await h.json(`/signatures/${second.id}/void`,{revision:(await h.json(`/signatures/${second.id}`,undefined,f.prep)).revision,reason:'Superseded'},f.prep);
   await sign(h,t2,second.id,v2,409);await h.json(`/signatures/${second.id}/staff-sign`,signBody(await h.json(`/signatures/${second.id}/signing`,undefined,f.prep)),f.prep,409);
   await signatureAuthorityJourney(h,f,poa);
+ }finally{await h.close();}
+});
+
+test('AUTHZ-001 / SIGN-002 / DUE-002: a signed and attested 2848 is submitted online and recorded; it scopes transcript requests and agency contact by form and year, and withdrawing it flags the notice work and refuses new requests',async()=>{
+ const h=await harness();try{
+  const f=await fixture(h),rep='staff:'+prepEmail,client=f.client.contacts[0];
+  const pdf=async lines=>{const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),page=doc.addPage([612,792]);lines.forEach((line,i)=>page.drawText(line,{x:40,y:740-i*20,font,size:12}));return Buffer.from(await doc.save()).toString('base64');};
+  const own=[{type:'signature',contactId:client.id,page:1,x:40,y:300,width:240,height:28,label:'Taxpayer signature'},{type:'signature',contactId:rep,page:1,x:320,y:300,width:240,height:28,label:'Representative signature'}];
+  const d=await h.json(`/jobs/${f.job.id}/signatures`,{title:'Power of attorney 2022-2025',formKind:'general',requiresKba:false,mode:'sequential',contactIds:[client.id,rep],fields:own,file:{name:'poa.pdf',mime:'application/pdf',contentBase64:await pdf(['Form 2848 Power of Attorney and Declaration of Representative','Form 1040, 2022 through 2025'])}},f.prep);
+  const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep),t=token(r.invitations[0]);
+  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
+  await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
+  const general=await sent(h,f,{title:'synthetic-blotter-20'});await complete(h,general);
+  // The principal records the authorization and its lifecycle; a preparer cannot.
+  const body={kind:'2848',representative:'Pat Harper',representativeEmail:prepEmail,matters:[{form:'Form 1040',from:2022,to:2025}]};
+  await h.json(`/clients/${f.client.id}/authorizations`,body,f.prep,403);
+  let a=await h.json(`/clients/${f.client.id}/authorizations`,body,h.owner);assert.deepEqual(a.matters,[{form:'1040',from:2022,to:2025,matter:'Income'}]);
+  await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner,409);
+  await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:general.id},h.owner,409);
+  a=await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:r.id},h.owner);assert.equal(a.signature_id,r.id);
+  assert.match((await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'fax',submittedOn:'2026-10-22'},h.owner,409)).error,/IRS\.gov\/Submit2848/);
+  a=await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner);
+  await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.prep,409);
+  a=await h.json(`/authorizations/${a.id}/status`,{revision:a.revision,status:'recorded',cafNumber:'0300-12345R'},h.owner);assert.deepEqual([a.status,a.caf_number],['recorded','0300-12345R']);
+  // Scope: a 2021 transcript is refused, a 2024 transcript proceeds.
+  assert.match((await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2021},f.prep,409)).error,/outside the authorization's scope/);
+  const transcript=await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024,transcriptType:'Account transcript'},f.prep);assert.equal(transcript.status,'requested');
+  // Agency contact on notices follows the same scope.
+  const file=(await h.json(`/requests/${(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).requests[0].id}/files`,{name:'cp2000.pdf',mime:'application/pdf',contentBase64:Buffer.from('%PDF synthetic-blotter-21').toString('base64')},f.prep));
+  const fileId=file.id??(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).requests[0].files.at(-1).id;
+  const notice=period=>h.json('/notices',{fileId,agency:'IRS',jurisdiction:'federal',noticeType:'CP2000',taxPeriod:period,noticeDate:'2026-10-01',responseDue:'2026-10-30',assigneeEmail:prepEmail},h.owner);
+  const covered=(await notice('2023')).notice.id,outside=(await notice('2021')).notice.id;
+  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',note:'Called the practitioner priority line about the 2023 CP2000'},f.prep);
+  assert.match((await h.json(`/notices/${outside}/events`,{kind:'agency_contact',note:'Call about 2021'},f.prep,409)).error,/outside the authorization's scope/);
+  // Withdrawal flags the dependent notice work and refuses new transcript requests.
+  const withdrawn=await h.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Client revoked the power of attorney'},h.owner);
+  assert.deepEqual(withdrawn.flaggedNotices,[covered]);
+  assert.ok((await h.json(`/notices/${covered}`,undefined,f.prep)).events.some(e=>e.kind==='note'&&/Authorization withdrawn/.test(e.note)));
+  await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.prep,409);
+  await h.json(`/notices/${covered}/events`,{kind:'agency_contact',note:'Follow-up call'},f.prep,409);
+  const state=await h.json(`/clients/${f.client.id}/authorizations`,undefined,f.prep);
+  assert.deepEqual([state.authorizations[0].status,state.transcripts[0].status],['withdrawn','withdrawn']);
+  const history=(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.map(e=>e.action);
+  for(const action of ['authorization.created','authorization.signed','authorization.submitted','authorization.recorded','authorization.transcript_requested','authorization.withdrawn'])assert.ok(history.includes(action),action);
+  await authorizationJourney(h,f);
  }finally{await h.close();}
 });
