@@ -186,7 +186,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     // The keyboard-only journey needs a pending Spanish signature request on the contact's newest link.
     const kbDraft = await h.json(`/jobs/${job.id}/signatures`, { title: 'Carta de firma por teclado', formKind: 'management representation', requiresKba: false, mode: 'parallel', contactIds: [maria.id], fields: fields(maria), file }, prep);
     const kb = await h.json(`/signatures/${kbDraft.id}/send`, { revision: kbDraft.revision }, prep);
-    await languageJourney(h, { job, client, maria, englishOnly, kbToken: tokenOf(kb.invitations[0]), kbId: kb.id });
+    await languageJourney(h, { job, requestJob: next, client, maria, englishOnly, kbToken: tokenOf(kb.invitations[0]), kbId: kb.id });
 
     // A restore carries each contact's language and the Spanish template versions.
     await h.stepUp(h.owner);

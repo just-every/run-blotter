@@ -31,7 +31,7 @@ async function tabTo(page, locator, name) {
  * PORTAL-005 browser proof at 1440 and 390: the Spanish client page passes an automated WCAG 2.2 AA scan, and an upload and a
  * signature are completed with the keyboard alone (the OS file chooser is the only step that is not a key press).
  */
-export async function languageJourney(h, { job, client, maria, englishOnly, kbToken, kbId }) {
+export async function languageJourney(h, { job, requestJob, client, maria, englishOnly, kbToken, kbId }) {
   const directory = process.env.BLOTTER_LANGUAGE_EVIDENCE;
   if (!directory) return;
   await mkdir(directory, { recursive: true });
@@ -119,7 +119,7 @@ export async function languageJourney(h, { job, client, maria, englishOnly, kbTo
     await organizers.locator('select').first().selectOption(job.template_id);
     await organizers.getByLabel('Spanish organizer name (optional)', { exact: true }).waitFor();
     await capture(organizers, 'organizer-translation');
-    await operator.goto(`${h.origin}/app?job=${job.id}`);
+    await operator.goto(`${h.origin}/app?job=${requestJob.id}`);
     const composer = operator.locator('details').filter({ has: operator.getByText('Send a reminder with an upload link', { exact: true }) }).first();
     await composer.locator('summary').first().click();
     await composer.getByLabel('Recipient for this entity', { exact: true }).selectOption(maria.id);
