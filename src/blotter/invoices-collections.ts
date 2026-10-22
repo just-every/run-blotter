@@ -32,7 +32,14 @@ export async function reminderState(db: D1Database, actor: Actor) {
   const clients = await rows(db, 'SELECT r.* FROM b_invoice_reminder_clients r JOIN b_clients c ON c.id=r.client_id WHERE c.erased_at IS NULL ORDER BY r.set_at');
   const mine: Data[] = [];
   for (const c of clients) if (await canAccessClient(db, actor.email, c.client_id)) mine.push({ ...c, offsets: c.offsets ? JSON.parse(c.offsets) : null });
-  return { policy: policy ? { ...policy, offsets: JSON.parse(policy.offsets) } : null, clients: mine };
+  // PORTAL-005: billing contacts on open invoices who read Spanish get the template's Spanish version; staff are warned when it has none.
+  const spanishRecipients = Number((await stmt(db, `SELECT count(DISTINCT c.id) n FROM b_invoices i JOIN b_client_contacts c ON c.id=json_extract(i.snapshot,'$.recipient.id') AND c.client_id=i.client_id
+    WHERE i.status='issued' AND i.erased_at IS NULL AND ${balanceSql}>0 AND c.active=1 AND c.language='es'`).first<Data>())?.n ?? 0);
+  const untranslated = policy?.status === 'active' && spanishRecipients > 0
+    && !await stmt(db, "SELECT 1 FROM b_msg_template_translations WHERE template_id=? AND version=? AND language='es'", policy.template_id, policy.template_version).first();
+  const name = untranslated ? (await stmt(db, 'SELECT name FROM b_msg_templates WHERE id=?', policy!.template_id).first<Data>())?.name ?? 'The reminder template' : '';
+  const warnings = untranslated ? [{ kind: 'no_translation', language: 'es', message: `${name} version ${policy!.template_version} has no Spanish version: ${spanishRecipients} billing contact${spanishRecipients === 1 ? ' who reads' : 's who read'} Spanish would receive the English reminder. Add its Spanish version, or pause the schedule.` }] : [];
+  return { policy: policy ? { ...policy, offsets: JSON.parse(policy.offsets) } : null, clients: mine, spanishRecipients, warnings };
 }
 
 /** Enabling the schedule is the consent: who, which template version, which steps and why, audited and step-up confirmed. */

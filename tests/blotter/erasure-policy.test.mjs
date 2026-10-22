@@ -157,6 +157,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.match(erased.name, /^Erased client [0-9a-f]{8}$/);
     assert.ok(!erased.name.includes(id.slice(0, 8)), 'The label is random, not derived from the id');
     assert.ok(erased.contacts.every(c => /^Erased contact [0-9a-f]{8}$/.test(c.name)));
+    assert.ok(erased.contacts.every(c => c.language === 'en'), 'A contact language preference (PORTAL-005) is erased with the contact');
     for (const door of ['/state', '/inbox', '/search?q=Cedar', '/search?q=123456789', '/agent/context', `/clients/${id}/history`]) {
       const text = JSON.stringify(await h.json(door, undefined, door === '/agent/context' ? '' : h.owner, 200, door === '/agent/context' ? bearer : {}));
       assert.ok(!text.includes(IDENTITY.name) && !text.includes(IDENTITY.address) && !text.includes('Cedar Lane'), `${door} shows no legal name: ${text.slice(Math.max(0, text.indexOf('Cedar Lane') - 200), text.indexOf('Cedar Lane') + 100)}`);

@@ -15,6 +15,7 @@ import { firmSettings } from './firm';
 import { issueLink } from './documents';
 import { issueBulkOrganizer, organizerAttachment, recheckOrganizer } from './bulk-organizers';
 import { LINK_PREVIEW, localize, render, templateFiles, usable, valuesFor } from './messages';
+import { tr } from '../i18n/catalog';
 import { marketingGrantSql, marketingHold, withdrawnSql } from './marketing-consent';
 import { Fault, atomic, audit, digest, human, id, insist, integer, need, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
@@ -303,11 +304,12 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
         }
       }
       if (b.class === 'marketing') {
-        const token = secret('us_');
-        const link = unsubscribe = `${origin}/unsubscribe?t=${token}`;
+        // The footer and the unsubscribe page read in the recipient's language (PORTAL-005, MSG-002).
+        const token = secret('us_'), language = localized.language, lang = language === 'en' ? '' : `&lang=${language}`;
+        const link = unsubscribe = `${origin}/unsubscribe?t=${token}${lang}`;
         await stmt(db, 'INSERT INTO b_unsubscribe_tokens(digest,recipient_id,address,created_at) VALUES(?,?,?,?)', await digest(token), r.id, r.address, now()).run();
-        const footer = ['', '--', `You receive marketing email from ${firm.name || 'this practice'} because you opted in. Unsubscribe: ${link}`, postalAddress(firm)].join('\n');
-        message += '\n' + footer; stored += '\n' + footer.replace(link, `${origin}/unsubscribe?t=…`);
+        const footer = ['', '--', tr(language, 'mail.marketing.footer', { firm: firm.name || tr(language, 'unsub.thisPractice'), url: link }), postalAddress(firm)].join('\n');
+        message += '\n' + footer; stored += '\n' + footer.replace(link, `${origin}/unsubscribe?t=…${lang}`);
       }
       const outcome = await deliver(env, r.id, r.address, rendered.subject, message, files, unsubscribe);
       if (r.organizer_id) await stmt(db, 'UPDATE b_organizer_deliveries SET delivery=? WHERE id=?', outcome.delivery, 'bulk:' + r.id).run();

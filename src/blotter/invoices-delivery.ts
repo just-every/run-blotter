@@ -5,6 +5,7 @@ import { recipientFor } from './client-recipients';
 import { sendMail } from './documents';
 import { atomic, audit, digest, guard, id, insist, now, rows, secret, stmt, text, type Actor, type Data } from './model';
 import { invoiceNumber, invoicePdfResponse } from './invoices-pdf';
+import { isLanguage, tr, type Key } from '../i18n/catalog';
 import { invoiceDetail, invoiceRecipientGuard } from './invoices';
 import { billed, invoiceAuthority, invoiceAuthorityGuard, invoiceDischargedSql, invoiceHuman } from './invoices-sources';
 
@@ -35,9 +36,10 @@ export async function sendInvoice(env: Bindings, actor: Actor, invoiceId: string
   insist(invoice?.pdf_base64, 'Invoice PDF was erased or is unavailable', 409);
   const deliveryId = id(), token = secret('iv_'), at = now(), expiresAt = new Date(Date.now() + 30 * 86_400_000).toISOString(), portalUrl = `${bindings.AUTH_ORIGIN}/invoice/${token}`;
   // A billing contact without portal access receives the PDF by email alone: the stored link is revoked at claim time and never shared.
-  const spanish = preview.recipient.language === 'es', amount = `USD ${(preview.amountCents / 100).toFixed(2)}`;
-  const message = (spanish ? `Hola ${preview.recipient.name},\n\nAdjuntamos la factura ${invoiceNumber(invoice.number)}. Importe a pagar: ${amount}. Fecha de vencimiento: ${preview.dueDate}.` : `Hello ${preview.recipient.name},\n\nPlease find ${invoiceNumber(invoice.number)} attached. Amount due: ${amount}. Due date: ${preview.dueDate}.`)
-    + (preview.recipient.portal ? (spanish ? `\n\nPortal de facturas: ${portalUrl}\nEste enlace privado vence el ${expiresAt.slice(0, 10)}.` : `\n\nInvoice portal: ${portalUrl}\nThis private link expires on ${expiresAt.slice(0, 10)}.`) : '');
+  // The mail reads in the billing contact's language (PORTAL-005); the PDF stays as issued.
+  const T = (key: Key, vars: Record<string, string | number> = {}) => tr(isLanguage(preview.recipient.language) ? preview.recipient.language : 'en', key, vars);
+  const message = `${T('mail.hello', { name: preview.recipient.name })}\n\n${T('mail.invoice.body', { number: invoiceNumber(invoice.number), amount: `USD ${(preview.amountCents / 100).toFixed(2)}`, due: preview.dueDate })}`
+    + (preview.recipient.portal ? `\n\n${T('mail.invoice.portal', { url: portalUrl })}\n${T('mail.invoice.expires', { date: expiresAt.slice(0, 10) })}` : '');
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_invoices WHERE id=? AND revision=? AND status='issued' AND erased_at IS NULL)
     AND NOT EXISTS(SELECT 1 FROM b_invoice_deliveries WHERE invoice_id=? AND status IN ('dispatching','held'))
     AND COALESCE((SELECT id FROM b_invoice_deliveries WHERE invoice_id=? ORDER BY sent_at DESC,id DESC LIMIT 1),'')=?`, invoiceId, preview.revision, invoiceId, invoiceId, preview.previousDeliveryId ?? '');

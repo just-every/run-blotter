@@ -41,7 +41,7 @@ export async function signedOff(h, s, job, file) {
 export async function build(h) {
   const s = await team(h);
   await h.json('/clients/fields', { key: 'street_address', label: 'Street address', type: 'text' }, h.owner);
-  const client = await h.json('/clients', { name: IDENTITY.name, ein: IDENTITY.ein, contacts: [contact('Alex Owner', 'alex@example.test'), contact('Blair Bookkeeper', 'blair@example.test')] }, h.owner);
+  const client = await h.json('/clients', { name: IDENTITY.name, ein: IDENTITY.ein, contacts: [contact('Alex Owner', 'alex@example.test'), { ...contact('Blair Bookkeeper', 'blair@example.test'), language: 'es' }] }, h.owner);
   await h.json(`/clients/${client.id}/profile`, { fields: { street_address: IDENTITY.address } }, h.owner);
   const other = await h.json('/clients', { name: 'Birch Street Cafe', contacts: [contact('Alex at Birch', 'alex@example.test')] }, h.owner);
   const [alex] = client.contacts.filter(c => c.email === 'alex@example.test');
