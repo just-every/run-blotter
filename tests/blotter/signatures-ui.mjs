@@ -121,7 +121,7 @@ export async function authorizationJourney(h,f){
   await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
   const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});await panel.locator('article').filter({hasText:'Withdrawn'}).getByText('CAF 0300-12345R',{exact:false}).waitFor();
   await panel.getByText('Add an authorization',{exact:true}).click();
-  const add=panel.locator('form').filter({has:panel.getByRole('button',{name:'Save authorization',exact:true})});
+  const add=panel.locator('form').filter({has:page.getByRole('button',{name:'Save authorization',exact:true})});
   for(const [label,value] of [['Representative','Pat Harper'],['Staff representative email','synthetic-blotter-1@example.test'],['CAF number','0300-12345R'],['First year','2026'],['Last year','2029']])await add.getByLabel(label,{exact:true}).fill(value);
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await add.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await add.screenshot({path:`${evidence}/create-authorization-${width}.png`});}
   await add.getByRole('button',{name:'Save authorization',exact:true}).click();await panel.getByText('2026–2029',{exact:false}).waitFor();
@@ -176,7 +176,7 @@ export async function authorizationLifecycleJourney(h,f,phase){
   await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
   const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});
   if(phase==='Withdraw authorization')await panel.getByText('Withdraw',{exact:true}).click();
-  const form=panel.locator('form').filter({has:panel.getByRole('button',{name:phase,exact:true})});await form.waitFor();
+  const form=panel.locator('form').filter({has:page.getByRole('button',{name:phase,exact:true})});await form.waitFor();
   if(phase==='Record submission')await form.getByLabel('Submitted on',{exact:true}).fill('2026-10-22');
   if(phase==='Record agency answer')await form.getByLabel('Representative CAF number',{exact:true}).fill('0300-12345R');
   if(phase==='Withdraw authorization')await form.getByLabel('Withdrawal reason',{exact:true}).fill('Client revoked the power of attorney');
