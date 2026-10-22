@@ -107,8 +107,9 @@ export async function signatureAuthorityJourney(h,f,poa){
 }
 
 /** AUTHZ-001 screen: the client's authorizations with their lifecycle and the transcript requests they scoped. */
-export async function authorizationJourney(h,f,info){
+export async function authorizationJourney(h,f){
  const evidence=process.env.BLOTTER_SIGNATURE_EVIDENCE;if(!evidence)return;
+ await h.json(`/clients/${f.client.id}/authorizations`,{kind:'2848',representative:'Pat Harper',representativeEmail:'synthetic-blotter-1@example.test',cafNumber:'0300-12345R',matters:[{form:'1040',from:2026,to:2029}]},h.owner);
  await mkdir(evidence,{recursive:true});
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
  try{
@@ -133,9 +134,16 @@ export async function authorizationJourney(h,f,info){
   const download=draft.getByRole('link',{name:'Review prepared IRS PDF',exact:true});await download.waitFor();
   const response=await context.request.get(new URL(await download.getAttribute('href'),h.origin).href);assert.equal(response.status(),200);assert.equal(response.headers()['content-type'],'application/pdf');
   await capture(draft,'prepared-irs-form');
-  await draft.getByRole('link',{name:'Open signature draft',exact:true}).click();
+  const poa=panel.locator('article').filter({has:page.getByText('Prepare IRS Form 2848',{exact:true})});
+  await poa.getByText('Prepare IRS Form 2848',{exact:true}).click();
+  for(const [label,value] of [['Taxpayer legal name',f.client.name],['Taxpayer mailing address','123 Cedar Lane\nDenver CO 80202'],['Taxpayer identification number','111-22-3333'],['Representative mailing address','456 Review Avenue\nDenver CO 80203'],['Representative telephone','303-555-0142'],['Licensing jurisdiction or other authority','Colorado'],['License, bar or enrollment number','synthetic-blotter-31']])await poa.getByLabel(label,{exact:true}).fill(value);
+  await poa.getByLabel('Taxpayer identification type',{exact:true}).selectOption('ssn');await poa.getByLabel('Taxpayer signer',{exact:true}).selectOption(f.client.contacts.find(c=>c.name==='Mia Chen').id);
+  await poa.getByLabel('Representative designation',{exact:true}).selectOption('b');await poa.getByLabel('Scope and representative review',{exact:true}).selectOption('yes');
+  await capture(poa,'prepare-2848-form');
+  await poa.getByRole('button',{name:'Prepare form and signature draft',exact:true}).click();await poa.getByRole('link',{name:'Review prepared IRS PDF',exact:true}).waitFor();await capture(poa,'prepared-2848-form');
+  await poa.getByRole('link',{name:'Open signature draft',exact:true}).click();
   const signatures=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Document signatures',exact:true})});
-  await signatures.getByRole('button',{name:`Form 8821 - ${f.client.name}`,exact:true}).last().click();
+  await signatures.getByRole('button',{name:`Form 2848 - ${f.client.name}`,exact:true}).last().click();
   await signatures.getByRole('link',{name:'Original PDF',exact:true}).waitFor();await capture(signatures,'prepared-signature-draft');
   // The notice's agency-contact input carries the tax form that the recorded scope must cover.
   await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();

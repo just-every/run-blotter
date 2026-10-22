@@ -231,6 +231,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
    assert.equal(restored.authorizations.find(x=>x.id===a.id).status,'withdrawn');assert.equal(restored.transcripts[0].status,'withdrawn');
    assert.equal((await copy.json(`/signatures/${d.id}`,undefined,copy.owner)).signed_sha256,(await h.json(`/signatures/${d.id}`,undefined,h.owner)).signed_sha256);
    await copy.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},copy.owner,409);
+   await copy.json('/team/invite',{email:prepEmail},copy.owner);
    const staff=await copy.login(prepEmail);
    await copy.json('/access/people',{email:prepEmail,readOnly:false,clientIds:[f.client.id]},copy.owner);
    assert.equal((await copy.json(`/clients/${f.client.id}/authorizations`,undefined,staff)).authorizations.length,2);
@@ -250,10 +251,11 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await finishJob(h,f);
   const detail=await h.json(`/clients/${f.client.id}/detail`,undefined,h.owner);
   await h.json(`/clients/${f.client.id}/lifecycle`,{lifecycle:'archived',revision:detail.revision},h.owner);
+  const erasureCount=(await h.json(`/clients/${f.client.id}/authorizations`,undefined,h.owner)).authorizations.length;
   const preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);assert.deepEqual(preview.blockers,[]);
-  assert.ok(preview.erase.some(step=>step.table==='b_authorizations'&&step.count===2));
+  assert.ok(preview.erase.some(step=>step.table==='b_authorizations'&&step.count===erasureCount));
   const receipt=await h.json(`/clients/${f.client.id}/erasure`,{planHash:preview.planHash,confirm:f.client.name,reason:'Client requested erasure after withdrawal'},h.owner);
-  assert.ok(receipt.steps.some(step=>step.table==='b_authorizations'&&step.count===2));
+  assert.ok(receipt.steps.some(step=>step.table==='b_authorizations'&&step.count===erasureCount));
   await h.json(`/clients/${f.client.id}/authorizations`,undefined,h.owner,404);
   const latest=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   const exportedRows=latest.trim().split('\n').map(JSON.parse).filter(part=>part.kind==='part').flatMap(part=>part.items).filter(item=>item.kind==='row');
