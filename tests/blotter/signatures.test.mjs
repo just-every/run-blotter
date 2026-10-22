@@ -181,6 +181,9 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await sign(h,t,r.id,await open(h,t,r.id),409);
   await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
   await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
+  const signedForm=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).arrayBuffer());
+  for(const signer of [client.name,'Pat Harper'])assert.ok(pdfText(signedForm).includes(signer));
+  if(process.env.BLOTTER_SIGNATURE_EVIDENCE){const {writeFile}=await import('node:fs/promises');await writeFile(process.env.BLOTTER_SIGNATURE_EVIDENCE+'/signed-2848.pdf',signedForm);}
   const general=await sent(h,f,{title:'synthetic-blotter-20'});await complete(h,general);
   await h.json(`/authorizations/${a.id}/submission`,{revision:a.revision,method:'irs_online',submittedOn:'2026-10-22'},h.owner,409);
   await h.json(`/authorizations/${a.id}/signature`,{revision:a.revision,signatureId:general.id},h.owner,409);
