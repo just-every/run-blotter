@@ -120,7 +120,7 @@ export async function authorizationJourney(h,f){
   await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Clients & templates',exact:true}).click();
   const clients=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Clients',exact:true})}),record=clients.locator('ul.list > li').filter({hasText:f.client.name}).first();
   await record.getByText('Client details and contacts',{exact:true}).click();await record.locator('summary',{hasText:'Taxpayer authorizations'}).click();
-  const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});await panel.getByText('CAF 0300-12345R',{exact:false}).waitFor();
+  const panel=record.getByRole('region',{name:'Taxpayer authorizations',exact:true});await panel.locator('article').filter({hasText:'Withdrawn'}).getByText('CAF 0300-12345R',{exact:false}).waitFor();
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`authorizations ${width} overflows`);await panel.screenshot({path:`${evidence}/client-authorizations-${width}.png`});}
   const draft=panel.locator('article').filter({hasText:'Form 8821'});
   await draft.getByText('Prepare IRS Form 8821',{exact:true}).click();
