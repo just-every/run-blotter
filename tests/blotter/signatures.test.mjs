@@ -161,6 +161,10 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   const body={kind:'2848',representative:'Pat Harper',representativeEmail:prepEmail,matters:[{form:'Form 1040',from:2022,to:2025}]};
   await h.json(`/clients/${f.client.id}/authorizations`,body,f.prep,403);
   let a=await h.json(`/clients/${f.client.id}/authorizations`,body,h.owner);assert.deepEqual(a.matters,[{form:'1040',from:2022,to:2025,matter:'Income'}]);
+  const agent=await h.json('/keys',{label:'synthetic-blotter-32'},h.owner);
+  const doors=[[`/clients/${f.client.id}/authorizations`,undefined],[`/clients/${f.client.id}/authorizations`,{}],[`/clients/${f.client.id}/transcript-requests`,{}],...['prepare','signature','submission','status','withdraw'].map(action=>[`/authorizations/${a.id}/${action}`,{}])];
+  for(const [path,payload] of doors){await h.json(path,payload,'',401);await h.json(path,payload,'',401,{authorization:'Bearer '+agent.key});if(payload)await h.json(path,payload,h.owner,403,{origin:'https://outside.example.test'});}
+
   const input={revision:a.revision,jobId:f.job.id,contactId:client.id,taxpayerName:f.client.name,taxpayerAddress:'123 Cedar Lane\nDenver CO 80202',tinType:'ssn',taxpayerTin:'111-22-3333',taxpayerTitle:'',representativeAddress:'456 Review Avenue\nDenver CO 80203',representativePhone:'303-555-0142',designation:'b',jurisdiction:'Colorado',licenseNumber:'synthetic-blotter-31',reviewed:true};
   await h.json(`/authorizations/${a.id}/prepare`,input,f.prep,403);
   await h.json(`/authorizations/${a.id}/prepare`,{...input,reviewed:false},h.owner,400);
@@ -227,6 +231,14 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
    assert.equal(restored.authorizations.find(x=>x.id===a.id).status,'withdrawn');assert.equal(restored.transcripts[0].status,'withdrawn');
    assert.equal((await copy.json(`/signatures/${d.id}`,undefined,copy.owner)).signed_sha256,(await h.json(`/signatures/${d.id}`,undefined,h.owner)).signed_sha256);
    await copy.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},copy.owner,409);
+   const staff=await copy.login(prepEmail);
+   await copy.json('/access/people',{email:prepEmail,readOnly:false,clientIds:[f.client.id]},copy.owner);
+   assert.equal((await copy.json(`/clients/${f.client.id}/authorizations`,undefined,staff)).authorizations.length,2);
+   await copy.json('/access/people',{email:prepEmail,readOnly:false,clientIds:[]},copy.owner);
+   await copy.json(`/clients/${f.client.id}/authorizations`,undefined,staff,404);
+   await copy.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},staff,404);
+   await copy.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Denied after client grant revoked'},staff,404);
+
   }finally{await copy.close();}
   assert.ok(!(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>String(e.detail).includes('111-22-3333')),'The TIN stays out of audit detail');
   await authorizationJourney(h,f,info);
