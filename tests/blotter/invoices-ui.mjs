@@ -220,6 +220,10 @@ export async function holdJourney(h, fixture) {
     const hold = entry.getByRole('status', { name: 'Credit hold' }); await hold.waitFor();
     await hold.getByText('Override the credit hold', { exact: true }).click();
     await capture(page, hold, directory, 'credit-hold');
+    await page.goto(`${h.origin}/app?job=${fixture.job.id}`);
+    const warning = page.getByRole('status').filter({ hasText: 'This client is on credit hold' });
+    await warning.waitFor();
+    await capture(page, warning, directory, 'credit-hold-job');
     await context.close();
   } finally { await browser.close(); }
 }

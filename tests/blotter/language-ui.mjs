@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { chromium } from '@playwright/test';
 
@@ -31,7 +31,7 @@ async function tabTo(page, locator, name) {
  * PORTAL-005 browser proof at 1440 and 390: the Spanish client page passes an automated WCAG 2.2 AA scan, and an upload and a
  * signature are completed with the keyboard alone (the OS file chooser is the only step that is not a key press).
  */
-export async function languageJourney(h, { job, kbToken, kbId }) {
+export async function languageJourney(h, { job, client, maria, englishOnly, kbToken, kbId }) {
   const directory = process.env.BLOTTER_LANGUAGE_EVIDENCE;
   if (!directory) return;
   await mkdir(directory, { recursive: true });
@@ -51,7 +51,13 @@ export async function languageJourney(h, { job, kbToken, kbId }) {
     // The unsubscribe page's strict CSP blocks an injected scanner, so this one page is scanned in a context that bypasses CSP.
     const plain = await browser.newContext({ ignoreHTTPSErrors: true, bypassCSP: true, viewport: { width: 1440, height: 1000 } }), unsubscribe = await plain.newPage(); await unsubscribe.goto(`${h.origin}/unsubscribe?lang=es`);
     await unsubscribe.getByRole('heading', { name: 'Cancelar el correo de mercadeo' }).waitFor();
-    await scan(unsubscribe, 'Spanish unsubscribe page'); await unsubscribe.screenshot({ path: `${directory}/unsubscribe-es-1440.png`, fullPage: true }); await plain.close();
+    for (const width of [1440, 390]) {
+      await unsubscribe.setViewportSize({ width, height: 1000 });
+      assert.equal(await unsubscribe.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      checks[`unsubscribe-${width}`] = await scan(unsubscribe, `Spanish unsubscribe page at ${width}`);
+      await unsubscribe.screenshot({ path: `${directory}/unsubscribe-es-${width}.png`, fullPage: true });
+    }
+    await plain.close();
     // Keyboard only: skip link, then an upload.
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`${h.origin}/portal/${kbToken}`); await page.getByRole('heading', { level: 1, name: /^Documentos para / }).waitFor();
@@ -72,8 +78,11 @@ export async function languageJourney(h, { job, kbToken, kbId }) {
       if (label.startsWith('date')) { await page.keyboard.type('10102026'); } else await page.keyboard.type(value);
     }
     for (const label of ['Acepto los registros y las firmas electrónicas para este documento.', 'Estoy autorizado/a por este cliente y tengo la intención de firmar este documento.']) { await tabTo(page, page.getByLabel(label), label); await page.keyboard.press('Space'); }
-    await page.setViewportSize({ width: 390, height: 1000 });
-    await scan(page, 'Spanish portal with the signature form open at 390'); await page.screenshot({ path: `${directory}/signature-es-390.png`, fullPage: true });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      checks[`signature-${width}`] = await scan(page, `Spanish signature form at ${width}`);
+      await page.screenshot({ path: `${directory}/signature-form-es-${width}.png`, fullPage: true });
+    }
     await tabTo(page, page.getByRole('button', { name: 'Aceptar y firmar el documento' }), 'The sign button'); await page.keyboard.press('Enter');
     const outcome = page.getByRole('status').filter({ hasText: 'Firma registrada.' }), failure = page.getByRole('alert');
     await outcome.or(failure).first().waitFor();
@@ -81,6 +90,44 @@ export async function languageJourney(h, { job, kbToken, kbId }) {
     assert.equal((await h.json(`/signatures/${kbId}`, undefined, h.owner)).status, 'completed');
     await page.setViewportSize({ width: 1440, height: 1000 }); await page.screenshot({ path: `${directory}/signature-es-1440.png`, fullPage: true });
     await context.close();
+    // The staff doors for contact language, translations, organizer authoring and the pre-send warning.
+    const staff = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    await staff.addCookies(h.owner.split('; ').map(cookie => { const at = cookie.indexOf('='); return { name: cookie.slice(0, at), value: cookie.slice(at + 1), url: h.origin }; }));
+    const operator = await staff.newPage(); await operator.goto(h.origin + '/app');
+    if (new URL(operator.url()).pathname === '/setup') { await operator.getByRole('checkbox').check(); await operator.getByRole('button', { name: 'Finish setup' }).click(); await operator.waitForURL('**/app'); }
+    const capture = async (locator, name) => {
+      for (const width of [1440, 390]) {
+        await operator.setViewportSize({ width, height: 1000 }); await locator.scrollIntoViewIfNeeded();
+        assert.equal(await operator.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name} ${width} overflows`);
+        await locator.screenshot({ path: `${directory}/${name}-${width}.png` });
+      }
+    };
+    await operator.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Clients & templates', exact: true }).click();
+    const entry = operator.locator('ul.list > li').filter({ hasText: client.name }).first();
+    await entry.getByText('Client details and contacts', { exact: true }).click();
+    const contact = entry.locator('details').filter({ has: operator.locator('summary').filter({ hasText: maria.name }) }).last();
+    await contact.locator('summary').first().click();
+    assert.equal(await contact.getByLabel('Language for this contact', { exact: true }).inputValue(), 'es');
+    await capture(contact, 'contact-language');
+    const messages = operator.locator('section.panel').filter({ has: operator.getByRole('heading', { name: 'Message templates', exact: true }) });
+    const untranslated = messages.locator('article.record').filter({ hasText: englishOnly.name });
+    await untranslated.getByText('Add the Spanish version of version 1', { exact: true }).click();
+    await untranslated.getByLabel(`Spanish subject for ${englishOnly.name}`, { exact: true }).fill('Documentos para {{client_name}}');
+    await untranslated.getByLabel(`Spanish message for ${englishOnly.name}`, { exact: true }).fill('Hola {{contact_first_name}}, cargue {{outstanding_requests}} en {{portal_link}}.');
+    await capture(messages, 'message-translation');
+    const organizers = operator.locator('section.panel').filter({ has: operator.getByRole('heading', { name: 'Organizer versions', exact: true }) });
+    await organizers.getByLabel('Work template', { exact: true }).selectOption(job.template_id);
+    await organizers.getByLabel('Spanish organizer name (optional)', { exact: true }).waitFor();
+    await capture(organizers, 'organizer-translation');
+    await operator.goto(`${h.origin}/app?job=${job.id}`);
+    const composer = operator.locator('details').filter({ has: operator.getByText('Send a reminder with an upload link', { exact: true }) }).first();
+    await composer.locator('summary').first().click();
+    await composer.getByLabel('Recipient for this entity', { exact: true }).selectOption(maria.id);
+    await composer.getByLabel('Template', { exact: true }).selectOption(englishOnly.id);
+    await composer.getByRole('alert').filter({ hasText: 'has no Spanish version' }).waitFor();
+    await capture(composer, 'missing-translation-warning');
+    await staff.close();
+    await writeFile(`${directory}/accessibility.json`, JSON.stringify({ checks, violations: 0, keyboardUpload: true, keyboardSignature: true }, null, 2));
     return checks;
   } finally { await browser.close(); }
 }

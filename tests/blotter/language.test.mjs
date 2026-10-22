@@ -84,6 +84,8 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     let a = (await h.json(portal(mo))).organizers[0], b = (await h.json(portal(to))).organizers[0];
     assert.deepEqual([a.name, a.questions.map(q => q.label), a.questions[0].optionLabels], ['Cuestionario de propiedad', ['¿Cambió la propiedad?'], { Yes: 'Sí', No: 'No' }]);
     assert.deepEqual([b.name, b.questions.map(q => q.label)], ['Ownership organizer', ['Bookkeeper notes']]);
+    assert.deepEqual([Object.keys(a.labels), Object.keys(a.optionLabels)], [['ownership'], ['ownership']], 'Spanish translation metadata excludes other contacts and hidden branches');
+    assert.deepEqual([Object.keys(b.labels), Object.keys(b.optionLabels)], [['bookkeeping'], ['bookkeeping']], 'English translation metadata excludes the Spanish contact questions');
     const put = (token, o, answers, submit, expected = 200) => h.json(`${portal(token)}/${encodeURIComponent(o.id)}`, { revision: o.revision, answers, submit }, undefined, expected);
     // Per-contact isolation, hidden questions, required answers and the recorded choice values hold in Spanish as in English.
     await put(to, b, { ownership: answer('Yes') }, false, 403);
@@ -109,6 +111,9 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     a = await put(mo, (await h.json(portal(mo))).organizers[0], { ownership: answer('No') }, true);
     staff = (await h.json(`/jobs/${job.id}/organizers`, undefined, h.owner)).organizers[0];
     assert.deepEqual(staff.submissions.find(x => x.id === original.id).answers, original.answers); assert.equal(staff.submissions.at(-1).answers.ownership.value, 'No');
+    const corrected = (await h.json(portal(mo))).organizers[0];
+    assert.equal(corrected.labels.owners, 'Describa a los nuevos propietarios', 'The contact can still read the labels on their own submitted original after its branch hides');
+    assert.equal(corrected.labels.bookkeeping, undefined, 'Submission history never widens access to another contact question');
     // Next period: the Spanish contact sees the carried answer marked, and must confirm it before it counts.
     const next = await h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart: '2026-02-01', dueDate: '2027-05-15', dueNote: 'Recorded engagement target', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
     const nextOrg = (await h.json(`/jobs/${next.id}/organizers`, undefined, h.owner)).organizers[0];
@@ -152,7 +157,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     // The keyboard-only journey needs a pending Spanish signature request on the contact's newest link.
     const kbDraft = await h.json(`/jobs/${job.id}/signatures`, { title: 'Carta de firma por teclado', formKind: 'management representation', requiresKba: false, mode: 'parallel', contactIds: [maria.id], fields: fields(maria), file }, prep);
     const kb = await h.json(`/signatures/${kbDraft.id}/send`, { revision: kbDraft.revision }, prep);
-    await languageJourney(h, { job, kbToken: tokenOf(kb.invitations[0]), kbId: kb.id });
+    await languageJourney(h, { job, client, maria, englishOnly, kbToken: tokenOf(kb.invitations[0]), kbId: kb.id });
 
     // A restore carries each contact's language and the Spanish template versions.
     await h.stepUp(h.owner);
