@@ -157,6 +157,9 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     // Scheduled batches keep the exact reviewed language and wording, even when a translation is added to that same version.
     const batchTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Bilingual scheduled request', subject: '{{work_type}} update for {{client_name}}', body: '{{work_type}} documents: {{portal_link}}.' }, h.owner);
     const batchBody = { class: 'engagement', templateId: batchTemplate.id, role: 'tax', workTypeId: 'wt-' + template.id, reason: 'Requested work documents' };
+    const offTopic = await h.json('/messages/templates', { scope: 'firm', name: 'Wrong Spanish opening', subject: '{{work_type}} update', body: '{{work_type}} documents follow.' }, h.owner);
+    await h.json(`/messages/templates/${offTopic.id}/translations`, { language: 'es', subject: 'Oferta especial', body: 'Tenemos una oferta.' }, h.owner);
+    await h.json('/bulk-messages/preview', { ...batchBody, templateId: offTopic.id, idempotencyKey: 'synthetic-blotter-24' }, h.owner, 409);
     const batch = async key => h.json('/bulk-messages/preview', { ...batchBody, idempotencyKey: key }, h.owner);
     const schedule = b => h.json(`/bulk-messages/${b.batch.id}/schedule`, { fingerprint: b.batch.fingerprint }, h.owner);
     const untranslatedBatch = await batch('synthetic-blotter-21');

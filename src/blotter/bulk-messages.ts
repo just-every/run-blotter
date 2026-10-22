@@ -147,6 +147,7 @@ export async function previewBatch(db: D1Database, actor: Actor, body: Data) {
       }
     }
     const loc = await localize(db, t, c.contact.language ?? 'en'), r = render(loc.subject, loc.body, await values(db, sender, body.class, c, linked ? LINK_PREVIEW : '', organizer?.id), undefined);
+    if (body.class === 'engagement') insist(opener(loc.subject) && opener(String(loc.body).split('\n').find(line => line.trim()) ?? ''), 'A translated engagement notice must open with its engagement in the subject and first line', 409);
     if (loc.missing) untranslated.push({ client: c.client.name, address: c.contact.email, language: loc.language });
     if (r.missing.length) excluded.push({ client_id: c.client.id, client: c.client.name, contact_id: c.contact.id, address: c.contact.email, reason: `unresolved placeholder: ${r.missing.map(m => m.label).join(', ')}` });
     else recipients.push({ c, r, organizer, language: loc.language, wordingHash: await digest(JSON.stringify([loc.subject, loc.body])) });
@@ -287,7 +288,15 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
           continue;
         }
       }
-      const localized = await localize(db, { id: b.template_id, version: b.template_version, ...template! }, contact?.language ?? 'en'), rendered = render(localized.subject, localized.body, await values(db, sender, b.class, { client: client!, contact: contact!, basis: r.basis, jobId: r.job_id, job }, link?.url ?? '', r.organizer_id), undefined);
+      const localized = await localize(db, { id: b.template_id, version: b.template_version, ...template! }, contact?.language ?? 'en');
+      // Check the actual wording read for delivery too: a translation may have been added
+      // between the first send-time recheck and rendering. Never send unreviewed text.
+      if ((contact?.language ?? 'en') !== r.preview_language || (r.template_wording_hash ? r.template_wording_hash !== await digest(JSON.stringify([localized.subject, localized.body])) : contact?.language === 'es')) {
+        held++;
+        await db.batch([stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", 'held: not sent (language or translation changed; preview again)', r.id, attemptId), audit(db, sender, 'bulk.held', historyObject(r), `${b.class}: language or translation changed; preview again`)]);
+        continue;
+      }
+      const rendered = render(localized.subject, localized.body, await values(db, sender, b.class, { client: client!, contact: contact!, basis: r.basis, jobId: r.job_id, job }, link?.url ?? '', r.organizer_id), undefined);
       if (rendered.missing.length) {
         held++;
         await stmt(db, "UPDATE b_bulk_recipients SET status='held',held_reason=? WHERE id=? AND attempt_id=?", `held: not sent (unresolved placeholder: ${rendered.missing.map(m => m.label).join(', ')})`, r.id, attemptId).run();
