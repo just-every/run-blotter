@@ -68,6 +68,10 @@ export async function invoiceJourney(h, fixture, rule) {
     await reports.getByLabel('Period from',{exact:true}).fill('2026-11-01');await reports.getByLabel('Period to',{exact:true}).fill('2026-11-30');
     await reports.getByLabel('Report client',{exact:true}).selectOption(fixture.client.id);await reports.getByRole('button',{name:'Run report',exact:true}).click();
     const native=reports.getByRole('region',{name:'Native invoice reporting',exact:true});await native.waitFor();
+    const numbered=native.locator('details').filter({hasText:'INV-'+String(issued.number).padStart(6,'0')}).first();await numbered.locator('summary').first().click();
+    await native.locator('details').filter({hasText:'Monthly bookkeeping retainer'}).last().locator('summary').first().click();
+    await native.locator('details').filter({hasText:'UI-DEPOSIT-RECEIPT'}).last().locator('summary').first().click();
+    const [sourcePdf]=await Promise.all([page.waitForEvent('download'),numbered.getByRole('link',{name:'Download invoice PDF',exact:true}).click()]);assert.equal(await sourcePdf.failure(),null);
     for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await native.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await native.screenshot({path:`${directory}/invoice-report-${width}.png`});}
     for(const format of ['CSV','PDF']){const [file]=await Promise.all([page.waitForEvent('download'),reports.getByRole('link',{name:'Download report '+format,exact:true}).click()]);assert.equal(await file.failure(),null);}
     await client.close();await context.close();
