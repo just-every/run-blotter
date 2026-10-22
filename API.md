@@ -329,4 +329,6 @@ and pause or explicitly review activation at `/:id/status`. Issued amounts and p
 retain their sources. Later credit allocations use `/invoices/:id/credits`. Whole-client erasure
 and billing expiry refuse named open invoices and unapplied deposit/credit liabilities.
 
+After whole-client erasure, retained invoices disappear from ordinary billing lists. Explicit invoice detail/PDF doors require the principal and attribute retained-record reads; expiry lists use opaque labels.
+
 The existing `GET /api/blotter/reports/performance` response includes `invoiceReporting` for the same selected job-period cohort: native invoices and their source links, monthly retainers, supplied credits and current USD receivables. The existing CSV/PDF exports include the same financial values and source URLs. Supplied credits are recorded evidence, not verified provider settlement; exports record each included client and its named downloader for ERASURE-002 receipts.
