@@ -4,6 +4,7 @@ import type { Context, Hono } from 'hono';
 import type { Bindings } from '../auth.server';
 import type { Actor, Data } from './model';
 import { invitePortal, portalAccess, readPortalPolicy, resetPortalFactor, revokePortal, setPortalPolicy } from './portal-accounts';
+import { brandingLogo, portalBranding, setPortalBranding } from './portal-branding';
 import { clientBillPdf, clientEntity, clientFile, clientSignedPdf, savePreferences } from './portal-home';
 import { acceptInvitation, clientMe, clientSession, confirmFactor, confirmSignIn, requestSignIn, sameSite, signOut, startFactor, verifyFactor, type Client } from './portal-session';
 
@@ -18,6 +19,10 @@ export function portalAccountRoutes(api: Hono<{ Bindings: Bindings }>, { as, bod
   api.post(`${P}/portal-accounts/:id/reset`, as(async (a, c) => resetPortalFactor(db(c), a, param(c), await body(c))));
   api.get(`${P}/portal-policy`, as((a, c) => readPortalPolicy(db(c), a)));
   api.post(`${P}/portal-policy`, as(async (a, c) => setPortalPolicy(db(c), a, await body(c))));
+  api.post(`${P}/portal-branding`, as(async (a, c) => setPortalBranding(db(c), a, await body(c))));
+  // The firm's portal logo and accent are meant for clients, so the sign-in page reads them before any session.
+  api.get(`${P}/client/branding`, async c => { sameSite(c.req.raw, c.env); return c.json(await portalBranding(db(c))); });
+  api.get(`${P}/client/branding/logo`, async c => { sameSite(c.req.raw, c.env); return brandingLogo(db(c)); });
 
   const withCookie = (c: C, result: { cookie: string; body: Data }) => c.json(result.body, 200, { 'set-cookie': result.cookie, 'cache-control': 'no-store' });
   // `open` doors serve a session still owing its second factor; every other client door needs the full check.

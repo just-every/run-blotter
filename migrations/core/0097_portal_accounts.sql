@@ -26,3 +26,8 @@ CREATE TABLE b_portal_recovery(account_id TEXT NOT NULL REFERENCES b_portal_acco
 CREATE TABLE b_portal_failures(account_id TEXT NOT NULL, at TEXT NOT NULL);
 -- Firm policy (principal only). With no row the second factor is required.
 CREATE TABLE b_portal_policy(id INTEGER PRIMARY KEY CHECK(id=1), mfa_required INTEGER NOT NULL CHECK(mfa_required IN(0,1)), reason TEXT NOT NULL, set_by TEXT NOT NULL, set_at TEXT NOT NULL);
+-- The firm's portal branding (principal only): a PNG or JPEG logo and an accent colour.
+CREATE TABLE b_portal_branding(
+ id INTEGER PRIMARY KEY CHECK(id=1), logo_base64 TEXT, logo_mime TEXT CHECK(logo_mime IS NULL OR logo_mime IN('image/png','image/jpeg')), logo_sha256 TEXT,
+ accent TEXT CHECK(accent IS NULL OR (length(accent)=7 AND accent GLOB '#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]')), set_by TEXT NOT NULL, set_at TEXT NOT NULL
+);

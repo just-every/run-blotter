@@ -46,7 +46,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('api', 'b_api_client_writes'),
   ...by('structure', 'b_transcript_requests', 'b_clients', 'b_jobs', 'b_job_status_history', 'b_requests', 'b_job_deadlines', 'b_rule_periods', 'b_recurrence_rules', 'b_recurrence_imports', 'b_recurrence_import_items', 'b_client_obligations',
     'b_client_group_members', 'b_client_import_bindings', 'b_duplicate_dismissals', 'b_client_merges', 'b_timers', 'b_time_suggestions', 'b_plan_items', 'b_automation_events', 'b_automation_attempts', 'b_time_status', 'b_coverage_conflicts'),
-  ...by('firm', 'b_firm', 'b_meta', 'b_guard', 'b_templates', 'b_msg_templates', 'b_msg_template_versions', 'b_msg_template_translations', 'b_msg_template_files', 'b_portal_policy', 'b_organizer_versions', 'b_starter_adoptions', 'b_starter_releases', 'b_client_fields', 'b_client_groups',
+  ...by('firm', 'b_firm', 'b_meta', 'b_guard', 'b_templates', 'b_msg_templates', 'b_msg_template_versions', 'b_msg_template_translations', 'b_msg_template_files', 'b_portal_policy', 'b_portal_branding', 'b_organizer_versions', 'b_starter_adoptions', 'b_starter_releases', 'b_client_fields', 'b_client_groups',
     'b_deadline_rules', 'b_deadline_revisions', 'b_deadline_relief', 'b_work_types', 'b_sub_statuses', 'b_saved_views', 'b_view_filters', 'b_rates', 'b_rate_cards', 'b_rate_cards_next', 'b_mileage_rates', 'b_periods', 'b_capacity', 'b_capacity_blocks',
     'b_capacity_scenarios', 'b_coverage_plans', 'b_automation_rules', 'b_report_views', 'b_report_schedules', 'b_report_runs', 'b_scheduler_runs', 'b_notification_settings', 'b_notification_defaults', 'b_notification_task_owners',
     'b_notification_job_owners', 'b_notification_events', 'b_intake_limits', 'b_intake_tokens', 'b_prospect_stages', 'b_vault_keys', 'b_vault_stepups', 'b_agent_keys'),
@@ -58,7 +58,7 @@ const REGISTRY = new Map<string, TableClass>([
 const BYTES: Record<string, string[]> = {b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
-  b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],
+  b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_portal_branding: ['logo_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],
 };
 const BYTE_LIKE = /base64|sealed|csv|ciphertext|blob|bytes/i, DIGEST = /sha256/i;
 /** Base's own stores: identity, portability and the import kit (import originals are redacted through Base's import erasure). */

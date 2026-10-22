@@ -141,6 +141,7 @@ const C = {
   'account.signin.body': { en: 'Open this link to sign in to the {firm} client portal:', es: 'Abra este enlace para iniciar sesión en el portal de clientes de {firm}:' },
   'account.signin.expires': { en: 'The link works once, for {minutes} minutes. If you did not ask for it, ignore this email.', es: 'El enlace funciona una sola vez, durante {minutes} minutos. Si no lo pidió, ignore este correo.' },
   'account.title': { en: 'Client portal', es: 'Portal de clientes' },
+  'account.logo': { en: 'Practice logo', es: 'Logotipo de la oficina' },
   'account.signIn': { en: 'Sign in', es: 'Iniciar sesión' },
   'account.email': { en: 'Email address', es: 'Correo electrónico' },
   'account.sendLink': { en: 'Email me a sign-in link', es: 'Enviarme un enlace para iniciar sesión' },

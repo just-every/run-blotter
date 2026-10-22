@@ -2,12 +2,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
+import { crc32, deflateSync } from 'node:zlib';
 import { harness } from './harness.mjs';
 import { portalAccountJourney } from './portal-accounts-ui.mjs';
 
 const acknowledge = 'erasure history unverified: supply your latest erasure journal';
 const person = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
 const firm = { name: 'Cedar Practice', ein: '123456789', entity: 'LLC', address: '10 Main Street', city: 'Boston', state: 'MA', zip: '02108', fiscalYearEnd: '12-31', services: ['Bookkeeping'], currency: 'USD', timeZone: 'America/New_York', notificationStart: '00:00', notificationEnd: '00:00', calendars: [] };
+/** A small solid-colour PNG logo. */
+function png(width, height, [r, g, b]) {
+  const chunk = (type, data) => { const body = Buffer.concat([Buffer.from(type), data]), out = Buffer.alloc(8 + data.length + 4); out.writeUInt32BE(data.length, 0); body.copy(out, 4); out.writeUInt32BE(crc32(body), 8 + data.length); return out; };
+  const header = Buffer.alloc(13); header.writeUInt32BE(width, 0); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 2;
+  const rows = Buffer.concat(Array.from({ length: height }, () => Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: width }, () => [r, g, b]).flat())])));
+  return Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', header), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
 /** RFC 6238 codes, each a later 30-second step than the account's last one (the server refuses a replayed step). */
 const used = new Map();
 function code(secret) {
@@ -46,6 +54,15 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-invite`, {}, reviewer);
     await h.json(`/clients/${birch.id}/contacts/${patBirch.id}/portal-invite`, {}, h.owner);
     await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    // Branding (principal only): a PNG or JPEG logo and an accent colour that clients see on the portal, even before they sign in.
+    const logo = png(120, 40, [31, 111, 80]), upload = { name: 'logo.png', mime: 'image/png', contentBase64: logo.toString('base64') };
+    await h.json('/portal-branding', { accent: '#1f6f50', logo: upload }, reviewer, 403);
+    await h.json('/portal-branding', { logo: { name: 'logo.svg', mime: 'image/svg+xml', contentBase64: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString('base64') } }, h.owner, 400);
+    await h.json('/portal-branding', { accent: 'green' }, h.owner, 400);
+    const branded = await h.json('/portal-branding', { accent: '#1F6F50', logo: upload }, h.owner);
+    assert.deepEqual([branded.accent, await h.json('/client/branding', undefined, '')], ['#1f6f50', branded]);
+    const served = await h.request(branded.logo);
+    assert.deepEqual([served.headers.get('content-type'), served.headers.get('x-content-type-options'), Buffer.from(await served.arrayBuffer()).equals(logo)], ['image/png', 'nosniff', true]);
     const tokenFrom = (to, kind, n = -1) => h.mails.filter(m => m.to.includes(to) && m.text.includes(`/client?${kind}=`)).at(n).text.match(new RegExp(`/client\\?${kind}=(p[il]_[0-9a-f]{64})`))[1];
     const [patCedarInvite, patBirchInvite] = [0, 1].map(n => tokenFrom('pat@example.test', 'invite', n)), samInvite = tokenFrom('sam@example.test', 'invite');
     const enter = async (path, token) => { const r = await h.request(`/api/blotter/client/${path}`, { token }); assert.equal(r.status, 200, await r.clone().text()); return r.headers.get('set-cookie').split(';')[0]; };
@@ -132,6 +149,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     const carried = (await restored.json(`/clients/${birch.id}/portal-access`, undefined, restored.owner)).grants;
     assert.deepEqual(carried.map(g => [g.email, g.status, g.factor]).sort(), [['pat@example.test', 'active', false], ['sam@example.test', 'active', false]]);
     assert.equal((await restored.request(`/api/blotter/client/entities/${birch.id}`, undefined, later.cookie)).status, 401);
+    assert.deepEqual(await restored.json('/client/branding', undefined, ''), branded, 'The branding is firm configuration and crosses the archive');
 
     // Whole-client erasure (ERASURE-002): Birch's grants are revoked, and an account that opens no other entity loses its address and factor.
     const archived = await h.json(`/clients/${birch.id}/detail`, undefined, h.owner);
