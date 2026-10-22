@@ -11,6 +11,10 @@ import { atomic, audit, date, guard, human, id, insist, integer, need, now, opti
 type Matter = { form: string; from: number; to: number; matter: string };
 const KINDS = ['2848', '8821', 'state'], METHODS = ['irs_online', 'tax_pro_account', 'fax'];
 const yearOf = (period: string) => Number(String(period).match(/\b(?:19|20)\d{2}\b/)?.[0] ?? NaN);
+const yearsOf = (period: string) => {
+  const endpoints = [...String(period).matchAll(/\b(?:19|20)\d{2}\b/g)].map(m => Number(m[0]));
+  return endpoints.length ? Array.from({ length: Math.max(...endpoints) - Math.min(...endpoints) + 1 }, (_, i) => Math.min(...endpoints) + i) : [];
+};
 
 function matters(value: unknown): Matter[] {
   insist(Array.isArray(value) && value.length > 0 && value.length <= 10, 'List 1 to 10 tax matters with their form and years');
@@ -97,7 +101,7 @@ export async function recordAuthorizationStatus(db: D1Database, actor: Actor, au
 async function coveredNotices(db: D1Database, a: Data) {
   const list: Matter[] = JSON.parse(a.matters), open = await rows(db, "SELECT id,agency,jurisdiction,tax_period FROM b_notices WHERE client_id=? AND status='open'", a.client_id);
   return open.filter(n => (a.kind === 'state' ? n.jurisdiction === 'state' && String(n.agency).toLowerCase() === String(a.agency).toLowerCase() : n.jurisdiction === 'federal')
-    && list.some(m => yearOf(n.tax_period) >= m.from && yearOf(n.tax_period) <= m.to));
+    && list.some(m => yearsOf(n.tax_period).some(year => year >= m.from && year <= m.to)));
 }
 /** Withdrawal flags each dependent open notice in its timeline and ends this authorization's transcript requests. */
 export async function withdrawAuthorization(db: D1Database, actor: Actor, authorizationId: string, body: Data) {
@@ -114,11 +118,11 @@ export async function withdrawAuthorization(db: D1Database, actor: Actor, author
 }
 
 /** The recorded authorization that covers a form and year, if any: 2848 or 8821 for transcripts, 2848 for representation. */
-async function covering(db: D1Database, clientId: string, kinds: string[], form: string | null, year: number, agency?: string) {
-  if (!Number.isFinite(year)) return null;
+async function covering(db: D1Database, clientId: string, kinds: string[], form: string, years: number[], agency?: string) {
+  if (!years.length || !years.every(Number.isFinite)) return null;
   for (const a of await rows(db, "SELECT * FROM b_authorizations WHERE client_id=? AND status='recorded' ORDER BY created_at", clientId)) {
     if (!kinds.includes(a.kind) || (agency && String(a.agency).toLowerCase() !== agency.toLowerCase())) continue;
-    if ((JSON.parse(a.matters) as Matter[]).some(m => (!form || m.form.toLowerCase() === form.toLowerCase()) && year >= m.from && year <= m.to)) return a;
+    if (years.every(year => (JSON.parse(a.matters) as Matter[]).some(m => m.form.toLowerCase() === form.toLowerCase() && year >= m.from && year <= m.to))) return a;
   }
   return null;
 }
@@ -128,7 +132,7 @@ export async function requestTranscript(db: D1Database, actor: Actor, clientId: 
   await readableClient(db, actor, clientId);
   insist(await stmt(db, 'SELECT 1 FROM b_clients WHERE id=? AND erased_at IS NULL', clientId).first(), 'Client not found', 404);
   const form = text(body.form, 'Tax form', 20).replace(/^Form\s+/i, ''), year = integer(body.year, 'Tax year', 1990, 2100), type = optional(body.transcriptType, 'Transcript type', 60) || 'Account transcript';
-  const a = await covering(db, clientId, ['2848', '8821'], form, year);
+  const a = await covering(db, clientId, ['2848', '8821'], form, [year]);
   insist(a, `No recorded Form 2848 or 8821 covers Form ${form} for ${year}; this transcript request is outside the authorization's scope`, 409);
   const requestId = id(), [live, release] = guard(db, "EXISTS(SELECT 1 FROM b_authorizations WHERE id=? AND revision=? AND status='recorded')", a.id, a.revision);
   await atomic(db, actor, [live, stmt(db, "INSERT INTO b_transcript_requests(id,client_id,authorization_id,form,year,transcript_type,status,requested_by,requested_at) VALUES(?,?,?,?,?,?,'requested',?,?)", requestId, clientId, a.id, form, year, type, actor.email, now()),
@@ -139,7 +143,8 @@ export async function requestTranscript(db: D1Database, actor: Actor, clientId: 
 export async function agencyContactAuthority(db: D1Database, notice: Data, taxForm: unknown) {
   const year = yearOf(notice.tax_period);
   const form = text(taxForm, 'Tax form for agency contact', 20).replace(/^Form\s+/i, '');
-  const a = notice.jurisdiction === 'federal' ? await covering(db, notice.client_id, ['2848'], form, year) : await covering(db, notice.client_id, ['state'], form, year, notice.agency);
+  const years = yearsOf(notice.tax_period);
+  const a = notice.jurisdiction === 'federal' ? await covering(db, notice.client_id, ['2848'], form, years) : await covering(db, notice.client_id, ['state'], form, years, notice.agency);
   insist(a, `No recorded ${notice.jurisdiction === 'federal' ? 'Form 2848' : `${notice.agency} authorization`} covers ${Number.isFinite(year) ? year : notice.tax_period}; agency contact on this notice is outside the authorization's scope`, 409);
   return a;
 }

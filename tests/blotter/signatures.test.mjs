@@ -192,7 +192,8 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   const file=(await h.json(`/requests/${(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).requests[0].id}/files`,{name:'cp2000.pdf',mime:'application/pdf',contentBase64:Buffer.from('%PDF synthetic-blotter-21').toString('base64')},f.prep));
   const fileId=file.id??(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).requests[0].files.at(-1).id;
   const notice=period=>h.json('/notices',{fileId,agency:'IRS',jurisdiction:'federal',noticeType:'CP2000',taxPeriod:period,noticeDate:'2026-10-01',responseDue:'2026-10-30',assigneeEmail:prepEmail},h.owner);
-  const covered=(await notice('2023')).notice.id,outside=(await notice('2021')).notice.id;
+  const covered=(await notice('2023')).notice.id,outside=(await notice('2021')).notice.id,overlapping=(await notice('2024-2026')).notice.id;
+  await h.json(`/notices/${overlapping}/events`,{kind:'agency_contact',taxForm:'1040',note:'Uncovered last year in a range'},f.prep,409);
   await h.json(`/notices/${covered}/events`,{kind:'agency_contact',taxForm:'1040',note:'Called the practitioner priority line about the 2023 CP2000'},f.prep);
   assert.match((await h.json(`/notices/${outside}/events`,{kind:'agency_contact',taxForm:'1040',note:'Call about 2021'},f.prep,409)).error,/outside the authorization's scope/);
   await h.json(`/notices/${covered}/events`,{kind:'agency_contact',taxForm:'1120',note:'Uncovered form'},f.prep,409);
@@ -203,7 +204,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   assert.equal(alerts.length,1);assert.match(alerts[0].summary,/Form 2848 for Mia Chen covers through 2025/);
   // Withdrawal flags the dependent notice work and refuses new transcript requests.
   const withdrawn=await h.json(`/authorizations/${a.id}/withdraw`,{revision:a.revision,reason:'Client revoked the power of attorney'},h.owner);
-  assert.deepEqual(withdrawn.flaggedNotices,[covered]);
+  assert.deepEqual(new Set(withdrawn.flaggedNotices),new Set([covered,overlapping]));
   assert.ok((await h.json(`/notices/${covered}`,undefined,f.prep)).events.some(e=>e.kind==='note'&&/Authorization withdrawn/.test(e.note)));
   await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.prep,409);
   await h.json(`/notices/${covered}/events`,{kind:'agency_contact',taxForm:'1040',note:'Follow-up call'},f.prep,409);
@@ -213,6 +214,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   for(const action of ['authorization.created','authorization.signed','authorization.submitted','authorization.recorded','authorization.transcript_requested','authorization.withdrawn'])assert.ok(history.includes(action),action);
   // Form 8821 prepares the official one-page information authorization with no representative signature.
   const info=await h.json(`/clients/${f.client.id}/authorizations`,{...body,kind:'8821'},h.owner);
+  await h.json(`/authorizations/${info.id}/signature`,{revision:info.revision,signatureId:r.id},h.owner,409);
   const infoDraft=await h.json(`/authorizations/${info.id}/prepare`,{...input,revision:info.revision},h.owner);
   const infoPdf=Buffer.from(await(await h.request(`/api/blotter/signatures/${infoDraft.id}/files/original`,undefined,h.owner)).arrayBuffer());
   assert.equal((await PDFDocument.load(infoPdf)).getPageCount(),1);assert.equal(infoDraft.signers.length,1);assert.ok(infoDraft.fields.every(f=>f.contactId===client.id));
@@ -228,6 +230,27 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   }finally{await copy.close();}
   assert.ok(!(await h.json(`/clients/${f.client.id}/history`,undefined,h.owner)).history.some(e=>String(e.detail).includes('111-22-3333')),'The TIN stays out of audit detail');
   await authorizationJourney(h,f,info);
+  // BASE-001 activation: the real client-erasure door redacts this record kind,
+  // retains signed source evidence behind the principal door and fences old archives.
+  for(const pending of await h.json(`/clients/${f.client.id}/signatures`,undefined,h.owner))if(['draft','pending','declined','held'].includes(pending.status))
+   await h.json(`/signatures/${pending.id}/void`,{revision:pending.revision,reason:'Authorization was withdrawn'},h.owner);
+  for(const noticeId of [covered,outside,overlapping])await h.json(`/notices/${noticeId}/close`,{outcome:'exception',note:'Authorization withdrawn; no agency response will be submitted'},h.owner);
+  await finishJob(h,f);
+  const detail=await h.json(`/clients/${f.client.id}/detail`,undefined,h.owner);
+  await h.json(`/clients/${f.client.id}/lifecycle`,{lifecycle:'archived',revision:detail.revision},h.owner);
+  const preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);assert.deepEqual(preview.blockers,[]);
+  assert.ok(preview.erase.some(step=>step.table==='b_authorizations'&&step.count===2));
+  const receipt=await h.json(`/clients/${f.client.id}/erasure`,{planHash:preview.planHash,confirm:f.client.name,reason:'Client requested erasure after withdrawal'},h.owner);
+  assert.ok(receipt.steps.some(step=>step.table==='b_authorizations'&&step.count===2));
+  await h.json(`/clients/${f.client.id}/authorizations`,undefined,h.owner,404);
+  const latest=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const exportedRows=latest.trim().split('\n').map(JSON.parse).filter(part=>part.kind==='part').flatMap(part=>part.items).filter(item=>item.kind==='row');
+  const erasedAuthorization=exportedRows.find(item=>item.table==='b_authorizations'&&item.row.id===a.id).row;
+  assert.equal(erasedAuthorization.representative,'[erased]');assert.equal(erasedAuthorization.caf_number,null);assert.equal(erasedAuthorization.representative_email,null);
+  assert.equal((await h.request(`/api/blotter/signatures/${d.id}/files/signed`,undefined,h.owner)).status,200);
+  assert.equal((await h.request(`/api/blotter/signatures/${d.id}/files/signed`,undefined,f.prep)).status,403);
+  const stale=await harness();try{await stale.json('/restore',{archive,journal:latest,confirm:'RESTORE'},stale.owner,409);}finally{await stale.close();}
+
 
  }finally{await h.close();}
 });
