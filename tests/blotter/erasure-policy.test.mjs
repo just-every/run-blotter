@@ -19,7 +19,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     const spanishContact = s.client.contacts.find(c => c.language === 'es');
     await h.json(`/clients/${s.client.id}/contacts`, { id: spanishContact.id, revision: spanishContact.revision, roles: ['primary', 'tax'] }, h.owner);
     const reviewTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Erasure review fixture', subject: '{{work_type}} review', body: '{{work_type}} document review.' }, h.owner);
-    await h.json('/bulk-messages/preview', { class: 'engagement', templateId: reviewTemplate.id, workTypeId: 'wt-' + s.template.id, role: 'tax', reason: 'Prepare a requested document review', idempotencyKey: 'synthetic-blotter-25' }, h.owner);
+    const reviewBatch = await h.json('/bulk-messages/preview', { class: 'engagement', templateId: reviewTemplate.id, workTypeId: 'wt-' + s.template.id, role: 'tax', reason: 'Prepare a requested document review', idempotencyKey: 'synthetic-blotter-25' }, h.owner);
     const archive = async () => (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     const old = await archive();
     for (const sentinel of [SENTINEL.organizer, SENTINEL.thread, 'alex@example.test', IDENTITY.name]) assert.ok(old.includes(sentinel), sentinel);
@@ -68,6 +68,12 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.match(preview.blockers[0], /Archive the client/);
     const detail = await h.json(`/clients/${id}/detail`, undefined, h.owner);
     await h.json(`/clients/${id}/lifecycle`, { lifecycle: 'archived', revision: detail.revision }, h.owner);
+    // An unsent preview must first become held through the public send-time recheck; queued mail still blocks erasure.
+    const beforeReview = h.mails.length;
+    await h.json(`/bulk-messages/${reviewBatch.batch.id}/schedule`, { fingerprint: reviewBatch.batch.fingerprint }, h.owner);
+    const heldReview = await h.json(`/bulk-messages/${reviewBatch.batch.id}/run`, {}, h.owner);
+    assert.equal(heldReview.counts.held, 1); assert.equal(h.mails.length, beforeReview, 'The archived client receives no review mail');
+
     preview = await h.json(`/clients/${id}/erasure/preview`, undefined, h.owner);
     assert.equal(preview.eligible, false);
     assert.ok(preview.blockers.some(b => /Open job: Close/.test(b)), 'The open job is named');
