@@ -7,7 +7,7 @@ import { scan } from './language-ui.mjs';
  * PORTAL-002 browser proof at 1440 and 390: the sign-in page and a signed-in client's entity
  * view pass the WCAG 2.2 AA scan without overflow, and staff see each contact's portal access.
  */
-export async function portalAccountJourney(h, { clientCookie, clientId }) {
+export async function portalAccountJourney(h, { clientCookie, clientId, locked = false }) {
   const directory = process.env.BLOTTER_PORTAL_EVIDENCE;
   if (!directory) return;
   await mkdir(directory, { recursive: true });
@@ -27,8 +27,10 @@ export async function portalAccountJourney(h, { clientCookie, clientId }) {
     const [name, value] = clientCookie.split('='); await client.addCookies([{ name, value, url: h.origin, httpOnly: true, secure: true, sameSite: 'Strict' }]);
     const page = await client.newPage(); await page.goto(`${h.origin}/client`);
     await page.getByRole('heading', { name: 'Shared documents' }).waitFor();
-    await page.getByRole('combobox', { name: 'Showing' }).selectOption(clientId); await page.getByRole('link', { name: /^Download cedar\.pdf$/ }).waitFor();
-    await capture(page, page.locator('main'), 'client-entity'); await client.close();
+    await page.getByRole('combobox', { name: 'Showing' }).selectOption(clientId);
+    if (locked) await page.getByText('cedar.pdf: locked until paid', { exact: true }).waitFor();
+    else await page.getByRole('link', { name: /^Download cedar\.pdf$/ }).waitFor();
+    await capture(page, page.locator('main'), locked ? 'client-entity-locked' : 'client-entity'); await client.close();
     const staff = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     await h.stepUp(h.owner);
     await staff.addCookies(h.owner.split('; ').map(cookie => { const at = cookie.indexOf('='); return { name: cookie.slice(0, at), value: cookie.slice(at + 1), url: h.origin }; }));
