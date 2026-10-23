@@ -341,3 +341,28 @@ test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers and attached req
     assert.equal((await state())['robin@dup.example'][1], true);
   } finally { await h.close(); }
 });
+
+test('A scheduled bulk message holds each recipient whose client its sender no longer holds', async () => {
+  const h = await harness();
+  try {
+    await h.json('/team', { email: 'reviewer@example.test', name: 'reviewer', role: 'reviewer' }, h.owner); await h.json('/team/invite', { email: 'reviewer@example.test' }, h.owner);
+    const review = await h.login('reviewer@example.test');
+    const t = await h.json('/templates', { name: '1040', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2' }, h.owner), clients = [];
+    for (const n of [0, 1]) {
+      clients.push(await h.json('/clients', { name: `Client ${n}`, entityType: 'individual', contacts: [contact(`Pat${n} Lee`, `p${n}@example.test`)] }, h.owner));
+      await h.json('/jobs', { clientId: clients[n].id, templateId: t.id, periodStart: '2026-01-01', dueDate: '2026-11-30', dueNote: 'Firm target', preparerEmail: 'reviewer@example.test', reviewerEmail: 'owner@example.test' }, h.owner);
+    }
+    const kickoff = await h.json('/messages/templates', { scope: 'firm', name: 'Kickoff', subject: '{{work_type}} kickoff for {{client_name}}', body: '{{work_type}} for {{period}} is open.\nStill needed: {{outstanding_requests}}' }, h.owner);
+    const preview = await h.json('/bulk-messages/preview', { class: 'engagement', templateId: kickoff.id, workTypeId: 'wt-' + t.id, reason: 'Tax-season kickoff', idempotencyKey: 'scope-1' }, review);
+    assert.equal(preview.recipients.length, 2);
+    await h.json(`/bulk-messages/${preview.batch.id}/schedule`, { fingerprint: preview.batch.fingerprint }, review);
+    // The principal narrows the sender to one client before the hourly dispatch runs.
+    await h.json('/access/people', { email: 'reviewer@example.test', readOnly: false, clientIds: [clients[0].id] }, h.owner);
+    await h.json(`/clients/${clients[1].id}/detail`, undefined, review, 404);
+    const before = h.mails.length;
+    await h.scheduled(Date.now() + 60_000);
+    assert.deepEqual(h.mails.slice(before).flatMap(m => m.to), ['p0@example.test']);
+    const held = (await h.json(`/bulk-messages/${preview.batch.id}`, undefined, h.owner)).recipients.find(r => r.client_id === clients[1].id);
+    assert.equal(held.status, 'held'); assert.equal(held.body, null);
+  } finally { await h.close(); }
+});
