@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {harness} from './harness.mjs';
 import {automationFixture} from './automation-fixture.mjs';
+import {enroll} from './erasure-fixture.mjs';
 import {serviceAgentsJourney} from './service-agents-ui.mjs';
 export async function price(h,cents=25,limit=1000){
  const p=await h.json('/costs/prices',{service:'agent_plan',included:0,unitCents:cents,basisPoints:0,source:'synthetic-blotter-1: native plan cost estimate'},h.owner);
@@ -120,6 +121,17 @@ test('AI-003: bounded event processing advances past completed plans without sta
   const d=await s.detail(j.id);for(let n=0;n<101;n++)await h.json(`/requests/${d.requests[0].id}/files`,{name:`synthetic-blotter-${n+10}.txt`,mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-10').toString('base64')},s.prep);
   const before=h.mails.length;await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);
   const state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,101);assert.equal(state.rules[0].used,101);assert.equal(new Set(state.runs.map(r=>r.proposal_id)).size,101);assert.ok(state.runs.every(r=>r.status==='prepared'));assert.equal(h.mails.length,before);
+ }finally{await h.close();}
+});
+
+test('AI-003 / BASE-001 / ACCESS-004: Cron plans stop when MFA is required until their supervisor enrolls a confirmed second factor',async()=>{
+ const h=await harness();try{
+  const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'MFA-bound schedule'},h.owner);await price(h);
+  await rule(h,s,key,{trigger:'schedule',startsAt:'2027-01-01T00:00:00Z',everyHours:24});
+  await h.json('/team/mfa-policy',{required:true},h.owner);
+  await h.scheduled('2027-01-01T00:00:00Z');await h.json('/agent/context',undefined,'',403,{authorization:'Bearer '+key.key});
+  await enroll(h,h.owner);let state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,1);assert.equal(state.runs[0].status,'refused');assert.equal(state.rules[0].used,0);
+  await h.scheduled('2027-01-02T00:00:00Z');state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.filter(r=>r.status==='prepared').length,1);assert.equal(state.rules[0].used,1);assert.equal(state.runs.filter(r=>r.status==='refused').length,1);
  }finally{await h.close();}
 });
 
