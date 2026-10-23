@@ -60,7 +60,9 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const s = selectors(x), at = lit(x.at), who = lit(x.who), why = lit(x.reason);
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
-  const all: Step[] = [...signatureErasureSteps(x),...invoiceErasureSteps(x),
+  const all: Step[] = [
+    {cls:'link',table:'b_agent_rules',action:'redact',label:'Scheduled agent grants revoked',where:`client_id=${s.c} AND status<>'revoked'`,set:`status='revoked'`},
+    {cls:'derived_ai',table:'b_agent_rules',action:'redact',label:'Agent rule names and due-date notes',where:`client_id=${s.c}`,set:`name='[erased]',due_note='[erased]'`},...signatureErasureSteps(x),...invoiceErasureSteps(x),
     {cls:'signed_documents',table:'b_authorizations',action:'redact',label:'Taxpayer authorizations: representative, CAF number and reasons (form, years, dates and status stay)',where:`client_id=${s.c}`,set:`representative='${MARK}',representative_email=NULL,caf_number=NULL,status_reason=NULL`},
     {cls:'link',table:'b_access_grants',action:'delete',label:'Staff client grants',where:`client_id=${s.c}`},
     {cls:'link',table:'b_access_team_clients',action:'delete',label:'Team client grants',where:`client_id=${s.c}`},

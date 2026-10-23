@@ -1,10 +1,11 @@
+import { liveAgentRuleSql } from './scheduled-agent-gate';
 import { clientScopeSql, clientScopeParams } from './access-sql';
 // Shared server rules: validation, roles, guarded atomic writes and audit.
 // Adapted from just-every/run-satchel src/satchel/model.ts (MIT).
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; agentKeyId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -102,6 +103,8 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
   if (actor.approval) {
     const [pending, done] = guard(db, `EXISTS(SELECT 1 FROM b_proposals WHERE id=? AND for_email=? AND status='pending')`, actor.approval.id, actor.email);
     approval.push(pending, done);
+    const [live,liveDone]=guard(db,`NOT EXISTS(SELECT 1 FROM b_agent_runs WHERE proposal_id=?) OR EXISTS(SELECT 1 FROM b_agent_runs ar WHERE ar.proposal_id=? AND ${liveAgentRuleSql.replace('j.id=?','j.id=ar.job_id').replace('r.id=?','r.id=ar.rule_id').replace('? NOT LIKE',"ar.event_key NOT LIKE").replace('substr(?,6)', 'substr(ar.event_key,6)')})`,actor.approval.id,actor.approval.id);
+    approval.push(live,liveDone);
     decision.push(stmt(db, "UPDATE b_proposals SET status='approved',result_id=?,decided_by=?,decided_at=? WHERE id=?", actor.approval.resultId, actor.email, now(), actor.approval.id));
   }
   const execution: D1PreparedStatement[] = [], completed: D1PreparedStatement[] = [];

@@ -1,3 +1,4 @@
+import { runAgentRules } from './blotter/scheduled-agents'
 import { runInvoiceSchedules } from './blotter/invoices-retainers'
 import { runInvoiceReminders } from './blotter/invoices-collections'
 import { runAuthorizationAlerts } from './blotter/authorizations'
@@ -59,6 +60,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runAuthorizationAlerts(env.DB,new Date(controller.scheduledTime))
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await runAutomation(env, new Date(controller.scheduledTime))
+    await runAgentRules(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))
     await runBulk(env, new Date(controller.scheduledTime))
     await refreshNotifications(env, new Date(controller.scheduledTime), true)

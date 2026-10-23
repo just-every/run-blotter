@@ -29,6 +29,10 @@ async function payloadFor(db: D1Database, actor: Actor, kind: string, body: Data
 export async function propose(db: D1Database, actor: Actor, kind: string, body: Data) {
   insist((KINDS as readonly string[]).includes(kind), 'Unknown preparation command. Use prepare-rollforward, prepare-reminder or prepare-export.', 404);
   if (kind !== 'reminder') need(actor, 'owner', 'reviewer');
+  if(actor.agentKeyId && await stmt(db,'SELECT 1 FROM b_agent_rules WHERE key_id=?',actor.agentKeyId).first()) {
+    const j=await job(db,actor,text(body.jobId,'Job'));
+    insist(false,'Use the supervised event runner for this key; direct preparations cannot bypass its plan and service budgets',403);
+  }
   const payload = await payloadFor(db, actor, kind, body), proposalId = id();
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_proposals(id,kind,payload,for_email,agent_label,created_at) VALUES(?,?,?,?,?,?)', proposalId, kind, JSON.stringify(payload), actor.email, actor.label ?? 'Prepared by a person', now()),
@@ -62,7 +66,8 @@ export async function decideProposal(env: Bindings, actor: Actor, proposalId: st
 }
 
 export async function agentContext(db: D1Database, actor: Actor) {
-  const visible = `((?='owner' OR ?='reviewer' OR j.preparer_email=?) AND ${clientAuthority(actor,'j.client_id')})`, params = [actor.role, actor.role, actor.email];
+  const limited=actor.agentKeyId && await stmt(db,'SELECT 1 FROM b_agent_rules WHERE key_id=?',actor.agentKeyId).first();
+  const visible = `((?='owner' OR ?='reviewer' OR j.preparer_email=?) AND ${clientAuthority(actor,'j.client_id')} ${limited?`AND j.client_id IN (SELECT client_id FROM b_agent_rules WHERE key_id='${String(actor.agentKeyId).replaceAll("'","''")}' AND status='active')`:''})`, params = [actor.role, actor.role, actor.email];
   // ERASURE-002 names what a key read as an outside copy: the clients in the jobs it was shown.
   await audit(db, actor, 'agent.read', 'agent-context', JSON.stringify((await db.prepare(`SELECT DISTINCT j.client_id FROM b_jobs j WHERE ${visible}`).bind(...params).all<Data>()).results.map(r => r.client_id))).run();
   return {
@@ -71,7 +76,7 @@ export async function agentContext(db: D1Database, actor: Actor) {
         (SELECT id FROM b_jobs n WHERE n.rolled_from=j.id) next_job_id
       FROM b_jobs j JOIN b_clients c ON c.id=j.client_id WHERE ${visible} ORDER BY j.due_date`).bind(...params).all<Data>()).results
       .map(j => ({ ...j, outstanding: JSON.parse(j.outstanding) })),
-    unbilled: actor.role === 'preparer' || actor.accessScoped ? [] : await unbilled(db),
+    unbilled: actor.role === 'preparer' || actor.accessScoped || limited ? [] : await unbilled(db),
     commands: [...(actor.role === 'owner' ? ['POST /api/blotter/agent/learning/evidence', 'POST /api/blotter/agent/prepare-learning'] : []), 'POST /api/blotter/agent/prepare-rollforward', 'POST /api/blotter/agent/prepare-reminder', 'POST /api/blotter/agent/prepare-export'],
   };
 }
