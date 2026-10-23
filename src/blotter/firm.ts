@@ -52,6 +52,16 @@ export function localClock(settings: Data, at: Date) {
   const notificationsAllowed = start === end || (start < end ? localTime >= start && localTime < end : localTime >= start || localTime < end);
   return { at: at.toISOString(), localDate, localTime, zone: parts.timeZoneName, timeZone: settings.timeZone, notificationsAllowed };
 }
+/** The UTC instant (ISO) at which the firm's calendar day `localDate` ends: its next local midnight, found through the zone's offset. */
+export function localDayEnd(settings: Data, localDate: string) {
+  const target = Date.parse(localDate + 'T00:00:00Z') + 86_400_000, format = new Intl.DateTimeFormat('en-US', { timeZone: settings.timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  let at = target;
+  for (let i = 0; i < 3; i++) {
+    const p = Object.fromEntries(format.formatToParts(new Date(at)).map(x => [x.type, x.value]));
+    at += target - Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  }
+  return new Date(at).toISOString();
+}
 export async function firmClock(db: D1Database, actor: Actor, at?: string) {
   need(actor, 'owner'); const instant = at ? new Date(at) : new Date(); insist(Number.isFinite(instant.getTime()), 'Use a valid instant');
   return localClock(await firmSettings(db), instant);

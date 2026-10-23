@@ -5,7 +5,7 @@
 // pending ct, as BILL-002's automatic issue and send). Quick collect needs PAY-001.
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { sendMail } from './documents';
-import { firmSettings, localClock } from './firm';
+import { firmSettings, localClock, localDayEnd } from './firm';
 import { engagementOnly, localize, render, translationWarning, usable } from './messages';
 import { atomic, audit, canReadBilling, date, digest, id, insist, integer, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 import { AGING_BUCKETS, agingBucket } from './invoice-aging';
@@ -125,16 +125,17 @@ export async function clientStatement(db: D1Database, actor: Actor, clientId: st
   insist(canReadBilling(actor) && actor.channel === 'person', 'Your role cannot perform this action', 403);
   const client = await stmt(db, 'SELECT id,name FROM b_clients WHERE id=? AND erased_at IS NULL', clientId).first<Data>();
   insist(client, 'Client not found', 404);
-  const asOf = query.asOf ? date(query.asOf, 'Statement date') : await firmToday(db), end = asOf + 'T23:59:59.999Z';
+  // The statement day ends at the firm's next local midnight, so credits and write-offs recorded that local evening count on it.
+  const asOf = query.asOf ? date(query.asOf, 'Statement date') : await firmToday(db), end = localDayEnd(await firmSettings(db), asOf);
   const issued = await rows(db, `SELECT i.id,i.number,i.title,i.issue_date,i.due_date,i.total_cents,i.subtotal_cents+i.tax_cents gross_cents,i.collection_hold,
-    COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=i.id AND c.recorded_at<=?),0) applied_cents,
-    COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=i.id AND w.approved_at<=?),0) written_off_cents
+    COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=i.id AND c.recorded_at<?),0) applied_cents,
+    COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=i.id AND w.approved_at<?),0) written_off_cents
     FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.erased_at IS NULL AND i.issue_date<=? ORDER BY i.due_date,i.number`, end, end, clientId, asOf);
   const bucket = (due: string) => agingBucket(asOf, due);
   const invoices = issued.map(i => ({ id: i.id, number: invoiceNumber(i.number), title: i.title, issueDate: i.issue_date, dueDate: i.due_date, totalCents: i.total_cents, creditsCents: i.applied_cents, writtenOffCents: i.written_off_cents,
     balanceCents: i.gross_cents - i.applied_cents - i.written_off_cents, aging: bucket(i.due_date), hold: i.collection_hold })).filter(i => i.balanceCents > 0);
   const credits = (await rows(db, `SELECT c.id,c.kind,c.reference,c.amount_cents,c.recorded_at,COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) applied_cents
-    FROM b_invoice_credits c WHERE c.client_id=? AND c.recorded_at<=? ORDER BY c.recorded_at,c.id`, clientId, end)).map(c => ({ id: c.id, kind: c.kind, reference: c.reference, recordedAt: c.recorded_at, amountCents: c.amount_cents, appliedCents: c.applied_cents, availableCents: c.amount_cents - c.applied_cents }));
+    FROM b_invoice_credits c WHERE c.client_id=? AND c.recorded_at<? ORDER BY c.recorded_at,c.id`, clientId, end)).map(c => ({ id: c.id, kind: c.kind, reference: c.reference, recordedAt: c.recorded_at, amountCents: c.amount_cents, appliedCents: c.applied_cents, availableCents: c.amount_cents - c.applied_cents }));
   const openCents = invoices.reduce((n, i) => n + i.balanceCents, 0), availableCents = credits.reduce((n, c) => n + c.availableCents, 0);
   const aging = AGING_BUCKETS.map(b => ({ bucket: b, cents: invoices.filter(i => i.aging === b).reduce((n, i) => n + i.balanceCents, 0) }));
   return { client, asOf, currency: 'USD', invoices, credits, payments: [], paymentsNote: 'No provider payments: PAY-001 is not active here. Deposits and credits the practice recorded are listed as credits.',
