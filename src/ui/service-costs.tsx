@@ -1,9 +1,9 @@
 import {useEffect,useState} from 'react';
 import {api,Empty,Field,Form,money,Status,type Row,type Run} from './common';
-export function ServiceCosts({run}:{run:Run}) {
+export function ServiceCosts({run,tick}:{run:Run;tick:number}) {
  const [data,setData]=useState<Row>(),[estimate,setEstimate]=useState<Row>();
  const reload=()=>api('/costs').then(setData);
- useEffect(()=>{reload().catch(()=>{});},[]);
+ useEffect(()=>{reload().catch(()=>{});},[tick]);
  const change=(path:string,body:Row,message:string)=>run(async()=>{await api(path,body);await reload();},message);
  return <section className="panel" aria-label="Service costs"><h2>Service costs</h2>
  <p>Plan in USD before enabling optional services. Record the provider’s current quoted price and included quantity; unpriced services stay unavailable. Estimates do not charge a card or connect a provider.</p>

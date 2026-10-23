@@ -1,9 +1,9 @@
 import {useEffect,useState} from 'react';
 import {api,Empty,Field,Form,money,Status,when,type Row,type Run} from './common';
-export function ScheduledAgents({state,run,open}:{state:Row;run:Run;open:(id:string)=>void}) {
+export function ScheduledAgents({state,run,open,tick}:{tick:number;state:Row;run:Run;open:(id:string)=>void}) {
  const [data,setData]=useState<Row>(),[keys,setKeys]=useState<Row[]>([]),[trigger,setTrigger]=useState('file'),[tool,setTool]=useState('reminder');
  const reload=async()=>{setData(await api('/agent-rules'));setKeys((await api('/team')).keys.filter((k:Row)=>!k.revoked));};
- useEffect(()=>{reload().catch(()=>{});},[]);
+ useEffect(()=>{reload().catch(()=>{});},[tick]);
  const change=(path:string,b:Row,message:string)=>run(async()=>{await api(path,b);await reload();},message);
  return <section className="panel" aria-label="Scheduled agents"><h2>Scheduled agents</h2><p>Agents prepare; people approve. A file, completed task, question or schedule can prepare one bounded plan for one client. This native planner calls no model and transmits no data to a provider. Configure Service costs before enabling plans.</p>
  {!data?<button onClick={()=>run(reload,'Agents loaded')}>Load scheduled agents</button>:<><p>{data.exclusions}</p>
