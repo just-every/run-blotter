@@ -9,6 +9,7 @@
 // reviewer or the principal hands any unresolved item to another person.
 import { atomic, audit, email, guard, human, id, insist, need, optional, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 import { eligible } from './jobs';
+import { documentAuthority } from './permissions';
 
 /** Each history kind and the audit actions it covers. */
 const KINDS: Record<string, string> = {
@@ -30,7 +31,8 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
   insist(lead || jobs.length, 'Client not found', 404);
   const ids = JSON.stringify(jobs.map(j => j.id)), kind = optional(query.kind, 'Kind', 20), q = `%${optional(query.q, 'Search', 100).toLowerCase()}%`;
   insist(!kind || Object.hasOwn(KINDS, kind), `Choose one of ${Object.keys(KINDS).join(', ')}`);
-  // Every record of the client's readable jobs; client-wide records only for leads.
+  // Every record of the client's readable jobs; client-wide records only for leads. A restricted
+  // document's own records (its review notes among them) stay with the people it is shared with.
   const jobIds = 'SELECT value FROM json_each(?1)';
   const objects = `(a.object_id IN (${jobIds})
     OR a.object_id IN (SELECT id FROM b_requests WHERE job_id IN (${jobIds})) OR a.object_id IN (SELECT id FROM b_files WHERE job_id IN (${jobIds}))
@@ -44,7 +46,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
   const history = await rows(db, `SELECT a.id,a.actor,a.action,a.object_id,a.detail,a.at,
       COALESCE((SELECT id FROM b_jobs WHERE id=a.object_id),(SELECT job_id FROM b_requests WHERE id=a.object_id),(SELECT job_id FROM b_files WHERE id=a.object_id),
         (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id),(SELECT job_id FROM b_invoices WHERE id=a.object_id),(SELECT d.job_id FROM b_payment_gates g JOIN b_deliverables d ON d.id=g.deliverable_id WHERE g.id=a.object_id)) job_id
-    FROM b_audit a WHERE ${objects} AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
+    FROM b_audit a WHERE ${objects} AND ${documentAuthority(actor, 'a.object_id')} AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
     ORDER BY a.at DESC,a.id LIMIT 500`, ids, clientId, lead ? 1 : 0, kind, q);
   const owner = optional(query.owner, 'Owner', 254).toLowerCase();
   const unresolved = (await openItems(db, ids, lead ? clientId : null)).filter(item => !owner || item.owner === owner);

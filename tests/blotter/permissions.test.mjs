@@ -133,6 +133,27 @@ test('A person whose client grant is removed no longer sees that client’s task
  }finally{await h.close();}
 });
 
+test('A restricted workpaper’s review notes stay out of client history for people without its grant',async()=>{
+ const h=await harness();
+ try{
+  for(const email of ['granted@example.test','other@example.test']){await h.json('/team',{email,name:email,role:'reviewer'},h.owner);await h.json('/team/invite',{email},h.owner);}
+  const granted=await h.login('granted@example.test'),other=await h.login('other@example.test');
+  const client=await h.json('/clients',{name:'Cedar Lane LLC'},h.owner);
+  const t=await h.json('/templates',{name:'Tax return',recurrence:'annual',steps:'Review',requests:'Workpaper'},h.owner);
+  const job=await h.json('/jobs',{clientId:client.id,templateId:t.id,periodStart:'2026-01-01',dueDate:'2026-10-28',dueNote:'Client schedule',preparerEmail:'other@example.test',reviewerEmail:'owner@example.test'},h.owner);
+  const request=(await h.json('/jobs/'+job.id,undefined,h.owner)).requests[0];
+  const file=await h.json(`/requests/${request.id}/files`,{name:'Return workpaper.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-3 workpaper').toString('base64')},h.owner);
+  const fileId=file.id??(await h.json('/jobs/'+job.id,undefined,h.owner)).requests[0].files[0].id;
+  await h.json(`/document-packets/${fileId}/review`,{revision:null,status:'accepted',note:'synthetic-blotter-3 confidential taxpayer note'},h.owner);
+  for(const email of ['granted@example.test','other@example.test'])await h.json('/access/people',{email,readOnly:false,clientIds:[client.id]},h.owner);
+  await h.json(`/access/documents/${fileId}`,{classification:'Tax return',reason:'Private return restricted to one reviewer',emails:['granted@example.test']},h.owner);
+  await h.json('/files/'+fileId,undefined,other,404);
+  const history=who=>h.json(`/clients/${client.id}/history?kind=documents`,undefined,who).then(JSON.stringify);
+  assert.ok(!(await history(other)).includes('synthetic-blotter-3'));
+  assert.ok((await history(granted)).includes('synthetic-blotter-3 confidential taxpayer note'));
+ }finally{await h.close();}
+});
+
 test('Delegated manage-access and financial-authority grants are bounded and live, and export step-up applies from installation',async()=>{
  const h=await harness();
  try{
