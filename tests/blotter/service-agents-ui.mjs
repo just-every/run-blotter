@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
-export async function serviceAgentsJourney(h,s,key){
+export async function serviceAgentsJourney(h,s,key,job){
  const evidence=process.env.BLOTTER_SERVICE_EVIDENCE;
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
  try{
@@ -19,7 +19,16 @@ export async function serviceAgentsJourney(h,s,key){
   await agents.getByLabel('Agent name',{exact:true}).fill('Browser file agent');await agents.getByLabel('Supervisor’s agent key').selectOption(key.id);await agents.getByLabel('One client',{exact:true}).selectOption(s.client.id);
   await agents.getByRole('button',{name:'Approve agent grant',exact:true}).click();await agents.getByText('Browser file agent',{exact:true}).waitFor();
   assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules.length,1);
-  await capture(agents,'agents');await agents.getByRole('button',{name:'Evaluate agent events',exact:true}).click();await agents.getByRole('button',{name:'Revoke agent',exact:true}).click();
+  await capture(agents,'agents');
+  await costs.getByText('Approve a budget or increase',{exact:true}).click();await costs.getByLabel('Lifetime budget (USD cents)',{exact:true}).fill('0');await costs.getByLabel('Per-action threshold (USD cents)',{exact:true}).fill('0');await costs.getByLabel('Budget approval reason',{exact:true}).fill('Hold optional plans until reviewed');await costs.getByRole('button',{name:'Approve budget',exact:true}).click();
+  const detail=await s.detail(job.id);await h.json(`/requests/${detail.requests[0].id}/files`,{name:'synthetic-blotter-6.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-6').toString('base64')},s.prep);
+  await agents.getByRole('button',{name:'Evaluate agent events',exact:true}).click();await costs.getByText('Blocked',{exact:true}).waitFor();await agents.getByText('Blocked',{exact:true}).waitFor();
+  await capture(costs,'budget-blocked');await capture(agents,'plan-blocked');
+  await costs.getByLabel('Lifetime budget (USD cents)',{exact:true}).fill('100');await costs.getByLabel('Per-action threshold (USD cents)',{exact:true}).fill('25');await costs.getByLabel('Budget approval reason',{exact:true}).fill('Approve one bounded native plan');await costs.getByRole('button',{name:'Approve budget',exact:true}).click();
+  await agents.getByRole('button',{name:'Evaluate agent events',exact:true}).click();await costs.getByText('Reserved',{exact:true}).waitFor();await agents.getByText('Pending',{exact:true}).waitFor();
+  await costs.getByLabel('Confirmed USD cents',{exact:true}).fill('0');await costs.getByLabel('Provider receipt or native cost evidence',{exact:true}).fill('Native plan: no provider charge');await costs.getByRole('button',{name:'Reconcile cost',exact:true}).click();await costs.getByText('Confirmed',{exact:true}).waitFor();
+  await capture(costs,'cost-reconciled');await capture(agents,'plan-prepared');
+  await agents.getByRole('button',{name:'Revoke agent',exact:true}).click();
   await agents.getByText('Revoked',{exact:true}).waitFor();assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules[0].status,'revoked');
   // Every icon-only control visible on this screen, at both release widths.
   for(const width of [1440,390]){

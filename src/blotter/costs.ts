@@ -42,6 +42,7 @@ function charge(p:Data,quantity:number,amount:number,used:number) {
 }
 export async function estimateCosts(db:D1Database,a:Actor,b:Data) {
  owner(a);insist(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=30,'List 1 to 30 services');
+ insist(new Set(b.items.map((item:Data)=>item.service)).size===b.items.length,'List each service once so included quantities are shared correctly');
  const prices=await rows(db,'SELECT * FROM b_service_prices'),items=b.items.map((item:Data)=>{
   const service=text(item.service,'Service'),p=prices.find(p=>p.service===service);insist(SERVICES[service],'Unknown service');
   const quantity=integer(item.quantity,'Quantity'),amountCents=integer(item.amountCents??0,'Payment amount in USD cents');
