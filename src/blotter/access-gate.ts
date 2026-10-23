@@ -28,7 +28,7 @@ const resources:Record<string,string>={
 // Financial authority opens these firm-wide doors to a scoped holder; each reads or writes only the clients the holder holds.
 const financialReads = new Set(['/invoices','/invoices/reminders','/reports/performance','/reports/performance/csv','/reports/performance/pdf']);
 const financialCreates = ['/invoices/preview','/invoices','/invoice-entitlements','/invoice-credits','/invoice-retainers'];
-const sensitiveAdmin = (path:string) => /^\/(access\/(teams|people|documents|delegations)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority|invoices\/reminders|invoice-retainers\/[^/]+\/auto-consent)/.test(path);
+const sensitiveAdmin = (path:string) => /^\/(costs|agent-rules|access\/(teams|people|documents|delegations)|team($|\/)|keys($|\/)|firm($|\/)|credentials\/archive-mode|retention($|\/)|invoices\/authority|invoices\/reminders|invoice-retainers\/[^/]+\/auto-consent)/.test(path);
 const exporting = (path:string) => /^\/(backup|portability\/exports|erasure-journal|exports($|\/)|reports\/.*\/(csv|pdf)$|team\/mfa-report|invoices\/[^/]+\/pdf$|clients\/[^/]+\/statement\/csv$)/.test(path);
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');
