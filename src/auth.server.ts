@@ -5,6 +5,8 @@ import { firstRunResponse } from './base/setup'
 import { fontDocumentResponse } from './base/font-response'
 import { createOperatorAuth, createAuthHandler, createSignInHandler, type AuthConfig } from './modules/operator-auth/index.mjs'
 import { operatorMail } from './mail.server.mjs'
+import { mfaGate } from './blotter/mfa'
+import { Fault } from './blotter/model'
 import branding from './branding.json'
 
 // The edition's declared theme (public/rer-theme.css), as Base frames link it.
@@ -54,8 +56,23 @@ export function operatorAuth(env: Bindings) {
  return createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
 }
 
+// Signing in, signing out and asking for a sign-in proof stay open. Every other
+// account change (email, invitations, roles, sessions, providers, links) first
+// passes the practice's second-factor gate, as every Blotter door does.
+const signInPosts = new Set(['/auth/bootstrap', '/auth/magic-link', '/auth/confirm', '/auth/owner-signin', '/auth/owner-claim', '/auth/review-session', '/auth/signout', '/auth/step-up'])
+async function accountChangeRefusal(request: Request, env: Bindings, path: string): Promise<Response | null> {
+ if (request.method !== 'POST' || !path.startsWith('/auth/') || signInPosts.has(path)) return null
+ const session = await operatorAuth(env).getSession(request)
+ if (!session) return null
+ try { await mfaGate(env.DB, { email: session.operator.email, sessionId: session.id, sessionStartedAt: Number(session.createdAt) }, false) }
+ catch (error) { if (error instanceof Fault) return Response.json({ error: error.message, ...error.detail }, { status: error.status }); throw error }
+ return null
+}
+
 async function handleAuthResponse(request: Request, original: Bindings): Promise<Response | null> {
  const env = runtimeBindings(original), url = new URL(request.url)
+ const refused = await accountChangeRefusal(request, env, url.pathname)
+ if (refused) return refused
  if (url.pathname.startsWith('/.well-known/rer-') || url.pathname.startsWith('/auth/dependencies/')) {
   const linked = await createDependencies({ db: env.DB, origin: env.AUTH_ORIGIN, name: branding.name, provider: env.IDENTITY_PROVIDER, local: env.AUTH_LOCAL === 'true', auth: operatorAuth(env), claimOwner: token => createIdpOwnerClaimHandler({db:env.DB,authConfig:authConfig(env),clientIp:()=>request.headers.get('CF-Connecting-IP')??''})(new Request(env.AUTH_ORIGIN+'/auth/owner-claim',{method:'POST',headers:{Host:new URL(env.AUTH_ORIGIN).host,Origin:env.AUTH_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({token})})) }).handle(request)
   if (linked) return linked

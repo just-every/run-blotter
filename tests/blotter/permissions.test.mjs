@@ -98,6 +98,23 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
  }finally{await stale?.close();await destination?.close();await h.close();}
 });
 
+test('A sign-in that still owes its second factor cannot change the account email or invite another principal',async()=>{
+ const h=await harness();
+ try{
+  const codes=await enroll(h,h.owner);
+  const fresh=await h.login('owner@example.test');
+  assert.equal((await h.json('/state',undefined,fresh,403)).mfa,'verify');
+  for(const [path,body] of [['/auth/email',{email:'elsewhere@example.test'}],['/auth/invite',{email:'elsewhere@example.test',role:'owner'}]]){
+   const refused=await h.send(path,body,fresh);
+   assert.equal(refused.status,403,path);assert.equal((await refused.json()).mfa,'verify');
+  }
+  assert.equal((await(await h.send('/auth/session',undefined,h.owner)).json()).operator.email,'owner@example.test');
+  // The same session may change its own email once it confirms its factor.
+  await h.json('/mfa/verify',{recoveryCode:codes[0]},fresh);
+  assert.equal((await h.send('/auth/email',{email:'principal@example.test'},fresh)).status,200);
+ }finally{await h.close();}
+});
+
 test('Delegated manage-access and financial-authority grants are bounded and live, and export step-up applies from installation',async()=>{
  const h=await harness();
  try{

@@ -54,13 +54,16 @@ const policyOn = async (db: D1Database) => !!(await policy(db))?.required;
 const factorCount = async (db: D1Database, address: string) => Number((await stmt(db, 'SELECT COUNT(*) n FROM b_mfa_factors WHERE email=? AND confirmed_at IS NOT NULL', address).first<Data>())!.n);
 const verifiedSession = async (db: D1Database, sessionId: string) => !!await stmt(db, 'SELECT 1 FROM b_mfa_sessions WHERE session_id=?', sessionId).first();
 
+/** The signed-in session a gate checks: Blotter doors pass their actor, Base account doors their session's operator. */
+export type SessionHolder = Pick<Actor, 'email' | 'sessionId' | 'sessionStartedAt'>;
+
 /**
  * The gate every person door passes. A second factor is required when the firm
  * policy is on or the person has enrolled one; then the person must enroll,
  * and every session must be verified on its own. `open` lets only the
  * enrollment and verification doors through.
  */
-export async function mfaGate(db: D1Database, actor: Actor, open: boolean) {
+export async function mfaGate(db: D1Database, actor: SessionHolder, open: boolean) {
   const rules = await policy(db);
   if (rules) await sessionLimits(db, actor, rules);
   const factors = await factorCount(db, actor.email);
@@ -70,7 +73,7 @@ export async function mfaGate(db: D1Database, actor: Actor, open: boolean) {
   if (!await verifiedSession(db, actor.sessionId!)) throw new Fault('Confirm your second factor to continue', 403, { mfa: 'verify' });
 }
 /** The firm's session lifetime (from sign-in) and idle timeout (since the session's last request) end a session for good. */
-async function sessionLimits(db: D1Database, actor: Actor, rules: Data) {
+async function sessionLimits(db: D1Database, actor: SessionHolder, rules: Data) {
   const at = Date.now(), sid = actor.sessionId!;
   const seen = rules.idle_minutes ? (await stmt(db, 'SELECT seen_at FROM b_session_activity WHERE session_id=?', sid).first<Data>())?.seen_at : null;
   const expired = rules.session_minutes && at - actor.sessionStartedAt! > rules.session_minutes * 60_000;
