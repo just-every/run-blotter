@@ -1,4 +1,4 @@
-import { agentRules, saveAgentRule, stopAgentRule, runAgentRules } from './scheduled-agents';
+import { agentRules, saveAgentRule, stopAgentRule, runAgentRules, pendingAgentPlans, fillAgentPlan } from './scheduled-agents';
 import { costState, exportCosts, savePrice, setService, saveBudget, estimateCosts, reconcileCost } from './costs';
 import { signatureRoutes } from './signature-routes';
 import { invoiceRoutes } from './invoice-routes';
@@ -118,8 +118,10 @@ const asOpen = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => c.j
 const sealer = (c: C) => runtimeBindings(c.env).SESSION_SECRET;
 const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH_ORIGIN });
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
-const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); if(c.req.path!==P+'/agent/context' && await db(c).prepare('SELECT 1 FROM b_agent_rules WHERE key_id=?').bind(actor.agentKeyId).first()) insist(false,'This key uses supervised plans; direct agent commands cannot bypass its grant and budgets',403); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
+const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); if(c.req.path!==P+'/agent/context' && !new RegExp('^'+P+'/agent/plans(?:/[^/]+)?$').test(c.req.path) && await db(c).prepare('SELECT 1 FROM b_agent_rules WHERE key_id=?').bind(actor.agentKeyId).first()) insist(false,'This key uses supervised plans; direct agent commands cannot bypass its grant and budgets',403); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
+api.get(`${P}/agent/plans`,asAgent((a,c)=>pendingAgentPlans(db(c),a)));
+api.post(`${P}/agent/plans/:id`,asAgent(async(a,c)=>fillAgentPlan(db(c),a,param(c),await body(c))));
 api.get(`${P}/agent-rules`,as((a,c)=>agentRules(db(c),a)));
 api.post(`${P}/agent-rules`,as(async(a,c)=>saveAgentRule(db(c),a,await body(c))));
 api.post(`${P}/agent-rules/run`,as(async(a,c)=>{await agentRules(db(c),a);return runAgentRules(c.env);}));
