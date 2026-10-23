@@ -15,6 +15,9 @@ export function Proposals({ state, run, open, tick }: { tick:number; state: Row;
       <div className="split"><strong>{prose(payload.summary)}</strong><Status value={p.status} /></div>
       <small className="muted">{p.kind} · prepared by {p.agent_label} {when(p.created_at)}{p.decided_by && ` · ${p.status} by ${who(state.people, p.decided_by)} ${when(p.decided_at)}`}{p.decision_note && `: ${p.decision_note}`}</small>
       {payload.jobId && <p><button className="quiet" onClick={() => open(payload.jobId)}>Open the job</button></p>}
+      {p.kind === 'reminder' && <p><strong>Additional reminder wording:</strong> {payload.message || 'None; use the standard request reminder.'}</p>}
+      {payload.dueDate && <p><strong>Proposed due date:</strong> {day(payload.dueDate)} · {payload.dueNote}</p>}
+      {payload.source && <p className="muted">Source event: {payload.source.event} · job revision {payload.source.jobRevision}</p>}
       {p.status === 'pending' && <div className="actions">
         <button onClick={() => run(async () => { const done = await api(`/proposals/${p.id}/decide`, { decision: 'approve' }); setLink(done.result?.portalUrl ? done.result : undefined); }, 'Approved and carried out')}>Approve</button>
         <details><summary>Decline</summary><Form danger label="Decline" submit={async data => run(() => api(`/proposals/${p.id}/decide`, { decision: 'decline', reason: data.reason }), 'Declined')}><Field label="Reason" name="reason" /></Form></details>
