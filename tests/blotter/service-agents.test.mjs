@@ -15,7 +15,7 @@ export async function upload(h,s,job,label='source.txt') {const d=await s.detail
 test('COST-001 / BASE-001: sourced USD seasonal estimates, included quantities, payment rounding and unavailable-provider activation',async()=>{
  const h=await harness();try{
   const s=await automationFixture(h);await h.json('/costs',undefined,s.prep,403);await h.json('/costs/prices',{},s.reviewer,403);
-  const empty=await h.json('/costs/estimate',{items:[{service:'ai',quantity:4}]},h.owner);assert.equal(empty.totalCents,null);
+  const empty=await h.json('/costs/estimate',{items:[{service:'ai',quantity:4}]},h.owner);assert.equal(empty.totalCents,null);await h.json('/costs/estimate',{items:[{service:'ai',quantity:2},{service:'ai',quantity:2}]},h.owner,400);
   const services=['subscription','seats','storage','ai','signatures','kba','email','sms','ach','card'];
   for(const service of services)await h.json('/costs/prices',{service,included:2,unitCents:15,basisPoints:['ach','card'].includes(service)?125:0,source:'synthetic-blotter-3: dated vendor quote, USD'},h.owner);
   const estimate=await h.json('/costs/estimate',{items:services.map(service=>({service,quantity:5,amountCents:['ach','card'].includes(service)?101:0}))},h.owner);
@@ -114,6 +114,15 @@ test('AI-003 / BASE-001: client erasure revokes scheduled grants, removes derive
  }finally{await h.close();}
 });
 
+test('AI-003: bounded event processing advances past completed plans without starvation or duplicate effects',async()=>{
+ const h=await harness();try{
+  const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Bounded queue'},h.owner);await price(h,0,0);await rule(h,s,key,{budget:150});
+  const d=await s.detail(j.id);for(let n=0;n<101;n++)await h.json(`/requests/${d.requests[0].id}/files`,{name:`synthetic-blotter-${n+10}.txt`,mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-10').toString('base64')},s.prep);
+  const before=h.mails.length;await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);
+  const state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,101);assert.equal(state.rules[0].used,101);assert.equal(new Set(state.runs.map(r=>r.proposal_id)).size,101);assert.ok(state.runs.every(r=>r.status==='prepared'));assert.equal(h.mails.length,before);
+ }finally{await h.close();}
+});
+
 test('COST-001 / AI-003: operator estimates and supervised-agent screens at 1440 and 390, with keyboard and delayed hover tooltips',async()=>{
- const h=await harness();try{const s=await automationFixture(h);await s.start();const key=await h.json('/keys',{label:'Browser agent'},h.owner);await price(h);await serviceAgentsJourney(h,s,key);}finally{await h.close();}
+ const h=await harness();try{const s=await automationFixture(h);const j=await s.start();const key=await h.json('/keys',{label:'Browser agent'},h.owner);await price(h);await serviceAgentsJourney(h,s,key,j);}finally{await h.close();}
 });
