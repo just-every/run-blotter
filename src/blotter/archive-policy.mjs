@@ -3,6 +3,9 @@
 // configuration stay out of every archive.
 const inactive = (table, row) => {
   // VAULT-001: the principal's "exclude" choice drops credential ciphertext; "encrypt" carries it sealed.
+  if (table === 'b_agent_rules') return {...row,status:row.status==='revoked'?'revoked':'paused'};
+  if (table === 'b_agent_runs' && ['pending','blocked'].includes(row.status)) return {...row,status:'held',outcome:'Restored history; never replay'};
+  if (table === 'b_service_prices') return {...row,enabled:0};
   if (table === 'b_vault_credentials' && row.archive_mode === 'exclude') return { ...row, sealed: null };
   // PORTAL-002: accounts and grants cross; second factors never do, so a restored account sets up a new one.
   if (table === 'b_portal_accounts') return { ...row, totp_sealed: null, totp_pending_sealed: null, totp_confirmed_at: null, totp_last_step: 0 };

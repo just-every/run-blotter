@@ -25,12 +25,12 @@ export async function person(request: Request, original: Bindings, open = false)
 export async function agent(request: Request, env: Bindings): Promise<Actor> {
   const raw = request.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];
   insist(raw, 'An agent key is required', 401);
-  const record = await stmt(env.DB, `SELECT k.label,o.id,o.email,o.display_name,o.role,m.role member_role FROM b_agent_keys k
+  const record = await stmt(env.DB, `SELECT k.id key_id,k.label,o.id,o.email,o.display_name,o.role,m.role member_role FROM b_agent_keys k
     JOIN oa_operators o ON o.id=k.owner_id LEFT JOIN b_members m ON m.email=o.email AND m.active=1
     WHERE k.digest=? AND k.revoked=0 AND o.status='active'`, await digest(raw)).first<any>();
   insist(record, 'Invalid or revoked agent key', 401);
   const role = record.role === 'owner' ? 'owner' : record.member_role;
   insist(role, 'This agent no longer has practice access', 403);
   await agentGate(env.DB, record.email);
-  return accessActor(env.DB, { id: record.id, email: record.email, name: record.display_name, role, channel: 'agent', label: record.label });
+  return accessActor(env.DB, { id: record.id, email: record.email, name: record.display_name, role, channel: 'agent', agentKeyId:record.key_id, label: record.label });
 }
