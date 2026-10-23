@@ -159,7 +159,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
   // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
   const portal = j.access === 'full' ? await staffPortal(db, j) : null;
-  return { deadline: await deadlineFor(db, j.id), contacts: await clientContacts(db,actor,j.client_id), job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
+  return { warnings: await creditHoldWarnings(db, actor, j.client_id), deadline: await deadlineFor(db, j.id), contacts: await clientContacts(db,actor,j.client_id), job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
 
 const openJob = (j: Data, revision: unknown) => {

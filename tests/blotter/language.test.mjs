@@ -96,6 +96,8 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     let a = (await h.json(portal(mo))).organizers[0], b = (await h.json(portal(to))).organizers[0];
     assert.deepEqual([a.name, a.questions.map(q => q.label), a.questions[0].optionLabels], ['Cuestionario de propiedad', ['¿Cambió la propiedad?'], { Yes: 'Sí', No: 'No' }]);
     assert.deepEqual([b.name, b.questions.map(q => q.label)], ['Ownership organizer', ['Bookkeeper notes']]);
+    assert.deepEqual([Object.keys(a.labels), Object.keys(a.optionLabels)], [['ownership'], ['ownership']], 'Spanish translation metadata excludes other contacts and hidden branches');
+    assert.deepEqual([Object.keys(b.labels), Object.keys(b.optionLabels)], [['bookkeeping'], ['bookkeeping']], 'English translation metadata excludes the Spanish contact questions');
     const put = (token, o, answers, submit, expected = 200) => h.json(`${portal(token)}/${encodeURIComponent(o.id)}`, { revision: o.revision, answers, submit }, undefined, expected);
     // Per-contact isolation, hidden questions, required answers and the recorded choice values hold in Spanish as in English.
     await put(to, b, { ownership: answer('Yes') }, false, 403);
@@ -121,6 +123,9 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     a = await put(mo, (await h.json(portal(mo))).organizers[0], { ownership: answer('No') }, true);
     staff = (await h.json(`/jobs/${job.id}/organizers`, undefined, h.owner)).organizers[0];
     assert.deepEqual(staff.submissions.find(x => x.id === original.id).answers, original.answers); assert.equal(staff.submissions.at(-1).answers.ownership.value, 'No');
+    const corrected = (await h.json(portal(mo))).organizers[0];
+    assert.equal(corrected.labels.owners, 'Describa a los nuevos propietarios', 'The contact can still read the labels on their own submitted original after its branch hides');
+    assert.equal(corrected.labels.bookkeeping, undefined, 'Submission history never widens access to another contact question');
     // Next period: the Spanish contact sees the carried answer marked, and must confirm it before it counts.
     const next = await h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart: '2026-02-01', dueDate: '2027-05-15', dueNote: 'Recorded engagement target', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
     const nextOrg = (await h.json(`/jobs/${next.id}/organizers`, undefined, h.owner)).organizers[0];
@@ -179,10 +184,39 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     assert.match(known, /<html lang="en">/); assert.equal(known.replace('maria@example.test', '{address}'), unknown.replace('nobody@example.test', '{address}'));
     assert.match(await page('/unsubscribe'), /Unsubscribe this address/);
 
+    // Scheduled batches keep the exact reviewed language and wording, even when a translation is added to that same version.
+    const batchTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Bilingual scheduled request', subject: '{{work_type}} update for {{client_name}}', body: '{{work_type}} documents: {{portal_link}}.' }, h.owner);
+    const batchBody = { class: 'engagement', templateId: batchTemplate.id, role: 'tax', workTypeId: 'wt-' + template.id, reason: 'Requested work documents' };
+    const offTopic = await h.json('/messages/templates', { scope: 'firm', name: 'Wrong Spanish opening', subject: '{{work_type}} update', body: '{{work_type}} documents follow.' }, h.owner);
+    await h.json(`/messages/templates/${offTopic.id}/translations`, { language: 'es', subject: 'Oferta especial', body: 'Tenemos una oferta.' }, h.owner);
+    await h.json('/bulk-messages/preview', { ...batchBody, templateId: offTopic.id, idempotencyKey: 'synthetic-blotter-24' }, h.owner, 409);
+    const reviewedBatch = async key => h.json('/bulk-messages/preview', { ...batchBody, idempotencyKey: key }, h.owner);
+    const schedule = b => h.json(`/bulk-messages/${b.batch.id}/schedule`, { fingerprint: b.batch.fingerprint }, h.owner);
+    const untranslatedBatch = await reviewedBatch('synthetic-blotter-21');
+    assert.deepEqual(untranslatedBatch.untranslated.map(c => c.address), ['maria@example.test']);
+    await schedule(untranslatedBatch);
+    await h.json(`/messages/templates/${batchTemplate.id}/translations`, { language: 'es', subject: 'Actualización de {{work_type}} para {{client_name}}', body: '{{work_type}} documentos: {{portal_link}}.' }, h.owner);
+    let mailCount = h.mails.length;
+    const heldTranslation = await h.json(`/bulk-messages/${untranslatedBatch.batch.id}/run`, {}, h.owner);
+    assert.equal(h.mails.length, mailCount, 'A newly added translation cannot replace the reviewed English fallback');
+    assert.match(heldTranslation.recipients[0].held_reason, /translation changed; preview again/);
+    const changedLanguage = await reviewedBatch('synthetic-blotter-22');
+    assert.notEqual(changedLanguage.batch.fingerprint, untranslatedBatch.batch.fingerprint, 'The reviewed fingerprint includes localized wording');
+    assert.match(changedLanguage.samples[0].subject, /^Actualización de Monthly close/);
+    await schedule(changedLanguage);
+    await h.json(contactsPath, { id: maria.id, revision: maria.revision, language: 'en' }, h.owner);
+    const heldLanguage = await h.json(`/bulk-messages/${changedLanguage.batch.id}/run`, {}, h.owner);
+    assert.equal(h.mails.length, mailCount); assert.match(heldLanguage.recipients[0].held_reason, /language changed; preview again/);
+    await h.json(contactsPath, { id: maria.id, revision: maria.revision, language: 'es' }, h.owner);
+    const approvedLanguage = await reviewedBatch('synthetic-blotter-23'); await schedule(approvedLanguage);
+    const translatedBatch = await h.json(`/bulk-messages/${approvedLanguage.batch.id}/run`, {}, h.owner);
+    assert.equal(translatedBatch.counts.accepted, 1); assert.equal(h.mails.length, mailCount + 1);
+    assert.match(h.mails.at(-1).subject, /^Actualización de Monthly close/);
+
     // The keyboard-only journey needs a pending Spanish signature request on the contact's newest link.
     const kbDraft = await h.json(`/jobs/${job.id}/signatures`, { title: 'Carta de firma por teclado', formKind: 'management representation', requiresKba: false, mode: 'parallel', contactIds: [maria.id], fields: fields(maria), file }, prep);
     const kb = await h.json(`/signatures/${kbDraft.id}/send`, { revision: kbDraft.revision }, prep);
-    await languageJourney(h, { job, kbToken: tokenOf(kb.invitations[0]), kbId: kb.id });
+    await languageJourney(h, { job, requestJob: next, client, maria, englishOnly, kbToken: tokenOf(kb.invitations[0]), kbId: kb.id });
 
     // A restore carries each contact's language and the Spanish template versions.
     await h.stepUp(h.owner);

@@ -70,8 +70,8 @@ export function steps(x: Context, audited: { where: string; set: string } | null
       set: `address='erased+'||substr(id,1,8)||'@erased.invalid',${text('wording')},${text('evidence')},${text('reason')}` },
     { cls: 'message', table: 'b_bulk_events', action: 'redact', label: 'Bulk message provider events', where: `recipient_id IN ${s.BR}`, set: `detail='${MARK}'` },
     { cls: 'message', table: 'b_unsubscribe_tokens', action: 'delete', label: 'Unsubscribe tokens', where: `recipient_id IN ${s.BR}` },
-    { cls: 'message', table: 'b_bulk_recipients', action: 'redact', label: 'Bulk message recipients: address, subject, body (unsent mail is held)', where: `client_id=${s.c}`,
-      set: `address='',subject=NULL,body=NULL,attachments='[]',misclassified_reason=NULL,held_reason=CASE WHEN status IN ('pending','claimed') THEN 'client erased' ELSE held_reason END,status=CASE WHEN status IN ('pending','claimed') THEN 'held' ELSE status END` },
+    { cls: 'message', table: 'b_bulk_recipients', action: 'redact', label: 'Bulk message recipients: address, subject, body and language review metadata (unsent mail is held)', where: `client_id=${s.c}`,
+      set: `address='',subject=NULL,body=NULL,preview_language='en',template_wording_hash=NULL,attachments='[]',misclassified_reason=NULL,held_reason=CASE WHEN status IN ('pending','claimed') THEN 'client erased' ELSE held_reason END,status=CASE WHEN status IN ('pending','claimed') THEN 'held' ELSE status END` },
     { cls: 'message', table: 'b_bulk_exclusions', action: 'redact', label: 'Bulk message exclusions: address', where: `client_id=${s.c}`, set: `address=''` },
     { cls: 'contact', table: 'b_mail_suppressions', action: 'delete', label: 'Plain-text bounce suppressions (a bounced address is dropped, not digested)', where: `address IN (SELECT email FROM b_client_contacts WHERE client_id=${s.c} AND email<>'')` },
     // PORTAL-002: an account that opens no other entity goes with this one; one that does keeps its other entities.

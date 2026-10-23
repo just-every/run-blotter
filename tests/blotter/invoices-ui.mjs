@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { scan } from './language-ui.mjs';
 
 /** Optional visual proof on the real invoice screen, using only this harness session. */
 export async function invoiceJourney(h, fixture, rule) {
@@ -64,6 +65,21 @@ export async function invoiceJourney(h, fixture, rule) {
     const client=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),portal=await client.newPage();
     await portal.goto(portalUrl);await portal.getByRole('link',{name:'Download invoice PDF',exact:true}).waitFor();
     for(const width of [1440,390]){await portal.setViewportSize({width,height:1000});assert.equal(await portal.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await portal.screenshot({path:`${directory}/invoice-portal-${width}.png`,fullPage:true});}
+    // The same issued invoice link follows the billing contact's language without changing its authority.
+    const billingContact = (await h.json(`/clients/${fixture.client.id}/contacts`, undefined, h.owner)).find(c => c.id === fixture.billing.id);
+    await h.json(`/clients/${fixture.client.id}/contacts`, { id: billingContact.id, revision: billingContact.revision, language: 'es' }, h.owner);
+    await portal.reload(); await portal.getByRole('link', { name: 'Descargar la factura en PDF', exact: true }).waitFor();
+    await portal.getByText('Emitida', { exact: true }).waitFor();
+    assert.equal(await portal.evaluate(() => document.documentElement.lang), 'es');
+    const invoiceChecks = {};
+    for (const width of [1440, 390]) {
+      await portal.setViewportSize({ width, height: 1000 });
+      assert.equal(await portal.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      invoiceChecks[width] = await scan(portal, `Spanish invoice at ${width}`);
+      await portal.screenshot({ path: `${directory}/invoice-portal-es-${width}.png`, fullPage: true });
+    }
+    await writeFile(`${directory}/invoice-accessibility.json`, JSON.stringify({ checks: invoiceChecks, violations: 0 }, null, 2));
+    await h.json(`/clients/${fixture.client.id}/contacts`, { id: billingContact.id, revision: billingContact.revision, language: 'en' }, h.owner);
     await page.getByLabel('Search everything (press /)',{exact:true}).fill('INV-'+String(issued.number).padStart(6,'0'));
     await page.getByRole('search').getByRole('button',{name:'Search',exact:true}).click();
     const search=page.locator('section.search-results');await search.getByLabel('Type',{exact:true}).selectOption('invoice');
@@ -102,6 +118,8 @@ export async function collectionsJourney(h, fixture) {
     await panel.getByText('Reminders are', { exact: false }).waitFor();
     const capture = async name => { for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await panel.scrollIntoViewIfNeeded(); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name} ${width} overflows`); await panel.screenshot({ path: `${directory}/${name}-${width}.png` }); } await page.setViewportSize({ width: 1440, height: 1000 }); };
     await capture('collections-schedule');
+    const warnings = await h.json('/invoices/reminders', undefined, h.owner);
+    for (const warning of warnings.warnings) await panel.getByRole('alert').filter({ hasText: warning.contactName }).waitFor();
     await panel.getByText('Client statement', { exact: true }).click();
     await panel.getByLabel('Statement client', { exact: true }).selectOption(fixture.client.id);
     await panel.getByLabel('Statement date', { exact: true }).fill('2026-12-27');
@@ -220,6 +238,10 @@ export async function holdJourney(h, fixture) {
     const hold = entry.getByRole('status', { name: 'Credit hold' }); await hold.waitFor();
     await hold.getByText('Override the credit hold', { exact: true }).click();
     await capture(page, hold, directory, 'credit-hold');
+    await page.goto(`${h.origin}/app?job=${fixture.job.id}`);
+    const warning = page.getByRole('status').filter({ hasText: 'This client is on credit hold' });
+    await warning.waitFor();
+    await capture(page, warning, directory, 'credit-hold-job');
     await context.close();
   } finally { await browser.close(); }
 }

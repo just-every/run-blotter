@@ -26,6 +26,7 @@ const C = {
   'status.sent': { en: 'sent', es: 'enviado' }, 'status.approved': { en: 'approved', es: 'aprobado' }, 'status.changes_requested': { en: 'changes requested', es: 'cambios solicitados' },
   'status.pending': { en: 'pending', es: 'pendiente' }, 'status.completed': { en: 'completed', es: 'completado' }, 'status.signed': { en: 'signed', es: 'firmado' },
   'status.declined': { en: 'declined', es: 'rechazado' }, 'status.issued': { en: 'issued', es: 'emitida' }, 'status.void': { en: 'void', es: 'anulada' },
+  'status.expired': { en: 'expired', es: 'vencido' }, 'status.voided': { en: 'voided', es: 'anulado' }, 'status.retained': { en: 'retained', es: 'conservado' }, 'status.not_required': { en: 'not required', es: 'no se requiere' },
   'status.open': { en: 'open', es: 'abierto' }, 'status.done': { en: 'done', es: 'hecho' },
   // Progress (server-written for the contact's language)
   'progress.title': { en: 'Where things stand', es: 'Cómo va su trabajo' },
@@ -179,6 +180,11 @@ const C = {
   'account.signedOut': { en: 'You are signed out.', es: 'Cerró la sesión.' },
   'account.none': { en: 'Nothing here yet.', es: 'Todavía no hay nada aquí.' },
   'account.noEntities': { en: 'Your portal access has ended. Ask the practice to invite you again.', es: 'Su acceso al portal terminó. Pida a la oficina que lo invite de nuevo.' },
+  'account.error.code': { en: 'That code is not right. Check the time on your device and try again.', es: 'Ese código no es correcto. Revise la hora de su dispositivo e inténtelo de nuevo.' },
+  'account.error.recovery': { en: 'That recovery code is not right or was already used.', es: 'Ese código de recuperación no es correcto o ya se utilizó.' },
+  'account.error.locked': { en: 'Too many incorrect codes. Wait 15 minutes and try again.', es: 'Demasiados códigos incorrectos. Espere 15 minutos e inténtelo de nuevo.' },
+  'account.error.expired': { en: 'This link is invalid, expired or already used. Ask for a new one.', es: 'Este enlace no es válido, venció o ya se utilizó. Solicite uno nuevo.' },
+  'account.error.request': { en: 'The request could not be completed. Refresh and try again; if it continues, contact the practice.', es: 'No se pudo completar la solicitud. Actualice la página e inténtelo de nuevo; si continúa, comuníquese con la oficina.' },
   'account.failed': { en: 'That did not work', es: 'No funcionó' },
   // Unsubscribe page
   'unsub.title': { en: 'Unsubscribe', es: 'Cancelar la suscripción' }, 'unsub.heading': { en: 'Unsubscribe from marketing email', es: 'Cancelar el correo de mercadeo' },

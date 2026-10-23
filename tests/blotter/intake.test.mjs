@@ -57,6 +57,7 @@ test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embe
     const converted=(await h.json('/pipeline',undefined,h.owner)).prospects.find(x=>x.id===p.id);
     assert.equal(converted.files[0].id,p.files[0].id,'intake document remains attached after conversion');
     const job = await h.json('/jobs/'+first.jobId,undefined,h.owner);
+    assert.deepEqual(job.warnings, [], 'An onboarding job for a new client has no inherited credit hold');
     assert.equal((await h.json(`/documents/${encodeURIComponent('intake:'+p.files[0].id)}/access`,undefined,h.owner)).file.id,converted.files[0].job_file_id);
     const history=await h.json(`/clients/${first.clientId}/history?kind=documents`,undefined,h.owner);assert.ok(history.history.some(e=>e.action==='file.filed_from_intake' && e.job_id===first.jobId && e.actor==='owner@example.test'));
     assert.ok(job.requests.some(r=>r.files.some(f=>f.id===converted.files[0].job_file_id)), 'upload is filed on client onboarding work');

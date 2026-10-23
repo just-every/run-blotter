@@ -72,7 +72,7 @@ export function requestSignIn(env: Bindings, body: Data, later: (work: Promise<u
     await db.batch([stmt(db, 'UPDATE b_portal_signins SET used_at=? WHERE account_id=? AND used_at IS NULL', at, account.id),
       stmt(db, 'INSERT INTO b_portal_signins(digest,account_id,created_at,expires_at) VALUES(?,?,?,?)', await digest(token), account.id, at, new Date(Date.now() + LINK_MINUTES * 60_000).toISOString())]);
     const firm = (await firmSettings(db)).name || T('unsub.thisPractice');
-    await sendMail(bindings, id(), address, T('account.signin.subject', { firm }), [T('account.signin.body', { firm }), `${bindings.AUTH_ORIGIN}/client?signin=${token}`, T('account.signin.expires', { minutes: LINK_MINUTES })].join('\n'));
+    await sendMail(bindings, id(), address, T('account.signin.subject', { firm }), [T('account.signin.body', { firm }), `${bindings.AUTH_ORIGIN}/client?signin=${token}&lang=${language}`, T('account.signin.expires', { minutes: LINK_MINUTES })].join('\n'));
   })().catch(error => console.error('portal sign-in mail', error)));
   return { requested: true };
 }

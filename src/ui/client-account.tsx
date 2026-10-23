@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Field, Form, moneyText, Status, day, type Row } from './common';
-import { LanguageProvider, useT } from './i18n';
+import { LanguageProvider, useLanguage, useT } from './i18n';
 import type { Language } from '../i18n/catalog';
 
 const BASE = '/api/blotter/client';
@@ -14,6 +14,7 @@ async function call(path: string, body?: Row) {
 /** PORTAL-002: the signed-in client portal. An emailed link proves the address; a second factor follows; one entity shows at a time. */
 export function ClientAccount() {
   const [me, setMe] = useState<Row | null>(), [entity, setEntity] = useState<Row>(), [chosen, setChosen] = useState(''), [link, setLink] = useState<{ kind: 'invite' | 'signin'; token: string }>();
+  const [publicLanguage, setPublicLanguage] = useState<Language>('en');
   const [notice, setNotice] = useState(''), [failure, setFailure] = useState(''), [codes, setCodes] = useState<string[]>([]), [branding, setBranding] = useState<Row>();
   const load = async () => {
     try { const m = await call('/me'); setMe(m); const first = m.entities.find((e: Row) => e.clientId === chosen) ?? m.entities[0]; setChosen(first?.clientId ?? ''); setEntity(first ? await call(`/entities/${first.clientId}`) : undefined); }
@@ -21,12 +22,13 @@ export function ClientAccount() {
   };
   useEffect(() => {
     const query = new URLSearchParams(window.location.search), invite = query.get('invite'), signin = query.get('signin');
+    setPublicLanguage(query.get('lang') === 'es' ? 'es' : 'en');
     // The token leaves the address bar at once; it is spent only when the client presses the button.
     if (invite || signin) { setLink(invite ? { kind: 'invite', token: invite } : { kind: 'signin', token: signin! }); window.history.replaceState(null, '', '/client'); }
     load(); call('/branding').then(setBranding).catch(() => undefined);
   }, []);
   const act = async (work: () => Promise<string | void>) => { setFailure(''); setNotice(''); try { const message = await work(); if (message) setNotice(message); } catch (e) { setFailure((e as Error).message); } };
-  const language = (entity?.language ?? me?.language ?? 'en') as Language;
+  const language = (entity?.language ?? me?.language ?? publicLanguage) as Language;
   return <LanguageProvider language={language}>
     <Page branding={branding} me={me} entity={entity} chosen={chosen} link={link} notice={notice} failure={failure} codes={codes}
       spend={() => act(async () => { await call(link!.kind === 'invite' ? '/accept' : '/sign-in/confirm', { token: link!.token }); setLink(undefined); await load(); })}
@@ -39,11 +41,17 @@ type PageProps = { branding?: Row; me?: Row | null; entity?: Row; chosen: string
   act: (work: () => Promise<string | void>) => Promise<void>; load: () => Promise<void>; setCodes: (codes: string[]) => void; setEntity: (entity?: Row) => void; setMe: (me: Row | null) => void };
 
 function Page(p: PageProps) {
-  const t = useT();
+  const t = useT(), language = useLanguage();
+  const errorText = !p.failure || language === 'en' ? p.failure
+    : /recovery code/i.test(p.failure) ? t('account.error.recovery')
+    : /code is not right|6.digit/i.test(p.failure) ? t('account.error.code')
+    : /Too many incorrect/i.test(p.failure) ? t('account.error.locked')
+    : /expired|already used|not valid/i.test(p.failure) ? t('account.error.expired')
+    : t('account.error.request');
   return <div className="portal"><main id="portal-main" className="stack" style={p.branding?.accent ? { borderTop: `6px solid ${p.branding.accent}`, paddingTop: '1rem' } : undefined}>
     {p.branding?.logo && <img src={p.branding.logo} alt={t('account.logo')} style={{ maxHeight: 64, maxWidth: 220, objectFit: 'contain', alignSelf: 'flex-start' }} />}
     {p.me?.firm && <p className="eyebrow">{p.me.firm}</p>}<h1>{t('account.title')}</h1>
-    {p.notice && <p className="notice" role="status">{p.notice}</p>}{p.failure && <p className="error" role="alert">{p.failure}</p>}
+    {p.notice && <p className="notice" role="status">{p.notice}</p>}{p.failure && <p className="error" role="alert">{errorText}</p>}
     {p.link ? <section className="panel"><button onClick={p.spend}>{t(p.link.kind === 'invite' ? 'account.accept' : 'account.continue')}</button></section>
       : p.me === undefined ? null : p.me === null ? <SignIn act={p.act} />
       : p.codes.length ? <RecoveryCodes codes={p.codes} done={() => { p.setCodes([]); p.load(); }} />

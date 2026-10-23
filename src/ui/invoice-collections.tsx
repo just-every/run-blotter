@@ -13,7 +13,7 @@ export function InvoiceCollections({ state, clients, billing, run, tick }: { sta
     <h3>Overdue reminders</h3>
     {!policy ? <Empty>No reminder schedule. Invoices are reminded only after a billing person consents to a schedule.</Empty>
       : <p>Reminders are <strong>{policy.status === 'active' ? 'running' : 'paused'}</strong>: {stepText(policy.offsets)}, using the firm template version {policy.template_version}. Consent by {policy.consented_by} {when(policy.consented_at)}: {policy.reason}</p>}
-    {reminders?.warnings?.map((w: Row) => <p key={w.kind} className="error" role="alert">{w.message}</p>)}
+    {reminders?.warnings?.map((w: Row) => <p key={w.contactId ?? w.kind} className="error" role="alert">{w.contactName ? `${w.contactName}: ` : ''}{w.message}</p>)}
     <p className="muted">Each run rechecks the consenting person's authority and the billing contact's role, email consent and deliverability. A paid, disputed or payment-plan invoice is not reminded, each step is sent at most once, and every reminder is recorded in the client's history.</p>
     {billing && <details><summary>{policy?.status === 'active' ? 'Change or pause the reminder schedule' : 'Start the reminder schedule'}</summary>
       <Form label="Consent to the reminder schedule" submit={data => run(async () => setReminders(await api('/invoices/reminders', { offsets: stepsOf(data.offsets), templateId: data.templateId, reason: data.reason })), 'Reminder schedule recorded')}>

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { crc32, deflateSync } from 'node:zlib';
 import { harness } from './harness.mjs';
-import { portalAccountJourney } from './portal-accounts-ui.mjs';
+import { portalAccountJourney, spanishAccountEnrollment, spanishAccountVerification } from './portal-accounts-ui.mjs';
 
 const acknowledge = 'erasure history unverified: supply your latest erasure journal';
 const person = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
@@ -18,10 +18,10 @@ function png(width, height, [r, g, b]) {
 }
 /** RFC 6238 codes, each a later 30-second step than the account's last one (the server refuses a replayed step). */
 const used = new Map();
-function code(secret) {
+function code(secret, currentStep = false) {
   let bits = 0, value = 0; const bytes = [];
   for (const char of secret) { value = (value << 5) | 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(char); bits += 5; if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; } }
-  const now = Math.floor(Date.now() / 30000), step = Math.max(now - 1, (used.get(secret) ?? 0) + 1);
+  const now = Math.floor(Date.now() / 30000), step = Math.max(now + (currentStep ? 0 : -1), (used.get(secret) ?? 0) + 1);
   assert.ok(step <= now + 1, 'the journey ran out of authenticator steps'); used.set(secret, step);
   const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(step));
   const mac = createHmac('sha1', Buffer.from(bytes)).update(counter).digest(), offset = mac[19] & 15;
@@ -35,12 +35,12 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     const prep = await h.login('prep@example.test'), reviewer = await h.login('reviewer@example.test');
     await h.json('/firm/settings', firm, h.owner);
     const cedar = await h.json('/clients', { name: 'Cedar Lane LLC', contacts: [person('Pat Lee', 'pat@example.test', { roles: ['primary', 'billing'] }), person('Nora Noportal', 'nora@example.test', { portal: false })] }, h.owner);
-    const birch = await h.json('/clients', { name: 'Birch Street Cafe', contacts: [person('Pat Lee', 'pat@example.test'), person('Sam Ortiz', 'sam@example.test')] }, h.owner);
+    const birch = await h.json('/clients', { name: 'Birch Street Cafe', contacts: [person('Pat Lee', 'pat@example.test'), person('Sam Ortiz', 'sam@example.test', { language: 'es' })] }, h.owner);
     const [patCedar, nora] = ['pat', 'nora'].map(n => cedar.contacts.find(c => c.email.startsWith(n))), [patBirch, sam] = ['pat', 'sam'].map(n => birch.contacts.find(c => c.email.startsWith(n)));
     // Cedar has work, a document shared with Pat and a bill addressed to Pat.
     const template = await h.json('/templates', { name: 'Monthly bookkeeping', recurrence: 'monthly', steps: 'Review sources', requests: 'Bank statement', feeCents: 10000, currency: 'USD' }, h.owner);
     const job = await h.json('/jobs', { clientId: cedar.id, templateId: template.id, periodStart: '2026-11-01', dueDate: '2026-12-15', dueNote: 'Recorded engagement date', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
-    await h.json(`/jobs/${job.id}/deliverables`, { title: 'Cedar financial statements', name: 'cedar.pdf', mime: 'application/pdf', contentBase64: Buffer.from('%PDF-1.4 Cedar statements').toString('base64'), contactId: patCedar.id }, prep);
+    const deliverable = await h.json(`/jobs/${job.id}/deliverables`, { title: 'Cedar financial statements', name: 'cedar.pdf', mime: 'application/pdf', contentBase64: Buffer.from('%PDF-1.4 Cedar statements').toString('base64'), contactId: patCedar.id }, prep);
     await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
     const entitlement = await h.json('/invoice-entitlements', { jobId: job.id, kind: 'milestone', reference: 'MS-1', description: 'Milestone MS-1', amountCents: 25000, authorization: 'Client accepted MS-1' }, h.owner);
     const invoiceInput = { title: 'November bookkeeping', issueDate: '2026-11-20', dueDate: '2026-12-20', terms: 'Payment due on the recorded date', taxCents: 0, taxTreatment: 'No sales tax under the client supplied treatment', taxAuthorization: 'Principal reviewed REF-1', jobId: job.id, sourceKeys: [entitlement.sourceKey], contactId: patCedar.id };
@@ -91,9 +91,22 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     assert.equal(await (await h.request(fileDoor, undefined, pat.cookie)).text(), '%PDF-1.4 Cedar statements');
     assert.equal((await (await h.request(billDoor, undefined, pat.cookie)).arrayBuffer()).byteLength > 0, true);
 
+    // BILL-005 inherits this newly shipped authenticated file door too.
+    const gate = await h.json(`/jobs/${job.id}/payment-gates`, { deliverableId: deliverable.deliverableId, invoiceId: draft.id, reason: 'Release final statements when this engagement is paid' }, h.owner);
+    assert.equal((await pat.get(`/entities/${cedar.id}`)).documents[0].locked, true);
+    assert.equal((await h.request(fileDoor, undefined, pat.cookie)).status, 402, 'An authenticated account cannot bypass the unpaid final-copy gate');
+    await portalAccountJourney(h, { clientCookie: pat.cookie, clientId: cedar.id, locked: true });
+    await h.json(`/payment-gates/${gate.id}/override`, { reason: 'Partner approved this final copy for the client meeting' }, h.owner);
+    assert.equal((await pat.get(`/entities/${cedar.id}`)).documents[0].locked, false);
+    assert.equal(await (await h.request(fileDoor, undefined, pat.cookie)).text(), '%PDF-1.4 Cedar statements');
+
     // Sam holds Birch only: Cedar and its files answer exactly like an entity that does not exist.
-    const samSession = as(await enter('accept', samInvite)), samKey = (await samSession.post('/factor/start', {})).secret;
-    await samSession.post('/factor/confirm', { code: code(samKey) });
+    const samInvitationMail = h.mails.find(m => m.to.includes('sam@example.test') && m.text.includes('/client?invite='));
+    assert.match(samInvitationMail.subject, /Su portal de clientes/); assert.match(samInvitationMail.text, /&lang=es/);
+    const samSession = as(await enter('accept', samInvite));
+    assert.equal((await samSession.get('/me')).language, 'es');
+    await spanishAccountEnrollment(h, { clientCookie: samSession.cookie, inviteUrl: samInvitationMail.text.match(/https:\/\/[^\s]+\/client\?invite=[^\s]+/)[0], code: secret => code(secret, true) });
+    assert.equal((await samSession.get(`/entities/${birch.id}`)).language, 'es');
     assert.deepEqual((await samSession.get('/me')).entities.map(e => e.name), ['Birch Street Cafe']);
     assert.deepEqual(await samSession.get(`/entities/${cedar.id}`, 404), await samSession.get('/entities/no-such-client', 404));
     assert.equal((await h.request(fileDoor, undefined, samSession.cookie)).status, 404);
@@ -103,6 +116,12 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
       for (let i = 0; i < 60 && h.mails.length === n; i++) await new Promise(done => setTimeout(done, 50)); return [await r.json(), h.mails.slice(n).map(m => m.to[0])]; };
     const [strangerReply, strangerMail] = await mailed('stranger@example.test'), [patReply, patMail] = await mailed('pat@example.test');
     assert.deepEqual([strangerReply, strangerMail, patMail], [patReply, [], ['pat@example.test']]);
+    await mailed('sam@example.test');
+    const samSignInMail = h.mails.filter(m => m.to.includes('sam@example.test') && m.text.includes('/client?signin=')).at(-1);
+    assert.match(samSignInMail.subject, /Iniciar sesión/); assert.match(samSignInMail.text, /&lang=es/);
+    const samAgain = as(await enter('sign-in/confirm', tokenFrom('sam@example.test', 'signin')));
+    assert.deepEqual([(await samAgain.get('/me')).mfa, (await samAgain.get('/me')).language], ['verify', 'es']);
+    await spanishAccountVerification(h, samAgain.cookie);
     const link = tokenFrom('pat@example.test', 'signin'), lost = as(await enter('sign-in/confirm', link));
     assert.equal((await h.request('/api/blotter/client/sign-in/confirm', { token: link })).status, 404);
 
@@ -122,11 +141,14 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
 
     // Revoke Pat on Cedar mid-session: the entity, its document and its bill refuse at once, as for an entity Pat never held; Birch still opens.
     assert.equal((await h.request(fileDoor, undefined, later.cookie)).status, 200);
+    await h.json(`/payment-gates/${gate.id}/override`, { revoke: true, reason: 'Restore the payment condition' }, h.owner);
+    assert.equal((await h.request(fileDoor, undefined, later.cookie)).status, 402);
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-revoke`, { reason: '' }, reviewer, 400);
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-revoke`, { reason: 'Pat left Cedar Lane LLC' }, prep, 403);
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-revoke`, { reason: 'Pat left Cedar Lane LLC' }, reviewer);
     assert.deepEqual(await later.get(`/entities/${cedar.id}`, 404), await later.get('/entities/no-such-client', 404));
     assert.deepEqual([(await h.request(fileDoor, undefined, later.cookie)).status, (await h.request(billDoor, undefined, later.cookie)).status], [404, 404]);
+    assert.doesNotMatch(await (await h.request(fileDoor, undefined, later.cookie)).text(), /INV-|paid|locked/, 'A revoked account grant reveals no gate details');
     assert.deepEqual((await later.get('/me')).entities.map(e => e.name), ['Birch Street Cafe']);
     assert.equal((await later.get(`/entities/${birch.id}`)).name, 'Birch Street Cafe');
     const history = (await h.json(`/clients/${cedar.id}/history`, undefined, h.owner)).history.map(e => [e.action, e.actor]);
