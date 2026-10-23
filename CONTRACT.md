@@ -307,8 +307,8 @@ Judged from the code and tests at commit `f023e00d77b4cec962059ed66856e0fc860b89
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 58 | 13 | 35 | 106 |
-| All | 58 | 13 | 35 | 106 |
+| Target and push further | 58 | 14 | 34 | 106 |
+| All | 58 | 14 | 34 | 106 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
