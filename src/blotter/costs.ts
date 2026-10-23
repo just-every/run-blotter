@@ -73,3 +73,10 @@ export async function reconcileCost(db:D1Database,a:Actor,actionId:string,b:Data
  await atomic(db,a,[check,stmt(db,"UPDATE b_service_usage SET status='confirmed',confirmed_cents=?,receipt=?,confirmed_by=?,outcome='Cost reconciled by principal; no action replay' WHERE action_id=?",cents,receipt,a.email,actionId),release,audit(db,a,'cost.reconciled',actionId,receipt)]);
  return {actionId,confirmedCents:cents};
 }
+
+/** Same native fresh-proof gate as other exports; attribution commits before bytes leave. */
+export async function exportCosts(db:D1Database,a:Actor) {
+ const data=await costState(db,a);
+ await atomic(db,a,[audit(db,a,'cost.exported','service-costs','USD quotes, reservations and reconciliation history')]);
+ return new Response(JSON.stringify(data,null,2),{headers:{'content-type':'application/json','content-disposition':'attachment; filename="blotter-service-usage.json"','cache-control':'no-store'}});
+}

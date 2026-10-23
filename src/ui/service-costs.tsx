@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {api,Empty,Field,Form,money,Status,type Row,type Run} from './common';
+import {api,Empty,ExportLink,Field,Form,money,Status,type Row,type Run} from './common';
 export function ServiceCosts({run,tick}:{run:Run;tick:number}) {
  const [data,setData]=useState<Row>(),[estimate,setEstimate]=useState<Row>();
  const reload=()=>api('/costs').then(setData);
@@ -23,7 +23,7 @@ export function ServiceCosts({run,tick}:{run:Run;tick:number}) {
  <details><summary>Approve a budget or increase</summary><Form label="Approve budget" submit={f=>change('/costs/budget',f,'Budget approved; retry only the same blocked action')}><Field label="Lifetime budget (USD cents)" name="limitCents" type="number"/><Field label="Per-action threshold (USD cents)" name="thresholdCents" type="number"/><Field label="Budget approval reason" name="reason"/></Form></details>
  <h3>Usage and owned exceptions</h3>{!data.usage.length&&<Empty>No metered actions yet.</Empty>}
  {data.usage.map((u:Row)=><article className="record" key={u.action_id}><div className="split"><strong>{u.service} · {u.action_id}</strong><Status value={u.status}/></div><p>Estimated {money(u.estimated_cents)} · owner {u.owner_email}</p><p>{u.outcome}</p>{u.confirmed_cents!=null?<p>Confirmed {money(u.confirmed_cents)} · {u.receipt}</p>:u.status!=='blocked'&&<Form label="Reconcile cost" submit={f=>change('/costs/usage/'+u.action_id+'/reconcile',f,'Cost reconciled; no action replay')}><Field label="Confirmed USD cents" name="cents" type="number"/><Field label="Provider receipt or native cost evidence" name="receipt"/></Form>}</article>)}
- <button className="quiet" onClick={()=>{const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));link.download='blotter-service-usage.json';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);}}>Export costs and usage</button><p>To change plan or provider, record the replacement quote above and explicitly approve its price. Export your usage and your firm archive before switching.</p>
+ <ExportLink href="/api/blotter/costs/export">Export costs and usage</ExportLink><p>To change plan or provider, record the replacement quote above and explicitly approve its price. Export your usage and your firm archive before switching.</p>
  </>}
  </section>;
 }
