@@ -1,5 +1,5 @@
 CREATE TABLE b_agent_rules (
- id TEXT PRIMARY KEY, name TEXT NOT NULL, key_id TEXT NOT NULL REFERENCES b_agent_keys(id),
+ id TEXT PRIMARY KEY, name TEXT NOT NULL, key_id TEXT NOT NULL,
  client_id TEXT NOT NULL REFERENCES b_clients(id), supervisor_id TEXT NOT NULL,
  supervisor_email TEXT NOT NULL, trigger TEXT NOT NULL,
  starts_at TEXT, every_hours INTEGER CHECK(every_hours>=1),

@@ -66,6 +66,24 @@ test('AI-003 / BASE-001: scoped file and scheduled plans de-duplicate, refuse un
  }finally{await h.close();}
 });
 
+test('AI-003 / BASE-001: question and completed-task events prepare once, human approval alone sends, and revoked grants refuse pending effects',async()=>{
+ const h=await harness();try{
+  const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Questions and tasks'},h.owner);await price(h);
+  const questions=await rule(h,s,key,{trigger:'question'}),tasks=await rule(h,s,key,{trigger:'tasks_complete'});
+  const link=await h.json(`/jobs/${j.id}/reminder`,{},h.owner),token=new URL(link.portalUrl).pathname.split('/').at(-1);
+  await h.json(`/portal/${token}/questions`,{body:'What should I upload?'},undefined);
+  await h.json(`/jobs/${j.id}/steps`,{ordinal:1,done:true},s.prep);
+  const before=h.mails.length;await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);
+  let state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,2);assert.equal(h.mails.length,before);
+  assert.equal(state.runs.filter(r=>r.rule_id===questions.id).length,1);assert.equal(state.runs.filter(r=>r.rule_id===tasks.id).length,1);
+  const plan=state.runs.find(r=>r.rule_id===questions.id);await h.json(`/proposals/${plan.proposal_id}/decide`,{decision:'approve'},h.owner);
+  assert.equal(h.mails.length,before+1);await h.json(`/proposals/${plan.proposal_id}/decide`,{decision:'approve'},h.owner,409);assert.equal(h.mails.length,before+1);
+  await h.json(`/agent-rules/${tasks.id}/revoke`,{},h.owner);const pending=state.runs.find(r=>r.rule_id===tasks.id);
+  await h.json(`/proposals/${pending.proposal_id}/decide`,{decision:'approve'},h.owner,409);assert.equal(h.mails.length,before+1);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/proposal.approved/);assert.match(archive,/agent.rule_revoked/);
+ }finally{await h.close();}
+});
+
 test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore schedules and service grants inactive, and erased sources fence old restores',async()=>{
  const h=await harness(),copies=[];try{
   const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Portable agent'},h.owner);await price(h);await rule(h,s,key);const f=await upload(h,s,j);await h.json('/agent-rules/run',{},h.owner);
