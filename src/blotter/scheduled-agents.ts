@@ -39,7 +39,7 @@ export async function runAgentRules(env:Bindings,at=new Date()) {
    const runId=id();await stmt(db,"INSERT OR IGNORE INTO b_agent_runs(id,rule_id,event_key,job_id,created_at) VALUES(?,?,?,?,?)",runId,r.id,e.source,e.job_id,now()).run();
    const run=await stmt(db,'SELECT * FROM b_agent_runs WHERE rule_id=? AND event_key=? AND job_id=?',r.id,e.source,e.job_id).first<Data>();
    if(!run||!['pending','blocked'].includes(run.status))continue;
-   const actor:Actor={id:r.supervisor_id,email:r.supervisor_email,name:supervisor?.display_name??'',role:'owner',channel:'agent',label:r.name};
+   const actor:Actor={id:r.supervisor_id,email:r.supervisor_email,name:supervisor?.display_name??'',role:'owner',channel:'agent',label:'scheduled rule '+r.id};
    try {
     insist(supervisor && await stmt(db,`SELECT 1 WHERE ${liveAgentRuleSql}`,e.job_id,r.id,e.source,e.source).first(),'Agent grant, source or supervisor authority was revoked',409);
     const rule=await stmt(db,'SELECT * FROM b_agent_rules WHERE id=?',r.id).first<Data>();insist(rule&&rule.used<rule.budget,'Lifetime plan budget exhausted; supervisor review required',409);

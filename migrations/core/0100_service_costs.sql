@@ -19,3 +19,9 @@ CREATE TABLE b_service_usage (
  outcome TEXT NOT NULL, owner_email TEXT NOT NULL, created_at TEXT NOT NULL,
  confirmed_cents INTEGER, receipt TEXT, confirmed_by TEXT
 );
+
+CREATE TABLE b_service_price_versions (
+ revision TEXT PRIMARY KEY, service TEXT NOT NULL, unit TEXT NOT NULL,
+ included INTEGER NOT NULL, unit_cents INTEGER NOT NULL, basis_points INTEGER NOT NULL,
+ source TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+);

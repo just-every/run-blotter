@@ -30,7 +30,6 @@ export async function propose(db: D1Database, actor: Actor, kind: string, body: 
   insist((KINDS as readonly string[]).includes(kind), 'Unknown preparation command. Use prepare-rollforward, prepare-reminder or prepare-export.', 404);
   if (kind !== 'reminder') need(actor, 'owner', 'reviewer');
   if(actor.agentKeyId && await stmt(db,'SELECT 1 FROM b_agent_rules WHERE key_id=?',actor.agentKeyId).first()) {
-    const j=await job(db,actor,text(body.jobId,'Job'));
     insist(false,'Use the supervised event runner for this key; direct preparations cannot bypass its plan and service budgets',403);
   }
   const payload = await payloadFor(db, actor, kind, body), proposalId = id();

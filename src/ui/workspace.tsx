@@ -70,7 +70,7 @@ export function Workspace() {
         {tab === 'Capacity' && <Capacity state={state} run={run} tick={tick} open={open} />}
         {tab === 'Clients & templates' && <Clients state={state} run={run} open={open} tick={tick} />}
         {tab === 'Time & billing' && <><Invoices actor={state.actor} jobs={state.jobs} clients={state.clients} run={run} tick={tick}/><Reports state={state} run={run} tick={tick} open={open}/><Billing actor={state.actor} people={state.people} run={run} tick={tick} /></>}
-        {tab === 'Preparations' && <Proposals state={state} run={run} open={open} />}
+        {tab === 'Preparations' && <Proposals state={state} run={run} open={open} tick={tick} />}
         {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
         {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}
       </fieldset>}

@@ -40,7 +40,8 @@ test('COST-001 / AI-003 / BASE-001: budget exception notifies its owner; approve
   await h.json(`/costs/usage/${costs.usage[0].action_id}/reconcile`,{cents:0,receipt:'Native execution: no external provider charge'},h.owner);
   await h.json(`/costs/usage/${costs.usage[0].action_id}/reconcile`,{cents:0,receipt:'Duplicate reconciliation'},h.owner,409);
   costs=await h.json('/costs',undefined,h.owner);assert.equal(costs.usage[0].confirmed_cents,0);assert.equal(costs.reservedCents,25,'Conservative reservation stays bounded even after reconciliation');
-  assert.equal((await s.detail(j.id)).job.status,'open');assert.equal((await s.detail(j.id)).requests[0].files.length,1);
+  await h.json('/costs/prices',{service:'agent_plan',included:0,unitCents:50,basisPoints:0,source:'synthetic-blotter-4: replacement quote'},h.owner);const revised=await h.json('/costs',undefined,h.owner);assert.equal(revised.priceVersions.find(p=>p.revision===costs.usage[0].price_revision).unit_cents,25);assert.equal(revised.prices[0].enabled,0,'Price changes need fresh enablement');
+  assert.equal((await s.detail(j.id)).job.status,'open');assert.equal((await s.detail(j.id)).job.due_date,'2027-04-15','A budget exception never hides or changes the deadline');assert.equal((await s.detail(j.id)).requests[0].files.length,1);
   const mailBefore=h.mails.length;await h.json(`/proposals/${state.runs[0].proposal_id}/decide`,{decision:'decline',reason:'No chase needed'},h.owner);assert.equal(h.mails.length,mailBefore);
  }finally{await h.close();}
 });
@@ -70,8 +71,8 @@ test('AI-003 / BASE-001: question and completed-task events prepare once, human 
  const h=await harness();try{
   const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Questions and tasks'},h.owner);await price(h);
   const questions=await rule(h,s,key,{trigger:'question'}),tasks=await rule(h,s,key,{trigger:'tasks_complete'});
-  const link=await h.json(`/jobs/${j.id}/reminder`,{},h.owner),token=new URL(link.portalUrl).pathname.split('/').at(-1);
-  await h.json(`/portal/${token}/questions`,{body:'What should I upload?'},undefined);
+  const link=await h.json(`/jobs/${j.id}/reminders`,{},h.owner),token=new URL(link.portalUrl).pathname.split('/').at(-1);
+  await h.json(`/portal/${token}/messages`,{body:'What should I upload?'},undefined);
   await h.json(`/jobs/${j.id}/steps`,{ordinal:1,done:true},s.prep);
   const before=h.mails.length;await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);
   let state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,2);assert.equal(h.mails.length,before);
@@ -80,7 +81,7 @@ test('AI-003 / BASE-001: question and completed-task events prepare once, human 
   assert.equal(h.mails.length,before+1);await h.json(`/proposals/${plan.proposal_id}/decide`,{decision:'approve'},h.owner,409);assert.equal(h.mails.length,before+1);
   await h.json(`/agent-rules/${tasks.id}/revoke`,{},h.owner);const pending=state.runs.find(r=>r.rule_id===tasks.id);
   await h.json(`/proposals/${pending.proposal_id}/decide`,{decision:'approve'},h.owner,409);assert.equal(h.mails.length,before+1);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/proposal.approved/);assert.match(archive,/agent.rule_revoked/);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();const portable=archive.trim().split('\n').map(line=>JSON.parse(line)).flatMap(part=>part.items??[]);const approved=portable.find(item=>item.table==='b_proposals'&&item.row?.id===plan.proposal_id);assert.equal(approved.row.status,'approved');assert.equal(approved.row.decided_by,'owner@example.test');assert.match(archive,/agent.rule_revoked/);
  }finally{await h.close();}
 });
 
@@ -96,6 +97,21 @@ test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore sch
   await h.json(`/proposals/${old.proposal_id}/decide`,{decision:'approve'},h.owner,409);
   const later=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),denied=await harness();copies.push(denied);await denied.json('/restore',{archive,journal:later,confirm:'RESTORE'},denied.owner,409);
  }finally{await h.close();for(const h of copies)await h.close();}
+});
+
+test('AI-003 / BASE-001: client erasure revokes scheduled grants, removes derived rule text and retains attributed run and cost references',async()=>{
+ const h=await harness();try{
+  const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Erasure-bound agent'},h.owner);await price(h);
+  await rule(h,s,key,{name:'synthetic-blotter-5 private rule text'});const f=await upload(h,s,j);await h.json('/agent-rules/run',{},h.owner);
+  let state=await h.json('/agent-rules',undefined,h.owner);await h.json(`/proposals/${state.runs[0].proposal_id}/decide`,{decision:'decline',reason:'No longer needed'},h.owner);
+  const d=await s.detail(j.id);await h.json(`/requests/${d.requests[0].id}/decide`,{decision:'accept'},s.prep);await h.json(`/jobs/${j.id}/steps`,{ordinal:1,done:true},s.prep);
+  const submitted=await h.json(`/jobs/${j.id}/submit`,{revision:(await s.detail(j.id)).job.revision},s.prep);await h.json(`/jobs/${j.id}/review`,{revision:submitted.job.revision,decision:'signoff',note:'Complete'},s.reviewer);
+  const current=await h.json(`/clients/${s.client.id}/detail`,undefined,h.owner);await h.json(`/clients/${s.client.id}/lifecycle`,{revision:current.revision,lifecycle:'archived',reason:'Client exit'},h.owner);
+  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.equal(preview.eligible,true,JSON.stringify(preview.blockers));assert.ok(preview.erase.some(x=>x.table==='b_agent_rules'));
+  const receipt=await h.json(`/clients/${s.client.id}/erasure`,{planHash:preview.planHash,confirm:s.client.name,reason:'Erase client-derived preparations'},h.owner);assert.ok(receipt.steps.some(x=>x.table==='b_agent_rules'&&x.count>0));
+  state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.rules[0].status,'revoked');assert.equal(state.rules[0].name,'[erased]');assert.equal(state.runs.length,1);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(!archive.includes('synthetic-blotter-5 private rule text'));assert.match(archive,/agent.plan_prepared/);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,1);
+ }finally{await h.close();}
 });
 
 test('COST-001 / AI-003: operator estimates and supervised-agent screens at 1440 and 390, with keyboard and delayed hover tooltips',async()=>{

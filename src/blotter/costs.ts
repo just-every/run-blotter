@@ -12,14 +12,14 @@ export async function costState(db:D1Database,a:Actor) {
  owner(a);
  const usage=await rows(db,'SELECT * FROM b_service_usage ORDER BY created_at DESC,action_id');
  const reserved=usage.filter(x=>x.status!=='blocked').reduce((s,x)=>s+x.estimated_cents,0);
- return {currency:'USD',services:SERVICES,prices:await rows(db,'SELECT * FROM b_service_prices ORDER BY service'),budget:await stmt(db,'SELECT * FROM b_service_budget WHERE id=1').first(),usage,reservedCents:reserved,
+ return {currency:'USD',services:SERVICES,prices:await rows(db,'SELECT * FROM b_service_prices ORDER BY service'),priceVersions:await rows(db,'SELECT * FROM b_service_price_versions ORDER BY updated_at,revision'),budget:await stmt(db,'SELECT * FROM b_service_budget WHERE id=1').first(),usage,reservedCents:reserved,
   notice:'Prices are firm-recorded estimates, not provider verification. Reservations include uncertain outcomes. Blocked actions remain owned exceptions; deadlines and evidence are unchanged. Increase the budget to retry the same action ID once, or export the usage history. Unbuilt providers cannot be enabled here.'};
 }
 export async function savePrice(db:D1Database,a:Actor,b:Data) {
  owner(a);const service=text(b.service,'Service');insist(SERVICES[service],'Unknown service');
  const revision=id(),source=text(b.source,'Source of USD price and included quantities',1000);
  await atomic(db,a,[stmt(db,`INSERT INTO b_service_prices VALUES(?,?,?,?,?,?,?,?,?,0)
- ON CONFLICT(service) DO UPDATE SET revision=excluded.revision,unit=excluded.unit,included=excluded.included,unit_cents=excluded.unit_cents,basis_points=excluded.basis_points,source=excluded.source,updated_by=excluded.updated_by,updated_at=excluded.updated_at,enabled=0`,service,revision,SERVICES[service],integer(b.included,'Included quantity'),integer(b.unitCents,'USD cents per unit'),integer(b.basisPoints??0,'Basis points',0,10000),source,a.email,now()),audit(db,a,'cost.price',service,source)]);
+ ON CONFLICT(service) DO UPDATE SET revision=excluded.revision,unit=excluded.unit,included=excluded.included,unit_cents=excluded.unit_cents,basis_points=excluded.basis_points,source=excluded.source,updated_by=excluded.updated_by,updated_at=excluded.updated_at,enabled=0`,service,revision,SERVICES[service],integer(b.included,'Included quantity'),integer(b.unitCents,'USD cents per unit'),integer(b.basisPoints??0,'Basis points',0,10000),source,a.email,now()),stmt(db,'INSERT INTO b_service_price_versions SELECT revision,service,unit,included,unit_cents,basis_points,source,updated_by,updated_at FROM b_service_prices WHERE service=?',service),audit(db,a,'cost.price',service,source)]);
  return {service,revision};
 }
 export async function setService(db:D1Database,a:Actor,service:string,b:Data) {
@@ -37,7 +37,8 @@ export async function saveBudget(db:D1Database,a:Actor,b:Data) {
 }
 function charge(p:Data,quantity:number,amount:number,used:number) {
  const included=Math.max(0,p.included-used),billable=Math.max(0,quantity-included);
- return billable*p.unit_cents+Math.ceil(amount*p.basis_points/10000);
+ const cents=billable*p.unit_cents+Math.ceil(amount*p.basis_points/10000);
+ insist(Number.isSafeInteger(cents),'This estimate exceeds the supported USD cents range');return cents;
 }
 export async function estimateCosts(db:D1Database,a:Actor,b:Data) {
  owner(a);insist(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=30,'List 1 to 30 services');
