@@ -106,15 +106,15 @@ test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore sch
 test('AI-003 / BASE-001: client erasure revokes scheduled grants, removes derived rule text and retains attributed run and cost references',async()=>{
  const h=await harness();try{
   const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Erasure-bound agent'},h.owner);await price(h);
-  await rule(h,s,key,{name:'synthetic-blotter-5 private rule text'});const f=await upload(h,s,j);await h.json('/agent-rules/run',{},h.owner);
-  let state=await h.json('/agent-rules',undefined,h.owner);await h.json(`/proposals/${state.runs[0].proposal_id}/decide`,{decision:'decline',reason:'No longer needed'},h.owner);
+  await rule(h,s,key,{name:'synthetic-blotter-5 private rule text',mode:'external',providerName:'synthetic-blotter-201 private policy',modelName:'Owner runtime',dataUse:'Private policy',providerRetention:'Owner account'});const f=await upload(h,s,j);await h.json('/agent-rules/run',{},h.owner);
+  let state=await h.json('/agent-rules',undefined,h.owner);const external=await h.json('/agent/plans/'+state.runs[0].id,{message:'synthetic-blotter-202 derived draft'},'',200,{authorization:'Bearer '+key.key});await h.json(`/proposals/${external.id}/decide`,{decision:'decline',reason:'No longer needed'},h.owner);
   const d=await s.detail(j.id);await h.json(`/requests/${d.requests[0].id}/decide`,{decision:'accept'},s.prep);await h.json(`/jobs/${j.id}/steps`,{ordinal:1,done:true},s.prep);
   const submitted=await h.json(`/jobs/${j.id}/submit`,{revision:(await s.detail(j.id)).job.revision},s.prep);await h.json(`/jobs/${j.id}/review`,{revision:submitted.job.revision,decision:'signoff',note:'Complete'},s.reviewer);
   const current=await h.json(`/clients/${s.client.id}/detail`,undefined,h.owner);await h.json(`/clients/${s.client.id}/lifecycle`,{revision:current.revision,lifecycle:'archived',reason:'Client exit'},h.owner);
   const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.equal(preview.eligible,true,JSON.stringify(preview.blockers));assert.ok(preview.erase.some(x=>x.table==='b_agent_rules'));
   const receipt=await h.json(`/clients/${s.client.id}/erasure`,{planHash:preview.planHash,confirm:s.client.name,reason:'Erase client-derived preparations'},h.owner);assert.ok(receipt.steps.some(x=>x.table==='b_agent_rules'&&x.count>0));
   state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.rules[0].status,'revoked');assert.equal(state.rules[0].name,'[erased]');assert.equal(state.runs.length,1);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(!archive.includes('synthetic-blotter-5 private rule text'));assert.match(archive,/agent.plan_prepared/);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,1);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(!archive.includes('synthetic-blotter-5 private rule text'));assert.ok(!archive.includes('synthetic-blotter-201 private policy'));assert.ok(!archive.includes('synthetic-blotter-202 derived draft'));assert.equal(state.runs[0].preparation_hash,null);assert.match(archive,/agent.plan_prepared/);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,1);
  }finally{await h.close();}
 });
 
@@ -135,6 +135,24 @@ test('AI-003 / BASE-001 / ACCESS-004: Cron plans stop when MFA is required until
   await h.scheduled('2027-01-01T00:00:00Z');await h.json('/agent/context',undefined,'',403,{authorization:'Bearer '+key.key});
   await enroll(h,h.owner);let state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,1);assert.equal(state.runs[0].status,'refused');assert.equal(state.rules[0].used,0);
   await h.scheduled('2027-01-02T00:00:00Z');state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.filter(r=>r.status==='prepared').length,1);assert.equal(state.rules[0].used,1);assert.equal(state.runs.filter(r=>r.status==='refused').length,1);
+ }finally{await h.close();}
+});
+
+test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable replay, live revocation and human decisions',async()=>{
+ const h=await harness();try{
+  const s=await automationFixture(h),j=await s.start(),outside=await s.start(s.outside.id),key=await h.json('/keys',{label:'External metadata planner'},h.owner),other=await h.json('/keys',{label:'Other caller'},h.owner);await price(h);
+  const options={mode:'external',providerName:'synthetic-blotter-200',modelName:'Owner runtime',dataUse:'No training under owner contract',providerRetention:'Owner account; zero retention'};
+  const r=await rule(h,s,key,options),scheduled=await rule(h,s,key,{...options,trigger:'schedule',startsAt:'2027-01-01T00:00:00Z',everyHours:24});
+  await upload(h,s,j);await upload(h,s,outside);const before=h.mails.length;await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);await h.scheduled('2027-01-01T00:00:00Z');await h.scheduled('2027-01-01T00:00:00Z');
+  const auth={authorization:'Bearer '+key.key},otherAuth={authorization:'Bearer '+other.key};
+  const plans=await h.json('/agent/plans',undefined,'',200,auth);assert.equal(plans.plans.length,2);assert.ok(plans.plans.every(p=>p.jobId===j.id&&p.clientId===s.client.id&&p.tool==='reminder'));assert.equal(h.mails.length,before);assert.match(plans.exclusions,/No document bytes/);assert.match(plans.plans[0].provider.verification,/not verified/);assert.equal(plans.plans[0].provider.dataUse,options.dataUse);
+  assert.deepEqual((await h.json('/agent/plans',undefined,'',200,otherAuth)).plans,[]);
+  const run=plans.plans[0];await h.json('/agent/plans/'+run.id,{message:'Other caller'},'',404,otherAuth);await h.json('/agent/plans/'+run.id,{jobId:outside.id},'',403,auth);await h.json('/agent/plans/'+run.id,{tool:'export'},'',403,auth);
+  const filled=await h.json('/agent/plans/'+run.id,{message:'Please upload the outstanding statement.'},'',200,auth);const replay=await h.json('/agent/plans/'+run.id,{message:'Please upload the outstanding statement.'},'',200,auth);assert.equal(replay.id,filled.id);assert.equal(replay.replayed,true);await h.json('/agent/plans/'+run.id,{message:'Different wording'},'',409,auth);
+  assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules.reduce((n,r)=>n+r.used,0),2);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,2);assert.equal(h.mails.length,before);
+  await h.json('/proposals/'+filled.id+'/decide',{decision:'decline',reason:'Do not send'},h.owner);assert.equal(h.mails.length,before);
+  const second=plans.plans[1];const pending=await h.json('/agent/plans/'+second.id,{message:'Needs review'},'',200,auth);await h.json('/agent-rules/'+scheduled.id+'/revoke',{},h.owner);await h.json('/agent-rules/'+r.id+'/revoke',{},h.owner);await h.json('/proposals/'+pending.id+'/decide',{decision:'approve'},h.owner,409);assert.deepEqual((await h.json('/agent/plans',undefined,'',200,auth)).plans,[]);assert.equal(h.mails.length,before);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/agent.plan_filled/);assert.ok(!archive.includes(key.key));assert.match(archive,/No training under owner contract/);
  }finally{await h.close();}
 });
 
