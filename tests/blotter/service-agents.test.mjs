@@ -28,7 +28,7 @@ test('COST-001 / BASE-001: sourced USD seasonal estimates, included quantities, 
 test('COST-001 / AI-003 / BASE-001: budget exception notifies its owner; approved increase retries the same optional action without duplicate plan or usage',async()=>{
  const h=await harness();try{
   const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Budgeted native agent'},h.owner);
-  await price(h,25,0);await rule(h,s,key);const file=await upload(h,s,j);
+  await h.json('/agent-rules',{name:'Unpriced agent',clientId:s.client.id,keyId:key.id,trigger:'file',tool:'reminder',budget:1},h.owner,409);await price(h,25,0);await rule(h,s,key);const file=await upload(h,s,j);
   await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);
   let state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,1);assert.equal(state.runs[0].status,'blocked');assert.match(state.runs[0].event_key,new RegExp(file.id));
   let costs=await h.json('/costs',undefined,h.owner);assert.equal(costs.usage.length,1);assert.equal(costs.usage[0].status,'blocked');assert.equal(costs.reservedCents,0);
