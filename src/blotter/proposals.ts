@@ -11,7 +11,7 @@ import { prepareExport, unbilled } from './billing';
 
 const KINDS = ['rollforward', 'reminder', 'export'] as const;
 
-async function payloadFor(db: D1Database, actor: Actor, kind: string, body: Data) {
+export async function payloadFor(db: D1Database, actor: Actor, kind: string, body: Data) {
   if (kind === 'rollforward') {
     const j = await job(db, actor, text(body.jobId, 'Job'));
     return { jobId: j.id, dueDate: date(body.dueDate, 'Due date'), dueNote: text(body.dueNote, 'Where the due date comes from', 300), summary: `Roll ${j.title} (${j.period_label}) forward, due ${body.dueDate}` };

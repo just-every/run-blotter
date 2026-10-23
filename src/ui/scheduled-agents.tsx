@@ -1,14 +1,16 @@
 import {useEffect,useState} from 'react';
 import {api,Empty,Field,Form,money,Status,when,type Row,type Run} from './common';
 export function ScheduledAgents({state,run,open,tick}:{tick:number;state:Row;run:Run;open:(id:string)=>void}) {
- const [data,setData]=useState<Row>(),[keys,setKeys]=useState<Row[]>([]),[trigger,setTrigger]=useState('file'),[tool,setTool]=useState('reminder');
+ const [data,setData]=useState<Row>(),[keys,setKeys]=useState<Row[]>([]),[trigger,setTrigger]=useState('file'),[tool,setTool]=useState('reminder'),[mode,setMode]=useState('native');
  const reload=async()=>{setData(await api('/agent-rules'));setKeys((await api('/team')).keys.filter((k:Row)=>!k.revoked));};
  useEffect(()=>{reload().catch(()=>{});},[tick]);
  const change=(path:string,b:Row,message:string)=>run(async()=>{await api(path,b);await reload();},message);
- return <section className="panel" aria-label="Scheduled agents"><h2>Scheduled agents</h2><p>Agents prepare; people approve. A file, completed task, question or schedule can prepare one bounded plan for one client. This native planner calls no model and transmits no data to a provider. Configure Service costs before enabling plans.</p>
+ return <section className="panel" aria-label="Scheduled agents"><h2>Scheduled agents</h2><p>Agents prepare; people approve. A file, completed task, question or schedule can prepare one bounded plan for one client. Choose the native planner or a keyed external caller. Blotter makes no provider request; the external caller receives only its approved job metadata and request labels. Configure Service costs before enabling plans.</p>
  {!data?<button onClick={()=>run(reload,'Agents loaded')}>Load scheduled agents</button>:<><p>{data.exclusions}</p>
  <details><summary>Enable a supervised agent</summary><Form label="Approve agent grant" submit={f=>change('/agent-rules',f,'Client, data, tool and budget grant approved')}>
  <Field label="Agent name" name="name"/><Field label="Supervisor’s agent key" name="keyId"><select name="keyId" required><option value="">Choose a live key…</option>{keys.map(k=><option key={k.id} value={k.id}>{k.label}</option>)}</select></Field>
+ <Field label="Planner" name="mode"><select name="mode" value={mode} onChange={e=>setMode(e.target.value)}><option value="native">Native deterministic planner</option><option value="external">Keyed external agent</option></select></Field>
+ {mode==='external'&&<><Field label="Agent provider" name="providerName"/><Field label="Model or runtime" name="modelName"/><Field label="Provider data use and training" name="dataUse"/><Field label="Provider retention and account owner" name="providerRetention"/><p>Record your provider's policy before granting access. This is your declaration, not verification by Blotter. Never enter credentials here.</p></>}
  <Field label="One client" name="clientId"><select name="clientId" required><option value="">Choose client…</option>{state.clients.filter((c:Row)=>c.lifecycle==='active').map((c:Row)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
  <Field label="Agent trigger" name="trigger"><select name="trigger" value={trigger} onChange={e=>setTrigger(e.target.value)}>{[['file','File uploaded'],['tasks_complete','Tasks completed'],['question','Client question'],['schedule','Schedule']].map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></Field>
  {trigger==='schedule'&&<><Field label="Start time including timezone" name="startsAt" hint="For example 2026-11-01T09:00:00-05:00"/><Field label="Every hours" name="everyHours" type="number" value="24"/></>}

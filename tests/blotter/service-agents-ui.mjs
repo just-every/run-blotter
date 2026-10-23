@@ -30,6 +30,10 @@ export async function serviceAgentsJourney(h,s,key,job){
   await capture(costs,'cost-reconciled');await capture(agents,'plan-prepared');
   await agents.getByRole('button',{name:'Revoke agent',exact:true}).click();
   await agents.getByText('Revoked',{exact:true}).waitFor();assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules[0].status,'revoked');
+  await agents.getByLabel('Agent name',{exact:true}).fill('External metadata agent');await agents.getByLabel('Planner',{exact:true}).selectOption('external');
+  await agents.getByLabel('Agent provider',{exact:true}).fill('synthetic-blotter-200');await agents.getByLabel('Model or runtime',{exact:true}).fill('Owner runtime');await agents.getByLabel('Provider data use and training',{exact:true}).fill('No training under owner contract');await agents.getByLabel('Provider retention and account owner',{exact:true}).fill('Owner account; zero retention');
+  await capture(agents,'external-grant');await agents.getByRole('button',{name:'Approve agent grant',exact:true}).click();await agents.getByText('External metadata agent',{exact:true}).waitFor();
+  await capture(agents,'external-policy');
   // Every icon-only control visible on this screen, at both release widths.
   for(const width of [1440,390]){
    await page.setViewportSize({width,height:1000});await page.evaluate(()=>scrollTo(0,0));
