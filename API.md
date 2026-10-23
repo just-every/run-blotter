@@ -362,3 +362,14 @@ Pending requests transfer in the ordinary offboarding batch. Completed attributi
 Signed documents join retention clocks, holds, erasure preview/receipt and restore fencing;
 restored pending requests remain held until explicitly resent. Signature-complete automation
 uses the same scoped, budgeted, live-authority and once-only effect transaction.
+
+
+### Service costs and supervised native plans
+
+The principal uses `GET /api/blotter/costs` for current quotes, immutable quote versions, usage and owned exceptions; `POST /costs/prices` records `{service,included,unitCents,basisPoints,source}`. Quantities and USD cents are whole numbers; basis points are 0–10000. `POST /costs/estimate` takes `{items:[{service,quantity,amountCents}]}`. Missing prices leave the total unavailable. `POST /costs/budget` records `{limitCents,thresholdCents,reason}`. These paths all have the `/api/blotter` prefix.
+
+Only `agent_plan` can currently be enabled, with `POST /costs/services/agent_plan` and `{revision,enabled,reason}` after price review. Other service estimates never enable an unbuilt provider. `POST /costs/usage/:actionId/reconcile` takes `{cents,receipt}` and records verified/native cost evidence without repeating an effect. The Preparations screen exports the complete displayed JSON costs and usage. Quotes are firm estimates, not provider tariff verification. Included units apply per price revision; reservations remain counted after reconciliation.
+
+`GET /agent-rules` returns grants and retained runs/decisions. `POST /agent-rules` takes `{name,keyId,clientId,trigger,tool,budget}`. Triggers are `file`, `tasks_complete`, `question` and `schedule`; tools are `reminder` and `rollforward` preparations only. A schedule also needs `{startsAt,everyHours}` with an explicit timezone; roll-forward needs `{dueDate,dueNote}`. The principal is the named supervisor. `POST /agent-rules/run` evaluates current native events; the same bounded processor runs on Cron. `POST /agent-rules/:id/revoke` immediately refuses further plans and pending effects. New grants do not replay older file/task/question events. Duplicate schedule/event evaluations never duplicate plans or reservations.
+
+This is a deterministic native planner; no model/provider is called. Its grant covers only job metadata and outstanding request labels for that client. A key bound to a native rule may read only those active client scopes and cannot bypass rule/service budgets through legacy preparation or learning commands. It receives no financial context or file bytes. Existing person-only proposal decisions perform the effect under the current client, source and key/rule authority. Archives exclude keys and restore grants paused and service prices disabled. Retained history cannot authorize replay; after restoring, create a fresh key and explicitly review a new grant. Full AI/provider capabilities remain partial under CONTRACT.md.
