@@ -115,6 +115,24 @@ test('A sign-in that still owes its second factor cannot change the account emai
  }finally{await h.close();}
 });
 
+test('A person whose client grant is removed no longer sees that client’s tasks or planned items in their week',async()=>{
+ const h=await harness();
+ try{
+  await h.json('/team',{email:'prep@example.test',name:'Prep',role:'preparer'},h.owner);await h.json('/team/invite',{email:'prep@example.test'},h.owner);
+  const prep=await h.login('prep@example.test');
+  const kept=await h.json('/clients',{name:'Cedar Lane LLC'},h.owner),revoked=await h.json('/clients',{name:'Harbor Studio LLC'},h.owner);
+  const t=await h.json('/templates',{name:'Tax return',recurrence:'annual',steps:'unused',requests:'Workpaper',feeCents:55500,tasks:[{label:'Gather synthetic-blotter-2 facts',assignee:'prep@example.test',dueFrom:'due',dueDays:-1,instructions:'synthetic-blotter-2 private instructions'}]},h.owner);
+  const jobs=[];for(const client of [kept,revoked])jobs.push(await h.json('/jobs',{clientId:client.id,templateId:t.id,periodStart:'2026-01-01',dueDate:'2026-10-28',dueNote:'Client schedule',preparerEmail:'prep@example.test',reviewerEmail:'owner@example.test'},h.owner));
+  await h.json('/plan',{day:'2026-10-27',jobId:jobs[1].id,ordinal:1},prep);
+  assert.ok(JSON.stringify(await h.json('/plan?week=2026-10-26',undefined,prep)).includes(jobs[1].id));
+  await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[kept.id]},h.owner);
+  await h.json('/jobs/'+jobs[1].id,undefined,prep,404);
+  const plan=await h.json('/plan?week=2026-10-26',undefined,prep);
+  assert.deepEqual(plan.tasks.map(x=>x.job_id),[jobs[0].id]);
+  assert.ok(!JSON.stringify(plan).includes(jobs[1].id)&&!JSON.stringify(plan).includes(revoked.name));
+ }finally{await h.close();}
+});
+
 test('Delegated manage-access and financial-authority grants are bounded and live, and export step-up applies from installation',async()=>{
  const h=await harness();
  try{
