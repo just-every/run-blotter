@@ -11,7 +11,9 @@ export async function agentRules(db:D1Database,a:Actor) {
   exclusions:'Only job metadata and outstanding request labels are granted. No file bytes, private mail, internal discussions, vault, financial data, signed-scope inference or external model access. All tools prepare only; people decide effects.'};
 }
 export async function saveAgentRule(db:D1Database,a:Actor,b:Data) {
- principal(a);const ruleId=id(),keyId=text(b.keyId,'Agent key'),clientId=text(b.clientId,'Client'),trigger=text(b.trigger,'Trigger'),tool=text(b.tool,'Preparation tool');
+ principal(a);
+ insist(await stmt(db,"SELECT 1 FROM b_service_prices WHERE service='agent_plan' AND enabled=1").first() && await stmt(db,'SELECT 1 FROM b_service_budget WHERE id=1').first(),'Review and enable the native plan price and approve a service budget before enabling an agent',409);
+ const ruleId=id(),keyId=text(b.keyId,'Agent key'),clientId=text(b.clientId,'Client'),trigger=text(b.trigger,'Trigger'),tool=text(b.tool,'Preparation tool');
  insist(['file','tasks_complete','question','schedule'].includes(trigger),'Choose a file, completed-task, question or schedule trigger');
  insist(['reminder','rollforward'].includes(tool),'Only reminder and roll-forward preparation tools are granted');
  const key=await stmt(db,'SELECT id FROM b_agent_keys WHERE id=? AND owner_id=? AND revoked=0',keyId,a.id).first();insist(key,'Choose your live agent key',409);
@@ -20,7 +22,8 @@ export async function saveAgentRule(db:D1Database,a:Actor,b:Data) {
  if(trigger==='schedule') {insist(typeof b.startsAt==='string'&&/T.*(Z|[+-]\d\d:\d\d)$/.test(b.startsAt)&&Number.isFinite(Date.parse(b.startsAt)),'Schedule time needs an explicit timezone');starts=new Date(b.startsAt).toISOString();hours=integer(b.everyHours,'Hours between evaluations',1,8760);}
  const after=Number((await stmt(db,'SELECT COALESCE(MAX(seq),0) n FROM b_automation_events').first<Data>())?.n??0);
  const [check,release]=guard(db,"EXISTS(SELECT 1 FROM b_agent_keys WHERE id=? AND owner_id=? AND revoked=0) AND EXISTS(SELECT 1 FROM b_clients WHERE id=? AND erased_at IS NULL AND lifecycle='active' AND merged_into IS NULL)",keyId,a.id,clientId);
- await atomic(db,a,[check,stmt(db,'INSERT INTO b_agent_rules(id,name,key_id,client_id,supervisor_id,supervisor_email,trigger,starts_at,every_hours,tool,due_date,due_note,budget,after_seq,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',ruleId,text(b.name,'Agent name',120),keyId,clientId,a.id,a.email,trigger,starts,hours,tool,tool==='rollforward'?date(b.dueDate,'Proposed due date'):null,tool==='rollforward'?text(b.dueNote,'Due-date source',300):null,integer(b.budget,'Lifetime plan budget',1,100000),after,now()),release,audit(db,a,'agent.rule_approved',ruleId,'Explicit client, data and preparation-tool grant; human effects only')]);
+ const [priced,pricedDone]=guard(db,"EXISTS(SELECT 1 FROM b_service_prices WHERE service='agent_plan' AND enabled=1) AND EXISTS(SELECT 1 FROM b_service_budget WHERE id=1)");
+ await atomic(db,a,[check,priced,stmt(db,'INSERT INTO b_agent_rules(id,name,key_id,client_id,supervisor_id,supervisor_email,trigger,starts_at,every_hours,tool,due_date,due_note,budget,after_seq,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',ruleId,text(b.name,'Agent name',120),keyId,clientId,a.id,a.email,trigger,starts,hours,tool,tool==='rollforward'?date(b.dueDate,'Proposed due date'):null,tool==='rollforward'?text(b.dueNote,'Due-date source',300):null,integer(b.budget,'Lifetime plan budget',1,100000),after,now()),release,pricedDone,audit(db,a,'agent.rule_approved',ruleId,'Explicit client, data and preparation-tool grant; human effects only')]);
  return {id:ruleId};
 }
 export async function stopAgentRule(db:D1Database,a:Actor,ruleId:string) {
