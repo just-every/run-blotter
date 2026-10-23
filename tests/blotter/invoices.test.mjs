@@ -378,8 +378,9 @@ test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile t
     assert.equal(after.invoiceReporting.totals.receivableCents, 34000); assert.equal(ra.aging.find(b => b.bucket === '31-60 days').cents, 10000);
     assert.deepEqual(after.invoiceReporting.invoices.map(i => [i.id, i.subtotalCents, i.totalCents]), before.invoiceReporting.invoices.map(i => [i.id, i.subtotalCents, i.totalCents]));
     assert.equal(after.invoiceReporting.invoices.find(i => i.id === a.id).writtenOffCents, 6600);
-    assert.equal((await h.json(`/clients/${s.client.id}/statement`, undefined, h.owner)).totals.openCents, 34000 - 12000);
-    const yesterday = await h.json(`/clients/${s.client.id}/statement?asOf=${day(-1)}`, undefined, h.owner);
+    const today = await h.json(`/clients/${s.client.id}/statement`, undefined, h.owner); assert.equal(today.totals.openCents, 34000 - 12000);
+    // The statement's day is the firm's (New York) calendar day, which can trail the UTC date by up to a day.
+    const yesterday = await h.json(`/clients/${s.client.id}/statement?asOf=${new Date(Date.parse(today.asOf + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10)}`, undefined, h.owner);
     // Before today's receipts, credit memo and write-off were recorded, the same invoices show their full balances.
     assert.equal(yesterday.totals.openCents, 28600 + 12000); assert.equal(yesterday.invoices.find(i => i.id === a.id).writtenOffCents, 0);
     const csv = await (await h.request(`/api/blotter/clients/${s.client.id}/statement/csv`, undefined, h.owner)).text();
