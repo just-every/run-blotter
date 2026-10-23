@@ -1,58 +1,24 @@
-/* Base's native pages (sign in, first-run /setup, second factor) and the Lobby in the app's look:
-   a white page, one white card with a hairline and a soft shadow, the vector mark and the heavy
-   condensed wordmark, thin quiet fields with a lilac focus ring and an ink primary button.
-   Tokens: /site/tokens.css. */
-@import url('/fonts/fonts.css');
-@import url('/site/tokens.css');
-/* At 30 px the lockup carries the ring without the sparks (the mark's 32 px drawing). */
-html:root {--rer-logo:url('/brand/mark-32.svg');}
-html.rer-themed body {display:grid;place-items:center;min-height:100vh;min-height:100dvh;margin:0;padding:64px 16px;box-sizing:border-box;
-  background:var(--bl-white) linear-gradient(180deg,var(--bl-lilac-pale),var(--bl-white) 340px) no-repeat;color:var(--bl-text);font:400 16px/1.55 var(--bl-font-body);-webkit-font-smoothing:antialiased;}
-html.rer-themed body > main {box-sizing:border-box;width:100%;max-width:520px;margin:0;padding:44px 48px;background:var(--bl-white);border:1px solid var(--bl-line);
-  border-radius:var(--bl-radius);box-shadow:var(--bl-shadow-lift);overflow-wrap:anywhere;}
-html.rer-themed main .brand, html.rer-themed main .rer-brand {display:flex;align-items:center;gap:10px;margin:0 0 28px;color:var(--bl-ink);
-  font:900 30px/1 var(--bl-font-display);font-variation-settings:'wdth' 50;letter-spacing:.005em;}
-html.rer-themed main .rer-brand::before {width:30px;height:30px;}
-html.rer-themed main h1 {font:900 40px/1.05 var(--bl-font-display);font-variation-settings:'wdth' 52;letter-spacing:-.005em;word-spacing:.14em;color:var(--bl-ink);margin:0 0 18px;}
-html.rer-themed main p, html.rer-themed main dt {color:var(--bl-muted);}
-html.rer-themed main label {font:500 15px/1.4 var(--bl-font-ui);color:var(--bl-ink);}
-html.rer-themed main input:not([type=checkbox]):not([type=hidden]) {min-height:44px;padding:10px 12px;border:1px solid #d6d1e3;border-radius:10px;background:var(--bl-white);color:var(--bl-ink);font:inherit;}
-html.rer-themed main input:not([type=checkbox]):not([type=hidden]):hover {border-color:var(--bl-lilac-mid);}
-html.rer-themed main input:not([type=checkbox]):not([type=hidden]):focus-visible {outline:none;border-color:var(--bl-lilac-deep);box-shadow:0 0 0 3px rgba(115,67,207,.18);}
-html.rer-themed main button, html.rer-themed main .action {min-height:48px;border:1px solid var(--bl-ink);border-radius:12px;background:var(--bl-ink);color:var(--bl-white);font:600 16px/1.2 var(--bl-font-ui);cursor:pointer;}
-html.rer-themed main button:hover, html.rer-themed main .action:hover {background:#2a2633;box-shadow:none;}
-html.rer-themed main dl {display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 24px;margin:0 0 24px;border-block:1px solid var(--bl-line);}
-html.rer-themed main dt, html.rer-themed main dd {padding:14px 0;border-bottom:1px solid var(--bl-line);margin:0;}
-html.rer-themed main dt:last-of-type, html.rer-themed main dd:last-of-type {border:0;}
-html.rer-themed main dd {font-weight:500;color:var(--bl-ink);}
-html.rer-themed main .notice {background:var(--bl-lilac-pale);border:1px solid var(--bl-line);border-left:3px solid var(--bl-lilac-deep);border-radius:10px;padding:12px 14px;}
-html.rer-themed main a {color:var(--bl-ink);text-decoration-color:var(--bl-lilac-mid);text-underline-offset:4px;text-decoration-thickness:1.5px;}
-html.rer-themed :focus-visible {outline:2px solid var(--bl-lilac-deep);outline-offset:2px;}
-html.rer-themed input[type=checkbox] {accent-color:var(--bl-lilac-deep);}
-/* The Lobby: one card on the same page, the mark and wordmark as the heading. */
-body:has(> .door) {background:var(--bl-white) linear-gradient(180deg,var(--bl-lilac-pale),var(--bl-white) 340px) no-repeat;}
-.door .door-card {position:relative;box-sizing:border-box;width:100%;max-width:640px;padding:56px 64px;background:var(--bl-white);border:1px solid var(--bl-line);border-radius:var(--bl-radius);box-shadow:var(--bl-shadow-lift);}
-.door .door-card .word {font-family:var(--bl-font-display);font-weight:900;font-variation-settings:'wdth' 50;letter-spacing:.005em;}
-.door .door-card h1 {font-size:clamp(44px,6vw,64px);}
-.door .door-card .line {font-size:21px;color:var(--bl-text);}
-.door .door-card .btn {border-radius:12px;background:var(--bl-ink);color:var(--bl-white);box-shadow:none;min-height:52px;font-family:var(--bl-font-ui);}
-.door .door-card .btn:hover {background:#2a2633;}
-/* Base's local dev gate (the signed-out hand-off page): the same card, mark and heavy heading over its inline style. */
-html:not(.rer-themed) body:not(:has(> .door)) {min-height:100vh;background:var(--bl-white) linear-gradient(180deg,var(--bl-lilac-pale),var(--bl-white) 340px) no-repeat;}
-html:not(.rer-themed) body > main:not(.door) {max-width:520px;margin:64px auto;padding:44px 48px;background:var(--bl-white);border:1px solid var(--bl-line);border-radius:var(--bl-radius);box-shadow:var(--bl-shadow-lift);}
-html:not(.rer-themed) body > main > .brand {gap:10px;font:900 30px/1 var(--bl-font-display);font-variation-settings:'wdth' 50;letter-spacing:.005em;color:var(--bl-ink);}
-html:not(.rer-themed) body > main > .brand img {width:30px;height:30px;}
-html:not(.rer-themed) body > main > h1 {font:900 36px/1.1 var(--bl-font-display);font-variation-settings:'wdth' 52;word-spacing:.14em;color:var(--bl-ink);margin:0 0 12px;}
-/* A dev or demo instance's label ("Dev", "Demo") after the wordmark: a small lilac tag, not part of the name. */
-html.rer-themed main [data-rer-name]::after, .door .word::after, body > main > .brand [data-rer-name]::after {
-  font:700 max(11px,.34em)/1 var(--bl-font-ui);font-variation-settings:normal;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--bl-lilac-deep);vertical-align:.9em;margin-left:.15em;}
-@media(max-width:760px) {
-  html:not(.rer-themed) body > main:not(.door) {margin:24px 16px;padding:32px 22px;}
-  html.rer-themed body {padding:24px 16px;place-items:start center;}
-  html.rer-themed body > main {padding:32px 22px;}
-  html.rer-themed main h1 {font-size:34px;}
-  html.rer-themed main dl {gap:0 12px;font-size:14px;}
-  .door .door-card {padding:40px 22px;}
-  .door .door-card .line {font-size:18px;}
+/* Blotter's declared theme: the --rer-* theme tokens and the faces, the one file rer's theme reader takes
+   (pnpm run onboard reads it with that reader). Base's native pages (sign in, first-run /setup, second factor),
+   the Lobby, the development sign-in and hand-off pages, the intake and unsubscribe pages and the hosted demo's
+   gate wear these tokens. Blotter's own tokens (/site/tokens.css) and the rules that dress Base's pages are in
+   /fonts/fonts.css, which every page that links this file links too. The grammar takes no var(), so each token
+   below is the literal value of the /site/tokens.css token it stands for: change both. */
+:root {
+  --rer-page:#ffffff; --rer-surface:#ffffff; --rer-text:#111111; --rer-muted:#5c5868;
+  /* A control edge needs 3:1 on the white surface: --bl-lilac-mid #b88aee is 2.66:1, so the border is the
+     nearest colour that passes, not a copy. */
+  --rer-border:#ae80e3; --rer-focus:#7343cf; --rer-link:#111111;
+  --rer-accent:#111111; --rer-accent-text:#ffffff;
+  --rer-font-body:'Red Hat Text',Arial,sans-serif; --rer-font-heading:'Roboto Serif Display','Roboto Serif',Georgia,serif;
+  --rer-radius:14px;
+  /* At 30 px the lockup carries the ring without the sparks (the mark's 32 px drawing). */
+  --rer-logo:url('/brand/mark-32.svg');
 }
+/* The faces /fonts/fonts.css declares, for the installer, which reads only this file. Roboto Serif Display leaves
+   out font-stretch, which the reader refuses: its file's own width axis is that range, 50% to 100%. */
+@font-face {font-family:"Red Hat Display";font-style:normal;font-weight:300 900;font-display:swap;src:url('/fonts/red-hat-display/RedHatDisplay.ttf') format('truetype')}
+@font-face {font-family:"Red Hat Text";font-style:normal;font-weight:300 700;font-display:swap;src:url('/fonts/red-hat-text/RedHatText.ttf') format('truetype')}
+@font-face {font-family:"Roboto Serif Display";font-style:normal;font-weight:500 900;font-display:swap;src:url('/fonts/roboto-serif/roboto-serif-display.woff2') format('woff2')}
+@font-face {font-family:"Kalam";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/kalam/kalam-400.woff2') format('woff2')}
+@font-face {font-family:"Kalam";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/kalam/kalam-700.woff2') format('woff2')}

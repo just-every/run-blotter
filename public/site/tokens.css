@@ -1,6 +1,8 @@
 /* Blotter's tokens, defined once: the run site (/site/theme.css), the app (/app/*.css) and Base's
-   native pages (/rer-theme.css) all read them. The desk-approved look (19 Oct 2026): crisp white,
-   ink line, marigold, lilac, mint for done, one tangerine ring. The --rer-* names feed Base's pages. */
+   native pages (/fonts/fonts.css) all read them. The desk-approved look (19 Oct 2026): crisp white,
+   ink line, marigold, lilac, mint for done, one tangerine ring. The --rer-* names feed Base's pages;
+   /rer-theme.css repeats the theme's as literals for rer's theme reader (change both), with a darker
+   --rer-border for contrast and the 32 px mark. */
 :root {
   --bl-white:#ffffff; --bl-ink:#111111; --bl-text:#24222c; --bl-muted:#5c5868; --bl-faint:#8b879a;
   --bl-wash:#f7f4fe; --bl-line:#e3dafa; --bl-line-strong:#cbbaf5;

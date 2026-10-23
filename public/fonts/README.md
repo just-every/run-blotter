@@ -16,6 +16,7 @@ Font License 1.1; each licence is alongside its font.
   notes, Regular and Bold subset to Latin.
   Upstream: https://github.com/google/fonts/tree/main/ofl/kalam.
 
-The shared theme imports `/fonts/fonts.css`. Native auth, setup and route
-heads also link that stylesheet; the body font is preloaded by `font-head.ts`.
+The app, the run site and Base's pages link `/fonts/fonts.css`, which declares
+these faces; `/rer-theme.css` declares the same faces again for the installer,
+which reads only that file. The body font is preloaded by `font-head.ts`.
 Every page uses the same files without a request to another origin.
