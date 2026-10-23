@@ -1,5 +1,5 @@
 import { agentRules, saveAgentRule, stopAgentRule, runAgentRules } from './scheduled-agents';
-import { costState, savePrice, setService, saveBudget, estimateCosts, reconcileCost } from './costs';
+import { costState, exportCosts, savePrice, setService, saveBudget, estimateCosts, reconcileCost } from './costs';
 import { signatureRoutes } from './signature-routes';
 import { invoiceRoutes } from './invoice-routes';
 import { portalAccountRoutes } from './portal-account-routes';
@@ -125,6 +125,7 @@ api.post(`${P}/agent-rules`,as(async(a,c)=>saveAgentRule(db(c),a,await body(c)))
 api.post(`${P}/agent-rules/run`,as(async(a,c)=>{await agentRules(db(c),a);return runAgentRules(c.env);}));
 api.post(`${P}/agent-rules/:id/revoke`,as((a,c)=>stopAgentRule(db(c),a,param(c))));
 api.get(`${P}/costs`,as((a,c)=>costState(db(c),a)));
+api.get(`${P}/costs/export`,as((a,c)=>exportCosts(db(c),a)));
 api.post(`${P}/costs/prices`,as(async(a,c)=>savePrice(db(c),a,await body(c))));
 api.post(`${P}/costs/budget`,as(async(a,c)=>saveBudget(db(c),a,await body(c))));
 api.post(`${P}/costs/estimate`,as(async(a,c)=>estimateCosts(db(c),a,await body(c))));

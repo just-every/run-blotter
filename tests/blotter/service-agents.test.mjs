@@ -22,6 +22,9 @@ test('COST-001 / BASE-001: sourced USD seasonal estimates, included quantities, 
   const estimate=await h.json('/costs/estimate',{items:services.map(service=>({service,quantity:5,amountCents:['ach','card'].includes(service)?101:0}))},h.owner);
   assert.equal(estimate.totalCents,454);for(const i of estimate.items){assert.equal(i.included,2);assert.equal(i.unitCents,15);assert.equal(i.enabled,false);assert.equal(i.estimatedCents,['ach','card'].includes(i.service)?47:45);assert.match(i.source,/dated vendor quote/);}
   await h.json('/costs/services/card',{revision:estimate.items.at(-1).revision,enabled:true,reason:'Cannot enable missing payment capability'},h.owner,409);
+  const fresh=await h.login('owner@example.test');const refused=await h.send('/api/blotter/costs/export',undefined,fresh);assert.equal(refused.status,403);assert.equal((await refused.json()).mfa,'step-up');
+  const exported=await h.request('/api/blotter/costs/export',undefined,fresh);assert.equal(exported.status,200);assert.match(exported.headers.get('content-disposition'),/blotter-service-usage/);const portable=await exported.json();assert.equal(portable.currency,'USD');assert.equal(portable.priceVersions.length,10);assert.equal(portable.prices.length,10);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/cost.exported/);
   const bad=await h.request('/api/blotter/costs/budget',{limitCents:100,thresholdCents:100,reason:'Cross-site'},h.owner,{origin:'https://outside.example.test'});assert.equal(bad.status,403);
  }finally{await h.close();}
 });
