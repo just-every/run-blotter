@@ -2,6 +2,19 @@ import { IconTile } from '../../parts/icons'
 import { Section } from '../../parts/Section'
 import { arrows, Check, Marked } from '../../parts/type'
 
+// The one start line every Run Edit Run page shows, and the alternative for people who already have Node.
+const START = 'curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-blotter'
+const ALTERNATIVE = 'Already have Node 22 or later? npx -y @runeditrun/rer dev just-every/run-blotter'
+
+/** A command that wraps only between words, keeping the installer's `install.sh | sh` together. */
+function words(line: string) {
+  return line.split(/(\S*install\.sh \| sh|\S+)/).map((part, index) => {
+    const pipe = /^(.*\/)(install\.sh \| sh)$/.exec(part)
+    if (pipe) return <span key={index}><span className="nw">{pipe[1]}</span><wbr /><span className="nw">{pipe[2]}</span></span>
+    return part.trim() ? <span key={index} className="nw">{part}</span> : part
+  })
+}
+
 const counts: [string, string][] = [
   ['Clients', '418 · contacts 1,046'], ['Duplicates', '4 merged'], ['Work types', '9 · 6 stages · 14 sub-statuses'],
   ['Schedules', '23 → 23 rules'], ['Future jobs', '340 · 123 closes + 111 payroll + 69 sales tax + 37 Q3 941s'],
@@ -39,7 +52,7 @@ export function MoveIn() {
         </article>
         <figure className="terminal" aria-label="Start Blotter on your computer">
           <span className="terminal-dots" aria-hidden="true"><i /><i /><i /></span>
-          <pre><code><span className="prompt" aria-hidden="true">$ </span><span className="nw">npx -y @runeditrun/rer dev</span> <span className="nw">just-every/run-blotter</span>{'\n'}<span className="comment"># clones, installs and starts Blotter on your computer</span></code></pre>
+          <pre><code><span className="prompt" aria-hidden="true">$ </span>{words(START)}{'\n'}<span className="comment"># {words('installs rer, then gets and starts Blotter on your computer')}</span>{'\n'}<span className="comment"># {words(ALTERNATIVE)}</span></code></pre>
         </figure>
         <p className="also">Also moves in from TaxDome, Canopy, Financial Cents and Double.</p>
       </div>
