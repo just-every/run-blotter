@@ -128,7 +128,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "3642ff402d0cb82e7f56255892d9439b74d5315bea0660506175d6f23c619838",
+      "sha256": "533d17c5f718c249936d7bc425265d0ff8a308fc3bbeb441e31719340317e8ba",
       "executable": false
     },
     "CLAUDE.md": {
@@ -1036,7 +1036,7 @@
       "executable": false
     },
     "seed.json": {
-      "sha256": "9230dba245011e3f39c3124060c477551bae23db5489b770c9be28f70421c8ab",
+      "sha256": "9730eeb88853b55ba7b172d1af99878d1f78f74779e9b0de353960885d5a1305",
       "executable": false
     },
     "SOURCES.md": {
