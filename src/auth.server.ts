@@ -42,7 +42,8 @@ export interface Bindings {
  /** VAULT-001: the credential vault's own key, separate from the session secret. */
  VAULT_KEY?: string
  SETUP_TOKEN?: string
- MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare'
+ MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare' | 'rer'
+ MAIL_RELAY_URL?: string
  MAIL_FROM?: string
  MAIL_API_KEY?: string
  MAIL_ACCOUNT_ID?: string

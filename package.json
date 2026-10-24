@@ -28,7 +28,9 @@
     "rer": "rer",
     "test:blotter": "rer queue test:blotter -- node scripts/test-blotter.mjs",
     "test:email-link": "rer queue test:email-link -- sh -c \"node tests/email-link.mjs\"",
-    "test:site": "node --test tests/site/*.test.mjs"
+    "test:site": "node --test tests/site/*.test.mjs",
+    "delivery:spec": "node scripts/build-deployment-spec.mjs",
+    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",

@@ -1,4 +1,83 @@
 {
   "schemaVersion": 1,
-  "id": "just-every/run-blotter"
+  "id": "just-every/run-blotter",
+  "toolchain": {
+    "id": "runeditrun/edition-authoring",
+    "version": "1.1.0"
+  },
+  "parent": null,
+  "components": [
+    {
+      "id": "just-every/run-blotter",
+      "role": "edition",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/blotter",
+          "src/ui",
+          "package.json"
+        ]
+      }
+    },
+    {
+      "id": "runeditrun/base",
+      "role": "foundation",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/mail.server.mjs",
+          "src/mail.server.d.mts",
+          "src/server.dev.ts"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "96c425bd95ac2eb07ce2c7cccc419386d7f085e3",
+          "path": ".",
+          "paths": [
+            "foundation/template/src/mail.server.mjs",
+            "foundation/template/src/mail.server.d.mts",
+            "foundation/template/src/server.dev.ts"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/mail.server.mjs",
+            "originPath": "foundation/template/src/mail.server.mjs"
+          },
+          {
+            "path": "src/mail.server.d.mts",
+            "originPath": "foundation/template/src/mail.server.d.mts"
+          },
+          {
+            "path": "src/server.dev.ts",
+            "originPath": "foundation/template/src/server.dev.ts"
+          }
+        ]
+      }
+    },
+    {
+      "id": "runeditrun/delivery-producer",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/delivery/base/setup-manifest.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4280971d7c0295b8a88c3e1179048efcbbe14f30",
+          "path": ".",
+          "paths": [
+            "modules/delivery-producer/setup-manifest.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "scripts/delivery/base/setup-manifest.mjs",
+            "originPath": "modules/delivery-producer/setup-manifest.mjs"
+          }
+        ]
+      }
+    }
+  ]
 }
