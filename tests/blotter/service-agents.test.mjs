@@ -70,7 +70,10 @@ test('AI-003 / BASE-001: scoped file and scheduled plans de-duplicate, refuse un
    ['/agent/prepare-rollforward',{jobId:j.id,dueDate:'2028-04-15',dueNote:'Synthetic agreed date'}],
    ['/agent/prepare-export',{title:'Synthetic export',sourceKeys:['fee:'+j.id]}],
    ['/agent/learning/evidence',{jobIds:[j.id]}],
-   ['/agent/prepare-learning',{jobIds:[j.id,j.id],clientIds:[s.client.id]}]
+   ['/agent/prepare-learning',{jobIds:[j.id,j.id],clientIds:[s.client.id]}],
+   ['/agent/learning/synthetic-blotter-230',undefined],
+   [`/agent/jobs/${j.id}/readiness`,undefined],
+   [`/agent/jobs/${j.id}/readiness/questions`,{sourceKind:'request',sourceId:(await s.detail(j.id)).requests[0].id}]
   ])await h.json(door,body,'',403,{authorization:'Bearer '+key.key});
   assert.deepEqual(await h.json('/agent-rules',undefined,h.owner),denialBefore.rules);assert.deepEqual(await h.json('/costs',undefined,h.owner),denialBefore.costs);assert.deepEqual(await h.json('/state',undefined,h.owner),denialBefore.state);assert.equal(h.mails.length,denialBefore.mail);
   await upload(h,s,j,'second.txt');await h.json('/agent-rules/run',{},h.owner);state=await h.json('/agent-rules',undefined,h.owner);assert.ok(state.runs.some(r=>r.status==='refused'&&/budget/.test(r.outcome)));
@@ -181,7 +184,7 @@ test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable re
   const forbidden=['synthetic-blotter-211 document bytes','synthetic-blotter-212 internal discussion','synthetic-blotter-213 portal discussion','synthetic-blotter-214 vault password','synthetic-blotter-215 financial description'];
   const file=await h.json(`/requests/${(await s.detail(j.id)).requests[0].id}/files`,{name:'synthetic-blotter-211.txt',mime:'text/plain',contentBase64:Buffer.from(forbidden[0]).toString('base64')},s.prep);
   assert.equal(await(await h.request(`/api/blotter/files/${file.id}`,undefined,h.owner)).text(),forbidden[0]);
-  const thread=await h.json(`/jobs/${j.id}/threads`,{title:'Private fixture',body:forbidden[1]},s.prep);assert.ok(JSON.stringify(await h.json(`/threads/${thread.id}`,undefined,h.owner)).includes(forbidden[1]));
+  const thread=await h.json(`/jobs/${j.id}/threads`,{title:'Private fixture',body:forbidden[1]},s.prep);assert.ok(JSON.stringify(await h.json(`/threads/${thread.thread.id}`,undefined,h.owner)).includes(forbidden[1]));
   const link=await h.json(`/jobs/${j.id}/reminders`,{},h.owner),token=new URL(link.portalUrl).pathname.split('/').at(-1);await h.json(`/portal/${token}/messages`,{body:forbidden[2]});assert.ok(JSON.stringify(await h.json(`/portal/${token}`)).includes(forbidden[2]));
   const credential=await h.json(`/clients/${s.client.id}/credentials`,{label:'Synthetic vault',url:'https://example.test',username:'synthetic-blotter-214',password:forbidden[3]},h.owner),factor=await enroll(h,h.owner);assert.equal((await h.json(`/credentials/${credential.id}/reveal`,{code:totp(factor.secret,1)},h.owner)).password,forbidden[3]);
   await h.json(`/jobs/${j.id}/time`,{date:'2026-10-01',minutes:30,description:forbidden[4]},s.prep);assert.ok(JSON.stringify((await s.detail(j.id)).time).includes(forbidden[4]));

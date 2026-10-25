@@ -4184,7 +4184,7 @@
       "executable": false
     },
     "tests/blotter/intake.test.mjs": {
-      "sha256": "e55875f96d4f92be30f3c5d45d491acb370371d60610554aba415bca1b5e3460",
+      "sha256": "8ae268e664ac84013ead1b2b953f9e4a04e440084dc30e206997d081e6c43437",
       "executable": false
     },
     "tests/blotter/invoice-report-proof.mjs": {
@@ -4288,11 +4288,11 @@
       "executable": false
     },
     "tests/blotter/service-agents-ui.mjs": {
-      "sha256": "04fc40a4d7332b0109b438266342624d61f81bd29cec21a00995f36db13f7615",
+      "sha256": "020ebe8ab501bbb60e23596eef04ef17c64abbbb940fd1ccfb8992c86e2080cd",
       "executable": false
     },
     "tests/blotter/service-agents.test.mjs": {
-      "sha256": "fc86f389884abc55fe822ffb087a400b33095ddc48dd5ace9435fe0ba9de502b",
+      "sha256": "9a3c4a047247440add4267b2b66b571102d26e1e2b267af0f3c775779271f6f9",
       "executable": false
     },
     "tests/blotter/signatures-ui.mjs": {

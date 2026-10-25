@@ -211,7 +211,7 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     assert.equal((await h.json(planDoor+'/'+plan.id,undefined,h.owner)).revision,plan.revision);
     await h.json(planDoor+'/'+plan.id,undefined,reviewer,403);
     assert.equal(h.mails.length,beforeReviewMail,'Setup review and observations never send mail');
-    await h.json(`/clients/${client.id}/retention`,{scope:'client',kind:'hold',reason:'Retain signed onboarding review',owner:'owner@example.test',reviewDate:'2999-01-01'},h.owner);
+    const hold=await h.json(`/clients/${client.id}/retention`,{scope:'client',kind:'hold',reason:'Retain signed onboarding review',owner:'owner@example.test',reviewDate:'2999-01-01'},h.owner);
     const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
     const audit=archive.trim().split('\n').map(line=>JSON.parse(line)).flatMap(part=>part.items??[]).filter(item=>item.table==='b_audit').map(item=>item.row);
     const decisions=audit.filter(row=>row.action==='onboarding.reviewed'&&JSON.parse(row.detail).planId===plan.id);
@@ -229,6 +229,7 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     assert.deepEqual(restored.items,plan.items);
     await copy.json(progressDoor,{...observation,revision:restored.revision},copy.owner,409);
     await copy.json(planDoor,review,copy.owner,409);
+    await h.json(`/retention/${hold.id}/release`,{reason:'Restore proof complete; allow source erasure'},h.owner);
     await h.json(`/files/${recorded.id}/erase`,{confirm:file.name,reason:'Synthetic source removal'},h.owner);
     await preview(mapped,h.owner,404);
     await h.json(`/clients/${client.id}/lifecycle`,{lifecycle:'archived',revision:(await h.json(`/clients/${client.id}/detail`,undefined,h.owner)).revision},h.owner);

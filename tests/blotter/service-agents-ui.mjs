@@ -38,8 +38,8 @@ export async function serviceAgentsJourney(h,s,key,job,width){
   await agents.getByRole('button',{name:'Evaluate agent events',exact:true}).click();await costs.getByText('Reserved',{exact:true}).waitFor();await agents.getByText('Pending',{exact:true}).waitFor();
   await costs.getByLabel('Confirmed USD cents',{exact:true}).fill('0');await costs.getByLabel('Provider receipt or native cost evidence',{exact:true}).fill('Native plan: no provider charge');await costs.getByRole('button',{name:'Reconcile cost',exact:true}).click();await costs.getByText('Confirmed',{exact:true}).waitFor();
   const nativeRun=(await h.json('/agent-rules',undefined,h.owner)).runs[0];
-  for(const value of [nativeRun.event_key,nativeRun.proposal_id,'Plan awaits human decision; no external effect','estimated $0.25'])assert.ok((await agents.innerText()).includes(value),value);
-  for(const value of ['Estimated $0.25','Confirmed $0.00','Native plan: no provider charge','Reserved so far: $0.25'])assert.ok((await costs.innerText()).includes(value),value);
+  for(const value of [nativeRun.event_key,nativeRun.proposal_id,'Plan awaits human decision; no external effect','estimated USD 0.25'])assert.ok((await agents.innerText()).replace(/\s/g,' ').includes(value),value);
+  for(const value of ['Estimated USD 0.25','Confirmed USD 0.00','Native plan: no provider charge','Reserved so far: USD 0.25'])assert.ok((await costs.innerText()).replace(/\s/g,' ').includes(value),value);
   await capture(costs,'cost-reconciled');await capture(agents,'plan-prepared');
   await agents.getByRole('button',{name:'Revoke agent',exact:true}).click();
   await agents.getByText('Revoked',{exact:true}).waitFor();assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules[0].status,'revoked');
@@ -58,7 +58,7 @@ export async function serviceAgentsJourney(h,s,key,job,width){
   const preview=page.locator('article').filter({hasText:'Please upload the year-end statement; the amount is still unconfirmed.'});await preview.getByRole('button',{name:'Approve',exact:true}).waitFor();assert.match(await preview.innerText(),/Source event: file:/);
   for(const size of [width]){await page.setViewportSize({width,height:1000});await assertPolicy(preview);}
   assert.ok((await preview.innerText()).includes(`Source event: ${queued.plans[0].source}`));assert.ok((await preview.innerText()).includes('Please upload the year-end statement; the amount is still unconfirmed.'));
-  const externalRun=(await h.json('/agent-rules',undefined,h.owner)).runs.find(r=>r.proposal_id===drafted.id);for(const value of [drafted.id,externalRun.event_key,'External agent preparation awaits human decision; no effect','estimated $0.25'])assert.ok((await agents.innerText()).includes(value),value);
+  const externalRun=(await h.json('/agent-rules',undefined,h.owner)).runs.find(r=>r.proposal_id===drafted.id);for(const value of [drafted.id,externalRun.event_key,'External agent preparation awaits human decision; no effect','estimated USD 0.25'])assert.ok((await agents.innerText()).replace(/\s/g,' ').includes(value),value);
   await capture(preview,'external-draft-review');
   const before=h.mails.length;await preview.getByText('Decline',{exact:true}).first().click();await preview.getByLabel('Reason',{exact:true}).fill('Do not send this wording');await preview.getByRole('button',{name:'Decline',exact:true}).click();await preview.getByText('Declined',{exact:true}).waitFor();assert.equal(h.mails.length,before);assert.equal((await h.json('/agent-rules',undefined,h.owner)).runs.find(r=>r.proposal_id===drafted.id).decision,'declined');
   assert.ok((await preview.innerText()).includes('Do not send this wording'));await capture(preview,'external-declined');
