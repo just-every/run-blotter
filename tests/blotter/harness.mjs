@@ -1,5 +1,5 @@
 // Runs the built Worker (dist/) in Miniflare with real D1 and migrations.
-// The only fake is the paid mail-provider boundary.
+// Only paid mail and AI provider boundaries may be replaced; routes and D1 stay real.
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdtemp,readFile,readdir,realpath,rm} from 'node:fs/promises';
@@ -28,7 +28,7 @@ async function start({bindings={},mailResponse,aiResponse}={}){
   host:'127.0.0.1',port,https:true,modulesRoot:resolve('dist/server'),modules:[config.main,...(await readdir('dist/server/assets')).filter(f=>f.endsWith('.js')).map(f=>'assets/'+f)].map(f=>({type:'ESModule',path:resolve('dist/server',f)})),
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
   assets:{directory:resolve('dist/client'),routerConfig:{has_user_worker:true}},d1Databases:{DB:'blotter-test'},bindings:vars,
-  // The only fake is the paid mail-provider boundary; the built app is unchanged.
+  // Paid provider boundaries only; the built application stays unchanged.
   outboundService:async request=>{if(request.url==='https://api.openai.com/v1/chat/completions' && aiResponse){const payload=await request.clone().json();aiCalls.push(payload);return aiResponse(payload,request);}if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails,request) : Response.json({id:'test-mail-'+mails.length});},
  }),resourcePersistencePath:join(directory,'state')};
  let mf=new Miniflare(options);

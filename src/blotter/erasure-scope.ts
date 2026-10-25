@@ -155,7 +155,11 @@ export function steps(x: Context, audited: { where: string; set: string } | null
 }
 
 /** The unheld form of a step list: what each class would do with no hold at all, to count what the holds preserve. */
-export const unheld = (x: Context, audited: { where: string; set: string } | null) => steps({ ...x, held: { client: false, classes: [], jobs: x.held.jobs, files: x.held.files } }, audited);
+export const unheld = (x: Context, audited: { where: string; set: string } | null) => {
+  const free = steps({ ...x, held: { client: false, classes: [], jobs: x.held.jobs, files: x.held.files } }, audited);
+  const aiFree = steps({ ...x, held: { client: false, classes: [], jobs: [], files: [] } }, audited);
+  return free.map(step => ['b_ai_drafts','b_ai_decisions'].includes(step.table) ? aiFree.find(candidate=>candidate.table===step.table)! : step);
+};
 
 /** Named exceptions: what stays, why, and who owns it. Counts only; the clock lists come from retention-clock. */
 export function retained(x: Context): { key: string; cls: ClientClass; label: string; reason: string; owner: string; sql: string }[] {

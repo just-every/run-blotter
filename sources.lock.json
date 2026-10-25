@@ -1424,7 +1424,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "e36653dcad523cbf432065f6b1886c55b4e45fa9f5b076f78d9bf7e6a4a819da",
+      "sha256": "74bc1b0fa4a88b52beb4f7e060f8443d384db76fd9524df52a033c028c414564",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -4232,7 +4232,7 @@
       "executable": false
     },
     "tests/blotter/harness.mjs": {
-      "sha256": "e12b463207c9da6ab1bf6dd6b8a9929398e9a6086248517287e1096f4004e850",
+      "sha256": "81fe600304fd6398314ea951429a61438b45408e9be1e70c13434e007bcc0710",
       "executable": false
     },
     "tests/blotter/import-mapping.test.mjs": {
