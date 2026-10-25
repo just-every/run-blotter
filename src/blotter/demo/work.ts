@@ -68,8 +68,8 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
     // The current period: the first whose due date is no more than six days past.
     let current = periodStart(recurrence, today);
     while (dueDate(e, addMonths(current, -STEP[recurrence])) >= day(iso(at(today) - 6 * DAY))) current = addMonths(current, -STEP[recurrence]);
-    // The ready-to-roll story is a completed month, never one whose work has not begun.
-    if (key === unrolled) while (lastDay(current, 1) >= today) current = addMonths(current, -1);
+    // Leave time to complete a closed month, including when the demo opens early in a new month.
+    if (key === unrolled) while (at(addMonths(current, 1), 9) > clock - 4 * DAY) current = addMonths(current, -1);
     const isStuck = e.client.name === stuck && t.key === 'salesTax';
     const first = addMonths(current, -STEP[recurrence] * HISTORY[recurrence]);
     let previous: Row | undefined, start = first;
@@ -100,6 +100,11 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       if (status !== 'open') {
         submitted = office(Math.min(Math.max(begin + 2 * DAY, at(due, 11) - (2 + Math.floor(r * 4)) * DAY), workEnd - (status === 'review' ? 3 * HOUR : DAY)));
         if (status === 'signed_off') signed = office(Math.min(submitted + (5 + Math.floor(r * 30)) * HOUR, workEnd - 2 * HOUR));
+        // The ready-to-roll example was finished this week; its dependent work uses these dates below.
+        if (key === unrolled && isCurrent) {
+          submitted = at(localDay(clock - 2 * DAY), 17);
+          signed = at(localDay(clock - DAY), 15);
+        }
       }
       const finish = status === 'open' ? Math.max(begin, workEnd) : submitted;
       const job: Row = {
