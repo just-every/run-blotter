@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9728d02318130a05f168109f646d8288c678eac0aa57f4d3747585f0931934b8",
+      "sha256": "46c731971b676a2bbd2e6518add744e72ff5968acfd7e949df3ef0ee41899988",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "7019d3c75001ab89f527490c34fb6eda2188231af3f84c615b6be1da8edbd5b7",
+      "sha256": "b107ae9bfa3ad5c87fcb98678ff5d6375f487d1016a6f2d5d70b84904ec78a9f",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1248,7 +1248,7 @@
       "executable": false
     },
     "src/blotter/client-contacts.ts": {
-      "sha256": "0bfd89e581998245b4f29ce96828ad7edcfdf954bc522784896a0b172d94a215",
+      "sha256": "bdd04392438e7bd5e1d410d2768d442419c1af5809c2ec6ed48c45211c546e71",
       "executable": false
     },
     "src/blotter/client-erasure.ts": {
@@ -1652,7 +1652,7 @@
       "executable": false
     },
     "src/blotter/portal-accounts.ts": {
-      "sha256": "e6f03d15753aac23f7e959b28c6049139fe8d5c7de00278c70dbfb30311700c6",
+      "sha256": "03bb5797d6d8a98ea05db5e835b431b508114db48f610a1887bd84ef3d669055",
       "executable": false
     },
     "src/blotter/portal-branding.ts": {
@@ -4248,7 +4248,7 @@
       "executable": false
     },
     "tests/blotter/portal-accounts.test.mjs": {
-      "sha256": "97755de44459cd028985b898f02219b430c4bbc1bff212b3df3ffa2e5079e951",
+      "sha256": "cd1443ebc4ba2b09ad7bb579d3c8775c1ab5e4a32cd2291b53c798f25bfddb8e",
       "executable": false
     },
     "tests/blotter/rate-worktypes-ui.mjs": {

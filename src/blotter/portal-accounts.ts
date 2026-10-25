@@ -66,6 +66,7 @@ export async function invitePortal(env: Bindings, actor: Actor, clientId: string
     stmt(db, `INSERT INTO b_portal_grants(contact_id,account_id,client_id,invited_by,invited_at) VALUES(?,?,?,?,?) ON CONFLICT(contact_id) DO UPDATE SET
       accepted_at=CASE WHEN b_portal_grants.revoked_at IS NULL AND b_portal_grants.account_id=excluded.account_id THEN b_portal_grants.accepted_at ELSE NULL END,
       account_id=excluded.account_id,invited_by=excluded.invited_by,invited_at=excluded.invited_at,revoked_by=NULL,revoked_at=NULL,revoke_reason=NULL`, contact.id, accountId, clientId, actor.email, at),
+    stmt(db, 'UPDATE b_portal_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL', at, accountId),
     stmt(db, 'UPDATE b_portal_invitations SET used_at=? WHERE contact_id=? AND used_at IS NULL', at, contact.id),
     stmt(db, 'INSERT INTO b_portal_invitations(digest,contact_id,account_id,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)', await digest(token), contact.id, accountId, actor.email, at, expiresAt),
     release, audit(db, actor, 'portal.invited', clientId, `${contact.id}: ${contact.email}`)]);

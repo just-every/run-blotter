@@ -162,6 +162,39 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Sam lost the phone holding the authenticator' }, h.owner);
     await samSession.get('/me', 401);
 
+    // The invitation lifetime is seven days; expired links never start a session.
+    const expired = await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    const invitation = await h.db.prepare('SELECT created_at,expires_at FROM b_portal_invitations WHERE contact_id=? ORDER BY created_at DESC LIMIT 1').bind(sam.id).first();
+    assert.equal(Date.parse(invitation.expires_at) - Date.parse(invitation.created_at), 7 * 86400000);
+    await h.db.prepare("UPDATE b_portal_invitations SET expires_at='2000-01-01T00:00:00.000Z' WHERE contact_id=? AND used_at IS NULL").bind(sam.id).run();
+    assert.equal((await h.request('/api/blotter/client/accept', { token: tokenFrom('sam@example.test', 'invite') })).status, 404);
+    await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    const fresh = as(await enter('accept', tokenFrom('sam@example.test', 'invite')));
+    const freshKey = (await fresh.post('/factor/start', {})).secret;
+    // Five incorrect codes lock even a correct code out, across the account's sessions.
+    const valid = code(freshKey), invalid = String((Number(valid) + 1) % 1000000).padStart(6, '0');
+    for (let attempt = 0; attempt < 5; attempt++) await fresh.post('/factor/confirm', { code: invalid }, 400);
+    await fresh.post('/factor/confirm', { code: valid }, 429);
+    await h.db.prepare("UPDATE b_portal_failures SET at='2000-01-01T00:00:00.000Z' WHERE account_id=?").bind(expired.accountId).run();
+    await fresh.post('/factor/confirm', { code: valid });
+    const session = await h.db.prepare('SELECT created_at,expires_at FROM b_portal_sessions WHERE account_id=? AND revoked_at IS NULL').bind(expired.accountId).first();
+    assert.equal(Date.parse(session.expires_at) - Date.parse(session.created_at), 8 * 3600000);
+    await h.db.prepare("UPDATE b_portal_sessions SET expires_at='2000-01-01T00:00:00.000Z' WHERE account_id=?").bind(expired.accountId).run();
+    await fresh.get('/me', 401);
+    const beforeInvite = as(await enter('accept', (await (async () => {
+      await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+      return tokenFrom('sam@example.test', 'invite');
+    })())));
+    await beforeInvite.get('/me');
+    await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    await beforeInvite.get('/me', 401);
+    const beforeDisable = as(await enter('accept', tokenFrom('sam@example.test', 'invite')));
+    const currentSam = (await h.json(`/clients/${birch.id}/contacts`, undefined, h.owner)).find(c => c.id === sam.id);
+    await h.json(`/clients/${birch.id}/contacts`, { id: sam.id, revision: currentSam.revision, active: false }, h.owner);
+    await beforeDisable.get('/me', 401);
+    const disabledSam = (await h.json(`/clients/${birch.id}/contacts`, undefined, h.owner)).find(c => c.id === sam.id);
+    await h.json(`/clients/${birch.id}/contacts`, { id: sam.id, revision: disabledSam.revision, active: true }, h.owner);
+
     // Archives carry accounts and grants but never sessions, links or factors: a restored account sets up a new factor.
     await h.stepUp(h.owner);
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
