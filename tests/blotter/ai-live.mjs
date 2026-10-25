@@ -15,6 +15,7 @@ const h=await harness({bindings:{AI_API_KEY:process.env.AI_API_KEY,AI_MODEL:'gpt
  try {response=await fetch(request.url,{method:'POST',headers:{authorization:request.headers.get('authorization'),'content-type':'application/json'},body:wire,signal:AbortSignal.timeout(30_000)});}
  catch(error){console.log(JSON.stringify({providerTransportError:{name:error.name,code:error.cause?.code??error.code??'unknown'}}));throw error;}
  console.log(JSON.stringify({providerResult:{status:response.status,requestId:response.headers.get('x-request-id')}}));
+ if(!response.ok){const error=(await response.clone().json().catch(()=>({}))).error;const known=['invalid_api_key','insufficient_quota','model_not_found','unsupported_parameter','unsupported_value','invalid_json_schema','context_length_exceeded','rate_limit_exceeded'];console.log(JSON.stringify({providerErrorCode:known.includes(error?.code)?error.code:'not_reported'}));}
  assert.equal(response.status,200,'The real provider must accept the bounded request');
  const data=await response.clone().json();console.log(JSON.stringify({usage:data.usage,finishReason:data.choices?.[0]?.finish_reason,refused:!!data.choices?.[0]?.message?.refusal}));
  return response;
