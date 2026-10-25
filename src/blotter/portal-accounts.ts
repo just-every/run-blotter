@@ -73,7 +73,7 @@ export async function invitePortal(env: Bindings, actor: Actor, clientId: string
   const language = contactLanguage(contact.language), T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars), firm = (await firmSettings(db)).name || T('unsub.thisPractice');
   await sendMail(bindings, id(), contact.email, T('account.invite.subject', { firm }),
     [T('mail.hello', { name: contact.name || contact.email }), '', T('account.invite.body', { firm, client: client.name }), `${bindings.AUTH_ORIGIN}/client?invite=${token}&lang=${language}`, T('account.invite.expires', { date: expiresAt.slice(0, 10) })].join('\n'));
-  return { requested: true }; 
+  return { requested: true };
 }
 
 /** Revoke one contact's grant; the account's sessions lose that entity on their next request. */
