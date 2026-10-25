@@ -49,7 +49,7 @@ export async function clientSession(request: Request, env: Bindings, open = fals
 /** A new server-side session for the account; the token exists only in the cookie. */
 async function newSession(db: D1Database, accountId: string) {
   const token = secret('ps_'), sessionId = id(), at = now();
-  return { token, sessionId, statement: stmt(db, 'INSERT INTO b_portal_sessions(id,digest,account_id,created_at,expires_at) VALUES(?,?,?,?,?)', sessionId, await digest(token), accountId, at, new Date(Date.now() + SESSION_HOURS * 3_600_000).toISOString()) };
+  return { token, sessionId, statement: stmt(db, 'INSERT INTO b_portal_sessions(id,digest,account_id,created_at,expires_at) VALUES(?,?,?,?,?)', sessionId, await digest(token), accountId, at, new Date(Date.parse(at) + SESSION_HOURS * 3_600_000).toISOString()) };
 }
 const usable = (db: D1Database, accountId: string) => stmt(db, `SELECT a.* FROM b_portal_accounts a WHERE a.id=? AND a.status='active' AND EXISTS(SELECT 1 FROM b_portal_grants g WHERE g.account_id=a.id AND ${liveGrantSql('g')})`, accountId).first<Data>();
 async function accountLanguage(db: D1Database, accountId: string): Promise<Language> {

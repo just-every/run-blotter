@@ -58,7 +58,7 @@ export async function invitePortal(env: Bindings, actor: Actor, clientId: string
   insist(contact, 'Invite an active, authorized contact with portal access, an email address and email consent', 409);
   const account = await stmt(db, 'SELECT * FROM b_portal_accounts WHERE email=?', contact.email).first<Data>();
   insist(!account || account.status === 'active', 'This portal account is disabled', 409);
-  const accountId = account?.id ?? id(), token = secret('pi_'), at = now(), expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000).toISOString();
+  const accountId = account?.id ?? id(), token = secret('pi_'), at = now(), expiresAt = new Date(Date.parse(at) + INVITE_DAYS * 86_400_000).toISOString();
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_client_contacts WHERE id=? AND revision=? AND active=1 AND authorized=1 AND portal=1)`, contact.id, contact.revision);
   await atomic(db, actor, [check,
     ...(account ? [] : [stmt(db, 'INSERT INTO b_portal_accounts(id,email,created_by,created_at) VALUES(?,?,?,?)', accountId, contact.email, actor.email, at)]),

@@ -1652,7 +1652,7 @@
       "executable": false
     },
     "src/blotter/portal-accounts.ts": {
-      "sha256": "6ab5e58ee1404221f749054fefe17994f47704aa92f6226b3d71308f1d685db3",
+      "sha256": "e1f1fa36464ad8c46abd4c5c22c91eaa80c52a639f1269cc5be1ff07984297e7",
       "executable": false
     },
     "src/blotter/portal-branding.ts": {
@@ -1668,7 +1668,7 @@
       "executable": false
     },
     "src/blotter/portal-session.ts": {
-      "sha256": "605e734c4d73540ad6cf056d08ccc383d9f8ad45ef0af26107c73183bdcaeebf",
+      "sha256": "34fa449a2a1dfb4d796130e6491f41ad75c4ab1f55047112190db7817277dba1",
       "executable": false
     },
     "src/blotter/profiles.ts": {
