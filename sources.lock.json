@@ -576,7 +576,7 @@
       "executable": false
     },
     "migrations/core/0103_ai_assistance.sql": {
-      "sha256": "71ff523ad2cb9f5b3a19eeddc3850d1da52ec2a141240b662e75d0ce082690de",
+      "sha256": "492ea11091e9b82e6400de686cb6b8a024684a9bc4d76933c40c42defe072285",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1184,7 +1184,7 @@
       "executable": false
     },
     "src/blotter/ai-assistance.ts": {
-      "sha256": "fcd24c2c1af6756e20a1cca540dd2749bb1e1f30dfef343939fb64a713f9b062",
+      "sha256": "c8ee6ad4b70266bc65de594417cb739059ffd728b16feb91a2e061c578b60a3b",
       "executable": false
     },
     "src/blotter/ai-decisions.ts": {
@@ -1200,7 +1200,7 @@
       "executable": false
     },
     "src/blotter/ai-settings.ts": {
-      "sha256": "b54afda6ef7d4c0873fc9a13aadc516e3daeda7358333507ea4bd86e2b79003f",
+      "sha256": "fb6481277643169bb88f080c8ddc90188dd13c163260958c4aa560fc6b4f1896",
       "executable": false
     },
     "src/blotter/ai-sources.ts": {
@@ -3824,7 +3824,7 @@
       "executable": false
     },
     "src/ui/ai-settings.tsx": {
-      "sha256": "5694ed3b23f59986fec759e1235338cc0abfeabb12f59a849bf6db1e48fca284",
+      "sha256": "7f6949d1f37a269fa89f4fe9effe0dffb1aae0aac4fe2269b981d5b2b36f9518",
       "executable": false
     },
     "src/ui/archive-transfer-file.ts": {
@@ -4128,7 +4128,11 @@
       "executable": false
     },
     "tests/blotter/ai-fixture.mjs": {
-      "sha256": "fcb327592b77f7398c619223d0459e626ee001e5c0f90da21a2e5a67b8afbb97",
+      "sha256": "c6abf07c1e07836b6997ee2dabb61ae26c0966ac21495d124f74065f8daf98c9",
+      "executable": false
+    },
+    "tests/blotter/ai-live.mjs": {
+      "sha256": "12beb4c36b3e7eca5c16394464cea347e1169a64e91c4044f6683a5cf48f1deb",
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {
@@ -4136,7 +4140,7 @@
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "7501354e4dbd0a529eb776ad709dd6fdabc2fe1196d4ebc3f15b4327f34b3a2b",
+      "sha256": "9c0b3505e0aadab278f69a4439dccb561c0f1aea29e739e537d9a5f87070102f",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {

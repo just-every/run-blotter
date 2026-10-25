@@ -14,6 +14,6 @@ export async function aiFixture(h) {
  const s=await automationFixture(h),j=await s.start(),d=await s.detail(j.id);
  const file=await h.json(`/requests/${d.requests[0].id}/files`,{name:'synthetic-blotter-notice.txt',mime:'text/plain',contentBase64:Buffer.from(noticeText).toString('base64')},s.prep);
  const request=(purpose='summary',who=s.prep,extra={},status=200)=>h.json(`/jobs/${j.id}/ai`,{purpose,sourceKind:'document',sourceId:file.id,confirm:true,...extra},who,status);
- const enable=(enabled=true)=>h.json('/ai/settings',{enabled,attestationRef:'synthetic-blotter-2: fictitious provider no-training and no-retention attestation for synthetic-only fixture'},h.owner);
+ const enable=(enabled=true,requestLimit=3)=>h.json('/ai/settings',{enabled,requestLimit,attestationRef:'synthetic-blotter-2: fictitious provider no-training and no-retention attestation for synthetic-only fixture'},h.owner);
  return {...s,j,d,file,request,enable};
 }

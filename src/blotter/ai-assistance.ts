@@ -31,7 +31,9 @@ export async function requestAi(env: Bindings, actor: Actor, jobId: string, body
   insist(settings?.enabled && settings.provider === aiProvider() && settings.model === aiModel(env), 'The firm owner has not enabled AI assistance for this provider and model', 403);
   insist(env.AI_API_KEY, 'The AI provider is not configured', 503);
   const masked = maskAiText(source.text), requestId = id(), at = now(), inputBytes = new TextEncoder().encode(masked).length;
-  const [live, release] = guard(db, 'EXISTS(SELECT 1 FROM b_ai_settings WHERE id=1 AND enabled=1 AND revision=?)', settings.revision);
+  const used=Number((await stmt(db,'SELECT COUNT(*) n FROM b_ai_requests WHERE settings_revision=?',settings.revision).first<Data>())?.n ?? 0);
+  insist(used<settings.request_limit,'The approved AI request budget is exhausted; the principal must review and approve a new budget',409);
+  const [live, release] = guard(db, 'EXISTS(SELECT 1 FROM b_ai_settings s WHERE id=1 AND enabled=1 AND revision=? AND request_limit>(SELECT COUNT(*) FROM b_ai_requests r WHERE r.settings_revision=s.revision))', settings.revision);
   const [scope, scopeDone] = aiScope(db,actor,jobId,source.kind,source.id);
   await atomic(db, actor, [live, scope, stmt(db, `INSERT INTO b_ai_requests VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     requestId, jobId, source.clientId, purpose, source.kind, source.id, JSON.stringify(source.ids), await digest(masked),

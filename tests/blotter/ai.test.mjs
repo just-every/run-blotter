@@ -12,7 +12,7 @@ test('AI assistance requires owner enablement, an authorized explicit click and 
   assert.equal((await h.json('/ai/settings',undefined,h.owner)).enabled,false);
   await s.request('summary',s.prep,{},403);assert.equal(h.aiCalls.length,0);
   await h.json('/ai/settings',{enabled:true,attestationRef:''},h.owner,400);
-  await h.json('/ai/settings',{enabled:true,attestationRef:'synthetic-blotter-3'},s.reviewer,403);await s.enable();
+  await h.json('/ai/settings',{enabled:true,attestationRef:'synthetic-blotter-3'},s.reviewer,403);await s.enable(true,1);
   await s.request('summary',s.prep,{confirm:false},400);assert.equal(h.aiCalls.length,0);
   await h.json(`/jobs/${s.j.id}/threads`,{title:'Internal private discussion',body:'synthetic-blotter-private-thread',anchor:'job'},s.prep);
   const state=await h.json(`/jobs/${s.j.id}/ai`,undefined,s.prep);assert.ok(!JSON.stringify(state).includes('private-thread'));assert.equal(h.aiCalls.length,0);
@@ -27,6 +27,7 @@ test('AI assistance requires owner enablement, an authorized explicit click and 
   const draft=await h.json(`/ai/requests/${r.requestId}/draft`,{output:{...r.output,reply:'My reviewed reply, still a draft.'}},s.prep);
   assert.equal(draft.output.reply,'My reviewed reply, still a draft.');assert.equal(h.mails.length,before);
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'reply',decision:'reject'},s.prep);assert.equal(h.mails.length,before);
+  await s.request('summary',s.prep,{},409);assert.equal(h.aiCalls.length,1,'Exhausted approval never sends another request');
   await s.enable(false);await s.request('summary',s.prep,{},403);assert.equal(h.aiCalls.length,1);
  }finally{await h.close();}
 });
@@ -74,6 +75,17 @@ test('Notice reading is practitioner-only, quotes each extracted value, records 
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'question:1',decision:'reject'},s.reviewer);
   assert.equal(h.mails.length,before);assert.equal((await s.detail(s.j.id)).job.due_date,'2027-04-15');assert.equal((await h.json('/notices',undefined,h.owner)).length,0);
   assert.equal((await h.json(`/jobs/${s.j.id}/ai`,undefined,s.prep)).drafts.some(d=>d.id===draft.id),false);
+ }finally{await h.close();}
+});
+
+test('Revoking firm enablement during a provider request discards its result and retains one attributed failed attempt without retry',async()=>{
+ let s;
+ const h=await harness({bindings:aiBindings,aiResponse:async payload=>{await s.enable(false);return aiEdge(payload);}});try{
+  s=await aiFixture(h);await s.enable();const result=await s.request('summary',s.prep,{},409);
+  assert.equal(result.output,undefined);assert.equal(h.aiCalls.length,1);
+  assert.equal((await h.db.prepare('SELECT status FROM b_ai_requests').first()).status,'failed');
+  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);
+  assert.equal((await h.db.prepare("SELECT COUNT(*) n FROM b_audit WHERE action='ai.request'").first()).n,1);
  }finally{await h.close();}
 });
 
