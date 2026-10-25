@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "46c731971b676a2bbd2e6518add744e72ff5968acfd7e949df3ef0ee41899988",
+      "sha256": "4222bee2e931ddb37c8127e6b71cafd4e92857302dba27c4ab7be8108cab884d",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "b107ae9bfa3ad5c87fcb98678ff5d6375f487d1016a6f2d5d70b84904ec78a9f",
+      "sha256": "f892ec8849fc7e5fefbbdd0716ca87ead8ac5f6d1760d02489f13b23210c2f4d",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4244,11 +4244,11 @@
       "executable": false
     },
     "tests/blotter/portal-accounts-ui.mjs": {
-      "sha256": "4482d23d71608f86f4db69d0af88b49355141d72656c11c6988da45f0db35d75",
+      "sha256": "16ebbd56ce11d30428d1651c43b1facbbe35b9444320ede2717e215bd45c3f5e",
       "executable": false
     },
     "tests/blotter/portal-accounts.test.mjs": {
-      "sha256": "cd1443ebc4ba2b09ad7bb579d3c8775c1ab5e4a32cd2291b53c798f25bfddb8e",
+      "sha256": "f5fef85fa56855a8bb054b896aa84c5f2b8ce8c709b9db48417ab83ce390a91a",
       "executable": false
     },
     "tests/blotter/rate-worktypes-ui.mjs": {

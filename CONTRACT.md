@@ -424,4 +424,3 @@ Judged from the code and tests at commit `f023e00d77b4cec962059ed66856e0fc860b89
 | `PORTAL-006` | Portal sign-in on the firm custom domain | target | missing |  | Owner firm domain and certificate required for live sign-in. |
 | `NOTICE-002` | Notice response drafting through the mail and e-file path | target | missing |  | Mail and e-file response drafting path is unbuilt. |
 | `NOTICE-001` | Read notices and propose the response plan | push-further | missing |  | No notice-reading agent, extraction or response-plan proposal exists. |
-
