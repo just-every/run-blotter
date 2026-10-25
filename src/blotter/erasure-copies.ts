@@ -16,6 +16,8 @@ const named = (rowsOf: Data[], label: (owner: string) => string, source: string,
 export async function observedCopies(db: D1Database, clientId: string): Promise<Observed[]> {
   const c = lit(clientId), jobs = `(SELECT id FROM b_jobs WHERE client_id=${c})`, files = `(SELECT file_key FROM b_document_sources WHERE client_id=${c})`;
   const out: Observed[] = [...await signatureOutsideCopies(db,clientId) as Observed[],...await invoiceObservedCopies(db,clientId)];
+  for (const r of await rows(db, 'SELECT provider actor,count(*) n FROM b_ai_requests WHERE client_id=? GROUP BY provider', clientId))
+    out.push({source:'ai-provider',label:'Masked selected source processing; owner-recorded no-training and no-retention attestation',owner:String(r.actor)+' (provider; attestation recorded by firm owner, not deletion verified by Blotter)',count:Number(r.n),kind:'observed'});
   const relay = Number((await rows(db, `SELECT
     (SELECT count(*) FROM b_reminders WHERE job_id IN ${jobs} AND delivery LIKE 'accepted by %')
     +(SELECT count(*) FROM b_organizer_deliveries WHERE organizer_id IN (SELECT id FROM b_job_organizers WHERE job_id IN ${jobs}) AND delivery LIKE 'accepted by %')

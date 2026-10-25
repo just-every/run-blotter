@@ -13,6 +13,10 @@
     {
       "id": "mail",
       "label": "Email delivery"
+    },
+    {
+      "id": "ai",
+      "label": "Optional AI assistance"
     }
   ],
   "fields": [
@@ -207,6 +211,14 @@
         "equals": "cloudflare"
       },
       "group": "mail"
+    },
+    {
+      "name": "AI_API_KEY",
+      "label": "OpenAI API key",
+      "kind": "secret",
+      "required": false,
+      "help": "Optional. AI remains off until the principal records a no-training and no-retention attestation reference and enables it in settings.",
+      "group": "ai"
     }
   ],
   "steps": [

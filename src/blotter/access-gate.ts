@@ -35,6 +35,15 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const write=!['GET','HEAD'].includes(request.method),factor=/^\/mfa($|\/)/.test(path)||path==='/access/step-up';
   if(actor.readOnly && write && !factor) insist(false,'Read-only staff cannot change practice records',403);
   if((write && sensitiveAdmin(path)) || exporting(path)) await freshAccess(db,actor);
+  if (write && path === '/ai/settings') await freshAccess(db,actor);
+  if (path.startsWith('/ai/')) {
+    if (path === '/ai/settings') return;
+    const match = path.match(/^\/ai\/(requests|drafts)\/([^/]+)/);
+    insist(match, 'AI resource not found', 404);
+    const table = match[1] === 'requests' ? 'b_ai_requests' : 'b_ai_drafts';
+    const resource = await stmt(db, `SELECT client_id FROM ${table} WHERE id=?`, decodeURIComponent(match[2])).first<Data>();
+    insist(resource, 'AI resource not found', 404); await requireClient(db,actor,resource.client_id); return;
+  }
   const parts=path.split('/');
   let fileKey=['documents','files','document-packets'].includes(parts[1])&&parts[2]?decodeURIComponent(parts[2]):'';
   if(parts[1]==='deliverables' && parts[2]==='versions')fileKey='deliverable:'+parts[3];

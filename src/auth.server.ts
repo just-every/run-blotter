@@ -13,6 +13,10 @@ import branding from './branding.json'
 const theme = { href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor }
 
 export interface Bindings {
+ AI_API_KEY?: string
+ AI_MODEL?: string
+ AI_BASE_URL?: string
+ AI_ENABLED?: string
  DB: D1Database
  /** Built browser files; hosted deploys run the Worker first (staticAssetResponse). */
  ASSETS?: Fetcher

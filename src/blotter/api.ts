@@ -1,4 +1,7 @@
 import { previewOnboarding, reviewOnboarding, onboardingPlan, recordOnboardingProgress } from './onboarding';
+import { aiSettings, saveAiSettings } from './ai-settings';
+import { aiState, requestAi, saveAiDraft, readAiDraft } from './ai-assistance';
+import { decideAiDraft } from './ai-decisions';
 import { agentRules, saveAgentRule, stopAgentRule, runAgentRules, pendingAgentPlans, fillAgentPlan } from './scheduled-agents';
 import { costState, exportCosts, savePrice, setService, saveBudget, estimateCosts, reconcileCost } from './costs';
 import { signatureRoutes } from './signature-routes';
@@ -121,6 +124,13 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); if(c.req.path!==P+'/agent/context' && !new RegExp('^'+P+'/agent/plans(?:/[^/]+)?$').test(c.req.path) && await db(c).prepare('SELECT 1 FROM b_agent_rules WHERE key_id=?').bind(actor.agentKeyId).first()) insist(false,'This key uses supervised plans; direct agent commands cannot bypass its grant and budgets',403); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
+api.get(`${P}/ai/settings`, as((a,c) => aiSettings(db(c),a,c.env)));
+api.post(`${P}/ai/settings`, as(async(a,c) => saveAiSettings(db(c),a,c.env,await body(c,5000))));
+api.get(`${P}/jobs/:id/ai`, as((a,c) => aiState(db(c),a,c.env,param(c))));
+api.post(`${P}/jobs/:id/ai`, as(async(a,c) => requestAi(c.env,a,param(c),await body(c,5000))));
+api.post(`${P}/ai/requests/:id/draft`, as(async(a,c) => saveAiDraft(db(c),a,param(c),await body(c,35_000))));
+api.get(`${P}/ai/drafts/:id`, as((a,c) => readAiDraft(db(c),a,param(c))));
+api.post(`${P}/ai/drafts/:id/decisions`, as(async(a,c) => decideAiDraft(db(c),a,param(c),await body(c,10_000))));
 api.get(`${P}/agent/plans`,asAgent((a,c)=>pendingAgentPlans(db(c),a)));
 api.post(`${P}/agent/plans/:id`,asAgent(async(a,c)=>fillAgentPlan(db(c),a,param(c),await body(c))));
 api.get(`${P}/agent-rules`,as((a,c)=>agentRules(db(c),a)));

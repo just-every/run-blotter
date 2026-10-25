@@ -860,7 +860,7 @@
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "e34def985fe06821cead8d4bad4e31a99995eb48e82850dccfbd2dca780b96f8",
+      "sha256": "faecd335d5ccbac33e435901a95c6e9ea5e5722891d490beeab8b5c0d33b485f",
       "executable": false
     },
     "RUN-LOCALLY.md": {
@@ -1072,7 +1072,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "abf0542a794738ac52f6c83f84397c543a4736d42069a8c1c151f3181b9aea26",
+      "sha256": "a3b7d72a2949c2742a1c3b32cc305aa863d6ae25e36e213bc78fa7589e84cfe4",
       "executable": false
     },
     "src/base/contract-filter.ts": {
@@ -1172,7 +1172,7 @@
       "executable": false
     },
     "src/blotter/access-gate.ts": {
-      "sha256": "98b5e3f95073541c517a91d810e1d6d64a718fc47fd8332b0c17f867b152eba5",
+      "sha256": "3cb9a1e0691e42eb2afeab67b0f2a7cd49e916792ddc1a088ad15cfc48d6bf9d",
       "executable": false
     },
     "src/blotter/access-sql.ts": {
@@ -1180,7 +1180,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "f5c8a3875abd739e8cc1389c7cbfe9e8549d24257539867ad547e70418d23d25",
+      "sha256": "d8a377fdc7d2f4f1b851fa5a2de7dc2e92e0614535a1395e335c2c171c6b214a",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1188,7 +1188,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "83158b53a35eebb1a84c603985a91631bcf350e47b785cbb66f218054f4958d5",
+      "sha256": "07818521675d28a6370b36e6624c70ab46b17a2912ffd7450b5b7d90d80fbe73",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
@@ -1372,7 +1372,7 @@
       "executable": false
     },
     "src/blotter/erasure-copies.ts": {
-      "sha256": "c66c8d6df0311b3f8e67be021c21c41329ec86a86ebf646d25eb9b01d270912a",
+      "sha256": "15a513bbb275bc6535d82c7384ce0b6508ebbab6b7f12e323814dd4e32a1e454",
       "executable": false
     },
     "src/blotter/erasure-expiry.ts": {
@@ -1384,7 +1384,7 @@
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "2d036e4ad5d6dfeca1126daa4895a1a597b357255ea35880dbbc710c45abd996",
+      "sha256": "6b9f225820b39115074890ed6f53aae75b6f7bb9a347c21e2fce8e02adaa8872",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -1392,7 +1392,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "a64cf78b3ca34f94b134218556d38dba16aa0c1938e02b58c7312593f7a84e6c",
+      "sha256": "c37ed9425df4f6920130088e4db7bfb1f4575a9cd281e45e939c3f265c7facec",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -3932,7 +3932,7 @@
       "executable": false
     },
     "src/ui/job.tsx": {
-      "sha256": "51435840b24c2306b9b4c0d87489290402eddfc5a4affbf736e743787ff7b407",
+      "sha256": "349be8faeb1b87d03a7d5051accec56b57b5f6765b8d774c0ab7f4b63a82c6a2",
       "executable": false
     },
     "src/ui/jobs.tsx": {
@@ -3984,7 +3984,7 @@
       "executable": false
     },
     "src/ui/portal.tsx": {
-      "sha256": "e3f060a8dd489f309df7d35a1bb870283245e813f41c8ceed4fc0ea12008c186",
+      "sha256": "dac9afb704acdfe0e7c55a6869c7f2011c5f5b28c7ea2100cb412331454fe287",
       "executable": false
     },
     "src/ui/profiles.tsx": {
@@ -4064,7 +4064,7 @@
       "executable": false
     },
     "src/ui/team.tsx": {
-      "sha256": "4cd0663920cbabc017a1dcef4b0410a07a2ab2b0cf8eb30aad6e47dcf6d016b0",
+      "sha256": "5e7b45ac0ccfd1bc2c5c8cfd0528ed90703ca0dba7d77a37265296214690015c",
       "executable": false
     },
     "src/ui/timer.tsx": {
@@ -4172,7 +4172,7 @@
       "executable": false
     },
     "tests/blotter/harness.mjs": {
-      "sha256": "c8412f4e93fee72b5f57beb0fc203263b6b969d46d6daa506ae28d8f5eb0b072",
+      "sha256": "e12b463207c9da6ab1bf6dd6b8a9929398e9a6086248517287e1096f4004e850",
       "executable": false
     },
     "tests/blotter/import-mapping.test.mjs": {

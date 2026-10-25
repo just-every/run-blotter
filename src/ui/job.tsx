@@ -1,4 +1,5 @@
 import { SignatureRequests } from './signatures';
+import { AiAssistance } from './ai-assistance';
 import { JobDeadline } from './deadlines';
 import { OrganizerStaff } from './organizers';
 import { DocumentPackets } from './document-packets';
@@ -40,6 +41,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
       {detail.warnings?.map((w: Row) => <p key={w.kind} className="notice" role="status">{w.message}</p>)}
       <StarterJobSummary content={detail.starter} />
       <JobDeadline detail={detail} actor={actor} run={run} />
+      <AiAssistance key={job.id} detail={detail} actor={actor} run={run} tick={tick} />
       {job.status === 'signed_off' && <p className="notice">Signed off by {who(people, job.signed_off_by)} on {when(job.signed_off_at)}: {prose(job.sign_off_note)}</p>}
       {lead && (detail.nextJobId
         ? <p><button className="quiet" onClick={() => open(detail.nextJobId)}>Open next period's job</button></p>

@@ -19,9 +19,9 @@ export async function harness(settings={}){
   catch(e){if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=3)throw e;}
  }
 }
-async function start({bindings={},mailResponse}={}){
+async function start({bindings={},mailResponse,aiResponse}={}){
  const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
- const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[];
+ const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[],aiCalls=[];
  const config=JSON.parse(await readFile('dist/server/wrangler.json','utf8'));
  const vars={AUTH_LOCAL:'false',AUTH_ORIGIN:origin,OWNER_EMAIL:'owner@example.test',SESSION_SECRET:randomBytes(32).toString('hex'),VAULT_KEY:randomBytes(32).toString('hex'),SETUP_TOKEN:randomBytes(32).toString('hex'),MAIL_PROVIDER:'resend',MAIL_FROM:'auth@example.test',MAIL_API_KEY:'test-only-provider-key',...bindings};
  const options={...convertV4MiniflareOptions({
@@ -29,7 +29,7 @@ async function start({bindings={},mailResponse}={}){
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
   assets:{directory:resolve('dist/client'),routerConfig:{has_user_worker:true}},d1Databases:{DB:'blotter-test'},bindings:vars,
   // The only fake is the paid mail-provider boundary; the built app is unchanged.
-  outboundService:async request=>{if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails,request) : Response.json({id:'test-mail-'+mails.length});},
+  outboundService:async request=>{if(request.url==='https://api.openai.com/v1/chat/completions' && aiResponse){const payload=await request.clone().json();aiCalls.push(payload);return aiResponse(payload,request);}if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails,request) : Response.json({id:'test-mail-'+mails.length});},
  }),resourcePersistencePath:join(directory,'state')};
  let mf=new Miniflare(options);
  const send=async(path,body,cookie='',extra={})=>{
@@ -69,6 +69,6 @@ async function start({bindings={},mailResponse}={}){
   if(vars.RER_DEMO)await remember(owner,vars.OWNER_EMAIL);
   // The Worker's Cron Trigger door, fired as of a chosen time.
   const scheduled=async at=>(await mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'17 * * * *'});
-  return {origin,owner,request,send,json,login,stepUp,mails,scheduled,db,restart:async()=>{await mf.dispose();for(let attempt=0;;attempt++){mf=new Miniflare(options);try{await mf.ready;return;}catch(e){await mf.dispose();if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=5)throw e;await new Promise(r=>setTimeout(r,250));}}},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
+  return {origin,owner,request,send,json,login,stepUp,mails,aiCalls,scheduled,db,restart:async()=>{await mf.dispose();for(let attempt=0;;attempt++){mf=new Miniflare(options);try{await mf.ready;return;}catch(e){await mf.dispose();if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=5)throw e;await new Promise(r=>setTimeout(r,250));}}},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
  }catch(e){await mf.dispose();await rm(directory,{recursive:true,force:true});throw e;}
 }

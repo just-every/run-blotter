@@ -6,7 +6,7 @@ import { ClientTasks } from './tasks';
 import { PortalDeliverables } from './deliverables';
 import { PortalCredentials } from './vault';
 import { PortalConversation, PortalProgress } from './client-portal';
-import { LanguageProvider, useT } from './i18n';
+import { LanguageProvider, useLanguage, useT } from './i18n';
 import type { Language } from '../i18n/catalog';
 
 /** The client's upload page. The link's secret is the only credential; the page speaks the contact's language (PORTAL-005). */
@@ -20,6 +20,7 @@ export function Portal({ token }: { token: string }) {
 
 function PortalPage({ view, error, setError, path, load }: { view?: Row; error: string; setError: (message: string) => void; path: string; load: () => Promise<void> }) {
   const t = useT(), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  const language = useLanguage();
   const act = async (work: () => Promise<string>) => {
     setBusy(true); setError(''); setNotice('');
     try { setNotice(await work()); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
@@ -51,6 +52,9 @@ function PortalPage({ view, error, setError, path, load }: { view?: Row; error: 
         <PortalConversation view={view} path={path} busy={busy} act={act} reload={load} />
         <PortalSignatures path={path} busy={busy} act={act} /><PortalDeliverables path={path} busy={busy} act={act} />
         <PortalCredentials path={path} busy={busy} act={act} />
+        <details><summary>{language === 'es' ? 'Información de la firma' : 'Firm disclosure'}</summary>
+          <p>{language === 'es' ? 'El personal de la firma puede utilizar un proveedor de inteligencia artificial para preparar resúmenes y propuestas a partir de texto seleccionado con datos sensibles ocultos. Una persona revisa las propuestas. La inteligencia artificial no envía respuestas, presenta declaraciones ni proporciona asesoramiento legal o fiscal.' : 'Firm staff may use an AI provider to prepare summaries and proposals from selected text with sensitive details masked. A person reviews the proposals. AI does not send replies, file returns or provide legal or tax advice.'}</p>
+        </details>
       </>}
     </main>
   </div>;

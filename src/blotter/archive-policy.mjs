@@ -2,6 +2,8 @@
 // Identity, sessions, second factors and credential step-ups, outboxes, agent keys, client upload links and private
 // configuration stay out of every archive.
 const inactive = (table, row) => {
+  if (table === 'b_ai_settings') return {...row,enabled:0,revision:'restored:'+row.revision};
+  if (table === 'b_ai_requests' && row.status === 'requested') return {...row,status:'held'};
   // VAULT-001: the principal's "exclude" choice drops credential ciphertext; "encrypt" carries it sealed.
   if (table === 'b_onboarding_plans') return {...row,status:'held'};
   if (table === 'b_agent_rules') return {...row,status:row.status==='revoked'?'revoked':'paused'};
