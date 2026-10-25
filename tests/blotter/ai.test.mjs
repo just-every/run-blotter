@@ -73,7 +73,9 @@ test('Notice reading is practitioner-only, quotes each extracted value, records 
  const h=await harness({bindings:aiBindings,aiResponse:aiEdge});try{
   const s=await aiFixture(h);await s.enable();const before=h.mails.length;
   await s.request('notice',s.prep,{},403);assert.equal(h.aiCalls.length,0);
+  await h.json(`/clients/${s.client.id}/authorizations`,{kind:'2848',representative:'synthetic-blotter-practitioner',matters:[{form:'1040',from:2024,to:2024}]},h.owner);
   const r=await s.request('notice',s.reviewer);for(const item of r.output.extraction){assert.ok(noticeText.includes(item.quote));assert.ok(item.quote.includes(item.value));}
+  assert.deepEqual(r.noticeContext.recordedAuthorizations,[],'A draft authorization never becomes recorded authority');assert.match(r.noticeContext.transcripts,/Unavailable/);assert.ok(!JSON.stringify(h.aiCalls).includes('synthetic-blotter-practitioner'));
   const draft=await h.json(`/ai/requests/${r.requestId}/draft`,{output:r.output},s.reviewer);
   await h.json(`/ai/drafts/${draft.id}`,undefined,s.prep,403);
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'question:0',decision:'accept'},s.reviewer);

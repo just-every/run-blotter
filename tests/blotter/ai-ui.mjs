@@ -45,7 +45,7 @@ export async function aiJourney(h,s) {
    await review.getByLabel('Destination request on this job',{exact:true}).selectOption(s.d.requests[0].id);await review.getByRole('button',{name:'Accept routing and create copy',exact:true}).click();await capture('ai-document-copy',review);
    await ai.getByLabel('Preparation',{exact:true}).selectOption('notice');await ai.getByLabel('Source',{exact:true}).selectOption('document:'+s.file.id);await confirmation.check();
    await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();
-   assert.ok(await review.getByText('Proposed — verify against the notice',{exact:true}).count()>=2);await capture('ai-notice-proposals',review);
+   assert.ok(await review.getByText('Proposed — verify against the notice',{exact:true}).count()>=2);assert.ok((await review.innerText()).includes('No recorded authorization is on file'));await capture('ai-notice-proposals',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
    await review.getByRole('button',{name:'Accept client question',exact:true}).first().click();await review.getByRole('button',{name:'Reject',exact:true}).first().click();await capture('ai-notice-reviewed',review);
    const search=page.getByRole('button',{name:'Search',exact:true});await search.focus();await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();await capture('ai-search-tooltip',page.locator('body'));

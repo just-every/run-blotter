@@ -1188,7 +1188,7 @@
       "executable": false
     },
     "src/blotter/ai-assistance.ts": {
-      "sha256": "96953bbcb2f5f8f7fa458473543e0d0889827c9452aab1000957f7fdd0147fce",
+      "sha256": "948ada6482b55913ca7a534f26c425d59fc57cd5e60eb52428f15d8e3f06baca",
       "executable": false
     },
     "src/blotter/ai-decisions.ts": {
@@ -3824,7 +3824,7 @@
       "executable": false
     },
     "src/ui/ai-assistance.tsx": {
-      "sha256": "a2b0e3ce4ea9c3e7cf7e0101a5fb529aedca4746e6fde82711aa482364026162",
+      "sha256": "fc86cc749a679e668bf15bd41712ffc0674197e602e475d10231d6a4ac717c5e",
       "executable": false
     },
     "src/ui/ai-disclosure.tsx": {
@@ -4144,11 +4144,11 @@
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {
-      "sha256": "fd3f49dacfbfa27febcfacd900abae893819fb678f16d270ff3423cc437d072f",
+      "sha256": "2bbc52b3b782ca8fc3a6e16d2116f646b1b2049773fa882668d091d5e5845321",
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "7a1479f782037e43553ecd2929ff8df6ba3a0a435e042a8beeea88cb185c72aa",
+      "sha256": "5484443b32f71f9e072a7c4c641891a41facbf86193bfca592f3442a5dc37fb2",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {

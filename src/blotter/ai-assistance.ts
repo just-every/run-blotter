@@ -6,6 +6,11 @@ import { maskAiText } from './ai-masking';
 import { runAiProvider, validateAiOutput } from './ai-provider';
 import { atomic, audit, digest, Fault, guard, human, id, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
+async function noticeContext(db:D1Database,clientId:string) {
+  const recorded=await rows(db,"SELECT id,kind,agency,matters FROM b_authorizations WHERE client_id=? AND status='recorded'",clientId);
+  return {recordedAuthorizations:recorded.map(r=>({...r,matters:JSON.parse(r.matters)})),transcripts:'Unavailable until RESOLVE-001 and INTEGRATE-006 are authorized'};
+}
+
 export async function aiState(db: D1Database, actor: Actor, env: Bindings, jobId: string) {
   await aiJob(db, actor, jobId);
   const list = await rows(db, 'SELECT d.*,r.purpose,r.source_id,r.source_kind FROM b_ai_drafts d JOIN b_ai_requests r ON r.id=d.request_id WHERE d.job_id=? ORDER BY d.saved_at DESC', jobId);
@@ -51,7 +56,8 @@ export async function requestAi(env: Bindings, actor: Actor, jobId: string, body
     const [enabled, done] = guard(db, 'EXISTS(SELECT 1 FROM b_ai_settings WHERE id=1 AND enabled=1 AND revision=?)', settings.revision);
     const [readable,readDone] = aiScope(db,actor,jobId,source.kind,source.id);
     await atomic(db, actor, [enabled, readable, stmt(db, "UPDATE b_ai_requests SET status='completed' WHERE id=?", requestId), readDone, done]);
-    return { requestId, purpose, output: result.output, source, provider: result.provider, model: result.model };
+    return { requestId, purpose, output: result.output, source, provider: result.provider, model: result.model,
+      ...(purpose==='notice'?{noticeContext:await noticeContext(db,source.clientId)}:{}) };
   } catch (error) {
     await stmt(db, "UPDATE b_ai_requests SET status='failed' WHERE id=?", requestId).run();
     throw error;
@@ -84,5 +90,6 @@ export async function readAiDraft(db: D1Database, actor: Actor, draftId: string)
   insist(d, 'AI draft not found', 404);
   const { r, source } = await aiRequest(db, actor, d.request_id);
   return { ...d, output: JSON.parse(d.output), purpose: r.purpose, source_id: r.source_id, source_kind: r.source_kind,
-    source, provider: r.provider, model: r.model, decisions: await rows(db, 'SELECT * FROM b_ai_decisions WHERE draft_id=? ORDER BY decided_at', draftId) };
+    source, provider: r.provider, model: r.model, decisions: await rows(db, 'SELECT * FROM b_ai_decisions WHERE draft_id=? ORDER BY decided_at', draftId),
+    ...(r.purpose==='notice'?{noticeContext:await noticeContext(db,source.clientId)}:{}) };
 }

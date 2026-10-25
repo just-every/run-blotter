@@ -74,6 +74,12 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
     <h3>{saved ? 'Saved draft' : 'Unsaved proposals'}</h3>
     {result.provider && <p className="muted">Prepared by {result.provider} · {result.model}</p>}
     {!saved && <p className="muted">These proposals remain in this page until you explicitly save a draft.</p>}
+    {result.noticeContext && <aside>
+      <h3>Authorization check</h3>
+      {!result.noticeContext.recordedAuthorizations.length ? <p>No recorded authorization is on file. Review the client's authority before any agency contact.</p>
+        : <ul>{result.noticeContext.recordedAuthorizations.map((a:Row)=><li key={a.id}>Form {a.kind} · {a.agency}: {a.matters.map((m:Row)=>`Form ${m.form}, ${m.from}–${m.to}`).join('; ')}. Verify that the notice's form and year are covered.</li>)}</ul>}
+      <p>{result.noticeContext.transcripts}. Authorization records stay in Blotter; they were not sent to the AI provider.</p>
+    </aside>}
     <div className="grid">
       <div>
         <h3>Source</h3>
