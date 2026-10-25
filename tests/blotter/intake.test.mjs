@@ -175,7 +175,7 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     const recorded=await h.json(`/clients/${client.id}/engagements`,{title:'Recorded signed letter',signers:['synthetic-blotter-203'],signedDate:'2026-10-20',file},h.owner);
     const mapped={...body,source:{kind:'engagement',id:recorded.id}};
     assert.match((await preview(mapped)).source.label,/practitioner-recorded, not signed through Blotter/);
-    const beforeReviewMail=h.mails.length;
+    const beforeReviewMail=h.mails.length, beforeReviewState=await h.json('/state',undefined,h.owner);
     const planDoor=`/clients/${client.id}/onboarding/plans`;
     const removed=result.items.find(item=>item.type==='bank').id;
     const review={...body,fingerprint:result.fingerprint,selectedItemIds:result.items.filter(item=>item.id!==removed).map(item=>item.id),reason:'Reviewed the exact signed scope; bank setup handled separately'};
@@ -217,7 +217,7 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     const decisions=audit.filter(row=>row.action==='onboarding.reviewed'&&JSON.parse(row.detail).planId===plan.id);
     assert.equal(decisions.length,1);assert.equal(decisions[0].actor,'owner@example.test');assert.equal(decisions[0].object_id,client.id);assert.ok(Number.isFinite(Date.parse(decisions[0].at)));
     assert.equal(audit.filter(row=>row.action==='onboarding.progress_recorded'&&JSON.parse(row.detail).planId===plan.id).length,2);
-    const unchanged=await h.json('/state',undefined,h.owner);for(const key of ['clients','jobs','templates','proposals'])assert.deepEqual(unchanged[key],before[key]);
+    const unchanged=await h.json('/state',undefined,h.owner);for(const key of ['clients','jobs','templates','proposals'])assert.deepEqual(unchanged[key],beforeReviewState[key]);
     assert.deepEqual(await h.json(`/signatures/${signature.id}`,undefined,h.owner),signatureBefore);
     assert.ok(archive.includes('onboarding.previewed')&&archive.includes('onboarding.reviewed')&&archive.includes('onboarding.progress_recorded'));
     copy=await harness();

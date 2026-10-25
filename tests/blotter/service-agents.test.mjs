@@ -79,8 +79,8 @@ test('AI-003 / BASE-001: scoped file and scheduled plans de-duplicate, refuse un
   await h.scheduled('2027-01-02T14:00:00Z');await h.scheduled('2027-01-02T14:00:00Z');state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.filter(r=>r.rule_id===schedule.id).length,1);
   await h.scheduled('2027-01-02T19:59:59Z');await h.scheduled('2027-01-02T20:00:00Z');await h.scheduled('2027-01-04T08:00:00Z');await h.scheduled('2027-01-04T08:00:00Z');
   state=await h.json('/agent-rules',undefined,h.owner);
-  assert.deepEqual(state.runs.filter(r=>r.rule_id===schedule.id).map(r=>r.event_key).sort(),['schedule:0','schedule:1','schedule:7']);
-  const roll=state.runs.find(r=>r.rule_id===schedule.id&&r.event_key==='schedule:7'),jobsBefore=(await h.json('/state',undefined,h.owner)).jobs;
+  assert.deepEqual(state.runs.filter(r=>r.rule_id===schedule.id).map(r=>r.event_key).sort(),['schedule:0.0','schedule:1.0','schedule:7.0']);
+  const roll=state.runs.find(r=>r.rule_id===schedule.id&&r.event_key==='schedule:7.0'),jobsBefore=(await h.json('/state',undefined,h.owner)).jobs;
   assert.equal((await s.detail(j.id)).nextJobId,null);assert.equal(JSON.parse(roll.payload).dueDate,'2028-04-15');
   await h.json(`/proposals/${roll.proposal_id}/decide`,{decision:'approve'},h.owner);
   const next=await s.detail((await s.detail(j.id)).nextJobId);assert.equal(next.job.rolled_from,j.id);assert.equal(next.job.due_date,'2028-04-15');assert.equal(next.job.client_id,s.client.id);assert.equal((await h.json('/state',undefined,h.owner)).jobs.length,jobsBefore.length+1);
@@ -136,7 +136,7 @@ test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore sch
 test('AI-003 / BASE-001: client erasure revokes scheduled grants, removes derived rule text and retains attributed run and cost references',async()=>{
  const h=await harness();try{
   const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Erasure-bound agent'},h.owner);await price(h);
-  const heldRule=await rule(h,s,key,{clientId:s.outside.id,name:'synthetic-blotter-220 held grant'});
+  const heldRule=await rule(h,s,key,{clientId:s.outside.id,name:'synthetic-blotter-220 held grant',trigger:'schedule',startsAt:'2027-01-01T00:00:00Z',everyHours:12});
   await h.json(`/clients/${s.outside.id}/retention`,{scope:'client',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Retain actual scheduled grant'},h.owner);
   await h.json(`/clients/${s.outside.id}/lifecycle`,{revision:(await h.json(`/clients/${s.outside.id}/detail`,undefined,h.owner)).revision,lifecycle:'archived'},h.owner);
   const heldPreview=await h.json(`/clients/${s.outside.id}/erasure/preview`,undefined,h.owner);assert.equal(heldPreview.eligible,true);assert.ok(heldPreview.holds.length>0);
@@ -191,7 +191,7 @@ test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable re
   const plans=await h.json('/agent/plans',undefined,'',200,auth);assert.equal(plans.plans.length,2);assert.ok(plans.plans.every(p=>p.jobId===j.id&&p.clientId===s.client.id&&p.tool==='reminder'));assert.equal(h.mails.length,before);assert.match(plans.exclusions,/No document bytes/);assert.match(plans.plans[0].provider.verification,/not verified/);assert.equal(plans.plans[0].provider.dataUse,options.dataUse);
   const context=await h.json('/agent/context',undefined,'',200,auth);assert.equal(context.jobs.length,1);assert.equal(context.jobs[0].id,j.id);assert.deepEqual(context.unbilled,[]);
   for(const response of [plans,context])for(const sentinel of [...forbidden,s.outside.name,outside.id])assert.ok(!JSON.stringify(response).includes(sentinel),sentinel);
-  for(const plan of plans.plans){assert.equal(plan.title,j.title);assert.equal(plan.dueDate,'2027-04-15');assert.equal(plan.supervisor,'owner@example.test');assert.equal(plan.estimatedCents,25);assert.deepEqual(plan.outstanding,[{label:'W-2'}]);assert.ok(plan.source.startsWith('file:')||plan.source==='schedule:0');}
+  for(const plan of plans.plans){assert.equal(plan.title,j.title);assert.equal(plan.dueDate,'2027-04-15');assert.equal(plan.supervisor,'owner@example.test');assert.equal(plan.estimatedCents,25);assert.deepEqual(plan.outstanding,[{label:'W-2'}]);assert.ok(plan.source.startsWith('file:')||plan.source==='schedule:0.0');}
   for(const plan of plans.plans)assert.deepEqual(plan.provider,{name:options.providerName,model:options.modelName,dataUse:options.dataUse,retention:options.providerRetention,verification:'owner-declared; not verified by Blotter'});
   const team=await h.json('/team',undefined,h.owner),rules=await h.json('/agent-rules',undefined,h.owner);
   const privateKeyMaterial=[key.key,other.key,...[key,other].map(k=>createHash('sha256').update(k.key).digest('hex'))];
