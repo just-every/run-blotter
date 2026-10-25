@@ -4140,11 +4140,11 @@
       "executable": false
     },
     "tests/blotter/ai-live.mjs": {
-      "sha256": "ca7d4c0bbb1aea58549598f34bb8cf4108c1906adfe7de013ab9fd83aa85f6be",
+      "sha256": "8f0152f6eaff8e08687bbf0805ebd916141eeee810dfcdb6585c5438d0d3b707",
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {
-      "sha256": "0f6c35681b907b3ce875ec03d200628c6d94b778a03be91ffbe1f440f940add5",
+      "sha256": "1c9bdcff91ad01f4f943c98df3621727d1673d8f363239877b32d6a661bfb621",
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {

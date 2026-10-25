@@ -44,10 +44,10 @@ export async function aiJourney(h,s) {
    await review.getByRole('button',{name:'Accept document validation',exact:true}).locator('..').getByRole('button',{name:'Reject',exact:true}).click();
    await review.getByLabel('Proposed filename for a copy',{exact:true}).fill('Reviewed-notice-'+width+'.txt');await review.getByRole('button',{name:'Accept proposed filename for a copy',exact:true}).click();
    await review.getByLabel('Destination request on this job',{exact:true}).selectOption(s.d.requests[0].id);await review.getByRole('button',{name:'Accept routing and create copy',exact:true}).click();await capture('ai-document-copy',review);
-   const copied=page.getByRole('link',{name:'Reviewed-notice-'+width+'.txt',exact:true});await copied.waitFor();
+   const copied=page.getByRole('link',{name:'Reviewed-notice-'+width+'.txt',exact:true}).first();await copied.waitFor();
    const copyHref=await copied.getAttribute('href');assert.ok(copyHref);
    const downloaded=await page.request.get(new URL(copyHref,h.origin).href);assert.equal(downloaded.status(),200);assert.equal(await downloaded.text(),noticeText);
-   await page.locator(`a[href="/api/blotter/files/${s.file.id}"]`).waitFor();await capture('ai-original-and-copy',copied.locator('xpath=ancestor::section[1]'));
+   await page.locator(`a[href="/api/blotter/documents/${s.file.id}/file"]`).first().waitFor();await capture('ai-original-and-copy',copied.locator('xpath=ancestor::section[1]'));
    await ai.getByLabel('Preparation',{exact:true}).selectOption('notice');await ai.getByLabel('Source',{exact:true}).selectOption('document:'+s.file.id);await confirmation.check();
    await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();
    assert.ok(await review.getByText('Proposed — verify against the notice',{exact:true}).count()>=2);assert.ok((await review.innerText()).includes('No recorded authorization is on file'));await capture('ai-notice-proposals',review);
