@@ -8,12 +8,22 @@ export async function serviceAgentsJourney(h,s,key,job){
   const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
   await context.addCookies(h.owner.split('; ').map(c=>{const at=c.indexOf('=');return{name:c.slice(0,at),value:c.slice(at+1),url:h.origin};}));
   const page=await context.newPage();await page.goto(h.origin+'/app');if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();}
-  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Preparations',exact:true}).click();
+  const navigation=page.getByRole('navigation',{name:'Workspace'});
+  const capture=async(panel,name)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(evidence){await mkdir(evidence,{recursive:true});await panel.screenshot({path:`${evidence}/${name}-${width}.png`,mask:[page.getByRole('textbox',{name:'Agent key',exact:true})]});}}};
+  await navigation.getByRole('button',{name:'Team & safety',exact:true}).click();
+  const keys=page.locator('section').filter({has:page.getByRole('heading',{name:'Agent keys',exact:true})});
+  await keys.getByRole('button',{name:'Create agent key',exact:true}).click();
+  const created=keys.getByRole('textbox',{name:'Agent key',exact:true});await created.waitFor();
+  const shown=await created.inputValue();assert.ok(shown.length>20);await capture(keys,'key-created');
+  await navigation.getByRole('button',{name:'Preparations',exact:true}).click();
+  await navigation.getByRole('button',{name:'Team & safety',exact:true}).click();
+  await keys.getByRole('button',{name:'Create agent key',exact:true}).waitFor();assert.equal(await keys.getByRole('textbox',{name:'Agent key',exact:true}).count(),0);assert.ok(!(await page.content()).includes(shown));await capture(keys,'key-not-redisplayed');
+  await page.reload();await navigation.getByRole('button',{name:'Team & safety',exact:true}).click();await keys.getByRole('button',{name:'Create agent key',exact:true}).waitFor();assert.ok(!(await page.content()).includes(shown));
+  await navigation.getByRole('button',{name:'Preparations',exact:true}).click();
   const costs=page.getByRole('region',{name:'Service costs'}),agents=page.getByRole('region',{name:'Scheduled agents'});
   await costs.getByText('Estimate seasonal usage',{exact:true}).click();
   await costs.getByRole('button',{name:'Estimate costs',exact:true}).click();await costs.getByRole('heading',{name:'Seasonal estimate'}).waitFor();
   assert.match(await costs.innerText(),/Incomplete: supply all prices/);
-  const capture=async(panel,name)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(evidence){await mkdir(evidence,{recursive:true});await panel.screenshot({path:`${evidence}/${name}-${width}.png`});}}};
   await capture(costs,'costs');await costs.getByText('Estimate seasonal usage',{exact:true}).click();
   await agents.getByText('Enable a supervised agent',{exact:true}).click();
   await agents.getByLabel('Agent name',{exact:true}).fill('Browser file agent');await agents.getByLabel('Supervisor’s agent key').selectOption(key.id);await agents.getByLabel('One client',{exact:true}).selectOption(s.client.id);
@@ -33,13 +43,17 @@ export async function serviceAgentsJourney(h,s,key,job){
   await agents.getByLabel('Agent name',{exact:true}).fill('External metadata agent');await agents.getByLabel('Planner',{exact:true}).selectOption('external');
   await agents.getByLabel('Agent provider',{exact:true}).fill('synthetic-blotter-200');await agents.getByLabel('Model or runtime',{exact:true}).fill('Owner runtime');await agents.getByLabel('Provider data use and training',{exact:true}).fill('No training under owner contract');await agents.getByLabel('Provider retention and account owner',{exact:true}).fill('Owner account; zero retention');
   await capture(agents,'external-grant');await agents.getByRole('button',{name:'Approve agent grant',exact:true}).click();await agents.getByText('External metadata agent',{exact:true}).waitFor();
-  await capture(agents,'external-policy');
+  const policy=agents.locator('article').filter({hasText:'External metadata agent'});
+  const assertPolicy=async panel=>{const text=await panel.innerText();for(const value of ['synthetic-blotter-200','Owner runtime','No training under owner contract','Owner account; zero retention','not provider verification'])assert.ok(text.includes(value),value);};
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await assertPolicy(policy);}
+  assert.ok(!(await agents.innerText()).includes(key.key));await capture(agents,'external-policy');
   await h.json(`/requests/${detail.requests[0].id}/files`,{name:'synthetic-blotter-203.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-203').toString('base64')},s.prep);
   await agents.getByRole('button',{name:'Evaluate agent events',exact:true}).click();
   const headers={authorization:'Bearer '+key.key},queued=await h.json('/agent/plans',undefined,'',200,headers);assert.equal(queued.plans.length,1);
   const drafted=await h.json('/agent/plans/'+queued.plans[0].id,{message:'Please upload the year-end statement; the amount is still unconfirmed.'},'',200,headers);
   await agents.getByRole('button',{name:'Evaluate agent events',exact:true}).click();
   const preview=page.locator('article').filter({hasText:'Please upload the year-end statement; the amount is still unconfirmed.'});await preview.getByRole('button',{name:'Approve',exact:true}).waitFor();assert.match(await preview.innerText(),/Source event: file:/);
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await assertPolicy(preview);}
   await capture(preview,'external-draft-review');
   const before=h.mails.length;await preview.getByText('Decline',{exact:true}).first().click();await preview.getByLabel('Reason',{exact:true}).fill('Do not send this wording');await preview.getByRole('button',{name:'Decline',exact:true}).click();await preview.getByText('Declined',{exact:true}).waitFor();assert.equal(h.mails.length,before);assert.equal((await h.json('/agent-rules',undefined,h.owner)).runs.find(r=>r.proposal_id===drafted.id).decision,'declined');
   // Every icon-only control visible on this screen, at both release widths.

@@ -54,6 +54,9 @@ test('AI-003 / BASE-001: scoped file and scheduled plans de-duplicate, refuse un
  const h=await harness();try{
   const s=await automationFixture(h),j=await s.start(),outside=await s.start(s.outside.id),key=await h.json('/keys',{label:'One-client agent'},h.owner);await price(h);
   await h.json('/agent-rules',{},s.reviewer,403);
+  await h.json('/agent-rules',{name:'Reviewer grant denied',clientId:s.client.id,keyId:key.id,trigger:'file',tool:'reminder',budget:1},s.reviewer,403);
+  const reviewerKey=await h.json('/keys',{label:'Reviewer-owned key'},s.reviewer);
+  await h.json('/agent-rules',{name:'Foreign key denied',clientId:s.client.id,keyId:reviewerKey.id,trigger:'file',tool:'reminder',budget:1},h.owner,409);
   await h.json('/agent-rules',{name:'No sending',clientId:s.client.id,keyId:key.id,trigger:'file',tool:'send-message',budget:1},h.owner,400);
   const fileRule=await rule(h,s,key,{budget:1});await upload(h,s,j);await upload(h,s,outside);await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);
   let state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.length,1);assert.equal(state.runs[0].job_id,j.id);assert.equal(state.rules[0].used,1);assert.match(state.rules[0].model_policy,/no model or external provider/i);
@@ -95,6 +98,8 @@ test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore sch
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();const restored=await harness();copies.push(restored);
   await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const r=await restored.json('/agent-rules',undefined,restored.owner);assert.equal(r.rules[0].status,'paused');assert.equal(r.runs.length,1);
+  assert.deepEqual((await restored.json('/team',undefined,restored.owner)).keys,[]);
+  await restored.json('/agent/context',undefined,'',401,{authorization:'Bearer '+key.key});
   assert.equal((await restored.json('/costs',undefined,restored.owner)).prices[0].enabled,0);
   await restored.scheduled('2028-01-01T00:00:00Z');assert.equal((await restored.json('/agent-rules',undefined,restored.owner)).runs.length,1);
   const old=(await h.json('/agent-rules',undefined,h.owner)).runs[0];await h.json(`/files/${f.id}/erase`,{confirm:'source.txt',reason:'Source withdrawn'},h.owner);
@@ -146,9 +151,17 @@ test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable re
   await upload(h,s,j);await upload(h,s,outside);const before=h.mails.length;await h.json('/agent-rules/run',{},h.owner);await h.json('/agent-rules/run',{},h.owner);await h.scheduled('2027-01-01T00:00:00Z');await h.scheduled('2027-01-01T00:00:00Z');
   const auth={authorization:'Bearer '+key.key},otherAuth={authorization:'Bearer '+other.key};
   const plans=await h.json('/agent/plans',undefined,'',200,auth);assert.equal(plans.plans.length,2);assert.ok(plans.plans.every(p=>p.jobId===j.id&&p.clientId===s.client.id&&p.tool==='reminder'));assert.equal(h.mails.length,before);assert.match(plans.exclusions,/No document bytes/);assert.match(plans.plans[0].provider.verification,/not verified/);assert.equal(plans.plans[0].provider.dataUse,options.dataUse);
+  for(const plan of plans.plans)assert.deepEqual(plan.provider,{name:options.providerName,model:options.modelName,dataUse:options.dataUse,retention:options.providerRetention,verification:'owner-declared; not verified by Blotter'});
+  const team=await h.json('/team',undefined,h.owner),rules=await h.json('/agent-rules',undefined,h.owner);
+  for(const response of [team,rules,plans]){assert.ok(!JSON.stringify(response).includes(key.key));assert.ok(!JSON.stringify(response).includes(other.key));}
+  assert.ok(team.keys.every(k=>!('key' in k)&&!('digest' in k)));
+  for(const rule of rules.rules){assert.equal(rule.supervisor_email,'owner@example.test');for(const value of Object.values(options).filter(v=>v!=='external'))assert.ok(rule.model_policy.includes(value));assert.match(rule.model_policy,/not provider verification/);}
   assert.deepEqual((await h.json('/agent/plans',undefined,'',200,otherAuth)).plans,[]);
   const run=plans.plans[0];await h.json('/agent/plans/'+run.id,{message:'Other caller'},'',404,otherAuth);await h.json('/agent/plans/'+run.id,{jobId:outside.id},'',403,auth);await h.json('/agent/plans/'+run.id,{tool:'export'},'',403,auth);
-  const filled=await h.json('/agent/plans/'+run.id,{message:'Please upload the outstanding statement.'},'',200,auth);const replay=await h.json('/agent/plans/'+run.id,{message:'Please upload the outstanding statement.'},'',200,auth);assert.equal(replay.id,filled.id);assert.equal(replay.replayed,true);await h.json('/agent/plans/'+run.id,{message:'Different wording'},'',409,auth);
+  const filled=await h.json('/agent/plans/'+run.id,{message:'Please upload the outstanding statement.'},'',200,auth);const replay=await h.json('/agent/plans/'+run.id,{message:'Please upload the outstanding statement.'},'',200,auth);assert.equal(replay.id,filled.id);assert.equal(replay.replayed,true);
+  const decision=(await h.json('/state',undefined,h.owner)).proposals.find(p=>p.id===filled.id);assert.match(decision.agent_policy,/not provider verification/);for(const value of Object.values(options).filter(v=>v!=='external'))assert.ok(decision.agent_policy.includes(value));
+  assert.ok(!JSON.stringify(decision).includes(key.key));assert.ok(!JSON.stringify([filled,replay]).includes(key.key));
+  await h.json('/agent/plans/'+run.id,{message:'Different wording'},'',409,auth);
   assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules.reduce((n,r)=>n+r.used,0),2);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,2);assert.equal(h.mails.length,before);
   await h.json('/proposals/'+filled.id+'/decide',{decision:'decline',reason:'Do not send'},h.owner);assert.equal(h.mails.length,before);
   const second=plans.plans[1];const pending=await h.json('/agent/plans/'+second.id,{message:'Needs review'},'',200,auth);await h.json('/agent-rules/'+scheduled.id+'/revoke',{},h.owner);await h.json('/agent-rules/'+r.id+'/revoke',{},h.owner);await h.json('/proposals/'+pending.id+'/decide',{decision:'approve'},h.owner,409);assert.deepEqual((await h.json('/agent/plans',undefined,'',200,auth)).plans,[]);assert.equal(h.mails.length,before);

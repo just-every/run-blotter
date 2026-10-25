@@ -17,6 +17,7 @@ export function Proposals({ state, run, open, tick }: { tick:number; state: Row;
       {payload.jobId && <p><button className="quiet" onClick={() => open(payload.jobId)}>Open the job</button></p>}
       {p.kind === 'reminder' && <p><strong>Additional reminder wording:</strong> {payload.message || 'None; use the standard request reminder.'}</p>}
       {payload.dueDate && <p><strong>Proposed due date:</strong> {day(payload.dueDate)} · {payload.dueNote}</p>}
+      {p.agent_policy && <p>{p.agent_policy}</p>}
       {payload.source && <p className="muted">Source event: {payload.source.event} · job revision {payload.source.jobRevision}</p>}
       {p.status === 'pending' && <div className="actions">
         <button onClick={() => run(async () => { const done = await api(`/proposals/${p.id}/decide`, { decision: 'approve' }); setLink(done.result?.portalUrl ? done.result : undefined); }, 'Approved and carried out')}>Approve</button>

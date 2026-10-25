@@ -118,6 +118,6 @@ export async function workspace(db: D1Database, actor: Actor) {
     fields: await fieldDefs(db),
     groups: wide ? await groups(db) : [],
     people: wide ? await rows(db, `SELECT email,name,role FROM b_members WHERE active=1 UNION ALL SELECT email,display_name,'owner' FROM oa_operators WHERE role='owner' AND status='active' ORDER BY 2`) : [],
-    proposals: actor.accessScoped ? [] : await rows(db, 'SELECT * FROM b_proposals WHERE for_email=? ORDER BY created_at DESC LIMIT 100', actor.email),
+    proposals: actor.accessScoped ? [] : await rows(db, 'SELECT p.*, (SELECT r.model_policy FROM b_agent_runs ar JOIN b_agent_rules r ON r.id=ar.rule_id WHERE ar.proposal_id=p.id) agent_policy FROM b_proposals p WHERE p.for_email=? ORDER BY p.created_at DESC LIMIT 100', actor.email),
   };
 }
