@@ -11,7 +11,7 @@ function proposal(output: Data, field: string): string {
   const key = ({ question: 'questions', validation: 'validation', extraction: 'extraction', plan: 'plan' } as Data)[kind];
   insist(key && /^\d+$/.test(index) && Number(index) < output[key].length, 'Choose a proposal in this draft');
   const value = output[key][Number(index)];
-  return typeof value === 'string' ? value : `${value.field}: ${value.value} — ${value.quote}`;
+  return typeof value === 'string' ? value : value.value;
 }
 /** Every decision is inert except a separately accepted internal file copy. */
 export async function decideAiDraft(db: D1Database, actor: Actor, draftId: string, body: Data) {
@@ -19,7 +19,10 @@ export async function decideAiDraft(db: D1Database, actor: Actor, draftId: strin
   const proposed = proposal(draft.output, field);
   insist(typeof proposed === 'string' && proposed.length > 0, 'This draft has no such proposal');
   insist(['accept','reject'].includes(body.decision), 'Accept or reject this one proposal');
-  const decisionId = id(), at = now(), value = body.decision === 'accept' && body.value !== undefined ? text(body.value, 'Reviewed proposal', 5000) : proposed;
+  const editable = ['summary','reply','name'].includes(field);
+  insist(editable || body.value === undefined || body.value === proposed, 'Extracted values and sourced proposals cannot be rewritten; reject and verify the source instead');
+  const decisionId = id(), at = now(), value = body.decision === 'accept' && body.value !== undefined
+    ? text(body.value, 'Reviewed proposal', field === 'name' ? 200 : field === 'summary' ? 800 : field === 'reply' ? 1200 : 5000) : proposed;
   const [pending, released] = guard(db, 'NOT EXISTS(SELECT 1 FROM b_ai_decisions WHERE draft_id=? AND field=?)', draftId, field);
   const [scope,scopeDone] = aiScope(db,actor,draft.job_id,draft.source_kind,draft.source_id);
   const statements: D1PreparedStatement[] = [scope,pending];

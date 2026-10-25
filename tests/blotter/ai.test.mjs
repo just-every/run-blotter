@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {harness} from './harness.mjs';
-import {aiBindings,aiEdge,aiFixture,noticeText} from './ai-fixture.mjs';
+import {aiBindings,aiEdge,aiFixture,noticeText,invoiceText,statementText} from './ai-fixture.mjs';
 import {aiJourney} from './ai-ui.mjs';
 const archiveRows=(text,table)=>text.trim().split('\n').map(JSON.parse).flatMap(p=>p.items??[]).filter(x=>x.table===table).map(x=>x.row);
 
@@ -48,6 +48,15 @@ test('Document proposals require individual review, retain the source, copy only
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'validation:0',decision:'reject'},s.prep);
   const unreadable=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'illegible.png',mime:'image/png',contentBase64:Buffer.from('synthetic-blotter-4 unreadable scan').toString('base64')},s.prep);
   const failure=await s.request('document',s.prep,{sourceId:unreadable.id},422);assert.match(failure.error,/Unsupported or unreadable document: illegible.png/);assert.equal(h.aiCalls.length,1);
+  const statement=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'wrong-period.txt',mime:'text/plain',contentBase64:Buffer.from(statementText).toString('base64')},s.prep);
+  const wrong=await s.request('document',s.prep,{sourceId:statement.id});assert.match(wrong.output.validation[0],/Wrong-period/);assert.equal(wrong.source.expected.period,'2026');
+  const wrongDraft=await h.json(`/ai/requests/${wrong.requestId}/draft`,{output:wrong.output},s.prep);await h.json(`/ai/drafts/${wrongDraft.id}/decisions`,{field:'validation:0',decision:'reject'},s.prep);
+  const invoice=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'invoice.txt',mime:'text/plain',contentBase64:Buffer.from(invoiceText).toString('base64')},s.prep);
+  const correct=await s.request('document',s.prep,{sourceId:invoice.id});assert.equal(correct.output.extraction.find(e=>e.field==='Period').value,'2026');
+  const invoiceDraft=await h.json(`/ai/requests/${correct.requestId}/draft`,{output:correct.output},s.prep);
+  await h.json(`/ai/drafts/${invoiceDraft.id}/decisions`,{field:'extraction:2',decision:'accept',value:'2025'},s.prep,400);
+  await h.json(`/ai/drafts/${invoiceDraft.id}/decisions`,{field:'extraction:2',decision:'accept'},s.prep);await h.json(`/ai/drafts/${invoiceDraft.id}/decisions`,{field:'name',decision:'reject'},s.prep);
+  assert.equal(await(await h.request(`/api/blotter/documents/${invoice.id}/file`,undefined,s.prep)).text(),invoiceText);assert.equal((await s.detail(s.j.id)).requests[0].files.length,5,'Only the explicitly accepted routing created a copy');
   const otherLogin=await h.login('other@example.test');await s.request('document',otherLogin,{},404);await h.json(`/ai/drafts/${draft.id}`,undefined,otherLogin,404);
   const key=await h.json('/keys',{label:'No model authority'},h.owner);await h.json(`/jobs/${s.j.id}/ai`,{purpose:'summary',sourceKind:'document',sourceId:s.file.id,confirm:true},'',401,{authorization:'Bearer '+key.key});
   assert.equal(await(await h.request(`/api/blotter/documents/${s.file.id}/file`,undefined,s.prep)).text(),noticeText);

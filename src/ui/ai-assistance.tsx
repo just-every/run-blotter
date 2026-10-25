@@ -78,6 +78,7 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
       <div>
         <h3>Source</h3>
         {result.source?.href && <p><a href={result.source.href}>{result.source.label}</a></p>}
+        {result.source?.expected && <p>Compare with {result.source.expected.client} · job period {result.source.expected.period}{result.source.expected.request && ` · requested ${result.source.expected.request}`}. Check every proposed type, client, period and legibility finding against this source.</p>}
         <pre aria-label="Original source text" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{result.source?.text ?? 'Source text is unavailable.'}</pre>
       </div>
       <div>

@@ -31,7 +31,7 @@ export async function aiSources(db: D1Database, actor: Actor, jobId: string) {
 }
 export async function aiSource(db: D1Database, actor: Actor, jobId: string, kind: string, sourceId: string) {
   const j = await aiJob(db, actor, jobId);
-  let value = '', label = '', href = '', ids: string[] = [];
+  let value = '', label = '', href = '', ids: string[] = [], requestLabel = '';
   if (kind === 'portal') {
     insist(sourceId === jobId, 'Select this job’s portal conversation', 404);
     const messages = await rows(db, "SELECT id,body,response,created_at FROM b_portal_items WHERE job_id=? AND kind IN ('message','question') ORDER BY created_at,id", jobId);
@@ -46,7 +46,10 @@ export async function aiSource(db: D1Database, actor: Actor, jobId: string, kind
     value = await documentText(f.mime, f.name, await documentBytes(db, f));
     insist(value.trim().length >= 12 && !value.includes('\u0000'), `Unsupported or unreadable document: ${f.name}. No text was sent to the provider.`, 422);
     ids = [f.file_key]; label = f.name; href = `/api/blotter/documents/${encodeURIComponent(f.file_key)}/file`;
+    requestLabel = (await stmt(db,'SELECT label FROM b_requests WHERE id=(SELECT request_id FROM b_files WHERE id=?)',f.file_key).first<Data>())?.label ?? '';
   }
   insist(value.length <= 24_000, 'The selected source is too long; choose a shorter source. Nothing was sent.', 422);
-  return { id: sourceId, kind, label, text: value, href, ids, hash: await digest(value), clientId: j.client_id };
+  const client = await stmt(db,'SELECT name FROM b_clients WHERE id=?',j.client_id).first<Data>();
+  return { id: sourceId, kind, label, text: value, href, ids, hash: await digest(value), clientId: j.client_id,
+    expected: {client:client!.name,period:j.period_label,request:requestLabel} };
 }

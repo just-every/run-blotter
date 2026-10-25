@@ -1188,7 +1188,7 @@
       "executable": false
     },
     "src/blotter/ai-decisions.ts": {
-      "sha256": "b959f3f57c178379af584c3d2ca86994f4bf34098dd6e5d6d4fbf86fd6bc2c06",
+      "sha256": "1c0d5827bb926a1c8cf278eaf5e77675d842530e8a3d82f1ba6524b1538defc6",
       "executable": false
     },
     "src/blotter/ai-masking.ts": {
@@ -1196,7 +1196,7 @@
       "executable": false
     },
     "src/blotter/ai-provider.ts": {
-      "sha256": "185c1d2890afd23b083abb0a64e5a70769777af76a413cb17336237fb66185e3",
+      "sha256": "9cc28b95e40e0654457f2636bffa9e8216740ad14e5e01ac763480a354477bd5",
       "executable": false
     },
     "src/blotter/ai-settings.ts": {
@@ -1204,7 +1204,7 @@
       "executable": false
     },
     "src/blotter/ai-sources.ts": {
-      "sha256": "2f663cbf735c2904db8db656a3815b9980b805ce4f9bc8345351fa13c6aa7930",
+      "sha256": "37445ba96896167b8e6f9dd39b2314d1be7f987df614443a7a72236ae61bb9f6",
       "executable": false
     },
     "src/blotter/api.ts": {
@@ -1224,7 +1224,7 @@
       "executable": false
     },
     "src/blotter/archive.ts": {
-      "sha256": "c877f215b0ecc39c1cdec4d089322c2794fef53e44f2a2a356d1bdf1d82c1912",
+      "sha256": "05ac1470dae9c293ea655eccd9dd15c4793974803a803a2ec0ec3a7f2193d6cd",
       "executable": false
     },
     "src/blotter/authorization-pdf.ts": {
@@ -3820,7 +3820,7 @@
       "executable": false
     },
     "src/ui/ai-assistance.tsx": {
-      "sha256": "0d628ceed146e17139ee3fb539d886e93ceb87c5b4310aa19bbef11e015cb004",
+      "sha256": "a2b0e3ce4ea9c3e7cf7e0101a5fb529aedca4746e6fde82711aa482364026162",
       "executable": false
     },
     "src/ui/ai-settings.tsx": {
@@ -4128,7 +4128,7 @@
       "executable": false
     },
     "tests/blotter/ai-fixture.mjs": {
-      "sha256": "f0ef1ed85ff44286507a4d2670e17b427ba59553210f3273f025abd90497cb9d",
+      "sha256": "fcb327592b77f7398c619223d0459e626ee001e5c0f90da21a2e5a67b8afbb97",
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {
@@ -4136,7 +4136,7 @@
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "568b06cc08098e32e22458b1dd60b029d75bbc9d28bfceecf04ef3fff619d2f4",
+      "sha256": "7501354e4dbd0a529eb776ad709dd6fdabc2fe1196d4ebc3f15b4327f34b3a2b",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {
