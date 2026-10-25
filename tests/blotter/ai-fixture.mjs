@@ -11,7 +11,9 @@ export const aiEdge = payload => {
 };
 export const aiBindings = {AI_API_KEY:'synthetic-blotter-1',AI_MODEL:'gpt-5-nano'};
 export async function aiFixture(h) {
- const s=await automationFixture(h),j=await s.start(),d=await s.detail(j.id);
+ const s=await automationFixture(h);
+ const template=await h.json('/templates',{name:'Evidence review',recurrence:'annual',steps:'Review evidence',requests:'Invoice'},h.owner);
+ const j=await h.json('/jobs',{clientId:s.client.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Recorded evidence-review engagement',preparerEmail:'prep@example.test',reviewerEmail:'reviewer@example.test'},h.owner),d=await s.detail(j.id);
  const file=await h.json(`/requests/${d.requests[0].id}/files`,{name:'synthetic-blotter-notice.txt',mime:'text/plain',contentBase64:Buffer.from(noticeText).toString('base64')},s.prep);
  const request=(purpose='summary',who=s.prep,extra={},status=200)=>h.json(`/jobs/${j.id}/ai`,{purpose,sourceKind:'document',sourceId:file.id,confirm:true,...extra},who,status);
  const enable=(enabled=true,requestLimit=3)=>h.json('/ai/settings',{enabled,requestLimit,attestationRef:'synthetic-blotter-2: fictitious provider no-training and no-retention attestation for synthetic-only fixture'},h.owner);

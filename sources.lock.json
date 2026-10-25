@@ -1200,7 +1200,7 @@
       "executable": false
     },
     "src/blotter/ai-provider.ts": {
-      "sha256": "a06b86efc8dbff8a7f2466eccf6e72b634f286861499a772570a2b58f3ebc456",
+      "sha256": "e2f7c210de8f7e05042b7ea44accccedf4a1d192c959ecf84c5aca377eb06e7b",
       "executable": false
     },
     "src/blotter/ai-settings.ts": {
@@ -4136,7 +4136,7 @@
       "executable": false
     },
     "tests/blotter/ai-fixture.mjs": {
-      "sha256": "b62357bb977b4761edc6aaa092ce318a54b67f79f0888ca01317df579d5e96b2",
+      "sha256": "369bdd1122eb037fb1018ade4fbc4f17ff07af65966f9c91a65720cc0c3fa7b3",
       "executable": false
     },
     "tests/blotter/ai-live.mjs": {
@@ -4148,7 +4148,7 @@
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "f74842f1a623a98a7d170e2579e5ec144f2766969b3cadbef39231dd4f7a3d5d",
+      "sha256": "7a1479f782037e43553ecd2929ff8df6ba3a0a435e042a8beeea88cb185c72aa",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {

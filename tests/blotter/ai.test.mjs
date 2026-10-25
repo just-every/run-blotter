@@ -54,6 +54,7 @@ test('Document proposals require individual review, retain the source, copy only
   const statement=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'wrong-period.txt',mime:'text/plain',contentBase64:Buffer.from(statementText).toString('base64')},s.prep);
   const wrong=await s.request('document',s.prep,{sourceId:statement.id});assert.match(wrong.output.validation[0],/Wrong-period/);assert.equal(wrong.source.expected.period,s.d.job.period_label);
   const wrongDraft=await h.json(`/ai/requests/${wrong.requestId}/draft`,{output:wrong.output},s.prep);await h.json(`/ai/drafts/${wrongDraft.id}/decisions`,{field:'validation:0',decision:'reject'},s.prep);
+  assert.equal((await s.detail(s.j.id)).requests[0].status,'received','Mismatched evidence remains unaccepted for human review');
   const invoice=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'invoice.txt',mime:'text/plain',contentBase64:Buffer.from(invoiceText).toString('base64')},s.prep);
   const correct=await s.request('document',s.prep,{sourceId:invoice.id});assert.equal(correct.output.extraction.find(e=>e.field==='Period').value,'2026');
   const invoiceDraft=await h.json(`/ai/requests/${correct.requestId}/draft`,{output:correct.output},s.prep);
