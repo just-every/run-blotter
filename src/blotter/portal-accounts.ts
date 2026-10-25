@@ -71,9 +71,9 @@ export async function invitePortal(env: Bindings, actor: Actor, clientId: string
     stmt(db, 'INSERT INTO b_portal_invitations(digest,contact_id,account_id,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)', await digest(token), contact.id, accountId, actor.email, at, expiresAt),
     release, audit(db, actor, 'portal.invited', clientId, `${contact.id}: ${contact.email}`)]);
   const language = contactLanguage(contact.language), T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars), firm = (await firmSettings(db)).name || T('unsub.thisPractice');
-  const delivery = await sendMail(bindings, id(), contact.email, T('account.invite.subject', { firm }),
+  await sendMail(bindings, id(), contact.email, T('account.invite.subject', { firm }),
     [T('mail.hello', { name: contact.name || contact.email }), '', T('account.invite.body', { firm, client: client.name }), `${bindings.AUTH_ORIGIN}/client?invite=${token}&lang=${language}`, T('account.invite.expires', { date: expiresAt.slice(0, 10) })].join('\n'));
-  return { contactId: contact.id, accountId, status: 'invited', expiresAt, delivery };
+  return { requested: true }; 
 }
 
 /** Revoke one contact's grant; the account's sessions lose that entity on their next request. */
@@ -93,9 +93,9 @@ export async function resetPortalFactor(db: D1Database, actor: Actor, accountId:
   human(actor); need(actor, 'owner');
   const reason = text(body.reason, 'Reason to reset the second factor', 1000), at = now();
   const account = await stmt(db, 'SELECT id,email FROM b_portal_accounts WHERE id=?', accountId).first<Data>();
-  insist(account, 'Portal account not found', 404);
+  if (!account) return { requested: true };
   await atomic(db, actor, [stmt(db, 'UPDATE b_portal_accounts SET totp_sealed=NULL,totp_pending_sealed=NULL,totp_confirmed_at=NULL WHERE id=?', account.id),
     stmt(db, 'DELETE FROM b_portal_recovery WHERE account_id=?', account.id), stmt(db, 'UPDATE b_portal_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL', at, account.id),
     audit(db, actor, 'portal.factor_reset', account.id, `${account.email}: ${reason}`)]);
-  return { accountId: account.id, factor: false };
+  return { requested: true };
 }

@@ -1652,7 +1652,7 @@
       "executable": false
     },
     "src/blotter/portal-accounts.ts": {
-      "sha256": "03bb5797d6d8a98ea05db5e835b431b508114db48f610a1887bd84ef3d669055",
+      "sha256": "e4fbe16f3f96abb3ec76fa2a221685946e15b7814fecf08582dbc6bf01dd2fa4",
       "executable": false
     },
     "src/blotter/portal-branding.ts": {
@@ -4248,7 +4248,7 @@
       "executable": false
     },
     "tests/blotter/portal-accounts.test.mjs": {
-      "sha256": "f5fef85fa56855a8bb054b896aa84c5f2b8ce8c709b9db48417ab83ce390a91a",
+      "sha256": "feb37fe98173141f148cfbe9d8d613926862fb20961707f4ded0b08372f05051",
       "executable": false
     },
     "tests/blotter/rate-worktypes-ui.mjs": {

@@ -53,7 +53,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     await h.json(`/clients/${cedar.id}/contacts/${patBirch.id}/portal-invite`, {}, h.owner, 409);
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-invite`, {}, reviewer);
     await h.json(`/clients/${birch.id}/contacts/${patBirch.id}/portal-invite`, {}, h.owner);
-    await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    const unknownAccountInvitation = await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
     // Branding (principal only): a PNG or JPEG logo and an accent colour that clients see on the portal, even before they sign in.
     const logo = png(120, 40, [31, 111, 80]), upload = { name: 'logo.png', mime: 'image/png', contentBase64: logo.toString('base64') };
     await h.json('/portal-branding', { accent: '#1f6f50', logo: upload }, reviewer, 403);
@@ -162,12 +162,15 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     assert.equal((await h.json('/portal-policy', undefined, reviewer)).mfaRequired, true, 'A second factor is required until the principal says otherwise');
     const samAccount = (await h.json(`/clients/${birch.id}/portal-access`, undefined, h.owner)).grants.find(g => g.contactId === sam.id).accountId;
     await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Lost phone' }, reviewer, 403);
-    await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Sam lost the phone holding the authenticator' }, h.owner);
+    const knownReset = await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Sam lost the phone holding the authenticator' }, h.owner);
+    assert.deepEqual(await h.json('/portal-accounts/no-such-account/reset', { reason: 'Reset requested for an unknown account' }, h.owner), knownReset, 'Reset responses do not disclose whether the account exists');
     await samSession.get('/me', 401);
     await portalAccountJourney(h, { stage: 'reset', clientCookie: samSession.cookie });
 
     // The invitation lifetime is seven days; expired links never start a session.
-    const expired = await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    const knownAccountInvitation = await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    assert.deepEqual(knownAccountInvitation, unknownAccountInvitation, 'Invitation responses do not disclose whether the address already has an account');
+    const expired = { accountId: samAccount };
     const invitation = await h.db.prepare('SELECT created_at,expires_at FROM b_portal_invitations WHERE contact_id=? ORDER BY created_at DESC LIMIT 1').bind(sam.id).first();
     assert.equal(Date.parse(invitation.expires_at) - Date.parse(invitation.created_at), 7 * 86400000);
     await h.db.prepare("UPDATE b_portal_invitations SET expires_at='2000-01-01T00:00:00.000Z' WHERE contact_id=? AND used_at IS NULL").bind(sam.id).run();
