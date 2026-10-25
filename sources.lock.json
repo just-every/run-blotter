@@ -159,6 +159,10 @@
       "sha256": "f58e51058162c68de5d09a373aa277a784f50ae08fc299abbf3ef2604e3b30aa",
       "executable": false
     },
+    "docs/ai-assistance.md": {
+      "sha256": "432ed779d95048d01b344476492307b8d610cb787c7f552381d115ea5ee48379",
+      "executable": false
+    },
     "docs/backup-and-restore.md": {
       "sha256": "064a64eb08557c9477a7fe7a81fcce5d7770c710a0eba59009d027f716f78bc2",
       "executable": false
@@ -1196,7 +1200,7 @@
       "executable": false
     },
     "src/blotter/ai-provider.ts": {
-      "sha256": "9cc28b95e40e0654457f2636bffa9e8216740ad14e5e01ac763480a354477bd5",
+      "sha256": "a06b86efc8dbff8a7f2466eccf6e72b634f286861499a772570a2b58f3ebc456",
       "executable": false
     },
     "src/blotter/ai-settings.ts": {
@@ -3821,6 +3825,10 @@
     },
     "src/ui/ai-assistance.tsx": {
       "sha256": "a2b0e3ce4ea9c3e7cf7e0101a5fb529aedca4746e6fde82711aa482364026162",
+      "executable": false
+    },
+    "src/ui/ai-disclosure.tsx": {
+      "sha256": "857e54c01852be3afb7f45e89033ea74071105a45c40ca424df67271d0f4ccd7",
       "executable": false
     },
     "src/ui/ai-settings.tsx": {

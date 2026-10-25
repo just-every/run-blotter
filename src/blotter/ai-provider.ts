@@ -100,6 +100,8 @@ export async function runAiProvider(env: Bindings, purpose: 'summary' | 'documen
         choice.message.role !== 'assistant' || choice.message.refusal || choice.message.tool_calls || choice.message.function_call ||
         !bounded(choice.message.content, 12_000)) throw invalidResponse();
     const output = validateAiOutput(JSON.parse(choice.message.content), source);
+    if (purpose === 'summary') Object.assign(output,{validation:[],extraction:[],suggestedName:'',routing:'',plan:[]});
+    if (purpose === 'notice') Object.assign(output,{reply:'',suggestedName:'',routing:''});
     return { output, provider: 'openai', model, bytes: new TextEncoder().encode(source).byteLength };
   } catch { throw invalidResponse(); }
 }
