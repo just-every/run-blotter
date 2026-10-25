@@ -69,8 +69,8 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     const as = cookie => ({ cookie, get: (path, expected = 200) => h.json('/client' + path, undefined, cookie, expected), post: (path, body, expected = 200) => h.json('/client' + path, body, cookie, expected) });
 
     // Pat accepts Cedar; nothing about any entity shows until the required second factor is set up.
-    await portalAccountJourney(h, { stage: 'invitation', inviteUrl: `${h.origin}/client?invite=${patCedarInvite}` });
-    const first = as(await enter('accept', patCedarInvite));
+    const browserFirst = await portalAccountJourney(h, { stage: 'invitation', inviteUrl: `${h.origin}/client?invite=${patCedarInvite}` });
+    const first = as(browserFirst ?? await enter('accept', patCedarInvite));
     await h.request('/api/blotter/client/accept', { token: patCedarInvite }).then(r => assert.equal(r.status, 404, 'An invitation works once'));
     assert.deepEqual(await first.get('/me').then(m => [m.mfa, m.entities]), ['enroll', []]);
     assert.equal((await first.get(`/entities/${cedar.id}`, 403)).mfa, 'enroll');
@@ -129,7 +129,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
 
     // Recover a lost factor: a recovery code opens only the setup of a new authenticator, which then ends every other session.
     assert.equal((await lost.get('/me')).mfa, 'verify');
-    await portalAccountJourney(h, { stage: 'recovery', clientCookie: lost.cookie });
+    await portalAccountJourney(h, { stage: 'recovery', clientCookie: lost.cookie, recoveryCode: patCodes[1] });
     assert.deepEqual(await lost.post('/verify', { recoveryCode: patCodes[0] }), { verified: false, recovered: true, next: 'enroll' });
     assert.equal((await lost.get(`/entities/${cedar.id}`, 403)).mfa, 'enroll');
     const newKey = (await lost.post('/factor/start', {})).secret;

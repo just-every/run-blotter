@@ -7,7 +7,7 @@ import { scan } from './language-ui.mjs';
  * PORTAL-002 browser proof at 1440 and 390: the sign-in page and a signed-in client's entity
  * view pass the WCAG 2.2 AA scan without overflow, and staff see each contact's portal access.
  */
-export async function portalAccountJourney(h, { clientCookie, clientId, locked = false, stage, inviteUrl }) {
+export async function portalAccountJourney(h, { clientCookie, clientId, locked = false, stage, inviteUrl, recoveryCode }) {
   const directory = process.env.BLOTTER_PORTAL_EVIDENCE;
   if (!directory) return;
   await mkdir(directory, { recursive: true });
@@ -33,7 +33,22 @@ export async function portalAccountJourney(h, { clientCookie, clientId, locked =
         await page.getByLabel('Recovery code', { exact: true }).waitFor();
       } else if (stage === 'enrollment') await page.locator('section[aria-labelledby="enroll"]').waitFor();
       else await page.locator('section[aria-labelledby="sign-in"]').waitFor();
-      await capture(page, page.locator('main'), `client-${stage}`); await context.close(); return;
+      await capture(page, page.locator('main'), `client-${stage}`);
+      if (stage === 'invitation') {
+        await page.getByRole('button', { name: 'Accept the invitation', exact: true }).click();
+        await page.locator('section[aria-labelledby="enroll"]').waitFor();
+        await capture(page, page.locator('main'), 'client-first-sign-in');
+        const session = (await context.cookies()).find(cookie => cookie.name === 'blotter_portal');
+        assert.ok(session, 'Accepting the invitation starts the synthetic contact session');
+        await context.close(); return `${session.name}=${session.value}`;
+      }
+      if (stage === 'recovery') {
+        await page.getByLabel('Recovery code', { exact: true }).fill(recoveryCode);
+        await page.getByRole('button', { name: 'Use the recovery code', exact: true }).click();
+        await page.locator('section[aria-labelledby="enroll"]').waitFor();
+        await capture(page, page.locator('main'), 'client-recovery-replacement');
+      }
+      await context.close(); return;
     }
     const visitor = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } }), signIn = await visitor.newPage();
     await signIn.goto(`${h.origin}/client`); await signIn.getByRole('button', { name: 'Email me a sign-in link' }).waitFor();

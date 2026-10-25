@@ -4244,11 +4244,11 @@
       "executable": false
     },
     "tests/blotter/portal-accounts-ui.mjs": {
-      "sha256": "16ebbd56ce11d30428d1651c43b1facbbe35b9444320ede2717e215bd45c3f5e",
+      "sha256": "0c9e7fd9f271f67793dab17cb771592b3be77d577b2979e200a7a089e96a0b53",
       "executable": false
     },
     "tests/blotter/portal-accounts.test.mjs": {
-      "sha256": "feb37fe98173141f148cfbe9d8d613926862fb20961707f4ded0b08372f05051",
+      "sha256": "54fcc4a9050411bdf2361a47a57fff6c16432fd3d90c35eb742b0ed9a9188ba7",
       "executable": false
     },
     "tests/blotter/rate-worktypes-ui.mjs": {
