@@ -1188,7 +1188,7 @@
       "executable": false
     },
     "src/blotter/ai-assistance.ts": {
-      "sha256": "c8ee6ad4b70266bc65de594417cb739059ffd728b16feb91a2e061c578b60a3b",
+      "sha256": "e1fdd7bf52603166784527f6bc98e6c0283fb93c14218efedbb055c55ece7ee2",
       "executable": false
     },
     "src/blotter/ai-decisions.ts": {
@@ -1424,7 +1424,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "c37ed9425df4f6920130088e4db7bfb1f4575a9cd281e45e939c3f265c7facec",
+      "sha256": "e36653dcad523cbf432065f6b1886c55b4e45fa9f5b076f78d9bf7e6a4a819da",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -4148,7 +4148,7 @@
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "9c0b3505e0aadab278f69a4439dccb561c0f1aea29e739e537d9a5f87070102f",
+      "sha256": "0988e98df4ea05b8347b7f7c6fbb6bd0b7e7a78e9f324432dbd37909abe135ea",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {

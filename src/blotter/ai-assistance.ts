@@ -21,14 +21,18 @@ export async function aiState(db: D1Database, actor: Actor, env: Bindings, jobId
 export async function requestAi(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor);
   const db = runtimeBindings(env).DB;
-  insist(body.confirm === true, 'Explicitly click to process the selected source; nothing has been sent', 400);
   const purpose = text(body.purpose, 'Purpose', 20);
   insist(['summary','document','notice'].includes(purpose), 'Choose a supported assistance task');
   if (purpose === 'notice') need(actor, 'owner', 'reviewer');
   insist(purpose === 'summary' || body.sourceKind === 'document', 'This task requires an uploaded document');
   const source = await aiSource(db, actor, jobId, text(body.sourceKind, 'Source kind', 20), text(body.sourceId, 'Source', 250));
   const settings = await stmt(db, 'SELECT * FROM b_ai_settings WHERE id=1').first<Data>();
-  insist(settings?.enabled && settings.provider === aiProvider() && settings.model === aiModel(env), 'The firm owner has not enabled AI assistance for this provider and model', 403);
+  const enabled = settings?.enabled && settings.provider === aiProvider() && settings.model === aiModel(env);
+  if (body.confirm !== true || !enabled) {
+    await atomic(db,actor,[audit(db,actor,'ai.refused',id(),JSON.stringify({sourceIds:source.ids,provider:aiProvider(),model:aiModel(env),bytes:0,at:now(),reason:body.confirm!==true?'Explicit click missing':'Firm approval missing'}))]);
+    insist(body.confirm === true, 'Explicitly click to process the selected source; nothing has been sent', 400);
+    insist(enabled, 'The firm owner has not enabled AI assistance for this provider and model', 403);
+  }
   insist(env.AI_API_KEY, 'The AI provider is not configured', 503);
   const masked = maskAiText(source.text), requestId = id(), at = now(), inputBytes = new TextEncoder().encode(masked).length;
   const used=Number((await stmt(db,'SELECT COUNT(*) n FROM b_ai_requests WHERE settings_revision=?',settings.revision).first<Data>())?.n ?? 0);

@@ -60,9 +60,11 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const s = selectors(x), at = lit(x.at), who = lit(x.who), why = lit(x.reason);
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
+  const aiDrafts = `(SELECT d.id FROM b_ai_drafts d JOIN b_ai_requests r ON r.id=d.request_id WHERE d.job_id IN ${s.JE}
+    AND NOT (r.source_kind='document' AND r.source_id IN ${s.HF}))`;
   const all: Step[] = [
-    {cls:'derived_ai',table:'b_ai_decisions',action:'cascade',label:'AI proposal decisions and reviewed values',where:`draft_id IN (SELECT id FROM b_ai_drafts WHERE job_id IN ${s.JE})`},
-    {cls:'derived_ai',table:'b_ai_drafts',action:'delete',label:'Saved AI drafts and extracted values with source references',where:`job_id IN ${s.JE}`},
+    {cls:'derived_ai',table:'b_ai_decisions',action:'cascade',label:'AI proposal decisions and reviewed values',where:`draft_id IN ${aiDrafts}`},
+    {cls:'derived_ai',table:'b_ai_drafts',action:'delete',label:'Saved AI drafts and extracted values with source references',where:`id IN ${aiDrafts}`},
     {cls:'link',table:'b_agent_rules',action:'redact',label:'Scheduled agent grants revoked',where:`client_id=${s.c} AND status<>'revoked'`,set:`status='revoked'`},
     {cls:'derived_ai',table:'b_agent_rules',action:'redact',label:'Agent rule names and due-date notes',where:`client_id=${s.c}`,set:`name='[erased]',due_note='[erased]',provider_name='[erased]',model_name='[erased]',data_use='[erased]',provider_retention='[erased]',model_policy='[erased]'`},...signatureErasureSteps(x),...invoiceErasureSteps(x),
     {cls:'signed_documents',table:'b_authorizations',action:'redact',label:'Taxpayer authorizations: representative, CAF number and reasons (form, years, dates and status stay)',where:`client_id=${s.c}`,set:`representative='${MARK}',representative_email=NULL,caf_number=NULL,status_reason=NULL`},

@@ -50,7 +50,7 @@ test('Document proposals require individual review, retain the source, copy only
   const unreadable=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'illegible.png',mime:'image/png',contentBase64:Buffer.from('synthetic-blotter-4 unreadable scan').toString('base64')},s.prep);
   const failure=await s.request('document',s.prep,{sourceId:unreadable.id},422);assert.match(failure.error,/Unsupported or unreadable document: illegible.png/);assert.equal(h.aiCalls.length,1);
   const statement=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'wrong-period.txt',mime:'text/plain',contentBase64:Buffer.from(statementText).toString('base64')},s.prep);
-  const wrong=await s.request('document',s.prep,{sourceId:statement.id});assert.match(wrong.output.validation[0],/Wrong-period/);assert.equal(wrong.source.expected.period,'2026');
+  const wrong=await s.request('document',s.prep,{sourceId:statement.id});assert.match(wrong.output.validation[0],/Wrong-period/);assert.equal(wrong.source.expected.period,s.d.job.period_label);
   const wrongDraft=await h.json(`/ai/requests/${wrong.requestId}/draft`,{output:wrong.output},s.prep);await h.json(`/ai/drafts/${wrongDraft.id}/decisions`,{field:'validation:0',decision:'reject'},s.prep);
   const invoice=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'invoice.txt',mime:'text/plain',contentBase64:Buffer.from(invoiceText).toString('base64')},s.prep);
   const correct=await s.request('document',s.prep,{sourceId:invoice.id});assert.equal(correct.output.extraction.find(e=>e.field==='Period').value,'2026');
@@ -61,6 +61,8 @@ test('Document proposals require individual review, retain the source, copy only
   const otherLogin=await h.login('other@example.test');await s.request('document',otherLogin,{},404);await h.json(`/ai/drafts/${draft.id}`,undefined,otherLogin,404);
   const key=await h.json('/keys',{label:'No model authority'},h.owner);await h.json(`/jobs/${s.j.id}/ai`,{purpose:'summary',sourceKind:'document',sourceId:s.file.id,confirm:true},'',401,{authorization:'Bearer '+key.key});
   assert.equal(await(await h.request(`/api/blotter/documents/${s.file.id}/file`,undefined,s.prep)).text(),noticeText);
+  await h.json(`/files/${invoice.id}/erase`,{confirm:'invoice.txt',reason:'Withdraw this source and its derived draft'},h.owner);
+  await h.json(`/ai/drafts/${invoiceDraft.id}`,undefined,h.owner,404);
  }finally{await h.close();}
 });
 
@@ -92,7 +94,8 @@ test('Revoking firm enablement during a provider request discards its result and
 test('AI drafts travel with attributed history, restore disabled, honor holds and erasure, and fence stale restores',async()=>{
  const h=await harness({bindings:aiBindings,aiResponse:aiEdge}),copies=[];try{
   const s=await aiFixture(h);await s.enable();const r=await s.request('document'),draft=await h.json(`/ai/requests/${r.requestId}/draft`,{output:r.output},s.prep);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),restored=await harness({bindings:aiBindings,aiResponse:aiEdge});copies.push(restored);
+  const download=await h.request('/api/blotter/backup',undefined,h.owner),archive=await download.text();assert.equal(download.status,200,archive.slice(0,1000));
+  const restored=await harness({bindings:aiBindings,aiResponse:aiEdge});copies.push(restored);
   await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
   assert.equal((await restored.json('/ai/settings',undefined,restored.owner)).enabled,false);
   assert.equal((await restored.json(`/ai/drafts/${draft.id}`,undefined,restored.owner)).output.summary,r.output.summary);
@@ -104,6 +107,9 @@ test('AI drafts travel with attributed history, restore disabled, honor holds an
   await h.json(`/clients/${s.client.id}/lifecycle`,{revision:(await h.json(`/clients/${s.client.id}/detail`,undefined,h.owner)).revision,lifecycle:'archived'},h.owner);
   let preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.classes.find(c=>c.class==='derived_ai').held>0);assert.ok(preview.externalCopies.some(c=>c.source==='ai-provider'));
   await h.json(`/retention/${hold.id}/release`,{reason:'Review complete'},h.owner);
+  const fileHold=await h.json(`/clients/${s.client.id}/retention`,{scope:'file',targetId:s.file.id,kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve notice-derived evidence'},h.owner);
+  preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.held.some(e=>e.table==='b_ai_drafts'&&e.count===1));
+  await h.json(`/retention/${fileHold.id}/release`,{reason:'Source review complete'},h.owner);
   preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.equal(preview.eligible,true,JSON.stringify(preview.blockers));assert.ok(preview.erase.some(e=>e.table==='b_ai_drafts'&&e.count===1));
   const receipt=await h.json(`/clients/${s.client.id}/erasure`,{planHash:preview.planHash,confirm:s.client.name,reason:'Erase derived drafts'},h.owner);assert.ok(receipt.steps.some(e=>e.table==='b_ai_drafts'&&e.count===1));
   assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);await h.json(`/ai/drafts/${draft.id}`,undefined,h.owner,404);
