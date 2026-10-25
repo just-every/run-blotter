@@ -8,6 +8,7 @@ export async function aiJourney(h,s) {
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
  try {
   await h.json(`/jobs/${s.j.id}/portal/messages`,{body:noticeText},s.prep);
+  await h.json(`/requests/${s.d.requests[0].id}/decide`,{decision:'return',note:'Please provide the requested-period original.'},s.prep);
   const portal=await h.json(`/jobs/${s.j.id}/reminders`,{message:'Synthetic fixture access to the client portal'},s.prep);
   for(const width of [1440,390]) {
    await s.enable(false);
