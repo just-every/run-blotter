@@ -198,6 +198,12 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     assert.match(blocked.verification,/no provider connection/);
     assert.match(blocked.chaseDraft,/connect QBO/);
     await h.json(progressDoor,observation,h.owner,409);
+    plan=await h.json(progressDoor,{...observation,revision:plan.revision,state:'received',note:'Practitioner observed connection evidence; not provider verified',nextAction:'Principal to review before setup proceeds'},h.owner);
+    const received=plan.items.find(item=>item.type==='ledger').progress;
+    assert.equal(received.recordedBy,'owner@example.test');
+    assert.deepEqual(received.history,[Object.fromEntries(Object.entries(blocked).filter(([key])=>key!=='history'))]);
+    assert.equal(received.chaseDraft,null);
+    assert.match(received.verification,/no provider connection/);
     assert.equal(plan.items.find(item=>item.id===removed).progress,null);
     assert.equal((await h.json(planDoor+'/'+plan.id,undefined,h.owner)).revision,plan.revision);
     await h.json(planDoor+'/'+plan.id,undefined,reviewer,403);

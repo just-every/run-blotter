@@ -104,7 +104,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "0b3e0647fcc4d0759fe3e0b56402c0ee58e19c72da523e30393054ef15dadaa7",
+      "sha256": "60bad004ab7d2009ca5939a2d49182c6e035eaf6bc4148ef2c2531d4fc324936",
       "executable": false
     },
     ".gitignore": {
@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b25e1f72c4220877c47b8631d22f682d5b327bb97e2e64d66aaf6f77c71f47f9",
+      "sha256": "82028bdca2b5e5f78d60d6b9b07adb78c06a15b32d10fc425b52bf5bedd6879d",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "25a3fdf7713f42e405ecac2933520e1a9fac54bb5527888c9944a7f1f422eee1",
+      "sha256": "1e1d7411531ea01588d0074ea7ac914a520b175b428a92011e863290d33de70f",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1596,7 +1596,7 @@
       "executable": false
     },
     "src/blotter/onboarding.ts": {
-      "sha256": "65e8fcfbf834f363a5a3a1f1678692956ee0903eca367b9df92870c600d763e2",
+      "sha256": "a878aab7364c7e08469c0bffdb4a3deb0ef6eb84b2f22d3e7aa0ceed04929c79",
       "executable": false
     },
     "src/blotter/organizers-client.ts": {
@@ -4184,7 +4184,7 @@
       "executable": false
     },
     "tests/blotter/intake.test.mjs": {
-      "sha256": "3904d8402af178fc9223c206af18cd51e895b8319d85376049f762fe3db11d5f",
+      "sha256": "ab072d3a2701ccecb99c532df2f1d438d702144d18c42739dba1ea08f69c5129",
       "executable": false
     },
     "tests/blotter/invoice-report-proof.mjs": {

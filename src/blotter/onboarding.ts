@@ -133,10 +133,12 @@ export async function recordOnboardingProgress(db: D1Database, actor: Actor, cli
   insist(item?.selected, 'Only selected setup items can receive progress', 409);
   insist(['received','blocked','pending'].includes(body.state), 'Choose received, blocked or pending');
   const note = text(body.note, 'Observed evidence or blocker', 1000), nextAction = text(body.nextAction, 'Next action and due condition', 1000);
-  // Until delegated custody is ruled, observations and escalation remain with the principal.
+  // ct approved principal custody for this native subset on 25 October 2026.
   insist(body.ownerEmail === actor.email, 'The principal owns onboarding observations in this native subset', 403);
   const progress = Object.fromEntries(plan.items.filter((value: Data) => value.progress).map((value: Data) => [value.id, value.progress]));
-  progress[itemId] = { state: body.state, note, nextAction, ownerEmail: actor.email, recordedBy: actor.email, recordedAt: new Date().toISOString(),
+  const previous = progress[itemId];
+  const history = previous ? [...(previous.history ?? []), Object.fromEntries(Object.entries(previous).filter(([key]) => key !== 'history'))] : [];
+  progress[itemId] = { history, state: body.state, note, nextAction, ownerEmail: actor.email, recordedBy: actor.email, recordedAt: new Date().toISOString(),
     verification: 'Practitioner-recorded observation; no provider connection or client response is independently verified',
     chaseDraft: body.state === 'received' ? null : `Please complete the setup item: ${item.label}. Your accountant will review the response.` };
   await atomic(db, actor, [
