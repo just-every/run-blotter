@@ -4136,7 +4136,7 @@
       "executable": false
     },
     "tests/blotter/ai-fixture.mjs": {
-      "sha256": "2d09e600b61ec17b81c7794c70bf9aae483b3cd8d761c43574a9fe3377b46961",
+      "sha256": "4621aed224e7f3a397eff9d6609551e7c1c5cd619297c43d3c7baffac69d5de2",
       "executable": false
     },
     "tests/blotter/ai-live.mjs": {
@@ -4148,7 +4148,7 @@
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "6a4cdd7b23d6ddb2a1c2ed84a85038b28c4495a687243aba1bf2bb9945bf3585",
+      "sha256": "51f15d6461f1dc92b45e48980ed6f0dbe39c871e8e8af506cba3854a2d59b8ec",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {

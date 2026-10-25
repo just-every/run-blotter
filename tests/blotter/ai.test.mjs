@@ -82,6 +82,14 @@ test('Notice reading is practitioner-only, quotes each extracted value, records 
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'question:1',decision:'reject'},s.reviewer);
   assert.equal(h.mails.length,before);assert.equal((await s.detail(s.j.id)).job.due_date,'2027-04-15');assert.equal((await h.json('/notices',undefined,h.owner)).length,0);
   assert.equal((await h.json(`/jobs/${s.j.id}/ai`,undefined,s.prep)).drafts.some(d=>d.id===draft.id),false);
+  await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'extraction:2',decision:'accept'},s.reviewer);
+  await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'extraction:3',decision:'accept'},s.reviewer);
+  assert.equal((await h.json('/notices',undefined,h.owner)).length,0,'Even reviewed fields remain proposals until a separate native staff action');
+  const opened=await h.json('/notices',{fileId:s.file.id,agency:'IRS',jurisdiction:'federal',noticeType:r.output.extraction[0].value,taxPeriod:r.output.extraction[1].value,noticeDate:'2027-01-15',responseDue:r.output.extraction[3].value,assigneeEmail:'reviewer@example.test',plan:r.output.plan.join('\n')},s.reviewer);
+  assert.equal(opened.source.id,s.file.id);assert.equal(opened.notice.due_verified_at,null);
+  const verified=await h.json(`/notices/${opened.notice.id}/deadline`,{responseDue:r.output.extraction[3].value},s.reviewer);assert.equal(verified.notice.due_verified_by,'reviewer@example.test');
+  const sent=await h.json(`/jobs/${s.j.id}/portal/messages`,{body:r.output.questions[0]},s.reviewer);assert.ok(sent.messages.some(m=>m.body===r.output.questions[0]));assert.ok(!sent.messages.some(m=>m.body===r.output.questions[1]));
+  assert.equal(h.mails.length,before,'The human portal post never sends an email or contacts an agency');assert.equal(h.aiCalls.length,1);
  }finally{await h.close();}
 });
 
