@@ -124,6 +124,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { cls: 'structure', table: 'b_time_suggestions', action: 'delete', label: 'Time suggestions', where: `job_id IN ${s.JE}` },
     { cls: 'structure', table: 'b_plan_items', action: 'delete', label: 'Daily plan items', where: `job_id IN ${s.JE}` },
     { cls: 'notification', table: 'b_notifications', action: 'redact', label: 'Staff notification text (alerts, not evidence; held jobs too)', where: `job_id IN ${s.JALL}`, set: `summary='${MARK}'` },
+    { cls: 'derived_ai', table: 'b_onboarding_plans', action: 'delete', label: 'Onboarding scope reviews and derived setup observations', where: `client_id=${s.c}` },
     {cls:'derived_ai',table:'b_agent_runs',action:'redact',label:'Agent preparation fingerprints',where:`job_id IN ${s.JE} AND preparation_hash IS NOT NULL`,set:`preparation_hash=NULL`},
     {cls:'derived_ai',table:'b_proposals',action:'redact',label:'Scheduled agent labels and decision notes (ids and decision attribution stay)',where:`id IN (SELECT proposal_id FROM b_agent_runs WHERE job_id IN ${s.JE})`,set:`agent_label='[erased]',decision_note=CASE WHEN decision_note IS NULL THEN NULL ELSE '[erased]' END`},
     { cls: 'derived_ai', table: 'b_proposals', action: 'redact', label: 'Agent plans and outputs for this work (derived drafts; run and decision ids stay)', where: `kind IN ('rollforward','reminder') AND json_extract(payload,'$.jobId') IN ${s.JE} AND payload<>'{}'`, set: `payload='{}'` },

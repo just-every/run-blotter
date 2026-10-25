@@ -3,6 +3,7 @@
 // configuration stay out of every archive.
 const inactive = (table, row) => {
   // VAULT-001: the principal's "exclude" choice drops credential ciphertext; "encrypt" carries it sealed.
+  if (table === 'b_onboarding_plans') return {...row,status:'held'};
   if (table === 'b_agent_rules') return {...row,status:row.status==='revoked'?'revoked':'paused'};
   if (table === 'b_agent_runs' && ['pending','blocked','awaiting_agent'].includes(row.status)) return {...row,status:'held',outcome:'Restored history; never replay'};
   if (table === 'b_service_prices') return {...row,enabled:0};
@@ -34,7 +35,7 @@ export default {
   excludeTables: ['b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
   // Retained rules and unsent staff alerts are history until explicitly reviewed.
   exportRow: inactive,
-  importSafety: { b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },
+  importSafety: { b_onboarding_plans: { status: ['held'] }, b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },
   importRow: inactive,
   replaceableTables: ['b_meta'],
   requiredConfiguration: ['OWNER_EMAIL', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],

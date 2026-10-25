@@ -1,4 +1,4 @@
-import { previewOnboarding } from './onboarding';
+import { previewOnboarding, reviewOnboarding, onboardingPlan, recordOnboardingProgress } from './onboarding';
 import { agentRules, saveAgentRule, stopAgentRule, runAgentRules, pendingAgentPlans, fillAgentPlan } from './scheduled-agents';
 import { costState, exportCosts, savePrice, setService, saveBudget, estimateCosts, reconcileCost } from './costs';
 import { signatureRoutes } from './signature-routes';
@@ -430,6 +430,9 @@ api.get(`${P}/retention/ready`, as((a, c) => readyToErase(db(c), a)));
 api.post(`${P}/retention/ready/confirm`, as(async (a, c) => confirmExpiry(db(c), a, await body(c))));
 api.post(`${P}/clients/:id/deletion-requests`, as(async (a, c) => recordRequest(db(c), a, param(c), await body(c))));
 api.post(`${P}/clients/:id/onboarding/preview`, as(async (a, c) => previewOnboarding(db(c), a, param(c), await body(c))));
+api.post(`${P}/clients/:id/onboarding/plans`, as(async (a, c) => reviewOnboarding(db(c), a, param(c), await body(c))));
+api.get(`${P}/clients/:id/onboarding/plans/:plan`, as(async (a, c) => onboardingPlan(db(c), a, param(c), param(c, 'plan'))));
+api.post(`${P}/clients/:id/onboarding/plans/:plan/progress`, as(async (a, c) => recordOnboardingProgress(db(c), a, param(c), param(c, 'plan'), await body(c))));
 api.get(`${P}/clients/:id/engagements`, as((a, c) => engagements(db(c), a, param(c))));
 api.post(`${P}/clients/:id/engagements`, as(async (a, c) => recordEngagement(db(c), a, param(c), await body(c))));
 api.get(`${P}/engagements/:id/file`, as((a, c) => downloadEngagement(db(c), a, param(c))));

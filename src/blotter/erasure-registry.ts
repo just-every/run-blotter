@@ -41,7 +41,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('organizer', 'b_job_organizers', 'b_organizer_answers', 'b_organizer_submissions', 'b_organizer_requests'),
   ...by('prospect', 'b_prospects', 'b_prospect_events', 'b_prospect_files'),
   ...by('readiness', 'b_readiness_questions'),
-  ...by('derived_ai', 'b_proposals', 'b_file_text', 'b_learning_proposals', 'b_learning_sources', 'b_learning_refs', 'b_learning_versions', 'b_learning_clients', 'b_learning_job_versions'),
+  ...by('derived_ai', 'b_onboarding_plans', 'b_proposals', 'b_file_text', 'b_learning_proposals', 'b_learning_sources', 'b_learning_refs', 'b_learning_versions', 'b_learning_clients', 'b_learning_job_versions'),
   ...by('vault', 'b_vault_credentials', 'b_vault_reveals'),
   ...by('api', 'b_api_client_writes'),
   ...by('structure', 'b_agent_rules', 'b_agent_runs', 'b_transcript_requests', 'b_clients', 'b_jobs', 'b_job_status_history', 'b_requests', 'b_job_deadlines', 'b_rule_periods', 'b_recurrence_rules', 'b_recurrence_imports', 'b_recurrence_import_items', 'b_client_obligations',
