@@ -37,7 +37,7 @@ export async function aiJourney(h,s) {
    const review=ai.getByRole('region',{name:'AI proposals'});await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();
    await review.getByLabel('Reply draft',{exact:true}).fill('Reviewed by the principal; please confirm the discrepancy.');await capture('ai-summary-unsaved',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
-   await review.getByRole('button',{name:'Accept reply draft',exact:true}).click();await capture('ai-summary-saved',review);
+   await review.getByRole('button',{name:'Accept reply draft',exact:true}).click();await review.getByText('Accepted',{exact:true}).first().waitFor();await capture('ai-summary-saved',review);
    await ai.getByLabel('Preparation',{exact:true}).selectOption('document');await ai.getByLabel('Source',{exact:true}).selectOption('document:'+s.file.id);await confirmation.check();
    await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();await capture('ai-document-proposals',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
@@ -52,8 +52,10 @@ export async function aiJourney(h,s) {
    await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();
    assert.ok(await review.getByText('Proposed — verify against the notice',{exact:true}).count()>=2);assert.ok((await review.innerText()).includes('No recorded authorization is on file'));await capture('ai-notice-proposals',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
-   await review.getByRole('button',{name:'Accept client question',exact:true}).first().click();
-   await review.getByRole('button',{name:'Accept client question',exact:true}).locator('..').getByRole('button',{name:'Reject',exact:true}).click();await capture('ai-notice-reviewed',review);
+   const firstQuestion=review.locator('p').filter({hasText:'Why does the notice differ from your records?'}).locator('..');
+   await firstQuestion.getByRole('button',{name:'Accept client question',exact:true}).click();await firstQuestion.getByText('Accepted',{exact:true}).waitFor();
+   const secondQuestion=review.locator('p').filter({hasText:'Can you provide the income statements?'}).locator('..');
+   await secondQuestion.getByRole('button',{name:'Reject',exact:true}).click();await secondQuestion.getByText('Rejected',{exact:true}).waitFor();await capture('ai-notice-reviewed',review);
    const search=page.getByRole('button',{name:'Search',exact:true});await search.focus();await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();await capture('ai-search-tooltip',page.locator('body'));
    await search.blur();await page.mouse.move(1,999);await search.hover();await page.waitForTimeout(150);assert.equal(await page.getByRole('tooltip').count(),0);await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();
    await page.mouse.move(1,999);const account=page.locator('summary[aria-label]').first();await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor();await capture('ai-account-tooltip',page.locator('body'));await account.blur();
