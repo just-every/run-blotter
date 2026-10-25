@@ -4,7 +4,7 @@ import { aiModel, aiProvider, aiSettings } from './ai-settings';
 import { aiJob, aiScope, aiSource, aiSources } from './ai-sources';
 import { maskAiText } from './ai-masking';
 import { runAiProvider, validateAiOutput } from './ai-provider';
-import { atomic, audit, digest, guard, human, id, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, Fault, guard, human, id, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
 
 export async function aiState(db: D1Database, actor: Actor, env: Bindings, jobId: string) {
   await aiJob(db, actor, jobId);
@@ -13,7 +13,7 @@ export async function aiState(db: D1Database, actor: Actor, env: Bindings, jobId
   for (const d of list) {
     if (d.purpose === 'notice' && actor.role === 'preparer') continue;
     try { await aiSource(db, actor, jobId, d.source_kind, d.source_id); drafts.push({ ...d, output: JSON.parse(d.output), decisions: await rows(db, 'SELECT * FROM b_ai_decisions WHERE draft_id=?', d.id) }); }
-    catch { /* A draft never retains access after its source is revoked. */ }
+    catch (error) { if (!(error instanceof Fault && [403,404,409,422].includes(error.status))) throw error; }
   }
   return { ...await aiSettings(db, actor, env), sources: await aiSources(db, actor, jobId), drafts,
     targets: await rows(db, 'SELECT id,label FROM b_requests WHERE job_id=? AND organizer_active=1 ORDER BY ordinal', jobId) };

@@ -2,7 +2,7 @@ import { documentBytes } from './document-packets';
 import { staffFile } from './document-source';
 import { documentText } from './pdf-text';
 import { documentAuthority, requireDocument } from './permissions';
-import { digest, guard, human, insist, readableJob, readableJobParams, readableJobSql, rows, stmt, type Actor, type Data } from './model';
+import { digest, Fault, guard, human, insist, readableJob, readableJobParams, readableJobSql, rows, stmt, type Actor, type Data } from './model';
 
 export function aiScope(db: D1Database, actor: Actor, jobId: string, kind: string, sourceId: string) {
   const file = "'" + sourceId.replaceAll("'", "''") + "'";
@@ -25,7 +25,7 @@ export async function aiSources(db: D1Database, actor: Actor, jobId: string) {
     sources.push({ id: jobId, kind: 'portal', label: 'Client portal conversation' });
   for (const f of await rows(db, "SELECT file_key,name FROM b_document_sources WHERE job_id=? AND kind='file' AND content_base64 IS NOT NULL ORDER BY name", jobId)) {
     try { await requireDocument(db, actor, f.file_key); sources.push({ id: f.file_key, kind: 'document', label: f.name }); }
-    catch { /* Documents outside current custody never become selectable sources. */ }
+    catch (error) { if (!(error instanceof Fault && [403,404].includes(error.status))) throw error; }
   }
   return sources;
 }
