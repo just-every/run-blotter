@@ -36,8 +36,8 @@ test('AI assistance requires owner enablement, an authorized explicit click and 
 
 test('Document proposals require individual review, retain the source, copy only to an authorized same-job request and name unreadable sources',async()=>{
  const h=await harness({bindings:aiBindings,aiResponse:aiEdge});try{
-  const s=await aiFixture(h);await s.enable();const original=await(await h.request(`/api/blotter/documents/${s.file.id}/file`,undefined,s.prep)).text();
-  const r=await s.request('document');assert.match(r.output.validation[0],/2024.*2026/);
+  const s=await aiFixture(h);await s.enable(true,3,0.95);const original=await(await h.request(`/api/blotter/documents/${s.file.id}/file`,undefined,s.prep)).text();
+  const r=await s.request('document');assert.match(r.output.validation[0],/2024.*2026/);assert.equal(r.review.needsReview,true);assert.equal(r.review.personRequired,true);
   const draft=await h.json(`/ai/requests/${r.requestId}/draft`,{output:r.output},s.prep);
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'name',decision:'accept',value:'Reviewed-2024-notice.txt'},s.prep);
   const outside=await s.start(s.outside.id),other=(await s.detail(outside.id)).requests[0];
@@ -56,7 +56,7 @@ test('Document proposals require individual review, retain the source, copy only
   const wrongDraft=await h.json(`/ai/requests/${wrong.requestId}/draft`,{output:wrong.output},s.prep);await h.json(`/ai/drafts/${wrongDraft.id}/decisions`,{field:'validation:0',decision:'reject'},s.prep);
   assert.equal((await s.detail(s.j.id)).requests[0].status,'received','Mismatched evidence remains unaccepted for human review');
   const invoice=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'invoice.txt',mime:'text/plain',contentBase64:Buffer.from(invoiceText).toString('base64')},s.prep);
-  const correct=await s.request('document',s.prep,{sourceId:invoice.id});assert.equal(correct.output.extraction.find(e=>e.field==='Period').value,'2026');
+  const correct=await s.request('document',s.prep,{sourceId:invoice.id});assert.equal(correct.output.extraction.find(e=>e.field==='Period').value,'2026');assert.equal(correct.review.needsReview,false);assert.equal(correct.review.personRequired,true);
   const invoiceDraft=await h.json(`/ai/requests/${correct.requestId}/draft`,{output:correct.output},s.prep);
   await h.json(`/ai/drafts/${invoiceDraft.id}/decisions`,{field:'extraction:2',decision:'accept',value:'2025'},s.prep,400);
   await h.json(`/ai/drafts/${invoiceDraft.id}/decisions`,{field:'extraction:2',decision:'accept'},s.prep);await h.json(`/ai/drafts/${invoiceDraft.id}/decisions`,{field:'name',decision:'reject'},s.prep);

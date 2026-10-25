@@ -4,6 +4,7 @@ import { Fault } from './model';
 import { maskAiText } from './ai-masking';
 
 export type AiOutput = {
+  confidence: number;
   summary: string; reply: string; questions: string[]; conflicts: string[];
   validation: string[]; extraction: { field: string; value: string; quote: string }[];
   suggestedName: string; routing: string; plan: string[];
@@ -14,6 +15,7 @@ const listLimits = { questions: 6, conflicts: 6, validation: 6, plan: 6 } as con
 const extractionLimits = { field: 80, value: 160, quote: 240 } as const;
 const stringSchema = (maxLength: number) => ({ type: 'string', maxLength });
 const properties = {
+  confidence: {type:'number',minimum:0,maximum:1},
   ...Object.fromEntries(Object.entries(scalarLimits).map(([key, max]) => [key, stringSchema(max)])),
   ...Object.fromEntries(Object.entries(listLimits).map(([key, maxItems]) => [key, { type: 'array', maxItems, items: stringSchema(180) }])),
   extraction: { type: 'array', maxItems: 8, items: {
@@ -31,6 +33,7 @@ function bounded(value: unknown, max: number): value is string { return typeof v
 export function validateAiOutput(value: unknown, sourceText?: string): AiOutput {
   if (!object(value) || Object.keys(value).length !== Object.keys(properties).length ||
       Object.keys(value).some(key => !Object.hasOwn(properties, key))) throw invalidResponse();
+  if(typeof value.confidence!=='number' || !Number.isFinite(value.confidence) || value.confidence<0 || value.confidence>1) throw invalidResponse();
   for (const [key, max] of Object.entries(scalarLimits)) if (!bounded(value[key], max)) throw invalidResponse();
   for (const [key, max] of Object.entries(listLimits)) {
     const items = value[key];
@@ -81,7 +84,7 @@ export async function runAiProvider(env: Bindings, purpose: 'summary' | 'documen
   const task = purpose === 'notice'
     ? 'Extract notice type, tax period, proposed amount and response deadline when explicitly printed; cite each exact source quote. Propose client questions and a response plan. Transcript context is unavailable; never invent a comparison.'
     : purpose === 'document'
-      ? 'Identify the document type, named client, period, amount and legibility from the source. Propose validation findings, a filename and routing for human review; the person compares these with their requested document and job context.'
+      ? 'Identify the document type, named client, period, amount and legibility from the source. Propose validation findings, a filename and routing for human review; the person compares these with their requested document and job context. Confidence is only your proposed reading-confidence estimate from zero to one, never permission or a verified probability.'
       : 'Summarize the selected source, its dates, unresolved questions and conflicting amounts. Propose a concise staff reply without claiming signed engagement scope or any missing mailbox context.';
   if (source.length > 24_000) throw new Fault('AI input unavailable.', 400);
   try {

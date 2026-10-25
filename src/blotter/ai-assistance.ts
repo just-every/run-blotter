@@ -10,6 +10,11 @@ async function noticeContext(db:D1Database,clientId:string) {
   const recorded=await rows(db,"SELECT id,kind,agency,matters FROM b_authorizations WHERE client_id=? AND status='recorded'",clientId);
   return {recordedAuthorizations:recorded.map(r=>({...r,matters:JSON.parse(r.matters)})),transcripts:'Unavailable until RESOLVE-001 and INTEGRATE-006 are authorized'};
 }
+async function documentReview(db:D1Database,confidence:number) {
+  const settings=await stmt(db,'SELECT review_threshold FROM b_ai_settings WHERE id=1').first<Data>();
+  const threshold=Number(settings?.review_threshold ?? 0.9);
+  return {threshold,needsReview:confidence<threshold,personRequired:true};
+}
 
 export async function aiState(db: D1Database, actor: Actor, env: Bindings, jobId: string) {
   await aiJob(db, actor, jobId);
@@ -57,6 +62,7 @@ export async function requestAi(env: Bindings, actor: Actor, jobId: string, body
     const [readable,readDone] = aiScope(db,actor,jobId,source.kind,source.id);
     await atomic(db, actor, [enabled, readable, stmt(db, "UPDATE b_ai_requests SET status='completed' WHERE id=?", requestId), readDone, done]);
     return { requestId, purpose, output: result.output, source, provider: result.provider, model: result.model,
+      ...(purpose==='document'?{review:await documentReview(db,result.output.confidence)}:{}),
       ...(purpose==='notice'?{noticeContext:await noticeContext(db,source.clientId)}:{}) };
   } catch (error) {
     await stmt(db, "UPDATE b_ai_requests SET status='failed' WHERE id=?", requestId).run();
@@ -91,5 +97,6 @@ export async function readAiDraft(db: D1Database, actor: Actor, draftId: string)
   const { r, source } = await aiRequest(db, actor, d.request_id);
   return { ...d, output: JSON.parse(d.output), purpose: r.purpose, source_id: r.source_id, source_kind: r.source_kind,
     source, provider: r.provider, model: r.model, decisions: await rows(db, 'SELECT * FROM b_ai_decisions WHERE draft_id=? ORDER BY decided_at', draftId),
+    ...(r.purpose==='document'?{review:await documentReview(db,JSON.parse(d.output).confidence)}:{}),
     ...(r.purpose==='notice'?{noticeContext:await noticeContext(db,source.clientId)}:{}) };
 }

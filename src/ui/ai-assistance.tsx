@@ -74,6 +74,7 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
     <h3>{saved ? 'Saved draft' : 'Unsaved proposals'}</h3>
     {result.provider && <p className="muted">Prepared by {result.provider} · {result.model}</p>}
     {!saved && <p className="muted">These proposals remain in this page until you explicitly save a draft.</p>}
+    {result.review && <p>Proposed reading confidence: {Math.round(output.confidence*100)}%. Current firm threshold: {Math.round(result.review.threshold*100)}%. {result.review.needsReview?'Below threshold: needs manual review.':'At or above threshold: eligible for human review.'} This is an unverified model estimate; every proposal still needs a person.</p>}
     {result.noticeContext && <aside>
       <h3>Authorization check</h3>
       {!result.noticeContext.recordedAuthorizations.length ? <p>No recorded authorization is on file. Review the client's authority before any agency contact.</p>

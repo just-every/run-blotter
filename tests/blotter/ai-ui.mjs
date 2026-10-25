@@ -27,6 +27,7 @@ export async function aiJourney(h,s) {
    assert.equal(await settings.getByRole('checkbox').isChecked(),false);await capture('ai-settings-off',settings);
    const ref=settings.getByLabel('Recorded attestation reference',{exact:true});
    await ref.fill('synthetic-blotter-5: fictional provider no-training and no-retention attestation');await ref.blur();
+   await settings.getByLabel('Document review confidence threshold',{exact:true}).fill('0.95');await settings.getByLabel('Document review confidence threshold',{exact:true}).blur();
    await settings.getByRole('checkbox').check();await page.getByRole('status').filter({hasText:'Saved'}).first().waitFor();
    assert.equal(h.aiCalls.length,before);await capture('ai-settings-enabled',settings);
    await page.goto(h.origin+`/app?job=${s.j.id}`);
@@ -39,7 +40,7 @@ export async function aiJourney(h,s) {
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
    await review.getByRole('button',{name:'Accept reply draft',exact:true}).click();await review.getByText('Accepted',{exact:true}).first().waitFor();await capture('ai-summary-saved',review);
    await ai.getByLabel('Preparation',{exact:true}).selectOption('document');await ai.getByLabel('Source',{exact:true}).selectOption('document:'+s.file.id);await confirmation.check();
-   await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();await capture('ai-document-proposals',review);
+   await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();assert.ok((await review.innerText()).includes('Below threshold: needs manual review.'));await capture('ai-document-proposals',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
    await review.getByRole('button',{name:'Accept document validation',exact:true}).locator('..').getByRole('button',{name:'Reject',exact:true}).click();
    await review.getByLabel('Proposed filename for a copy',{exact:true}).fill('Reviewed-notice-'+width+'.txt');await review.getByRole('button',{name:'Accept proposed filename for a copy',exact:true}).click();
