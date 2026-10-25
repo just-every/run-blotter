@@ -1176,7 +1176,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "83af9f83c3b7847e07a25001bed3d6e269a1412df2ab2404703cf270951c1712",
+      "sha256": "068143cf1af24a5f88d6836a2d8793078fb611eeeb77b65dee45ceb27ff96974",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1589,6 +1589,10 @@
     },
     "src/blotter/offboarding.ts": {
       "sha256": "b12787b5fa7ecd21b9f90fbf5595cfcc18564001cfb5fb0a2d73f5b4a2d8f804",
+      "executable": false
+    },
+    "src/blotter/onboarding.ts": {
+      "sha256": "e41e3298e712a0086f0b54dd22dfc23e5e924c59359a6fd6d830c81ef5d3c4fc",
       "executable": false
     },
     "src/blotter/organizers-client.ts": {
