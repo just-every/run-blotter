@@ -8,7 +8,7 @@ let calls=0;
 const h=await harness({bindings:{AI_API_KEY:process.env.AI_API_KEY,AI_MODEL:'gpt-5-nano'},aiResponse:async(payload,request)=>{
  assert.ok(++calls<=3,'This journey permits at most three provider requests');
  assert.equal(payload.store,false);assert.equal(payload.max_completion_tokens,1200);assert.equal(payload.tools,undefined);
- const wire=JSON.stringify(payload);for(const identifier of ['123-45-6789','12-3456789','123456789012'])assert.ok(!wire.includes(identifier));
+ const wire=JSON.stringify(payload);for(const identifier of ['123-45-6789','12-3456789','123456789012','987-65-4321','7654321','GB82 WEST'])assert.ok(!wire.includes(identifier));
  assert.ok(wire.length<12000,'Synthetic input and schema remain within the run cap');
  console.log(JSON.stringify({providerEdge:{number:calls,provider:'openai',model:payload.model,payload}}));
  const response=await fetch(request.url,{method:'POST',headers:request.headers,body:wire,signal:AbortSignal.timeout(30_000)});

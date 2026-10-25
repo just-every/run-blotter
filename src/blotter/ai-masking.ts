@@ -1,9 +1,10 @@
 /** Conservative outbound masking; ambiguous long identifiers are withheld too. */
 export function maskAiText(value: string): string {
   const labeled = value.normalize('NFKC')
+    .replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\p{Cf}/gu, '')
     // Account identifiers may include letters as well as grouped digits.
     .replace(/\b[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]{4}){2,7}(?:[ -]?[A-Z0-9]{1,3})?\b/gi, '[REDACTED IBAN]')
-    .replace(/\b((?:bank[ \t]+)?account|acct|iban|routing|bsb|sort[ \t]+code|ssn|ein|itin|tin|tfn|abn|acn|tax[ \t]+(?:id|identification|file)[ \t]*(?:number)?)\b([ \t]*(?:(?:number|no\.?|id|is)[ \t]*)?[:#=]?[ \t]*)([A-Z]{0,4}[ -]?[\p{Nd}](?:[ \t().\/-]*[\p{Nd}]){2,33}[A-Z]{0,4}|[A-Z0-9]{0,30}\p{Nd}[A-Z0-9]{2,30})/giu,
+    .replace(/\b((?:bank\s+)?account|acct|iban|routing|bsb|sort\s+code|ssn|ein|itin|tin|tfn|abn|acn|tax\s+(?:id|identification|file)\s*(?:number)?)\b(\s*(?:(?:number|no\.?|id|is)\s*)?[:#=]?\s*)([A-Z]{0,4}[ -]?[\p{Nd}](?:[ \t().\/-]*[\p{Nd}]){2,33}[A-Z]{0,4}|[A-Z0-9]{0,30}\p{Nd}[A-Z0-9]{2,30})/giu,
       (_match, label: string) => `${label}: [REDACTED IDENTIFIER]`);
   // Preserve real calendar dates only after labeled identifiers are withheld.
   return labeled.split(/(\b\d{4}-\d{2}-\d{2}\b)/g).map(part => {

@@ -17,6 +17,7 @@ export function AiSettings({ run, tick }: { run: Run; tick: number }) {
   const save = async (enabled: boolean) => {
     if (saving.current || !settings) return;
     saving.current = true; setBusy(true);
+    setSettings({ ...settings, enabled });
     await run(async () => {
       const attestationRef = reference.trim();
       const saved=await api('/ai/settings', { enabled, attestationRef, requestLimit:Number(limit) });

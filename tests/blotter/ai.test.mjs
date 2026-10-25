@@ -19,7 +19,7 @@ test('AI assistance requires owner enablement, an authorized explicit click and 
   await h.json(`/clients/${s.client.id}/credentials`,{label:'Private bank portal',url:'https://bank.example.test',username:'synthetic-blotter-6',password:'synthetic-blotter-7',notes:'Private vault context'},h.owner);
   const state=await h.json(`/jobs/${s.j.id}/ai`,undefined,s.prep);assert.ok(!JSON.stringify(state).includes('private-thread'));assert.equal(h.aiCalls.length,0);
   const r=await s.request(),payload=h.aiCalls[0],wire=JSON.stringify(payload),source=JSON.parse(payload.messages[1].content).source;
-  for(const forbidden of ['123-45-6789','12-3456789','123456789012','private-thread','outside-context','synthetic-blotter-7'])assert.ok(!wire.includes(forbidden));
+  for(const forbidden of ['123-45-6789','12-3456789','123456789012','987-65-4321','7654321','GB82 WEST','private-thread','outside-context','synthetic-blotter-7'])assert.ok(!wire.includes(forbidden));
   assert.ok(source.includes('2027-02-28'));assert.equal(payload.store,false);assert.equal(payload.tools,undefined);
   const metadata=await h.db.prepare('SELECT * FROM b_ai_requests WHERE id=?').bind(r.requestId).first();
   assert.equal(metadata.input_hash,createHash('sha256').update(source).digest('hex'));assert.equal(metadata.input_bytes,Buffer.byteLength(source));assert.equal(metadata.requested_by,'prep@example.test');
