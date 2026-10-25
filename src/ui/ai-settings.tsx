@@ -29,7 +29,7 @@ export function AiSettings({ run, tick }: { run: Run; tick: number }) {
   return <section className="panel wide">
     <h2>AI assistance</h2>
     <details><summary>Enable source review assistance</summary>
-      <p>AI assistance is off by default. Record the reference to your firm's completed attestation before enabling it.</p>
+      <p>AI assistance is off by default. Record the reference to your firm's completed provider no-training and no-retention attestation before enabling it.</p>
       <p className="muted">Provider: {settings.provider} · model: {settings.model}. Staff choose a source and explicitly confirm each request. AI prepares proposals for human review.</p>
       <p>{settings.used} of {settings.requestLimit} approved requests used. Failed provider attempts consume a request. Each request is limited to 24,000 source characters and 1,200 output tokens.</p>
       <Field label="Maximum requests under this approval" name="aiRequestLimit"><input type="number" min="1" max="1000" value={limit} disabled={busy} onChange={event=>{dirty.current=true;setLimit(event.target.value);}} onBlur={()=>{if(reference.trim() && Number(limit)!==settings.requestLimit)save(settings.enabled);else {dirty.current=false;setSettings({...settings});}}} /></Field>

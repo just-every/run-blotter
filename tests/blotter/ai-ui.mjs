@@ -51,6 +51,8 @@ export async function aiJourney(h,s) {
    await search.blur();await page.mouse.move(1,999);await search.hover();await page.waitForTimeout(150);assert.equal(await page.getByRole('tooltip').count(),0);await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();
    await page.mouse.move(1,999);const account=page.locator('summary[aria-label]').first();await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor();await capture('ai-account-tooltip',page.locator('body'));await account.blur();
    await page.goto(portal.portalUrl);await page.getByText('Firm disclosure',{exact:true}).click();await page.getByText(/Firm staff may use an AI provider/).waitFor();await capture('ai-portal-disclosure');
+   await page.goto(h.origin+'/client');await page.getByText('Firm disclosure',{exact:true}).click();await page.getByText(/Firm staff may use an AI provider/).waitFor();await capture('ai-account-disclosure');
+   await page.goto(h.origin+'/client?lang=es');await page.getByText('Información de la firma',{exact:true}).click();await page.getByText(/El personal de la firma puede utilizar/).waitFor();await capture('ai-account-disclosure-spanish');
    assert.equal(h.aiCalls.length,before+3);await context.close();
   }
  } finally {await browser.close();}

@@ -3824,7 +3824,7 @@
       "executable": false
     },
     "src/ui/ai-settings.tsx": {
-      "sha256": "7f6949d1f37a269fa89f4fe9effe0dffb1aae0aac4fe2269b981d5b2b36f9518",
+      "sha256": "ac61f7c7e0a2eec6024af3d67b2217f7bbff8ecfdefbf072ad8a561f40f7f092",
       "executable": false
     },
     "src/ui/archive-transfer-file.ts": {
@@ -3864,7 +3864,7 @@
       "executable": false
     },
     "src/ui/client-account.tsx": {
-      "sha256": "cc128548e6f3ecdf14c2b2b1ea9140e9076a3693e3b4894fbf393fba961cde6c",
+      "sha256": "b4e85e0f2423e43be325c8e5f8fb7a090f8e22533da3a76d636ed3f97f986758",
       "executable": false
     },
     "src/ui/client-details.tsx": {
@@ -4020,7 +4020,7 @@
       "executable": false
     },
     "src/ui/portal.tsx": {
-      "sha256": "dac9afb704acdfe0e7c55a6869c7f2011c5f5b28c7ea2100cb412331454fe287",
+      "sha256": "2daf3afb3b8529ee547c86fa8da966c378baa0dfa8a05981a7844cc3269acb48",
       "executable": false
     },
     "src/ui/profiles.tsx": {
@@ -4136,7 +4136,7 @@
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {
-      "sha256": "7f64b3273925505301917a974f5508b172d36c35a26591478b458cc24a84eee2",
+      "sha256": "dd4654596583066ad5cbce7408db70990078ec266f496c40864ac688576902f8",
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AiDisclosure } from './ai-disclosure';
 import { Field, Form, moneyText, Status, day, type Row } from './common';
 import { LanguageProvider, useLanguage, useT } from './i18n';
 import type { Language } from '../i18n/catalog';
@@ -57,6 +58,7 @@ function Page(p: PageProps) {
       : p.codes.length ? <RecoveryCodes codes={p.codes} done={() => { p.setCodes([]); p.load(); }} />
       : p.me.mfa ? <Factor need={p.me.mfa} act={p.act} load={p.load} setCodes={p.setCodes} />
       : <Home {...p} me={p.me} />}
+    <AiDisclosure />
   </main></div>;
 }
 
