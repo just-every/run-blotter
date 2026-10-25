@@ -4292,7 +4292,7 @@
       "executable": false
     },
     "tests/blotter/service-agents.test.mjs": {
-      "sha256": "9a3c4a047247440add4267b2b66b571102d26e1e2b267af0f3c775779271f6f9",
+      "sha256": "f5673a45d52b2f5d5f63cbaa63832170edb724d53f69ad3d5a2248fb28d01963",
       "executable": false
     },
     "tests/blotter/signatures-ui.mjs": {
