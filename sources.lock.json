@@ -4144,7 +4144,7 @@
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {
-      "sha256": "2bbc52b3b782ca8fc3a6e16d2116f646b1b2049773fa882668d091d5e5845321",
+      "sha256": "d156fe560bf8490f0d3b077075c3cf8356403a769162ad371f45647178954399",
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
