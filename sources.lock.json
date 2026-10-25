@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a9c72fac1a9f232185d40bebc3f727f77a3692fa2e5fd0f2c8a5d3015fe10c00",
+      "sha256": "541d128a5110eaf21b4f25a993fe5c6b389b5f046574433b2dcf3fc39fe4de2d",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4284,7 +4284,7 @@
       "executable": false
     },
     "tests/blotter/service-agents.test.mjs": {
-      "sha256": "ca437658a3afb71a6c4396c0fe793abdf777f5473a1ec1a79e1c9f1cf12279bb",
+      "sha256": "b4964b9851fa1bc3ac009cfe3ba8f558b1c20b7f7ca378f7f031e12178542630",
       "executable": false
     },
     "tests/blotter/signatures-ui.mjs": {

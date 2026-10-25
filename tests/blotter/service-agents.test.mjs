@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {harness} from './harness.mjs';
 import {automationFixture} from './automation-fixture.mjs';
 import {enroll} from './erasure-fixture.mjs';
@@ -153,7 +154,8 @@ test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable re
   const plans=await h.json('/agent/plans',undefined,'',200,auth);assert.equal(plans.plans.length,2);assert.ok(plans.plans.every(p=>p.jobId===j.id&&p.clientId===s.client.id&&p.tool==='reminder'));assert.equal(h.mails.length,before);assert.match(plans.exclusions,/No document bytes/);assert.match(plans.plans[0].provider.verification,/not verified/);assert.equal(plans.plans[0].provider.dataUse,options.dataUse);
   for(const plan of plans.plans)assert.deepEqual(plan.provider,{name:options.providerName,model:options.modelName,dataUse:options.dataUse,retention:options.providerRetention,verification:'owner-declared; not verified by Blotter'});
   const team=await h.json('/team',undefined,h.owner),rules=await h.json('/agent-rules',undefined,h.owner);
-  for(const response of [team,rules,plans]){assert.ok(!JSON.stringify(response).includes(key.key));assert.ok(!JSON.stringify(response).includes(other.key));}
+  const privateKeyMaterial=[key.key,other.key,...[key,other].map(k=>createHash('sha256').update(k.key).digest('hex'))];
+  for(const response of [team,rules,plans])for(const secret of privateKeyMaterial)assert.ok(!JSON.stringify(response).includes(secret));
   assert.ok(team.keys.every(k=>!('key' in k)&&!('digest' in k)));
   for(const rule of rules.rules){assert.equal(rule.supervisor_email,'owner@example.test');for(const value of Object.values(options).filter(v=>v!=='external'))assert.ok(rule.model_policy.includes(value));assert.match(rule.model_policy,/not provider verification/);}
   assert.deepEqual((await h.json('/agent/plans',undefined,'',200,otherAuth)).plans,[]);
@@ -165,7 +167,7 @@ test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable re
   assert.equal((await h.json('/agent-rules',undefined,h.owner)).rules.reduce((n,r)=>n+r.used,0),2);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,2);assert.equal(h.mails.length,before);
   await h.json('/proposals/'+filled.id+'/decide',{decision:'decline',reason:'Do not send'},h.owner);assert.equal(h.mails.length,before);
   const second=plans.plans[1];const pending=await h.json('/agent/plans/'+second.id,{message:'Needs review'},'',200,auth);await h.json('/agent-rules/'+scheduled.id+'/revoke',{},h.owner);await h.json('/agent-rules/'+r.id+'/revoke',{},h.owner);await h.json('/proposals/'+pending.id+'/decide',{decision:'approve'},h.owner,409);assert.deepEqual((await h.json('/agent/plans',undefined,'',200,auth)).plans,[]);assert.equal(h.mails.length,before);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/agent.plan_filled/);assert.ok(!archive.includes(key.key));assert.match(archive,/No training under owner contract/);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/agent.plan_filled/);for(const secret of privateKeyMaterial)assert.ok(!archive.includes(secret));assert.match(archive,/No training under owner contract/);
  }finally{await h.close();}
 });
 
