@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "48e623f8009b991bb4b343b9bb8a3b56e32b76ec9d8f1689d07df917cae5e17f",
+      "sha256": "65bf8a7b50bae2d7fe295be6d7a9c3e76a39094e49d8582adbae9025a96feacd",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1668,7 +1668,7 @@
       "executable": false
     },
     "src/blotter/payment-collections.ts": {
-      "sha256": "9b6ed41c9b4b658f33439580498add3eab6ea6acd1a75d5199e553931a724ec2",
+      "sha256": "2d5d3a151c4ee2469f2415ad7fa3c3b57b7ad1627256e3c59b7be96f1234160c",
       "executable": false
     },
     "src/blotter/payment-events.ts": {
@@ -4288,7 +4288,7 @@
       "executable": false
     },
     "tests/blotter/invoices.test.mjs": {
-      "sha256": "2ae7d8cdaebe5ae3337b438c30562e32a82c754ac5884f8156ea4fde98db3401",
+      "sha256": "b58cf9cfc67cfe55ae29d575d8edbc1a6325f6a4ac21ad61a673d22761b71e03",
       "executable": false
     },
     "tests/blotter/language-ui.mjs": {
@@ -4328,7 +4328,7 @@
       "executable": false
     },
     "tests/blotter/payments-live.mjs": {
-      "sha256": "0d1708ede6ae416f72bd22c3d781f9e537c720ee0244be2939c4bf7dcbc374ae",
+      "sha256": "62bd485b638d8ab6117d57c1b4362dba3216b769e2af4bbf58c04066a464dce0",
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {
