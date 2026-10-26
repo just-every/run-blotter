@@ -1200,7 +1200,7 @@
       "executable": false
     },
     "src/blotter/ai-provider.ts": {
-      "sha256": "0d22b66026fa439b6d996f5090eaec0d3a209091b8c885aa70c9717fcdc85f3d",
+      "sha256": "001745ffe12fce1909f02c29337996d753a4ab8966b322dee1df1618bfa21e55",
       "executable": false
     },
     "src/blotter/ai-settings.ts": {
@@ -4140,7 +4140,7 @@
       "executable": false
     },
     "tests/blotter/ai-live.mjs": {
-      "sha256": "5ed3e9d33311c8e370005adcb208250a58d47941596fdaded11b15a61f095ad9",
+      "sha256": "4e4587f210494d2abf6a7c535b35beb5be5646bcd73a27eb8a90c260a6d269f2",
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {

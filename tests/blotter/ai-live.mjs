@@ -30,6 +30,7 @@ try {
  const document=await s.request('document',s.prep,{sourceId:invoice.id});assert.ok(document.output.validation.length);assert.ok(document.output.suggestedName);
  for(const value of ['Cedar Lane LLC','2026'])assert.ok(document.output.extraction.some(item=>item.value===value),`Document extraction retains ${value}`);
  const notice=await s.request('notice',s.reviewer);assert.ok(notice.output.plan.length);
+ console.log(JSON.stringify({syntheticNoticeExtraction:notice.output.extraction}));
  for(const field of ['CP2000','2024','$1,250.00','2027-02-28'])assert.ok(notice.output.extraction.some(item=>item.value===field),`Notice extraction retains ${field}`);
  assert.equal(calls,3);assert.equal(h.mails.length,before);
  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);
