@@ -162,7 +162,7 @@ test('Delegated manage-access and financial-authority grants are bounded and liv
   assert.equal(exportDenied.status,403);assert.equal((await exportDenied.json()).mfa,'step-up');
   assert.equal((await h.send('/api/blotter/team',{email:'fin@example.test',name:'Fin',role:'reviewer'},h.owner)).status,403);
   await h.stepUp(h.owner);
-  assert.equal((await h.send('/api/blotter/backup',undefined,h.owner)).status,200);
+  const archiveDownload=await h.send('/api/blotter/backup',undefined,h.owner);assert.equal(archiveDownload.status,200);await archiveDownload.text();
   for(const email of ['fin@example.test','plain@example.test','mgr@example.test']){await h.json('/team',{email,name:email,role:'reviewer'},h.owner);await h.json('/team/invite',{email},h.owner);}
   const fin=await h.login('fin@example.test'),plain=await h.login('plain@example.test'),mgr=await h.login('mgr@example.test');
   const clients=[];for(const name of ['Cedar Lane LLC','Harbor Studio LLC','Maple Partners LLC'])clients.push(await h.json('/clients',{name},h.owner));
@@ -176,7 +176,7 @@ test('Delegated manage-access and financial-authority grants are bounded and liv
   await h.json(report,undefined,plain,403);await h.json(report,undefined,mgr,403);
   const csv=await h.send(csvPath,undefined,fin);
   assert.equal(csv.status,403);assert.equal((await csv.json()).mfa,'step-up');
-  await h.stepUp(fin);assert.equal((await h.send(csvPath,undefined,fin)).status,200);
+  await h.stepUp(fin);const reportDownload=await h.send(csvPath,undefined,fin);assert.equal(reportDownload.status,200);await reportDownload.text();
   // A manage-access holder works only inside its own holdings and never on itself, the principal or the delegations.
   await h.json('/access/people',{email:'plain@example.test',readOnly:true,clientIds:[clients[0].id]},mgr);
   const refusal=async(path,body,pattern)=>assert.match((await h.json(path,body,mgr,403)).error,pattern);

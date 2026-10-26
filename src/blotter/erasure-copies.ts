@@ -1,3 +1,4 @@
+import { integrationFamilySql } from './integration-policy';
 import {signatureOutsideCopies} from './signatures-retention';
 import { invoiceObservedCopies } from './invoices-erasure';
 // ERASURE-002 observed outside copies (ct 22 Oct 2026). Blotter names every copy of a client's
@@ -38,6 +39,10 @@ export async function observedCopies(db: D1Database, clientId: string): Promise<
   out.push(...named(reports,who=>`Client data in report CSVs/PDFs downloaded by staff (${who})`,'report-downloads',who=>`${who} (the named downloader)`));
   const archives = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='archive.downloaded' AND at>=(SELECT created_at FROM b_clients WHERE id=${c}) GROUP BY actor`);
   out.push(...named(archives, who => `Owner archives downloaded (${who})`, 'archive-downloads', who => `${who} (the named downloader)`));
+  const deliveries=await rows(db,`SELECT h.label,k.creator_email,count(*) n FROM b_integration_deliveries d JOIN b_integration_hooks h ON h.id=d.hook_id JOIN b_integration_keys k ON k.id=h.key_id WHERE d.client_id IN ${integrationFamilySql(c)} AND d.attempts>0 AND d.status IN ('delivered','held','dispatching') GROUP BY h.id`);
+  out.push(...deliveries.map(r=>({source:'integration-webhooks',label:`Thin completion notices to webhook (${r.label})`,owner:`${r.creator_email} (creator; owner-configured external receiver)`,count:Number(r.n),kind:'observed' as const})));
+  const integrations=await rows(db,`SELECT k.label,k.creator_email,count(*) n FROM b_audit a JOIN b_integration_keys k ON k.id=a.object_id WHERE a.action='integration.read' AND EXISTS(SELECT 1 FROM json_each(a.detail,'$.clientIds') j WHERE j.value IN ${integrationFamilySql(c)}) GROUP BY k.id`);
+  out.push(...integrations.map(r=>({source:'integration-reads',label:`Data read by integration key (${r.label})`,owner:`${r.creator_email} (key creator; external recipient-controlled)`,count:Number(r.n),kind:'observed' as const})));
   const reads = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='agent.read' AND instr(detail,${c})>0 GROUP BY actor`);
   out.push(...named(reads, who => `Data read by an agent key (${who})`, 'agent-reads', who => `${who} (the key label and its creator)`));
   return out;

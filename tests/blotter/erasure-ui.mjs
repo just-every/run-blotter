@@ -5,7 +5,7 @@ import { chromium } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
 export async function retentionJourney(h, phase, clientName) {
-  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
+  const browser = await chromium.launch({ headless: true, ...(process.env.BLOTTER_CHROMIUM ? { executablePath: process.env.BLOTTER_CHROMIUM } : {}), args: ['--use-mock-keychain', '--password-store=basic', ...(process.env.BLOTTER_CHROMIUM ? ['--no-sandbox'] : [])] });
   const evidence = process.env.BLOTTER_ERASURE_EVIDENCE;
   if (evidence) await mkdir(evidence, { recursive: true });
   const cookies = h.owner.split('; ').map(c => { const at = c.indexOf('='); return { name: c.slice(0, at), value: c.slice(at + 1), url: h.origin }; });

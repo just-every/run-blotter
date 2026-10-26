@@ -21,6 +21,7 @@ import { unsubscribeResponse } from './blotter/unsubscribe-page'
 import { runBulk } from './blotter/bulk-messages'
 import { clearIntakeChecks } from './blotter/intake'
 import { refreshNotifications } from './blotter/notifications'
+import { runIntegrationWebhooks } from './blotter/integration-webhooks'
 import { runRules } from './blotter/recurrence'
 
 
@@ -59,6 +60,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runInvoiceReminders(env,new Date(controller.scheduledTime))
     await runAuthorizationAlerts(env.DB,new Date(controller.scheduledTime))
     await runRules(env, new Date(controller.scheduledTime), 'cron')
+    await runIntegrationWebhooks(env)
     await runAutomation(env, new Date(controller.scheduledTime))
     await runAgentRules(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))

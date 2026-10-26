@@ -1,3 +1,6 @@
+import { integrationWebhooks, registerWebhook, revokeWebhook, replayWebhook, reconcileWebhook, runIntegrationWebhooks } from './integration-webhooks';
+import { integrationKeys, mintIntegrationKey, revokeIntegrationKey } from './integration-keys';
+import { integrationRequest } from './integration-api';
 import { previewOnboarding, reviewOnboarding, onboardingPlan, recordOnboardingProgress } from './onboarding';
 import { aiSettings, saveAiSettings } from './ai-settings';
 import { aiState, requestAi, saveAiDraft, readAiDraft } from './ai-assistance';
@@ -328,6 +331,19 @@ api.post(`${P}/jobs/:id/status`, as(async (a, c) => moveJob(db(c), a, param(c), 
 api.get(`${P}/views`, as((a, c) => savedViews(db(c), a)));
 api.post(`${P}/views`, as(async (a, c) => saveView(db(c), a, await body(c))));
 api.post(`${P}/views/:id/delete`, as((a, c) => deleteView(db(c), a, param(c))));
+api.get(`${P}/integration-webhooks`,as((a,c)=>integrationWebhooks(db(c),a)));
+api.post(`${P}/integration-webhooks`,as(async(a,c)=>registerWebhook(c.env,a,await body(c,5000))));
+api.post(`${P}/integration-webhook-run`,as(async(a,c)=>{await integrationWebhooks(db(c),a);return runIntegrationWebhooks(c.env);}));
+api.post(`${P}/integration-webhooks/:id/revoke`,as(async(a,c)=>revokeWebhook(db(c),a,param(c),await body(c,2000))));
+api.post(`${P}/integration-deliveries/:id/replay`,as(async(a,c)=>replayWebhook(db(c),a,param(c),await body(c,2000))));
+api.post(`${P}/integration-deliveries/:id/reconcile`,as(async(a,c)=>reconcileWebhook(db(c),a,param(c),await body(c,2000))));
+api.get(`${P}/integration-keys`, as((a,c)=>integrationKeys(db(c),a)));
+api.post(`${P}/integration-keys`, as(async(a,c)=>mintIntegrationKey(db(c),a,await body(c,10000))));
+api.post(`${P}/integration-keys/:id/revoke`, as(async(a,c)=>revokeIntegrationKey(db(c),a,param(c),await body(c,2000))));
+api.use(`${P}/v1/*`,async(c,next)=>{
+ if(c.req.header('authorization'))return c.json(await integrationRequest(db(c),c.req.raw));
+ await next();
+});
 api.get(`${P}/v1/work`, as((a,c)=>workPage(db(c),a,c.req.query())));
 api.get(`${P}/v1/time`, as((a,c)=>timePage(db(c),a,c.req.query())));
 api.post(`${P}/v1/clients`, as(async(a,c)=>createClientOnce(db(c),a,await body(c),c.req.header('idempotency-key'))));

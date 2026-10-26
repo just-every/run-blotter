@@ -1,4 +1,5 @@
 // API-002's native-session read pages. Cursors carry position, never authority.
+import { clientScopeSql, clientScopeParams } from './access-sql';
 import { listJobs, parseFilters } from './filters';
 import { readClients, type ClientPosition } from './client-read';
 import { email, Fault, insist, integer, optional, rows, type Actor, type Data } from './model';
@@ -32,7 +33,7 @@ function position(query: Data, route: Route, filters: Data, actor: Actor): Posit
   } catch { throw new Fault(cursorError); }
   insist(cursor && typeof cursor === 'object' && !Array.isArray(cursor) && encode(cursor) === raw, cursorError);
   insist(Object.keys(cursor).sort().join(',') === 'actor,after,filters,route,v' && cursor.v === 1 && cursor.route === route, cursorError);
-  insist(cursor.actor?.email === actor.email && cursor.actor?.role === actor.role, cursorError);
+  insist(cursor.actor?.email === actor.email && cursor.actor?.role === actor.role && (cursor.actor?.keyId ?? null) === (actor.integration?.keyId ?? null), cursorError);
   insist(JSON.stringify(cursor.filters) === JSON.stringify(filters), cursorError);
   insist(Array.isArray(cursor.after) && cursor.after.length === (route === 'clients' ? 2 : 3) && cursor.after.every((part: unknown) => typeof part === 'string' && part.length > 0 && part.length <= 1000), cursorError);
   if (route !== 'clients') checkedDate(cursor.after[0], 'Cursor date');
@@ -40,7 +41,7 @@ function position(query: Data, route: Route, filters: Data, actor: Actor): Posit
   return cursor.after as Position;
 }
 
-const next = (route: Route, filters: Data, after: Position, actor: Actor) => encode({ v: 1, route, filters, after, actor: { email: actor.email, role: actor.role } });
+const next = (route: Route, filters: Data, after: Position, actor: Actor) => encode({ v: 1, route, filters, after, actor: { email: actor.email, role: actor.role, ...(actor.integration ? { keyId: actor.integration.keyId } : {}) } });
 const workPosition = (item: Data): Position => [item.due_date, item.client_name, item.id];
 const compare = (left: Position, right: Position) => {
   for (let i = 0; i < left.length; i++) {
@@ -72,6 +73,7 @@ export async function timePage(db: D1Database, actor: Actor, query: Data) {
   insist(!filters.from || !filters.to || filters.from <= filters.to, 'From must be on or before to');
   const after = position(query, 'time', filters, actor);
   const where = ['(? OR t.person_email=?)'], params: unknown[] = [actor.role !== 'preparer' ? 1 : 0, actor.email];
+  if (actor.integration) { where.push(clientScopeSql('j.client_id')); params.push(...clientScopeParams(actor)); }
   if (filters.from) { where.push('t.date>=?'); params.push(filters.from); }
   if (filters.to) { where.push('t.date<=?'); params.push(filters.to); }
   if (filters.person) { where.push('t.person_email=?'); params.push(filters.person); }

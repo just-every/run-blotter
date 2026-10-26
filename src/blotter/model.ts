@@ -1,3 +1,4 @@
+import { liveIntegrationSql } from './integration-policy';
 import { liveAgentRuleSql } from './scheduled-agent-gate';
 import { clientScopeSql, clientScopeParams } from './access-sql';
 // Shared server rules: validation, roles, guarded atomic writes and audit.
@@ -5,7 +6,7 @@ import { clientScopeSql, clientScopeParams } from './access-sql';
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent'; agentKeyId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'integration'; integration?: { keyId: string; action: string }; agentKeyId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -89,7 +90,7 @@ function authority(actor: Actor) {
   };
 }
 export function audit(db: D1Database, actor: Actor, action: string, objectId: string, detail = '') {
-  const who = actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
+  const who = actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
   return stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, action, objectId, detail, now());
 }
 /** A guard row that only inserts when `sql` holds, so the whole batch fails otherwise. */
@@ -99,6 +100,11 @@ export function guard(db: D1Database, sql: string, ...params: unknown[]) {
 }
 export async function atomic(db: D1Database, actor: Actor, statements: D1PreparedStatement[]) {
   const a = authority(actor), [check, release] = guard(db, a.sql, ...a.params);
+  const integration: D1PreparedStatement[] = [];
+  if (actor.integration) {
+    const [live, done] = guard(db, `${liveIntegrationSql} AND EXISTS(SELECT 1 FROM b_integration_keys k,json_each(k.actions) a WHERE k.id=? AND a.value=?)`, actor.integration.keyId, actor.integration.keyId, actor.integration.action);
+    integration.push(live, done);
+  }
   const approval: D1PreparedStatement[] = [], decision: D1PreparedStatement[] = [];
   if (actor.approval) {
     const [pending, done] = guard(db, `EXISTS(SELECT 1 FROM b_proposals WHERE id=? AND for_email=? AND status='pending')`, actor.approval.id, actor.email);
@@ -124,7 +130,7 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
     execution.push(allowed, finish);
     completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
   }
-  try { const results = await db.batch([...approval, check, ...execution, ...statements, ...decision, ...completed, release]); return results.slice(approval.length + 1 + execution.length, approval.length + 1 + execution.length + statements.length); }
+  try { const results = await db.batch([...approval, check, ...execution, ...integration, ...statements, ...decision, ...completed, release]); return results.slice(approval.length + 1 + execution.length + integration.length, approval.length + 1 + execution.length + integration.length + statements.length); }
   catch (error) {
     if (/constraint|b_guard|UNIQUE|immutable|invalid job transition|only void/i.test(String(error))) throw new Fault('The record changed or this action is no longer allowed. Refresh and try again.', 409);
     throw error;

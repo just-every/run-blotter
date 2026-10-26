@@ -29,7 +29,7 @@ export function clientTaxId(body: Data) {
 }
 
 export async function prepareClient(db: D1Database, actor: Actor, body: Data) {
-  human(actor); need(actor, 'owner', 'reviewer');
+  if (actor.integration?.action !== 'clients:create') human(actor); need(actor, 'owner', 'reviewer');
   const client = {
     id: id(), name: text(body.name, 'Client name', 200), abn: clientTaxId(body),
     contactName: optional(body.contactName, 'Contact name', 200),

@@ -46,7 +46,9 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('readiness', 'b_readiness_questions'),
   ...by('derived_ai', 'b_onboarding_plans', 'b_proposals', 'b_file_text', 'b_learning_proposals', 'b_learning_sources', 'b_learning_refs', 'b_learning_versions', 'b_learning_clients', 'b_learning_job_versions'),
   ...by('vault', 'b_vault_credentials', 'b_vault_reveals'),
-  ...by('api', 'b_api_client_writes'),
+  ...by('api', 'b_api_client_writes','b_integration_writes'),
+  ...by('link','b_integration_clients','b_integration_deliveries'),
+  ...by('firm','b_integration_keys','b_integration_limits','b_integration_hooks'),
   ...by('structure', 'b_agent_rules', 'b_agent_runs', 'b_transcript_requests', 'b_clients', 'b_jobs', 'b_job_status_history', 'b_requests', 'b_job_deadlines', 'b_rule_periods', 'b_recurrence_rules', 'b_recurrence_imports', 'b_recurrence_import_items', 'b_client_obligations',
     'b_client_group_members', 'b_client_import_bindings', 'b_duplicate_dismissals', 'b_client_merges', 'b_timers', 'b_time_suggestions', 'b_plan_items', 'b_automation_events', 'b_automation_attempts', 'b_time_status', 'b_coverage_conflicts'),
   ...by('firm', 'b_service_prices', 'b_service_price_versions', 'b_service_budget', 'b_service_usage', 'b_firm', 'b_meta', 'b_guard', 'b_templates', 'b_msg_templates', 'b_msg_template_versions', 'b_msg_template_translations', 'b_msg_template_files', 'b_portal_policy', 'b_portal_branding', 'b_organizer_versions', 'b_starter_adoptions', 'b_starter_releases', 'b_client_fields', 'b_client_groups',
@@ -58,7 +60,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('policy', 'b_retention_marks', 'b_retention_periods', 'b_external_copies', 'b_deletion_requests', 'b_client_erasures', 'b_client_erasure_steps', 'b_retained_identity', 'b_retained_reads', 'b_expiry_erasures'),
 ]);
 /** Columns that hold bytes or ciphertext, per table. A column of that kind not named here stops the preview. */
-const BYTES: Record<string, string[]> = {b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
+const BYTES: Record<string, string[]> = {b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
   b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_portal_branding: ['logo_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],

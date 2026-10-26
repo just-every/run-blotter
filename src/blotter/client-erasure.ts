@@ -55,7 +55,9 @@ export async function eraseClient(db: D1Database, actor: Actor, site: VaultSite,
     holds: p.marks.map(m => ({ id: m.id, scope: m.scope, class: m.class, kind: m.kind, owner: m.owner })), records: p.records.map(r => ({ kind: r.kind, class: r.cls, clock: r.clock, years: r.years, expiry: r.expiry })),
     externalCopies: [...p.copies.map(c => ({ kind: c.kind, system: c.system, holder: c.holder, status: c.closed_at ? 'closed' : 'open', source: 'principal-recorded' })),
       ...p.observed.map(o => ({ kind: 'observed', system: o.label, holder: o.owner, count: o.count, status: 'open', source: o.source }))], suppressionDigests: digests.size, restrictedRemainder: p.remainder };
-  await stmt(db, 'UPDATE b_client_erasures SET counts=?,retained=?,journal_epoch=? WHERE id=?', JSON.stringify({ withdrawalsCarried: p.carry, keys: { rescoped: 0, suspended: 0 } }), JSON.stringify(record), epoch, erasureId).run();
+  const keySteps=await rows(db,"SELECT table_name,count FROM b_client_erasure_steps WHERE erasure_id=? AND table_name IN ('b_integration_keys','b_integration_clients')",erasureId);
+  const suspended=Number(keySteps.find(s=>s.table_name==='b_integration_keys')?.count??0),removed=Number(keySteps.find(s=>s.table_name==='b_integration_clients')?.count??0);
+  await stmt(db, 'UPDATE b_client_erasures SET counts=?,retained=?,journal_epoch=? WHERE id=?', JSON.stringify({ withdrawalsCarried: p.carry, keys: { rescoped: removed-suspended, suspended } }), JSON.stringify(record), epoch, erasureId).run();
   return erasureReceipt(db, actor, erasureId);
 }
 
