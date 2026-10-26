@@ -172,6 +172,15 @@ test('AUTOMATE-001 / BASE-001: actual Worker interruption after provider accepta
   const interrupted=(await s.state()).attempts.find(a=>a.rule_id===r.id);
   assert.equal(interrupted.status,'dispatching','The old Worker stopped before recording the provider outcome');
   await s.run();assert.equal(h.mails.length,sends);assert.equal((await s.state()).attempts.find(a=>a.id===interrupted.id).status,'held');
+  await s.rule({kind:'due',at:'2027-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});await h.scheduled('2027-01-01T12:00:00Z');
+  const sequence=await h.json('/followups',{name:'Interrupted sequence',jobId:job.id,ownerEmail:'prep@example.test',contactId:s.client.contacts[0].id,steps:[s.message.id,s.message.id],maximumSends:2,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:2,confirm:'APPROVE'},h.owner);
+  const arriving=new Promise(resolve=>{accepted=resolve;});block=true;
+  const inFlight=h.scheduled('2027-01-04T14:00:00Z').catch(error=>({interrupted:error.message}));await arriving;
+  const acceptedCount=h.mails.length;await h.restart();release?.();await inFlight;
+  assert.equal((await h.json('/followups',undefined,h.owner)).attempts.find(a=>a.sequence_id===sequence.id).status,'dispatching');
+  await h.scheduled('2027-01-04T15:00:00Z');assert.equal(h.mails.length,acceptedCount);
+  const recovered=await h.json('/followups',undefined,h.owner);assert.equal(recovered.sequences.find(f=>f.id===sequence.id).status,'held');assert.equal(recovered.attempts.find(a=>a.sequence_id===sequence.id).status,'held');
+
  } finally {release?.();await h.close();}
 });
 
@@ -264,6 +273,17 @@ test('FOLLOWUP-001 / BASE-001: unresolved values and uncertain mail hold with ow
   await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
   const readOnly=await h.json('/followups',input,h.owner);await h.json('/access/people',{email:'prep@example.test',readOnly:true,clientIds:[s.client.id]},h.owner);
   await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,privateCount);assert.equal((await h.json('/followups',undefined,h.owner)).sequences.find(x=>x.id===readOnly.id).status,'held');
+  await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
+  const authority=await h.json('/followups',input,h.owner);
+  let response=await h.request('/auth/step-up',{action:'owner:transfer',returnTo:'/app'},h.owner);assert.equal(response.status,202);
+  const proof=h.mails.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)[1];response=await h.request('/auth/confirm',{token:proof},h.owner);assert.equal(response.status,303);
+  const operators=await(await h.request('/auth/operators',undefined,h.owner)).json();
+  const principal=operators.find(x=>x.email==='owner@example.test'),successor=operators.find(x=>x.email==='reviewer@example.test');
+  assert.equal((await h.request('/auth/operator/role',{operatorId:successor.id,role:'owner'},h.owner)).status,200);
+  assert.equal((await h.request('/auth/operator/role',{operatorId:principal.id,role:'member'},h.owner)).status,200);
+  const revokedCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,revokedCount);
+  const revoked=(await h.json('/followups',undefined,s.reviewer)).sequences.find(x=>x.id===authority.id);assert.equal(revoked.status,'held');assert.match(revoked.reason,/principal no longer has authority/);
+
 
  }finally{await h.close();for(const copy of copies)await copy.close();}
 });
