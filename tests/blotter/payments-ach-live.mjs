@@ -71,14 +71,13 @@ async function checkout(page, fixture, account) {
   await page.getByLabel('Payment amount in USD cents', { exact: true }).fill('100');
   assert.equal(await page.getByRole('button', { name: 'Continue to Stripe', exact: true }).isEnabled(), false);
   await page.getByLabel('I authorize this payment', { exact: true }).check();
-  const submitted = page.waitForResponse(response => response.url().endsWith(`/invoice-portal/${fixture.token}/pay`) && response.request().method() === 'POST');
+  const before = (await h.json(`/invoices/${fixture.invoice.id}/payments`, undefined, h.owner)).payments.map(payment => payment.id);
   await page.getByRole('button', { name: 'Continue to Stripe', exact: true }).click();
-  const response = await submitted; assert.equal(response.status(), 200);
-  const { paymentId, url } = await response.json();
-  assert.equal(new URL(url).hostname, 'checkout.stripe.com');
+  await page.waitForURL('https://checkout.stripe.com/**', { timeout: 60_000 });
+  const created = (await h.json(`/invoices/${fixture.invoice.id}/payments`, undefined, h.owner)).payments.filter(payment => !before.includes(payment.id));
+  assert.equal(created.length, 1, 'The client payment door created exactly one accounting payment');
+  const payment = created[0]; assert.equal(payment.amount_cents, 100);
   await sandboxBank(page, account, h.origin);
-  const payment = (await h.json(`/invoices/${fixture.invoice.id}/payments`, undefined, h.owner)).payments.find(item => item.id === paymentId);
-  assert.ok(payment, 'The client payment door created the accounting payment');
   let current = await reconcile(payment);
   if (current.state === 'requires_action') {
     const pi = await stripe(`payment_intents/${current.provider_id}`);
