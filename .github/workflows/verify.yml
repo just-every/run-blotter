@@ -1,9 +1,8 @@
 name: Verify
 
-# One run per main commit, pull request or candidate dispatch. Structural
-# checks run once. Eight file shards each run Base verification, build,
-# typecheck, email-link and hosted-output checks; together they run every
-# Blotter journey within the unchanged 15-minute job limit.
+# Candidate pushes run the full wall. Green push evidence lets main, duplicate
+# PRs and exact-tree pushes reuse it. Build and shared checks run once; Blotter
+# file shards consume the same emitted Worker.
 on:
   push:
     branches: [main, 'cloud/**', 'sx/**', 'hotfix/**']
@@ -92,10 +91,34 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec rer check --profile first-party
       - run: pnpm run typecheck
-      - run: pnpm exec rer build --site
+      - name: Check edition source lock freshness
+        run: node scripts/edition-authoring/cli.mjs check
+      - run: pnpm run build
+      - name: Install Chromium
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install chromium
+          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
+          node scripts/ci/chromium-probe.mjs || {
+            timeout 420 pnpm exec playwright install-deps chromium
+            node scripts/ci/chromium-probe.mjs
+          }
+      - run: pnpm run test:email-link
+      # This unchanged test builds the run site itself.
+      - run: pnpm run test:site
+      - name: Verify hosted output and hydration
+        run: pnpm exec rer queue verify:hosted -- node scripts/ci/hosted-checks.mjs
+      - name: Pack the shared Worker build
+        run: tar -czf "$RUNNER_TEMP/verify-build.tgz" dist/server dist/client
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verify-build
+          path: ${{ runner.temp }}/verify-build.tgz
+          if-no-files-found: error
+          retention-days: 1
 
   shards:
-    needs: plan
+    needs: [plan, checks]
     if: needs.plan.outputs.skip != 'true'
     strategy:
       fail-fast: false
@@ -117,7 +140,6 @@ jobs:
           package-manager-cache: false
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run deps
       - name: Install Chromium
         run: |
           set -euo pipefail
@@ -127,7 +149,13 @@ jobs:
             timeout 420 pnpm exec playwright install-deps chromium
             node scripts/ci/chromium-probe.mjs
           }
-      - run: pnpm run verify
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: verify-build
+          path: ${{ runner.temp }}
+      - name: Unpack the shared Worker build
+        run: tar -xzf "$RUNNER_TEMP/verify-build.tgz"
+      - run: pnpm run test:blotter
 
   verify:
     needs: [plan, checks, shards]
