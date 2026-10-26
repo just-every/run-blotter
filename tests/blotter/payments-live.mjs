@@ -43,7 +43,8 @@ try{
  const zip=page.locator('#billingPostalCode');if(await zip.count())await zip.fill('02108');
  const address=page.locator('#billingAddressLine1');if(await address.count())await address.fill('10 Main Street');
  await page.getByRole('button',{name:/^Pay|^Authorize/}).last().click();
- await page.waitForURL(h.origin+'/**',{timeout:90_000});
+ await page.screenshot({path:`${directory}/stripe-submitted.png`,fullPage:true});
+ await page.waitForURL(h.origin+'/**',{timeout:45_000});
  const pending=(await h.json(`/invoices/${s.invoice.id}/payments`,undefined,h.owner)).payments.at(-1);
  const paid=await h.json(`/payments/${pending.id}/reconcile`,{},h.owner);assert.equal(paid.state,'settled');assert.equal(paid.net_cents,100);
  const mandate=(await h.json(`/invoices/${s.invoice.id}/payments`,undefined,h.owner)).mandates.find(m=>m.status==='active');assert.ok(mandate);
