@@ -1,4 +1,4 @@
-// Native invoice journeys through the built Worker. Only the mail edge is faked.
+// Native invoice journeys through the built Worker. Only paid provider edges are replaced.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

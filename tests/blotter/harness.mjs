@@ -1,5 +1,5 @@
 // Runs the built Worker (dist/) in Miniflare with real D1 and migrations.
-// Only paid mail and AI provider boundaries may be replaced; routes and D1 stay real.
+// Only paid mail, AI and payment provider boundaries may be replaced; routes and D1 stay real.
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdtemp,readFile,readdir,realpath,rm} from 'node:fs/promises';

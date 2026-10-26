@@ -16,12 +16,15 @@ export async function invoicePayments(env: Bindings, actor: Actor, invoiceId: st
     mandates: await rows(env.DB, 'SELECT id,status,kind,last4,max_cents,authorized_at FROM b_payment_mandates WHERE invoice_id=? ORDER BY authorized_at', invoiceId) };
 }
 const reservedSql = `COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('creating','pending','requires_action','held')),0)`;
-async function reserve(env: Bindings, invoice: Data, amount: number, requestKey: string, who: string, actor?: Actor, mandate?: Data) {
+async function reserve(env: Bindings, invoice: Data, amount: number, requestKey: string, who: string, actor?: Actor, mandate?: Data, portal?: Data) {
   const db = env.DB, prior = await stmt(db, 'SELECT * FROM b_provider_payments WHERE request_key=?', requestKey).first<Data>();
   if (prior) { insist(prior.invoice_id === invoice.id && prior.amount_cents === amount && prior.created_by === who, 'Collection request changed', 409); return prior; }
   const paymentId = id(), at = now(), [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE i.id=? AND i.status='issued' AND i.erased_at IS NULL AND c.erased_at IS NULL AND c.lifecycle='active' AND ${invoiceBalanceSql('i')}-${reservedSql}>=?)`, invoice.id, amount);
   const changes = [check, stmt(db, `INSERT INTO b_provider_payments(id,invoice_id,client_id,amount_cents,request_key,revision,created_by,created_at,updated_at,mandate_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, paymentId, invoice.id, invoice.client_id, amount, requestKey, id(), who, at, at, mandate?.id ?? null), release,
     stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, 'payment.authorized', invoice.id, `${paymentId}; explicit collection USD ${(amount / 100).toFixed(2)}`, at)];
+  if(portal){
+    const [valid,done]=guard(db,`EXISTS(SELECT 1 FROM b_invoice_deliveries d JOIN b_client_contacts c ON c.id=d.contact_id WHERE d.id=? AND d.revoked_at IS NULL AND d.expires_at>? AND c.revision=d.contact_revision AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.email_consent=1 AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing'))`,portal.id,now());changes.unshift(valid);changes.push(done);
+  }
   if (mandate) {
     const [valid, done] = guard(db, `EXISTS(SELECT 1 FROM b_payment_mandates m JOIN b_client_contacts c ON c.id=m.contact_id WHERE m.id=? AND m.invoice_id=? AND m.status='active' AND c.revision=m.contact_revision AND c.active=1 AND c.authorized=1 AND c.portal=1 AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing') AND m.max_cents>=?+COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.mandate_id=m.id AND p.state NOT IN ('failed','held','returned')),0))`, mandate.id, invoice.id, amount);
     changes.unshift(valid); changes.push(done);
@@ -68,7 +71,7 @@ export async function portalPayment(env: Bindings, token: string, body: Data) {
     mandate = { id: mid };
   }
   await invoicePortalContext(env.DB,token);
-  const payment = await reserve(env, invoice, amount, requestKey, who, undefined, undefined);
+  const payment = await reserve(env, invoice, amount, requestKey, who, undefined, undefined, delivery);
   if (mandate) await stmt(env.DB, 'UPDATE b_provider_payments SET mandate_id=? WHERE id=? AND mandate_id IS NULL', mandate.id, payment.id).run();
   return checkout(env, invoice, payment, `${runtimeBindings(env).AUTH_ORIGIN}/invoice/${token}`, body.saveMethod === true, customer);
 }
