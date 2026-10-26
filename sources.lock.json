@@ -1200,7 +1200,7 @@
       "executable": false
     },
     "src/blotter/ai-provider.ts": {
-      "sha256": "2af2e137a7bac9c8956a2006322fcf230f5bc917ee09431f622caf1e15cf5fcc",
+      "sha256": "0d22b66026fa439b6d996f5090eaec0d3a209091b8c885aa70c9717fcdc85f3d",
       "executable": false
     },
     "src/blotter/ai-settings.ts": {

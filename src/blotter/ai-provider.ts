@@ -82,10 +82,10 @@ export async function runAiProvider(env: Bindings, purpose: 'summary' | 'documen
   }
   const source = maskAiText(text);
   const task = purpose === 'notice'
-    ? 'Extract notice type, tax period, proposed amount and response deadline when explicitly printed; cite each exact source quote. Propose client questions and a response plan. Transcript context is unavailable; never invent a comparison.'
+    ? 'Extract notice type, tax period, proposed amount and response deadline when explicitly printed; use their exact printed values, including currency symbols, and cite each exact source quote. Put each discrepancy in conflicts and unresolved issue in questions as well as describing it in summary. Propose a response plan. Transcript context is unavailable; never invent a comparison.'
     : purpose === 'document'
       ? 'Identify the document type, named client, period, amount and legibility from the source. Propose validation findings, a filename and routing for human review; the person compares these with their requested document and job context. Confidence is only your proposed reading-confidence estimate from zero to one, never permission or a verified probability.'
-      : 'Summarize the selected source, its dates, unresolved questions and conflicting amounts. Propose a concise staff reply without claiming signed engagement scope or any missing mailbox context.';
+      : 'Summarize the selected source and its dates. Put every contradictory amount or other discrepancy in the conflicts array, even when also described in summary. Put unresolved issues in questions. Propose a concise staff reply in reply without claiming signed engagement scope or any missing mailbox context. Leave validation, extraction, suggestedName, routing and plan empty.';
   if (source.length > 24_000) throw new Fault('AI input unavailable.', 400);
   try {
     const response = await createAiClient(config).chat({
