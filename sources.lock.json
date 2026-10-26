@@ -4323,6 +4323,10 @@
       "sha256": "efb5394845a81827438ec7b65b4b973a8d761b2a4fa545894d837f24bade6c5d",
       "executable": false
     },
+    "tests/blotter/payment-sandbox-bank.mjs": {
+      "sha256": "7104d88fc99b715bba0cd63fd3afb1925a803fae26970f8f84898088e297c441",
+      "executable": false
+    },
     "tests/blotter/payment-sandbox.mjs": {
       "sha256": "90430031de46dcca41123d9713b95e34aa0409a6644557b63d53c9aaf8c1b054",
       "executable": false
@@ -4333,6 +4337,10 @@
     },
     "tests/blotter/payment-ui.mjs": {
       "sha256": "2ec32304c182bfd09eb388d9713d80e980fd15bb3acad578d05ae20d8bd50c66",
+      "executable": false
+    },
+    "tests/blotter/payments-ach-live.mjs": {
+      "sha256": "12292d0c9d48ff88cadc37b1e75772771160456b6fbd2fc5a21a4a7d8fc1692f",
       "executable": false
     },
     "tests/blotter/payments-live.mjs": {
