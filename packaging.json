@@ -54,12 +54,14 @@
       "optionalSecretNames": [
         "VAULT_KEY",
         "MAIL_API_KEY",
-        "MAIL_WEBHOOK_SECRET"
+        "MAIL_WEBHOOK_SECRET",
+        "AI_API_KEY"
       ],
       "healthPath": "/health",
       "recovery": "Follow docs/backup-and-restore.md. Export the practice before migration, preserve the exact source, applied SQL bytes and private vault key, restore into an empty installation, supply the latest erasure journal, recreate excluded sign-in accounts and agent keys, then re-export and compare the restored practice before routing traffic.",
       "providerEffects": [
-        "outbound-mail"
+        "outbound-mail",
+        "ai-inference"
       ],
       "mail": {
         "providers": [

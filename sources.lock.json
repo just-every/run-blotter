@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9148d4c95a7f624395296aa7bc04e4c8c0a21de8e8d39b7506b0f77a67b24938",
+      "sha256": "0ce5630009dadbb1fcba0241d3c9bac949ba689c042eaac9c0cd3494efcd9b00",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f71048376eb2bc7e00b403a246d485d62fc9a4cb0e9dce784a3e36f1d78fa1d8",
+      "sha256": "2718ea24d8e098fadfc9839979c0158a2bb9431a96835c0861ad8f7824496aa2",
       "executable": false
     },
     "deploy-demo.json": {
@@ -600,7 +600,7 @@
       "executable": false
     },
     "packaging.json": {
-      "sha256": "89754302ef08f678426d98aa8fcbea98e0874dd326ff460d6efbbe641c35a341",
+      "sha256": "9e203823b93b6ab0fff5e1ba960ada52b0f0f6fe6f7fad44449aa64873554d5c",
       "executable": false
     },
     "pnpm-lock.yaml": {
