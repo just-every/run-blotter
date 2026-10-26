@@ -22,16 +22,24 @@ const h=await harness({bindings:{AI_API_KEY:process.env.AI_API_KEY,AI_MODEL:'gpt
 }});
 try {
  const s=await aiFixture(h),before=h.mails.length;
+ const proveDraftOnly=async purpose=>{
+  assert.equal(h.mails.length,before);assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);
+  assert.equal((await h.db.prepare("SELECT COUNT(*) n FROM b_audit WHERE action='ai.request'").first()).n,calls);
+  console.log(JSON.stringify({purpose,result:'PASS',calls,syntheticOnly:true,noSavedOutput:true,noSend:true}));
+ };
  await s.request('summary',s.prep,{},403);assert.equal(calls,0);
  await s.enable();await s.request('summary',s.prep,{confirm:false},400);assert.equal(calls,0);
  const summary=await s.request('summary');assert.ok(summary.output.summary);assert.ok(summary.output.conflicts.length);
  assert.match(summary.output.conflicts.join(' '),/900/);assert.match(summary.output.conflicts.join(' '),/1,?250/);
+ await proveDraftOnly('summary');
  const invoice=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'synthetic-blotter-invoice.txt',mime:'text/plain',contentBase64:Buffer.from(invoiceText).toString('base64')},s.prep);
  const document=await s.request('document',s.prep,{sourceId:invoice.id});assert.ok(document.output.validation.length);assert.ok(document.output.suggestedName);
  for(const value of ['Cedar Lane LLC','2026'])assert.ok(document.output.extraction.some(item=>item.value===value),`Document extraction retains ${value}`);
+ await proveDraftOnly('document');
  const notice=await s.request('notice',s.reviewer);assert.ok(notice.output.plan.length);
  console.log(JSON.stringify({syntheticNoticeExtraction:notice.output.extraction}));
  for(const field of ['CP2000','2024','$1,250.00','2027-02-28'])assert.ok(notice.output.extraction.some(item=>item.value===field),`Notice extraction retains ${field}`);
+ await proveDraftOnly('notice');
  assert.equal(calls,3);assert.equal(h.mails.length,before);
  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);
  assert.equal((await h.db.prepare("SELECT COUNT(*) n FROM b_audit WHERE action='ai.request'").first()).n,3);
