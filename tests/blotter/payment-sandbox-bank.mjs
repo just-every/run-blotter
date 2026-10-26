@@ -39,15 +39,15 @@ export async function sandboxBank(page, account, returnOrigin) {
       if (checking) await checking.check();
       entered = true;
     }
-    const manual = await visible(page, frame => frame.getByRole('button', { name: /enter.*bank.*details.*manually|manually enter|enter details manually/i })
-      .or(frame.getByRole('link', { name: /enter.*bank.*details.*manually|manually enter|enter details manually/i })));
+    const manual = await visible(page, frame => frame.getByText('Enter bank details manually', { exact: true }));
     if (manual) {
       await manual.click();
       await pause(500);
+      await page.screenshot({ path: `${process.env.BLOTTER_PAYMENT_EVIDENCE}/ach-bank-entry.png`, fullPage: true });
       continue;
     }
     const next = await visible(page, frame => frame.getByRole('button', { name: /^(Continue|Confirm account|Agree and continue|Verify account|Connect account|Submit|Pay(?:\s.*)?|Authorize(?:\s.*)?)$/i }));
-    if (next && await next.isEnabled()) {
+    if (next && await next.isEnabled() && (entered || !/^Pay/.test(await next.innerText()))) {
       if (entered) submitted = true;
       await next.click();
     }
