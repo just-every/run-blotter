@@ -1,3 +1,4 @@
+import { runFollowups } from './blotter/followups'
 import { runAgentRules } from './blotter/scheduled-agents'
 import { runInvoiceSchedules } from './blotter/invoices-retainers'
 import { runInvoiceReminders } from './blotter/invoices-collections'
@@ -62,6 +63,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runRules(env, new Date(controller.scheduledTime), 'cron')
     await runIntegrationWebhooks(env)
     await runAutomation(env, new Date(controller.scheduledTime))
+    await runFollowups(env, new Date(controller.scheduledTime))
     await runAgentRules(env, new Date(controller.scheduledTime))
     await runReports(env, new Date(controller.scheduledTime))
     await runBulk(env, new Date(controller.scheduledTime))

@@ -1,3 +1,5 @@
+import { clientScopeSql, clientScopeParams } from './access-sql';
+import { followupItems } from './followup-items';
 import { contactRequestSql } from './organizers-requests';
 import { contactDocuments,staffDownload } from './document-shares';
 // Client document requests: uploads (portal or staff), acceptance, download,
@@ -110,14 +112,14 @@ export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, del
  * mails it to the client contact. The link is also returned once, so staff can
  * pass it on themselves; only its digest is stored.
  */
-async function reminderContext(db: D1Database, actor: Actor, jobId: string, contactId?: string) {
+async function reminderContext(db: D1Database, actor: Actor, jobId: string, contactId?: string, sequence=false) {
   const j = await job(db, actor, jobId);
   insist(j.status === 'open', 'Reminders are only for open jobs', 409);
   const client = await stmt(db, 'SELECT * FROM b_clients WHERE id=?', j.client_id).first<Data>();
   const contact = await recipientFor(db,j.client_id,'request',contactId);
   client!.contact_email = contact.email; client!.contact_name = contact.name;
-  const outstanding = (await rows(db, `SELECT r.label FROM b_requests r WHERE r.job_id=? AND r.status='requested' AND ${contactRequestSql()} ORDER BY r.ordinal`, j.id,contact.id)).map(r => r.label as string);
-  insist(outstanding.length > 0, 'No documents are outstanding', 409);
+  const outstanding = sequence ? await followupItems(db,j.id,contact) : (await rows(db, `SELECT r.label FROM b_requests r WHERE r.job_id=? AND r.status='requested' AND ${contactRequestSql()} ORDER BY r.ordinal`, j.id,contact.id)).map(r => r.label as string);
+  insist(outstanding.length > 0, 'No client items are outstanding', 409);
   return { j, client: client!, contact, outstanding };
 }
 
@@ -137,17 +139,20 @@ async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<t
 }
 
 /** Render a reminder without sending it; the secure link is created only when sending. */
-export async function previewReminder(db: D1Database, actor: Actor, jobId: string, body: Data) {
-  const ctx = await reminderContext(db, actor, jobId, body.contactId);
+export async function previewReminder(db: D1Database, actor: Actor, jobId: string, body: Data, sequence=false) {
+  const ctx = await reminderContext(db, actor, jobId, body.contactId,sequence);
   return { to: ctx.client.contact_email, ...await templated(db, actor, ctx, body, LINK_PREVIEW) };
 }
 
 export async function sendReminder(env: Bindings, actor: Actor, jobId: string, body: Data) {
   human(actor);
   const bindings = runtimeBindings(env), db = bindings.DB;
-  const ctx = await reminderContext(db, actor, jobId, body.contactId), { j, client, outstanding } = ctx;
-  const reminderId = actor.automation?.attemptId ?? actor.approval?.resultId ?? id(), at = now();
-  const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
+  const ctx = await reminderContext(db, actor, jobId, body.contactId,!!actor.followup), { j, client, outstanding } = ctx;
+  const reminderId = actor.followup?.attemptId ?? actor.automation?.attemptId ?? actor.approval?.resultId ?? id(), at = now();
+  const portalOnly=!!actor.followup&&body.channel==='portal';
+  const { url, expiresAt: expires, statements } = portalOnly
+    ? {url:'this secure page',expiresAt:'',statements:[] as D1PreparedStatement[]}
+    : await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
   const language: Language = ctx.contact.language ?? 'en', T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars);
   let subject = T('mail.request.subject', { work: `${j.title} ${j.period_label}` }), message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
   if (body.templateId || body.subject !== undefined || body.body !== undefined) {
@@ -168,15 +173,25 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   const [authorized, authorizedDone] = contactGuard(db,j.client_id,ctx.contact.id,'request',ctx.contact.revision);
   await atomic(db, actor, [check, authorized, authorizedDone, ...statements,
     stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version,attachments,language) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
+      reminderId, j.id, client.contact_email, JSON.stringify(outstanding), portalOnly?message:message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
       subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 }))), language),
+    ...(portalOnly?[stmt(db,`INSERT INTO b_portal_items(id,job_id,kind,body,author,status,created_at,subject,template_id,template_version,template_edited,attachments,contact_id) VALUES(?,?,'message',?,?,'sent',?,?,?,?,0,?,?)`,reminderId,j.id,message.replaceAll(url,'this secure page'),actor.email,at,subject,template.id,template.version,JSON.stringify(files.map(({content_base64,...f})=>f)),ctx.contact.id)]:[]),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
   if (actor.automation) {
     insist(await stmt(db,"SELECT 1 FROM b_automation_rules r JOIN oa_operators o ON o.id=r.principal_id WHERE r.id=? AND r.status='active' AND r.used<=r.budget AND o.status='active' AND o.role='owner' AND EXISTS(SELECT 1 FROM b_client_contacts c WHERE c.id=? AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.request_consent=1 AND c.email_consent=1 AND c.revision=?)",actor.automation.ruleId,ctx.contact.id,ctx.contact.revision).first(),'Automation paused or authority revoked before dispatch',409);
   }
-  const delivery = await sendMail(bindings, reminderId, client.contact_email, subject, message, files);
+  if (actor.followup) {
+    insist(await stmt(db,`SELECT 1 FROM b_followups f JOIN oa_operators p ON p.id=f.principal_id
+      JOIN b_client_contacts c ON c.id=f.contact_id JOIN b_jobs j ON j.id=f.job_id JOIN b_clients e ON e.id=j.client_id
+      JOIN oa_operators sender ON sender.id=? AND sender.email=f.owner_email AND sender.status IN ('active','invited')
+      WHERE f.id=? AND f.status='active' AND f.revision=? AND f.owner_email=? AND p.status='active' AND p.role='owner' AND p.email=f.approved_by
+      AND c.revision=? AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.request_consent=1 AND c.email_consent=1
+      AND j.status='open' AND e.lifecycle='active' AND e.merged_into IS NULL
+      AND (sender.role='owner' OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=sender.email AND m.active=1 AND m.role=?)) AND (? IN ('owner','reviewer') OR j.preparer_email=?) AND ${clientScopeSql('j.client_id')} AND (?='owner' OR NOT EXISTS(SELECT 1 FROM b_access_members am WHERE am.email=f.owner_email AND am.read_only=1))`,actor.id,actor.followup.sequenceId,actor.followup.revision,actor.email,ctx.contact.revision,actor.role,actor.role,actor.email,...clientScopeParams(actor),actor.role).first(),'Sequence paused or authority changed before dispatch',409);
+  }
+  const delivery = portalOnly ? 'posted to portal (no email sent)' : await sendMail(bindings, reminderId, client.contact_email, subject, message, files);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();
-  return { id: reminderId, delivery, portalUrl: url, expiresAt: expires };
+  return { id: reminderId, delivery, portalUrl: portalOnly?null:url, expiresAt: portalOnly?null:expires };
 }
 
 // ---- Public client portal, authorised only by the link's secret ----

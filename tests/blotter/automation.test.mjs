@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {harness} from './harness.mjs';
 import {automationFixture as fixture} from './automation-fixture.mjs';
-import {automationAppJourney} from './automation-ui.mjs';
+import {automationAppJourney,followupOffboardingJourney,followupPortalJourney} from './automation-ui.mjs';
 
 
 test('AUTOMATE-001 / WORK-006 / WORK-007 / BASE-001: approved native rules, board entries, all-task review gates, source events, budgets, pause/revoke, attribution and safe portable history',async()=>{
@@ -172,5 +172,158 @@ test('AUTOMATE-001 / BASE-001: actual Worker interruption after provider accepta
   const interrupted=(await s.state()).attempts.find(a=>a.rule_id===r.id);
   assert.equal(interrupted.status,'dispatching','The old Worker stopped before recording the provider outcome');
   await s.run();assert.equal(h.mails.length,sends);assert.equal((await s.state()).attempts.find(a=>a.id===interrupted.id).status,'held');
+  await s.rule({kind:'due',at:'2027-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});await h.scheduled('2027-01-01T12:00:00Z');
+  const sequence=await h.json('/followups',{name:'Interrupted sequence',jobId:job.id,ownerEmail:'prep@example.test',contactId:s.client.contacts[0].id,steps:[s.message.id,s.message.id],maximumSends:2,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:2,confirm:'APPROVE'},h.owner);
+  const arriving=new Promise(resolve=>{accepted=resolve;});block=true;
+  const inFlight=h.scheduled('2027-01-04T14:00:00Z').catch(error=>({interrupted:error.message}));await arriving;
+  const acceptedCount=h.mails.length;await h.restart();release?.();await inFlight;
+  assert.equal((await h.json('/followups',undefined,h.owner)).attempts.find(a=>a.sequence_id===sequence.id).status,'dispatching');
+  await h.scheduled('2027-01-04T15:00:00Z');assert.equal(h.mails.length,acceptedCount);
+  const recovered=await h.json('/followups',undefined,h.owner);assert.equal(recovered.sequences.find(f=>f.id===sequence.id).status,'held');assert.equal(recovered.attempts.find(a=>a.sequence_id===sequence.id).status,'held');
+
  } finally {release?.();await h.close();}
+});
+
+test('FOLLOWUP-001: bounded document sequences re-render current templates, recheck missing items, pause without replay, escalate and transfer the next sender',async()=>{
+ const h=await harness();
+ try {
+  const s=await fixture(h),a=await s.start();
+  const add=await s.rule({kind:'due',at:'2027-01-01T00:00:00Z'},{kind:'request',label:'1099 interest'});await h.scheduled('2027-01-01T12:00:00Z');
+  await h.json(`/automation/${add.id}/pause`,{},h.owner);
+  await s.rule({kind:'due',at:'2027-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});await h.scheduled('2027-01-01T12:00:00Z');
+  const template=await h.json('/messages/templates',{name:'Month-end close request',scope:'firm',subject:'Documents for {{client_name}} {{period}}',body:'{{sender_name}} requests {{outstanding_requests}} at {{portal_link}}',attachments:[{name:'synthetic-blotter-7.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-7').toString('base64')}]},h.owner);
+  const input={name:'Close documents',jobId:a.id,ownerEmail:'prep@example.test',contactId:s.client.contacts[0].id,steps:[template.id,template.id,template.id],maximumSends:3,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:2,confirm:'APPROVE'};
+  await h.json('/followups',input,s.prep,403);await h.json('/followups',input,'',401);
+  const otherClient=await h.json('/clients',{name:'Maple Ridge LLC',contactName:'Taylor Chen',contactEmail:'synthetic-blotter-3@example.test'},h.owner),otherJob=await s.start(otherClient.id,'2025-01-01');
+  await s.rule({kind:'due',at:'2027-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'},1,{clientIds:[otherClient.id]});await h.scheduled('2027-01-01T12:00:00Z');
+  const f=await h.json('/followups',input,h.owner),otherSequence=await h.json('/followups',{...input,name:'Maple documents',jobId:otherJob.id,contactId:otherClient.contacts[0].id},h.owner);
+  const clientMail=()=>h.mails.toReversed().find(m=>m.to.includes('alex@example.test')),otherMail=()=>h.mails.toReversed().find(m=>m.to.includes('synthetic-blotter-3@example.test'));
+  const state=()=>h.json('/followups',undefined,h.owner),get=async()=>(await state()).sequences.find(x=>x.id===f.id);
+  const before=h.mails.length;
+  await h.scheduled('2027-01-04T13:59:59Z');assert.equal(h.mails.length,before,'No send before local business hours');
+  await h.scheduled('2027-01-04T14:00:00Z');const first=clientMail();assert.match(first.text,/- W-2\n- 1099 interest/);assert.match(first.subject,/Cedar Lane LLC/);assert.match(first.text,/prep@example.test/);assert.match(otherMail().subject,/Maple Ridge LLC/);assert.notEqual(first.subject,otherMail().subject,'Each client and period is rendered independently');assert.notEqual((await s.detail(a.id)).job.period_label,(await s.detail(otherJob.id)).job.period_label);
+  assert.equal((await get()).used,1);assert.equal((await state()).attempts.filter(x=>x.sequence_id===f.id).length,1);
+  assert.deepEqual(first.attachments.map(f=>[f.filename,Buffer.from(f.content,'base64').toString()]),[['synthetic-blotter-7.txt','synthetic-blotter-7']]);
+  const afterFirst=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,afterFirst);
+  const detail=await s.detail(a.id),w2=detail.requests.find(x=>x.label==='W-2');
+  await h.json(`/requests/${w2.id}/files`,{name:'synthetic-blotter-1.txt',contentBase64:Buffer.from('synthetic-blotter-1').toString('base64')},s.prep);
+  await h.json(`/requests/${w2.id}/decide`,{decision:'accept'},s.prep);
+  await h.json(`/messages/templates/${template.id}`,{subject:'Updated {{client_name}} {{period}}',body:'Later wording from {{sender_name}}: {{outstanding_requests}} {{portal_link}}',attachments:[{name:'synthetic-blotter-8.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-8').toString('base64')}]},h.owner);
+  await h.json(`/followups/${f.id}/paused`,{revision:(await get()).revision},h.owner);
+  await h.json(`/followups/${otherSequence.id}/paused`,{revision:(await state()).sequences.find(x=>x.id===otherSequence.id).revision},h.owner);
+  await h.scheduled('2027-01-05T14:00:00Z');assert.equal(h.mails.length,afterFirst);
+  await h.json(`/followups/${f.id}/active`,{revision:(await get()).revision,confirm:'APPROVE'},h.owner);
+  await h.json(`/followups/${otherSequence.id}/active`,{revision:(await state()).sequences.find(x=>x.id===otherSequence.id).revision,confirm:'APPROVE'},h.owner);
+  await h.scheduled('2027-01-05T14:00:00Z');const second=clientMail();assert.match(otherMail().subject,/^Updated Maple Ridge LLC/);assert.match(otherMail().text,/W-2/);assert.doesNotMatch(otherMail().text,/1099 interest/);assert.match(second.subject,/^Updated Cedar Lane LLC/);assert.match(second.text,/1099 interest/);assert.doesNotMatch(second.text,/W-2/);assert.equal(second.attachments[0].filename,'synthetic-blotter-8.txt');assert.equal(first.attachments[0].filename,'synthetic-blotter-7.txt');
+  const notifications=await h.json('/notifications',undefined,s.reviewer);assert.equal(notifications.filter(x=>x.kind==='followup_escalated'&&x.job_id===a.id).length,1);
+  await followupOffboardingJourney(h);
+  const off={email:'prep@example.test',workSuccessor:'other@example.test',reviewSuccessor:'owner@example.test'};
+  const preview=await h.json('/team/offboard/preview',off,h.owner);assert.deepEqual(preview.followups.map(x=>x.id).sort(),[f.id,otherSequence.id].sort());
+  const committed=await h.json('/team/offboard',{...off,fingerprint:preview.fingerprint},h.owner);assert.equal(committed.moved.followups,2);
+  await h.scheduled('2027-01-06T14:00:00Z');assert.equal((await get()).status,'completed',JSON.stringify(await state()));assert.match(clientMail().text,/other@example.test/);assert.equal((await get()).status,'completed');
+  const attempts=(await state()).attempts.filter(x=>x.sequence_id===f.id);assert.deepEqual(attempts.map(x=>[x.step,x.sender,x.status]).sort((a,b)=>a[0]-b[0]),[[1,'prep@example.test','accepted'],[2,'prep@example.test','accepted'],[3,'other@example.test','accepted']]);
+  const history=(await s.detail(a.id)).reminders;assert.equal(history.find(x=>x.id===attempts.find(x=>x.step===1).id).sent_by,'prep@example.test');assert.match(history.find(x=>x.template_version===1).message,/W-2/);assert.equal(first.subject,history.find(x=>x.template_version===1).subject);
+  const final=h.mails.length;await h.scheduled('2027-01-07T14:00:00Z');assert.equal(h.mails.length,final,'Maximum attempts is a lifetime bound');
+ }finally{await h.close();}
+});
+
+test('FOLLOWUP-001 / BASE-001: unresolved values and uncertain mail hold with owned alerts; consent loss, client response and inactive restored authority prevent sends',async()=>{
+ let fail=false;
+ const h=await harness({mailResponse:(mail,mails)=>{if(fail==='rejected'&&mail.subject.startsWith('Documents for'))return Response.json({name:'validation_error',message:'synthetic-blotter-2 rejected'},{status:422});if(fail&&mail.subject.startsWith('Documents for'))throw new Error('synthetic-blotter-2 response lost');return Response.json({id:'synthetic-blotter-'+mails.length});}}),copies=[];
+ try {
+  const s=await fixture(h),a=await s.start();
+  await s.rule({kind:'due',at:'2027-01-01T00:00:00Z'},{kind:'assign',role:'manager',email:'reviewer@example.test'});await h.scheduled('2027-01-01T12:00:00Z');
+  const input={name:'Document follow-up',jobId:a.id,ownerEmail:'prep@example.test',contactId:s.client.contacts[0].id,steps:[s.message.id,s.message.id],maximumSends:2,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:2,confirm:'APPROVE'};
+  const marketing=await h.json('/messages/templates',{name:'No marketing chase',scope:'firm',class:'marketing',subject:'News',body:'Firm news'},h.owner);
+  await h.json('/followups',{...input,steps:[marketing.id]},h.owner,409);
+  const f=await h.json('/followups',input,h.owner),key=await h.json('/keys',{label:'synthetic-blotter-no-followup-authority'},h.owner);
+  for(const [path,body] of [['/followups',undefined],['/followups/run',{}],[`/followups/${f.id}/paused`,{}],[`/followups/${f.id}/active`,{}],[`/followups/${f.id}/stopped`,{}]]) {
+   await h.json(path,body,s.reviewer,403);await h.json(path,body,'',401,{authorization:'Bearer '+key.key});
+  }
+  const originDenied=await h.send('/api/blotter/followups',input,h.owner,{origin:'https://outside.example.test'});assert.equal(originDenied.status,403);
+  fail=true;const before=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,before+1);
+  let state=await h.json('/followups',undefined,h.owner);assert.equal(state.sequences.find(x=>x.id===f.id).status,'held');assert.equal(state.attempts.filter(x=>x.sequence_id===f.id).length,1);assert.equal(state.attempts.find(x=>x.sequence_id===f.id).delivery,'uncertain by resend');
+  assert.ok((await h.json('/notifications',undefined,s.prep)).some(x=>x.kind==='followup_failed'&&/not confirmed/.test(x.summary)));
+  await h.restart();await h.scheduled('2027-01-05T14:00:00Z');assert.equal(h.mails.length,before+1,'Uncertain accepted mail never replays after restart');fail=false;
+  const heldAttempt=state.attempts.find(x=>x.sequence_id===f.id);
+  await h.json(`/followups/attempts/${heldAttempt.id}/reconcile`,{outcome:'accepted',reason:'Provider dashboard confirms this exact delivery'},s.reviewer,403);
+  await h.json(`/followups/attempts/${heldAttempt.id}/reconcile`,{outcome:'accepted',reason:'Provider dashboard confirms this exact delivery'},h.owner);
+  await h.json(`/followups/attempts/${heldAttempt.id}/reconcile`,{outcome:'not_accepted',reason:'Duplicate decision'},h.owner,409);
+  const rejected=await h.json('/followups',input,h.owner);fail='rejected';await h.scheduled('2027-01-04T14:00:00Z');fail=false;
+  const rejectedAttempt=(await h.json('/followups',undefined,h.owner)).attempts.find(x=>x.sequence_id===rejected.id);assert.equal(rejectedAttempt.status,'failed');assert.equal(rejectedAttempt.delivery,'rejected by resend');
+  assert.ok((await h.json('/notifications',undefined,s.prep)).some(x=>x.kind==='followup_failed'&&/rejected by resend/.test(x.summary)));
+  const missing=await h.json('/messages/templates',{name:'Missing invoice amount',scope:'firm',subject:'Invoice {{invoice_amount}}',body:'Please send {{outstanding_requests}}'},h.owner);
+  const held=await h.json('/followups',{...input,steps:[missing.id],maximumSends:1,escalateAfter:1},h.owner);
+  const noSend=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');state=await h.json('/followups',undefined,h.owner);assert.equal(h.mails.length,noSend);assert.match(state.sequences.find(x=>x.id===held.id).reason,/Unresolved placeholders: invoice amount/);assert.equal(state.attempts.filter(x=>x.sequence_id===held.id).length,0);
+  assert.ok((await h.json('/notifications',undefined,s.prep)).some(x=>x.kind==='followup_failed'&&/invoice amount/.test(x.summary)));
+  const responding=await h.json('/followups',input,h.owner);
+  const sent=await h.json(`/jobs/${a.id}/reminders`,{templateId:s.message.id},s.prep),token=new URL(sent.portalUrl).pathname.split('/').at(-1);
+  await h.json(`/portal/${token}/messages`,{body:'I will send the remaining W-2 tomorrow.'});
+  await h.scheduled('2027-01-04T14:00:00Z');state=await h.json('/followups',undefined,h.owner);assert.equal(state.sequences.find(x=>x.id===responding.id).status,'stopped');assert.equal(state.attempts.filter(x=>x.sequence_id===responding.id).length,0);
+  const consent=await h.json('/followups',input,h.owner),contact=(await h.json(`/clients/${s.client.id}/contacts`,undefined,h.owner))[0];
+  await h.json(`/clients/${s.client.id}/contacts`,{id:contact.id,revision:contact.revision,emailConsent:false},h.owner);
+  const noConsent=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,noConsent);assert.equal((await h.json('/followups',undefined,h.owner)).sequences.find(x=>x.id===consent.id).status,'held');
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/followup.approved/);assert.match(archive,/Human reconciliation: accepted/);assert.match(archive,/followup.reconciled/);
+  const copy=await harness();copies.push(copy);await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},copy.owner);
+  const restored=await copy.json('/followups',undefined,copy.owner);assert.ok(restored.sequences.length>=4);assert.ok(restored.sequences.every(x=>x.status==='paused'||x.status==='stopped'||x.status==='completed'));assert.ok(restored.sequences.every(x=>x.principal_id===null));
+  const previous=copy.mails.length;await copy.scheduled('2027-01-05T14:00:00Z');assert.equal(copy.mails.length,previous);
+  const changed=(await h.json(`/clients/${s.client.id}/contacts`,undefined,h.owner))[0];await h.json(`/clients/${s.client.id}/contacts`,{id:changed.id,revision:changed.revision,emailConsent:true},h.owner);
+  const scoped=await h.json('/followups',input,h.owner);await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[]},h.owner);
+  const privateCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,privateCount);assert.equal((await h.json('/followups',undefined,h.owner)).sequences.find(x=>x.id===scoped.id).status,'held');
+  await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
+  await h.json('/access/people',{email:'reviewer@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
+  const readOnly=await h.json('/followups',input,h.owner);await h.json('/access/people',{email:'prep@example.test',readOnly:true,clientIds:[s.client.id]},h.owner);
+  await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,privateCount);assert.equal((await h.json('/followups',undefined,h.owner)).sequences.find(x=>x.id===readOnly.id).status,'held');
+  await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
+  const authority=await h.json('/followups',input,h.owner);
+  let response=await h.request('/auth/step-up',{action:'owner:transfer',returnTo:'/app'},h.owner);assert.equal(response.status,202);
+  const proof=h.mails.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)[1];response=await h.request('/auth/confirm',{token:proof},h.owner);assert.equal(response.status,303);
+  const operators=await(await h.request('/auth/operators',undefined,h.owner)).json();
+  const principal=operators.find(x=>x.email==='owner@example.test'),successor=operators.find(x=>x.email==='reviewer@example.test');
+  assert.equal((await h.request('/auth/operator/role',{operatorId:successor.id,role:'owner'},h.owner)).status,200);
+  assert.equal((await h.request('/auth/operator/role',{operatorId:principal.id,role:'member'},h.owner)).status,200);
+  const revokedCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,revokedCount);
+  const successorSession=await h.login('reviewer@example.test');
+  const revoked=(await h.json('/followups',undefined,successorSession)).sequences.find(x=>x.id===authority.id);assert.equal(revoked.status,'held');assert.match(revoked.reason,/principal no longer has authority/);
+
+
+ }finally{await h.close();for(const copy of copies)await copy.close();}
+});
+
+test('FOLLOWUP-001: portal steps expose only the recipient’s current actionable organizer, signature and client questions and stop completed or declined items',async()=>{
+ const h=await harness();
+ try {
+  const s=await fixture(h),contact=(await h.json(`/clients/${s.client.id}/contacts`,undefined,h.owner))[0];
+  await h.json(`/clients/${s.client.id}/contacts`,{id:contact.id,revision:contact.revision,signer:true},h.owner);
+  const other=await h.json(`/clients/${s.client.id}/contacts`,{name:'Blair Bookkeeper',email:'synthetic-blotter-4@example.test',roles:['bookkeeping'],authorized:true,portal:true,requestConsent:true,emailConsent:true,signer:true},h.owner);
+  const template=await h.json('/templates',{name:'Close with organizer',recurrence:'annual',steps:'Inspect response',requests:'Bank statement',organizer:{name:'Ownership',kind:'bookkeeping',questions:[{key:'owner',label:'Who owns the company?',type:'text',required:true},{key:'private',label:'Other contact only',type:'text',required:true}]}},h.owner);
+  const a=await h.json('/jobs',{clientId:s.client.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Agreed engagement',preparerEmail:'prep@example.test',reviewerEmail:'reviewer@example.test',managerEmail:'reviewer@example.test'},h.owner);
+  const organizer=(await h.json(`/jobs/${a.id}/organizers`,undefined,h.owner)).organizers[0];
+  const invitations=await h.json(`/jobs/${a.id}/organizers/send`,{revision:organizer.revision,assignments:{owner:contact.id,private:other.id},templateId:s.message.id},s.prep);
+  const tokenFor=id=>new URL(invitations.recipients.find(x=>x.contactId===id).portalUrl).pathname.split('/').at(-1);
+  const {PDFDocument}=await import('pdf-lib'),pdf=await PDFDocument.create();pdf.addPage([612,792]);
+  const signature=await h.json(`/jobs/${a.id}/signatures`,{title:'Management representation',formKind:'management representation',mode:'parallel',contactIds:[contact.id],fields:[{type:'signature',contactId:contact.id,page:1,x:40,y:100,width:240,height:28,label:'Client signature'}],file:{name:'synthetic-blotter-5.pdf',mime:'application/pdf',contentBase64:Buffer.from(await pdf.save()).toString('base64')}},s.prep);
+  const signatureSent=await h.json(`/signatures/${signature.id}/send`,{revision:signature.revision},s.prep),ownToken=new URL(signatureSent.invitations[0].portalUrl).pathname.split('/').at(-1);
+  await h.json(`/jobs/${a.id}/portal/todos`,{body:'Confirm bank account ownership'},s.prep);
+  const personal=await h.json(`/messages/templates/${s.message.id}/copy`,{name:'Personal close reminder'},s.prep);
+  await h.json(`/messages/templates/${personal.id}`,{subject:personal.subject,body:personal.body,attachments:[{name:'synthetic-blotter-9.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-9').toString('base64')}]},s.prep);
+  const input={name:'Portal close reminders',jobId:a.id,ownerEmail:'prep@example.test',contactId:contact.id,channel:'portal',steps:[personal.id,personal.id,personal.id],maximumSends:3,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:3,confirm:'APPROVE'};
+  const f=await h.json('/followups',input,h.owner),mailCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,mailCount,'Portal steps do not claim email delivery');
+  const reminders=(await h.json(`/jobs/${a.id}`,undefined,h.owner)).reminders;assert.equal(reminders.length,1);assert.deepEqual(JSON.parse(reminders[0].outstanding),['Bank statement','Who owns the company?','Management representation','Confirm bank account ownership']);
+  assert.equal(reminders[0].delivery,'posted to portal (no email sent)');
+  const own=await h.json(`/portal/${ownToken}`),outside=await h.json(`/portal/${tokenFor(other.id)}`);
+  assert.equal(own.messages.filter(x=>x.id===reminders[0].id).length,1);assert.equal(outside.messages.filter(x=>x.id===reminders[0].id).length,0,'Other contacts cannot see a recipient-bound step');
+  const ownFile=await h.request(`/api/blotter/portal/${ownToken}/messages/${reminders[0].id}/files/1`);assert.equal(ownFile.status,200);assert.equal(await ownFile.text(),'synthetic-blotter-9');
+  assert.equal((await h.request(`/api/blotter/portal/${tokenFor(other.id)}/messages/${reminders[0].id}/files/1`)).status,404,'Another contact cannot bypass message visibility to fetch its attachment');
+  await followupPortalJourney(h,ownToken,tokenFor(other.id),own.messages.find(x=>x.id===reminders[0].id).body);
+  let mine=(await h.json(`/portal/${ownToken}/organizers`)).organizers[0];
+  await h.json(`/portal/${ownToken}/organizers/${organizer.id}`,{revision:mine.revision,answers:{owner:{value:'Alex Rivera',confirmed:true}},submit:true});
+  let signing=await h.json(`/signatures/${signature.id}`,undefined,h.owner);
+  await h.json(`/portal/${ownToken}/signatures/${signature.id}/decline`,{revision:signing.revision,reason:'Please correct the representation'});
+  const todo=own.todos.find(x=>x.body==='Confirm bank account ownership');await h.json(`/portal/${ownToken}/todos/${todo.id}`,{});
+  await h.scheduled('2027-01-05T14:00:00Z');
+  const later=(await h.json(`/jobs/${a.id}`,undefined,h.owner)).reminders.find(x=>x.id!==reminders[0].id);assert.deepEqual(JSON.parse(later.outstanding),['Bank statement']);
+  const req=(await h.json(`/jobs/${a.id}`,undefined,h.owner)).requests[0];await h.json(`/requests/${req.id}/files`,{name:'synthetic-blotter-6.txt',contentBase64:Buffer.from('synthetic-blotter-6').toString('base64')},s.prep);await h.json(`/requests/${req.id}/decide`,{decision:'accept'},s.prep);
+  await h.scheduled('2027-01-06T14:00:00Z');const final=await h.json('/followups',undefined,h.owner);assert.equal(final.sequences.find(x=>x.id===f.id).status,'stopped');assert.deepEqual(final.attempts.filter(x=>x.sequence_id===f.id).map(x=>x.status),['posted','posted']);
+ }finally{await h.close();}
 });

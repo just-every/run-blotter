@@ -46,7 +46,7 @@ export async function build(h) {
   const other = await h.json('/clients', { name: 'Birch Street Cafe', contacts: [contact('Alex at Birch', 'alex@example.test')] }, h.owner);
   const [alex] = client.contacts.filter(c => c.email === 'alex@example.test');
   const template = await h.json('/templates', { name: 'Close', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank statement\nPayroll register', organizer }, h.owner);
-  const start = (periodStart, clientId = client.id) => h.json('/jobs', { clientId, templateId: template.id, periodStart, dueDate: '2027-04-15', dueNote: 'Recorded target', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
+  const start = (periodStart, clientId = client.id) => h.json('/jobs', { clientId, templateId: template.id, periodStart, dueDate: '2027-04-15', dueNote: 'Recorded target', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test', managerEmail: 'reviewer@example.test' }, h.owner);
   const engagementJob = await start('2026-01-01'), signed = await start('2026-02-01'), open = await start('2026-03-01');
   const engagementFile = await signedOff(h, s, engagementJob, { name: 'engagement-job.txt', mime: 'text/plain', contentBase64: b64('Engagement job working paper') });
   const signedFile = await signedOff(h, s, signed, { name: 'signed-return.txt', mime: 'text/plain', contentBase64: b64(SENTINEL.accepted) });

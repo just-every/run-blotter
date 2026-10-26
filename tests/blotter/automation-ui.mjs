@@ -5,7 +5,7 @@ import {mkdir} from 'node:fs/promises';
 
 export async function automationAppJourney(h,s,interrupt) {
  const job=await s.start();
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const browser=await chromium.launch({headless:true,...(process.env.BLOTTER_CHROMIUM?{executablePath:process.env.BLOTTER_CHROMIUM}:{}),args:['--use-mock-keychain','--password-store=basic',...(process.env.BLOTTER_CHROMIUM?['--no-sandbox']:[])]});
  const evidence=process.env.BLOTTER_AUTOMATION_EVIDENCE;
  try {
   const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
@@ -110,4 +110,53 @@ export async function automationAppJourney(h,s,interrupt) {
   await shot('offboarding-refused');
   await context.close();
  } finally {await browser.close();}
+}
+
+export async function followupOffboardingJourney(h) {
+ const browser=await chromium.launch({headless:true,...(process.env.BLOTTER_CHROMIUM?{executablePath:process.env.BLOTTER_CHROMIUM}:{}),args:['--use-mock-keychain','--password-store=basic',...(process.env.BLOTTER_CHROMIUM?['--no-sandbox']:[])]});
+ const evidence=process.env.BLOTTER_FOLLOWUP_EVIDENCE;
+ try {
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
+  await context.addCookies(h.owner.split('; ').map(c=>{const at=c.indexOf('=');return {name:c.slice(0,at),value:c.slice(at+1),url:h.origin};}));
+  const page=await context.newPage();await page.goto(h.origin+'/app');
+  if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();await page.waitForURL('**/app');}
+  await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Team & safety',exact:true}).click();
+  await page.getByText('Offboard a person',{exact:true}).click();
+  await page.getByLabel('Departing person',{exact:true}).selectOption('prep@example.test');
+  await page.getByLabel('Successor for their work (jobs they prepare, tasks, notices, discussions, template tasks)',{exact:true}).selectOption('other@example.test');
+  await page.getByRole('button',{name:'Preview transfer',exact:true}).click();
+  const sequence=page.getByText(/Reminder sequence “Close documents”/);await sequence.waitFor();assert.match(await sequence.innerText(),/other@example.test; past senders are kept/);
+  const account=page.locator('summary[aria-label]').first();
+  if(evidence)await mkdir(evidence,{recursive:true});
+  for(const width of [1440,390]) {
+   await page.setViewportSize({width,height:1000});await sequence.scrollIntoViewIfNeeded();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Offboarding fits the viewport');
+   if(evidence)await page.getByRole('heading',{name:'Transfer from prep@example.test',exact:true}).locator('..').screenshot({path:`${evidence}/followup-offboarding-${width}.png`});
+   await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor();
+   await account.press('Escape');await account.hover();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor();
+   if(evidence)await page.screenshot({path:`${evidence}/followup-tooltip-${width}.png`});
+   await page.mouse.move(0,0);await account.evaluate(e=>e.blur());
+  }
+  await context.close();
+ }finally{await browser.close();}
+}
+
+export async function followupPortalJourney(h,ownToken,otherToken,message) {
+ const browser=await chromium.launch({headless:true,...(process.env.BLOTTER_CHROMIUM?{executablePath:process.env.BLOTTER_CHROMIUM}:{}),args:['--use-mock-keychain','--password-store=basic',...(process.env.BLOTTER_CHROMIUM?['--no-sandbox']:[])]});
+ const evidence=process.env.BLOTTER_FOLLOWUP_EVIDENCE;
+ try {
+  const context=await browser.newContext({ignoreHTTPSErrors:true}),page=await context.newPage();
+  if(evidence)await mkdir(evidence,{recursive:true});
+  for(const width of [1440,390]) {
+   await page.setViewportSize({width,height:1000});await page.goto(h.origin+'/portal/'+ownToken);
+   await page.locator('.message').filter({hasText:'Who owns the company?'}).waitFor();
+   assert.equal((await page.locator('.message').filter({hasText:'Who owns the company?'}).innerText()).replace(/\s+/g,' ').trim(),message.replace(/\s+/g,' ').trim());
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Recipient portal fits the viewport');
+   if(evidence)await page.screenshot({path:`${evidence}/followup-portal-${width}.png`,fullPage:true});
+   await page.goto(h.origin+'/portal/'+otherToken);await page.getByRole('heading',{name:'Messages',exact:true}).waitFor();
+   assert.equal(await page.locator('.message').filter({hasText:'Who owns the company?'}).count(),0,'The other contact has no sequence message');
+   if(evidence)await page.screenshot({path:`${evidence}/followup-other-contact-${width}.png`,fullPage:true});
+  }
+  await context.close();
+ }finally{await browser.close();}
 }
