@@ -6,7 +6,7 @@ name: Verify
 # Blotter journey within the unchanged 15-minute job limit.
 on:
   push:
-    branches: [main]
+    branches: [main, 'cloud/**', 'sx/**', 'hotfix/**']
   pull_request:
   workflow_dispatch:
 
@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: verify-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: verify-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   plan:
