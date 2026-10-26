@@ -47,7 +47,7 @@ export async function sandboxBank(page, account, returnOrigin) {
       await page.screenshot({ path: `${process.env.BLOTTER_PAYMENT_EVIDENCE}/ach-bank-entry.png`, fullPage: true });
       continue;
     }
-    const next = await visible(page, frame => frame.getByRole('button', { name: /^(Continue|Finish without saving|Confirm account|Agree and continue|Verify account|Connect account|Submit|Pay(?:\s.*)?|Authorize(?:\s.*)?)$/i }));
+    const next = await visible(page, frame => frame.getByRole('button', { name: /^(Continue(?: to .*)?|Finish without saving|Confirm account|Agree and continue|Verify account|Connect account|Submit|Pay(?:\s.*)?|Authorize(?:\s.*)?)$/i }));
     const action = next ? await next.innerText() : '';
     if (next && await next.isEnabled() && action !== lastAction && (entered || !/^Pay/.test(action))) {
       lastAction = action;
