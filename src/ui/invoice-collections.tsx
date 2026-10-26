@@ -49,6 +49,7 @@ export function InvoiceCollections({ state, clients, billing, run, tick }: { sta
           {statement.invoices.map((i: Row) => <tr key={i.id}><td data-label="Invoice">{i.number} · {i.title}{i.hold && <small className="muted"> · {i.hold === 'disputed' ? 'disputed' : 'payment plan'}</small>}</td><td data-label="Due">{day(i.dueDate)}</td><td data-label="Aging">{i.aging}</td><td className="amount" data-label="Written off">{money(i.writtenOffCents)}</td><td className="amount" data-label="Balance">{money(i.balanceCents)}</td></tr>)}
         </tbody></table>}
         {statement.credits.length > 0 && <ul>{statement.credits.map((c: Row) => <li key={c.id}>{c.kind} {c.reference}: {money(c.amountCents)} recorded, {money(c.appliedCents)} applied, {money(c.availableCents)} available</li>)}</ul>}
+        {statement.payments?.length > 0 && <ul>{statement.payments.map((p: Row) => <li key={p.id} style={{overflowWrap:'anywhere'}}>Stripe {p.provider_id}: {p.state} · net {money(p.net_cents)} · observed fee {money(p.fee_cents)}</li>)}</ul>}
         <p>{statement.paymentsNote}</p>
         <p>Open balance {money(statement.totals.openCents)} · unapplied credits {money(statement.totals.availableCreditCents)} · <strong>net {money(statement.totals.netCents)}</strong></p>
         <p><ExportLink className="button" href={`/api/blotter/clients/${statement.client.id}/statement/csv?asOf=${statement.asOf}`}>Download statement CSV</ExportLink></p>

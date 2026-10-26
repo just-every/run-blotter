@@ -39,6 +39,9 @@ test('Signed duplicate and out-of-order notifications cannot undo refunds; inval
   assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,700);
   assert.equal((await notify(h,{...event,type:'payment_intent.processing'})).status,409);
   assert.equal(edge.intents.get(paid.provider_id).latest_charge.amount_refunded,200);
+  edge.intents.get(paid.provider_id).latest_charge.disputed=true;
+  assert.equal((await notify(h,{...event,id:'synthetic-blotter-102',type:'charge.dispute.created'})).status,200);
+  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,1000,'A disputed payment no longer discharges the invoice');
  }finally{await h.close();}
 });
 test('Failed card and returned ACH create owned follow-up, pending acceptance is unsettled, and revoked mandates never debit again',async()=>{
@@ -57,11 +60,14 @@ test('Failed card and returned ACH create owned follow-up, pending acceptance is
 });
 test('Payment archives retain accounting and restore without charging authority; erasure lists Stripe copies and honors holds',async()=>{
  const {h,s}=await start();let restored;try{
-  const {paid}=await authorize(h,s,1000),archive=await h.json('/backup',undefined,h.owner);
+  const {paid}=await authorize(h,s,1000),archive=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();
   restored=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2'},stripeResponse:()=>{throw new Error('Restore must not contact Stripe');}});
-  await restored.json('/restore',{archive,acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
+  await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const state=await restored.json(`/invoices/${s.invoice.id}/payments`,undefined,restored.owner);assert.equal(state.payments[0].net_cents,1000);assert.equal(state.mandates[0].status,'held');
   await restored.json(`/invoices/${s.invoice.id}/quick-collect`,{mandateId:state.mandates[0].id,requestId:randomUUID()},restored.owner,409);
-  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.ok(JSON.stringify(preview).includes('Stripe'));
+  const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'billing',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Payment dispute review'},h.owner);
+  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.ok(JSON.stringify(preview).includes('Stripe'));assert.ok(preview.classes.find(c=>c.class==='billing').retained>0);
+  await h.json(`/retention/${hold.id}/release`,{reason:'Review completed'},h.owner);
+  await restored.json(`/payments/${paid.id}/reconcile`,{},restored.owner,409);
  }finally{await restored?.close();await h.close();}
 });

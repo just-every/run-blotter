@@ -121,7 +121,7 @@ export async function bulkResend(env: Bindings, actor: Actor, body: Data) {
   return { results };
 }
 
-/** A client statement as of a date: open issued invoices with aging, recorded credits, and no provider payments until PAY-001. */
+/** Dated statements use the latest observed provider balance at the firm's day end. */
 export async function clientStatement(db: D1Database, actor: Actor, clientId: string, query: Data) {
   insist(canReadBilling(actor) && actor.channel === 'person', 'Your role cannot perform this action', 403);
   const client = await stmt(db, 'SELECT id,name FROM b_clients WHERE id=? AND erased_at IS NULL', clientId).first<Data>();
@@ -150,6 +150,7 @@ export async function clientStatementCsv(db: D1Database, actor: Actor, clientId:
   const lines = [['Line', 'Reference', 'Title', 'Issue date', 'Due date', 'Aging', 'USD amount', 'USD credits', 'USD written off', 'USD balance'].map(cell).join(','),
     ...s.invoices.map(i => ['Invoice', i.number, i.title, i.issueDate, i.dueDate, i.aging, (i.totalCents / 100).toFixed(2), (i.creditsCents / 100).toFixed(2), (i.writtenOffCents / 100).toFixed(2), (i.balanceCents / 100).toFixed(2)].map(cell).join(',')),
     ...s.credits.filter(c => c.availableCents > 0).map(c => [c.kind === 'deposit' ? 'Unapplied deposit' : 'Unapplied credit', c.reference, '', c.recordedAt.slice(0, 10), '', '', (c.amountCents / 100).toFixed(2), (c.appliedCents / 100).toFixed(2), '', (-c.availableCents / 100).toFixed(2)].map(cell).join(',')),
+    ...s.payments.map(p => ['Stripe payment',p.provider_id,p.state,p.observed_at.slice(0,10),'','','','','',(p.net_cents/100).toFixed(2)].map(cell).join(',')),
     ['Total', '', `${s.client.name} statement as of ${s.asOf}`, '', '', '', '', '', '', (s.totals.netCents / 100).toFixed(2)].map(cell).join(',')];
   await atomic(db, actor, [audit(db, actor, 'invoice.statement_downloaded', clientId, `as of ${s.asOf}; open ${usd(s.totals.openCents)}`)]);
   return new Response(lines.join('\r\n') + '\r\n', { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="statement-${s.asOf}.csv"`, 'cache-control': 'no-store' } });
