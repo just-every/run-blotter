@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "696cc55766b37d7c6a19e9a04c87bfaadf0d8612f72370b7a1526d00187a397c",
+      "sha256": "ff2836edd49d4082185068c5f01037933b78adc9f81edf2387c446608e5cf6ef",
       "executable": false
     },
     "AGENTS.md": {
@@ -124,7 +124,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "ac30c83a24c01a024a2fdf5444c1f665f92002541df7f0a8177b5242a89c8a8d",
+      "sha256": "72c1f1ed35590423eff184d5eff124543183a922ff7438c8ba5dcb3870cfd217",
       "executable": false
     },
     "base-copies.json": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "c4637385f2c911f70e79e55dde79d8dfa4541564d7366618e034a3dff2d83941",
+      "sha256": "48e623f8009b991bb4b343b9bb8a3b56e32b76ec9d8f1689d07df917cae5e17f",
       "executable": false
     },
     "deploy-demo.json": {
@@ -569,6 +569,10 @@
     },
     "migrations/core/0100_service_costs.sql": {
       "sha256": "366a98d6450b3506e8c004e400ac2ef2f7deaa25537959688742670ce94d75b5",
+      "executable": false
+    },
+    "migrations/core/0101_provider_payments.sql": {
+      "sha256": "fd5eb96a6c9f509681d40f1afb0ad90b2a85de381ce4f71b168fb546b70586ce",
       "executable": false
     },
     "migrations/core/0101_scheduled_agents.sql": {
@@ -1080,7 +1084,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "a3b7d72a2949c2742a1c3b32cc305aa863d6ae25e36e213bc78fa7589e84cfe4",
+      "sha256": "7adfc07a89e295086a90c1d4db43d053c32f7771abca63794d690ae514c32127",
       "executable": false
     },
     "src/base/contract-filter.ts": {
@@ -1180,7 +1184,7 @@
       "executable": false
     },
     "src/blotter/access-gate.ts": {
-      "sha256": "3cb9a1e0691e42eb2afeab67b0f2a7cd49e916792ddc1a088ad15cfc48d6bf9d",
+      "sha256": "ea1b9352648733f6df5cf445377bef21549b48748361a2acfe3de7b8e8ad1ecd",
       "executable": false
     },
     "src/blotter/access-sql.ts": {
@@ -1220,7 +1224,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "5e12abd1afff47e2fd506a414efd5ccfcf115cbaada8d93d73d4a0c60e60cddc",
+      "sha256": "91a91f5a5673c5686b124991f65aa51a899995e9f5d618cd709a1beee44687f3",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
@@ -1472,7 +1476,7 @@
       "executable": false
     },
     "src/blotter/history.ts": {
-      "sha256": "44f1b306e3c53955bcbe55bdba4745be74f04409223f80e2c799477132b58987",
+      "sha256": "df74806605b224f0e6ffdc20a004bd06152c265753f9d943583c448f74da771c",
       "executable": false
     },
     "src/blotter/imports.ts": {
@@ -1524,11 +1528,11 @@
       "executable": false
     },
     "src/blotter/invoice-routes.ts": {
-      "sha256": "c41b723769c30a1038a1233932ee7527ee72a804aa8c06ccc385af76d05cbefc",
+      "sha256": "766769cc09bdbc4391ffc295a984b4892c8eb9aa0fc5af38f5bae90920f21013",
       "executable": false
     },
     "src/blotter/invoices-collections.ts": {
-      "sha256": "0bc4ddab991a806e7b4ecdc04d0faa6cff91b771b354f9e1ff61056deedb2b0a",
+      "sha256": "949b2154c31ba52aeba2a0093c1752b283d625bf7485c36468b8e71a695cab6a",
       "executable": false
     },
     "src/blotter/invoices-credits.ts": {
@@ -1536,11 +1540,11 @@
       "executable": false
     },
     "src/blotter/invoices-delivery.ts": {
-      "sha256": "c7e709286c24536a9e89da2799b8a55f55b5b81068bea33f322a755fd27a23bc",
+      "sha256": "22b50400d4dc35efdaaa46af0c78b14ce1d5df141b22dac67f9b365a6ddc49bc",
       "executable": false
     },
     "src/blotter/invoices-erasure.ts": {
-      "sha256": "5bdb5a36e9f721d4014f8886f7ab651ea80943faaf168dc24e3367961fb27070",
+      "sha256": "ab90456316ba4647d77a248c397834ca5086d8405b8e32a4dbe1fa7e0670c5d1",
       "executable": false
     },
     "src/blotter/invoices-pdf.ts": {
@@ -1548,7 +1552,7 @@
       "executable": false
     },
     "src/blotter/invoices-registry.ts": {
-      "sha256": "208d39d1238888fb0d2cac5399c4bef4f5eb89d9087365074671088e717c644b",
+      "sha256": "260b4ab5b38fc7484547312cf7cc2ceb23a64725808e15ad438b616660f4bff7",
       "executable": false
     },
     "src/blotter/invoices-retainers.ts": {
@@ -1556,7 +1560,7 @@
       "executable": false
     },
     "src/blotter/invoices-sources.ts": {
-      "sha256": "b3103f4b47b57b95373a54af7f6d996f90469cd18549a1bc9ed81587467657bc",
+      "sha256": "e25eadd2c313e8e6d7c6061afe1c066d4fedc4e218c4b93ff40c79e985d61ec2",
       "executable": false
     },
     "src/blotter/invoices-writeoffs.ts": {
@@ -1592,7 +1596,7 @@
       "executable": false
     },
     "src/blotter/messages.ts": {
-      "sha256": "070910fb7dd8c66a799a1c475d9cd02f9dd135c6c22a75d7fbf35a130737bd10",
+      "sha256": "5c8d7a8b87437f8ef83110da09709d4dc2e42941028ab4fae8359bc83edfad60",
       "executable": false
     },
     "src/blotter/mfa.ts": {
@@ -1663,8 +1667,16 @@
       "sha256": "c57b5337d9a62e96836b19ad0bcbc88ed38ba4df4a4184b9bd2ca892242ca1f2",
       "executable": false
     },
+    "src/blotter/payment-collections.ts": {
+      "sha256": "9b6ed41c9b4b658f33439580498add3eab6ea6acd1a75d5199e553931a724ec2",
+      "executable": false
+    },
+    "src/blotter/payment-events.ts": {
+      "sha256": "b11a47375a89b965b8ff29a01b514f3228d1aa7cc21839b32383728c3f110b87",
+      "executable": false
+    },
     "src/blotter/payment-gates.ts": {
-      "sha256": "db92300fa798732a976d9af777ef84ecc9130e6c20e25d98d71c538a4aa12ab2",
+      "sha256": "b64d6aea2740bc26b3fd7ba697c31d8b498b48cbf13e76f52840b64e4cae31ab",
       "executable": false
     },
     "src/blotter/payment-policy.ts": {
@@ -1748,11 +1760,11 @@
       "executable": false
     },
     "src/blotter/report-invoices.ts": {
-      "sha256": "f165d11850b32cb7b013bbcb1105b7c8470ec74939888050ee41ab610625f3b6",
+      "sha256": "5e758806dd14593ca0fca97d5c06aabff4022ce65f17915ef50decb116ace59c",
       "executable": false
     },
     "src/blotter/report-receivables.ts": {
-      "sha256": "b11d655307badd2c80f79ecfad1a9fb155b51214b7aedcb26bf253629dba3397",
+      "sha256": "f1d18dd4ad1a8566f516b6e232ebb8e86ac7f380a499d9acb3a4c86dd79f308e",
       "executable": false
     },
     "src/blotter/report-schedules.ts": {
@@ -1845,6 +1857,10 @@
     },
     "src/blotter/statuses.ts": {
       "sha256": "e55707300038f89e4c249d71eea97b6e13c608027424050f68d5762788caa16b",
+      "executable": false
+    },
+    "src/blotter/stripe-provider.ts": {
+      "sha256": "3e97f668b2a9e109096ae1b22ef25aa3a4ac4b39a79fa382fa0fbcbb6359a382",
       "executable": false
     },
     "src/blotter/suggestions.ts": {
@@ -3972,11 +3988,19 @@
       "executable": false
     },
     "src/ui/invoice-collections.tsx": {
-      "sha256": "d0df1571c97fe4ddf1fd2703dfc4e90acf09e662aa8d86d77df279554c0f6564",
+      "sha256": "46ec153f442d5ebb3462914106534d5998dbf12dc104312480db6e357199daa9",
+      "executable": false
+    },
+    "src/ui/invoice-payment-portal.tsx": {
+      "sha256": "8cece5c01856ad53c832c00c30860519f11092448ab54cb76b1e2d3285adb89b",
+      "executable": false
+    },
+    "src/ui/invoice-payments.tsx": {
+      "sha256": "719f51fb0150555c454ccb9e31c76ec81d29f00cf54c5ecea055986a3e7fccb1",
       "executable": false
     },
     "src/ui/invoices.tsx": {
-      "sha256": "e3a7d0548597290234ae1dced4559c9ecbbb71d6cf0391af7f837cb9343f4cb3",
+      "sha256": "2a0fb2e5f40385ee6662646f5f181789b98599478cfed00f9a9e7c3b06ca821c",
       "executable": false
     },
     "src/ui/job.tsx": {
@@ -4135,6 +4159,10 @@
       "sha256": "2e043a4c62507931b984ac171364da5b3159c3625008d534b7a94624b68b77d6",
       "executable": false
     },
+    "STRIPE.md": {
+      "sha256": "dedacf14beb505a8a90ea31bc5bff8dfd489ba4b6082a3d218d7762385ff34ad",
+      "executable": false
+    },
     "test-budget.json": {
       "sha256": "8ce239223e24ca472868140b2453e54f97579dfcafcb6b3f50dfc3712383e377",
       "executable": false
@@ -4236,7 +4264,7 @@
       "executable": false
     },
     "tests/blotter/harness.mjs": {
-      "sha256": "81fe600304fd6398314ea951429a61438b45408e9be1e70c13434e007bcc0710",
+      "sha256": "8c23e357e4eee76a57f879988ac021b2d34ac1ecad2766c46e1d80a23312b740",
       "executable": false
     },
     "tests/blotter/import-mapping.test.mjs": {
@@ -4260,7 +4288,7 @@
       "executable": false
     },
     "tests/blotter/invoices.test.mjs": {
-      "sha256": "7a922b8c85c8fe1bb08eae5c1f94af1431d4ea0c541c05fab9d9c792f072eefc",
+      "sha256": "2ae7d8cdaebe5ae3337b438c30562e32a82c754ac5884f8156ea4fde98db3401",
       "executable": false
     },
     "tests/blotter/language-ui.mjs": {
@@ -4289,6 +4317,22 @@
     },
     "tests/blotter/organizers.test.mjs": {
       "sha256": "0df7d23bc9eda312eea6981917f0a74577bc598eebd8f177a2dc26a21da460ca",
+      "executable": false
+    },
+    "tests/blotter/payment-fixture.mjs": {
+      "sha256": "efb5394845a81827438ec7b65b4b973a8d761b2a4fa545894d837f24bade6c5d",
+      "executable": false
+    },
+    "tests/blotter/payment-ui.mjs": {
+      "sha256": "bc67f9fb90b5c8ad40b96b45a37a395d8caac83ee53a33592b468c39f4d3a2af",
+      "executable": false
+    },
+    "tests/blotter/payments-live.mjs": {
+      "sha256": "0d1708ede6ae416f72bd22c3d781f9e537c720ee0244be2939c4bf7dcbc374ae",
+      "executable": false
+    },
+    "tests/blotter/payments.test.mjs": {
+      "sha256": "538f6ff494f3e3ae4495ed07799d53b6f54879418ca6c44c6693fc06d5eb3e82",
       "executable": false
     },
     "tests/blotter/pdf-text.mjs": {
@@ -4365,6 +4409,10 @@
     },
     "tests/blotter/signatures.test.mjs": {
       "sha256": "e2b8ba26c5a70ba9ff0fd0a4ebd55619d3be62c34e93da8c3c532f616a6dc53c",
+      "executable": false
+    },
+    "tests/blotter/stripe-edge.mjs": {
+      "sha256": "6af89dc6574c87032854ba4856cc104176c72a5aabf39516318aa282c115ff90",
       "executable": false
     },
     "tests/blotter/us.test.mjs": {

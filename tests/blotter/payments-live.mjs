@@ -39,12 +39,16 @@ try{
  await page.getByRole('button',{name:'Continue to Stripe',exact:true}).click();
  await page.waitForURL('https://checkout.stripe.com/**',{timeout:60_000});
  await page.setViewportSize({width:1440,height:1000});
+ const currency=page.getByRole('button',{name:/\$1\.00/});if(await currency.count())await currency.click();
  await page.locator('#email').fill('synthetic-blotter@example.com');
- await page.getByRole('button',{name:/Card|Credit or debit card/i}).click().catch(()=>{});
+ const card=page.getByRole('button',{name:/Card|Credit or debit card/i});if(await card.count())await card.first().click();
  await page.locator('#cardNumber').fill('4242424242424242');await page.locator('#cardExpiry').fill('1230');await page.locator('#cardCvc').fill('123');
  const name=page.locator('#billingName');if(await name.count())await name.fill('Synthetic Blotter');
  const zip=page.locator('#billingPostalCode');if(await zip.count())await zip.fill('02108');
  const address=page.locator('#billingAddressLine1');if(await address.count())await address.fill('10 Main Street');
+ const country=page.locator('#billingCountry');if(await country.count())await country.selectOption('US');
+ if(await zip.count())await zip.fill('02108');
+ const linkConsent=page.getByRole('checkbox',{name:/Save my information with Link/});if(await linkConsent.count())await linkConsent.uncheck();
  await page.getByRole('button',{name:/^Pay|^Authorize/}).last().click();
  await page.screenshot({path:`${directory}/stripe-submitted.png`,fullPage:true});
  await page.waitForURL(h.origin+'/**',{timeout:45_000});

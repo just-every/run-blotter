@@ -630,7 +630,8 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     const open = (await h.json('/invoices', undefined, h.owner)).invoices.filter(i => i.client_id === s.client.id && i.status === 'issued').reduce((n, i) => n + i.balance_cents, 0);
     assert.equal(statement.totals.openCents, open); assert.equal(open, 50000);
     assert.deepEqual(statement.invoices.map(i => [i.balanceCents, i.aging, i.hold]), [[20000, '1-30 days', null], [30000, '1-30 days', 'disputed']]);
-    assert.deepEqual(statement.credits.map(x => [x.reference, x.appliedCents, x.availableCents]), [['BANK-RECEIPT-A', 10000, 0]]); assert.deepEqual(statement.payments, []);
+    assert.deepEqual(statement.credits,[]);
+    assert.deepEqual(statement.payments.map(p=>[p.provider_id,p.state,p.net_cents]),[[payment.provider_id,'settled',10000]]);
     const csv = await (await h.request(`/api/blotter/clients/${s.client.id}/statement/csv?asOf=2026-12-27`, undefined, h.owner)).text();
     assert.match(csv, /"Total","","Cedar Lane LLC statement as of 2026-12-27","","","","","","","500.00"/);
     assert.match((await h.json(`/invoices/${b.id}/quick-collect`, {}, h.owner, 409)).error, /PAY-001/);

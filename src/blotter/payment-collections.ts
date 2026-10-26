@@ -44,6 +44,7 @@ export async function paymentLink(env: Bindings, actor: Actor, invoiceId: string
 async function checkout(env: Bindings, invoice: Data, payment: Data, returnUrl: string, save: boolean, customer?: string) {
   const session = await stripe(env, 'checkout/sessions', {
     mode: 'payment', success_url: returnUrl, cancel_url: returnUrl,
+    'adaptive_pricing[enabled]':'false','wallet_options[link][display]':'never',
     'allowed_payment_method_types[0]': 'card', 'allowed_payment_method_types[1]': 'us_bank_account',
     'line_items[0][price_data][currency]': 'usd', 'line_items[0][price_data][unit_amount]': String(payment.amount_cents),
     'line_items[0][price_data][product_data][name]': `Invoice ${invoice.number}`, 'line_items[0][quantity]': '1',
