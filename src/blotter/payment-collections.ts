@@ -11,9 +11,10 @@ async function invoiceFor(db: D1Database, actor: Actor, invoiceId: string, write
   insist(invoice, 'Issued invoice not found', 404); await job(db, actor, invoice.job_id); return invoice;
 }
 export async function invoicePayments(env: Bindings, actor: Actor, invoiceId: string) {
-  await invoiceFor(env.DB, actor, invoiceId, false);
-  return { configured: Boolean(env.STRIPE_SECRET_KEY), payments: await rows(env.DB, 'SELECT id,state,kind,amount_cents,refunded_cents,fee_cents,net_cents,provider_id,created_at,failure_code FROM b_provider_payments WHERE invoice_id=? ORDER BY created_at', invoiceId),
-    mandates: await rows(env.DB, 'SELECT id,status,kind,last4,max_cents,authorized_at FROM b_payment_mandates WHERE invoice_id=? ORDER BY authorized_at', invoiceId) };
+  const invoice=await invoiceFor(env.DB, actor, invoiceId, false);
+  const reserved=await stmt(env.DB,"SELECT COALESCE(sum(amount_cents),0) cents FROM b_provider_payments WHERE invoice_id=? AND state IN ('creating','pending','requires_action','held')",invoiceId).first<Data>();
+  return { availableCents:Math.max(0,invoice.balance_cents-Number(reserved!.cents)),configured: Boolean(env.STRIPE_SECRET_KEY), payments: await rows(env.DB, 'SELECT id,state,kind,amount_cents,refunded_cents,fee_cents,net_cents,provider_id,created_at,failure_code FROM b_provider_payments WHERE invoice_id=? ORDER BY created_at', invoiceId),
+    mandates: await rows(env.DB, `SELECT m.id,m.status,m.kind,m.last4,m.max_cents,m.authorized_at,max(0,m.max_cents-COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.mandate_id=m.id AND p.state NOT IN ('failed','held','returned')),0)) remaining_cents FROM b_payment_mandates m WHERE m.invoice_id=? ORDER BY m.authorized_at`, invoiceId) };
 }
 const reservedSql = `COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('creating','pending','requires_action','held')),0)`;
 async function reserve(env: Bindings, invoice: Data, amount: number, requestKey: string, who: string, actor?: Actor, mandate?: Data, portal?: Data) {

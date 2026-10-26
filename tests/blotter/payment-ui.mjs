@@ -79,7 +79,7 @@ export async function paymentJourney(h, fixture, invoice) {
       assert.ok(linked, 'Payment link records the selected partial amount');
       await assertPayment(linked);
       await capture(page, panel, directory, 'invoice-payment-link');
-      const mandate = initial.mandates.find(method => method.status === 'active' && method.max_cents >= detail.balance_cents);
+      const mandate = initial.mandates.find(method => method.status === 'active' && method.remaining_cents >= detail.balance_cents && updated.availableCents >= detail.balance_cents);
       if (mandate) {
         await panel.getByLabel('Saved payment method', { exact: true }).selectOption(mandate.id);
         await panel.getByRole('button', { name: 'Quick collect', exact: true }).click();
