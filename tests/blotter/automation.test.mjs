@@ -304,6 +304,7 @@ test('FOLLOWUP-001: portal steps expose only the recipient’s current actionabl
   await h.json(`/signatures/${signature.id}/send`,{revision:signature.revision},s.prep);
   await h.json(`/jobs/${a.id}/portal/todos`,{body:'Confirm bank account ownership'},s.prep);
   const personal=await h.json(`/messages/templates/${s.message.id}/copy`,{name:'Personal close reminder'},s.prep);
+  await h.json(`/messages/templates/${personal.id}`,{subject:personal.subject,body:personal.body,attachments:[{name:'synthetic-blotter-9.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-9').toString('base64')}]},s.prep);
   const input={name:'Portal close reminders',jobId:a.id,ownerEmail:'prep@example.test',contactId:contact.id,channel:'portal',steps:[personal.id,personal.id,personal.id],maximumSends:3,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:3,confirm:'APPROVE'};
   const f=await h.json('/followups',input,h.owner),mailCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,mailCount,'Portal steps do not claim email delivery');
   const reminders=(await h.json(`/jobs/${a.id}`,undefined,h.owner)).reminders;assert.equal(reminders.length,1);assert.deepEqual(JSON.parse(reminders[0].outstanding),['Bank statement','Who owns the company?','Management representation','Confirm bank account ownership']);
@@ -311,6 +312,8 @@ test('FOLLOWUP-001: portal steps expose only the recipient’s current actionabl
   const currentLink=await h.json(`/jobs/${a.id}/reminders`,{contactId:contact.id},s.prep),ownToken=new URL(currentLink.portalUrl).pathname.split('/').at(-1);
   const own=await h.json(`/portal/${ownToken}`),outside=await h.json(`/portal/${tokenFor(other.id)}`);
   assert.equal(own.messages.filter(x=>x.id===reminders[0].id).length,1);assert.equal(outside.messages.filter(x=>x.id===reminders[0].id).length,0,'Other contacts cannot see a recipient-bound step');
+  const ownFile=await h.request(`/api/blotter/portal/${ownToken}/messages/${reminders[0].id}/files/1`);assert.equal(ownFile.status,200);assert.equal(await ownFile.text(),'synthetic-blotter-9');
+  assert.equal((await h.request(`/api/blotter/portal/${tokenFor(other.id)}/messages/${reminders[0].id}/files/1`)).status,404,'Another contact cannot bypass message visibility to fetch its attachment');
   await followupPortalJourney(h,ownToken,tokenFor(other.id),own.messages.find(x=>x.id===reminders[0].id).body);
   let mine=(await h.json(`/portal/${ownToken}/organizers`)).organizers[0];
   await h.json(`/portal/${ownToken}/organizers/${organizer.id}`,{revision:mine.revision,answers:{owner:{value:'Alex Rivera',confirmed:true}},submit:true});

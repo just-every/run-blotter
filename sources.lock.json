@@ -4244,7 +4244,7 @@
       "executable": false
     },
     "tests/blotter/automation.test.mjs": {
-      "sha256": "ceda30c9532a4771d76b76ae413e395871bec5811134903272121c4fd1a1aa29",
+      "sha256": "62611e1999bc49fd9602d56606339902a12a77fb712697ff51c36ad03a7489d2",
       "executable": false
     },
     "tests/blotter/billing-analysis.test.mjs": {
