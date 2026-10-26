@@ -409,3 +409,18 @@ refuse erased sources, and join the derived-data erasure class and its holds.
 There is no execution or reactivation door. Delegated partner review, native
 engagement generation, agent grants, sending, response ingestion and automatic
 escalation remain explicit contract gaps.
+
+
+## Stripe invoice payments
+
+See `STRIPE.md` for private binding setup, authorization boundaries and remaining activation gaps. Staff doors require a native person session and current invoice access. Writes require the principal or financial authority; quick collection, refund and revocation require fresh confirmation.
+
+- `GET /api/blotter/invoices/:id/payments`: observed payments, remaining saved-method authority and unreserved balance.
+- `POST /api/blotter/invoices/:id/payment-link`: `{amountCents}` creates hosted card or bank Checkout.
+- `POST /api/blotter/invoices/:id/quick-collect`: `{mandateId,requestId,amountCents?}`; repeat the same request identifier to reconcile its existing attempt.
+- `POST /api/blotter/payments/:id/reconcile`: fetch current provider state.
+- `POST /api/blotter/payments/:id/refund`: `{amountCents,reason,requestId}`.
+- `POST /api/blotter/payment-mandates/:id/revoke`: `{reason}` ends authority before detaching the provider method.
+- `POST /api/blotter/invoice-portal/:token/pay`: `{amountCents,confirm,saveMethod,authorizeSaved,requestId}`; payment and saved-method consent are separate and unticked.
+- `POST /api/blotter/invoice-portal/:token/mandates/:id/revoke`: `{reason}`, with current billing-link authority and same-origin enforcement.
+- `POST /api/blotter/stripe/events`: raw signed Stripe notification; no staff session, no unsigned mutation, duplicate event identifiers retained.
