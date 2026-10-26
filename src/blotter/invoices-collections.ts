@@ -6,6 +6,7 @@
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { sendMail } from './documents';
 import { firmSettings, localClock } from './firm';
+import { firmDayEnd } from './firm-day';
 import { engagementOnly, localize, render, translationWarning, usable } from './messages';
 import { atomic, audit, canReadBilling, date, digest, id, insist, integer, now, optional, rows, stmt, text, type Actor, type Data } from './model';
 import { AGING_BUCKETS, agingBucket } from './invoice-aging';
@@ -125,7 +126,9 @@ export async function clientStatement(db: D1Database, actor: Actor, clientId: st
   insist(canReadBilling(actor) && actor.channel === 'person', 'Your role cannot perform this action', 403);
   const client = await stmt(db, 'SELECT id,name FROM b_clients WHERE id=? AND erased_at IS NULL', clientId).first<Data>();
   insist(client, 'Client not found', 404);
-  const asOf = query.asOf ? date(query.asOf, 'Statement date') : await firmToday(db), end = asOf + 'T23:59:59.999Z';
+  const firm = await firmSettings(db);
+  const asOf = query.asOf ? date(query.asOf, 'Statement date') : localClock(firm, new Date()).localDate;
+  const end = firmDayEnd(asOf, firm.timeZone);
   const issued = await rows(db, `SELECT i.id,i.number,i.title,i.issue_date,i.due_date,i.total_cents,i.subtotal_cents+i.tax_cents gross_cents,i.collection_hold,
     COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=i.id AND c.recorded_at<=?),0) applied_cents,
     COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=i.id AND w.approved_at<=?),0) written_off_cents

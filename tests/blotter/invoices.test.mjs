@@ -298,10 +298,12 @@ test('BILL-002 / ACCESS-002: a financial-authority holder bills and sends by ema
 
 test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile to approved sources and recorded receipts; a partner-approved write-off changes the period report and statement while the issued invoice stays byte-identical', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-11' } }); let restored;
-  const day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  let calendarDay;
+  const day = n => new Date(Date.parse(calendarDay + 'T12:00:00.000Z') + n * 86_400_000).toISOString().slice(0, 10);
   const monthAt = n => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 7); };
   try {
     const s = await fixture(h);
+    calendarDay = (await h.json('/firm/time', undefined, h.owner)).localDate;
     await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
     await h.json('/team/rates', { email: 'preparer@example.test', rateCents: 10000, effectiveFrom: '2026-01-01', currency: 'USD' }, h.owner);
     const hourly = await h.json(`/jobs/${s.job.id}/time`, { date: '2026-11-02', minutes: 60, description: 'Hourly bookkeeping' }, s.preparer);

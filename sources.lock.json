@@ -1524,7 +1524,7 @@
       "executable": false
     },
     "src/blotter/invoices-collections.ts": {
-      "sha256": "0357c5fa98acfaf89c3324ea8a49175007cbe2abf6b14dc724f4259a3ccb72a1",
+      "sha256": "0bc4ddab991a806e7b4ecdc04d0faa6cff91b771b354f9e1ff61056deedb2b0a",
       "executable": false
     },
     "src/blotter/invoices-credits.ts": {
@@ -4256,7 +4256,7 @@
       "executable": false
     },
     "tests/blotter/invoices.test.mjs": {
-      "sha256": "f4eedde1794a6cf338b72e6bf8c1320f1b35aa07b4381b7ce6901282d47c5888",
+      "sha256": "7a922b8c85c8fe1bb08eae5c1f94af1431d4ea0c541c05fab9d9c792f072eefc",
       "executable": false
     },
     "tests/blotter/language-ui.mjs": {
