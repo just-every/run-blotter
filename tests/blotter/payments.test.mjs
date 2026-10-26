@@ -6,7 +6,7 @@ import {paymentFixture} from './payment-fixture.mjs';
 import {stripeEdge} from './stripe-edge.mjs';
 import {paymentJourney} from './payment-ui.mjs';
 const secret='synthetic-blotter-1';
-const start=async()=>{const edge=stripeEdge(),h=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2',STRIPE_WEBHOOK_SECRET:secret},stripeResponse:edge.respond});return {h,edge,s:await paymentFixture(h)};};
+const start=async()=>{const edge=stripeEdge(),h=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2',STRIPE_WEBHOOK_SECRET:secret},stripeResponse:edge.respond});try{return {h,edge,s:await paymentFixture(h)};}catch(error){await h.close();throw error;}};
 async function authorize(h,s,amount=100){
  const link=await h.json(`/invoice-portal/${s.token}/pay`,{amountCents:amount,confirm:true,saveMethod:true,authorizeSaved:true,requestId:randomUUID()});
  const paid=await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);

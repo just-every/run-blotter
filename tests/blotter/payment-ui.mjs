@@ -14,7 +14,7 @@ const capture = async (page, panel, directory, name) => {
 const statusLabel = value => { const text = value.replaceAll('_', ' '); return text.charAt(0).toUpperCase() + text.slice(1); };
 const open = async details => { if (!await details.evaluate(element => element.open)) await details.locator('summary').first().click(); };
 
-/** Uses the real invoice/API state prepared by the calling service flow; no routes or application data are mocked here. */
+/** Uses the real invoice and API state prepared by the calling service flow; no routes or application data are mocked here. */
 export async function paymentJourney(h, fixture, invoice) {
   const directory = process.env.BLOTTER_PAYMENT_EVIDENCE;
   if (!directory) return;
