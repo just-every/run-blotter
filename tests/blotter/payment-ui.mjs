@@ -52,8 +52,8 @@ export async function paymentJourney(h, fixture, invoice) {
     for (const mandate of initial.mandates) {
       const row = panel.getByRole('article', { name: `Saved method ${mandate.id}`, exact: true });
       await row.locator('.status').filter({ hasText: statusLabel(mandate.status) }).waitFor();
-      await row.getByText(`ending ${mandate.last4}`, { exact: false }).waitFor();
-      assert.equal(await row.getByRole('button', { name: 'Revoke saved method', exact: true }).count(), mandate.status === 'active' ? 1 : 0);
+      await row.getByText(mandate.last4 ? `ending ${mandate.last4}` : 'Payment method awaiting confirmation', { exact: !mandate.last4 }).waitFor();
+      assert.equal(await row.getByRole('button', { name: 'Revoke saved method', exact: true }).count(), ['active', 'pending'].includes(mandate.status) ? 1 : 0);
     }
     if (!initial.mandates.length) await methods.getByText('No saved payment methods.', { exact: true }).waitFor();
     if (!initial.configured) {

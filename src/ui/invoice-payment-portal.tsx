@@ -7,7 +7,7 @@ const text = {
     title: 'Pay this invoice', amount: 'Payment amount in USD cents', confirm: 'I authorize this payment',
     continue: 'Continue to Stripe', opening: 'Opening Stripe…', details: 'Enter your card or bank details on Stripe.',
     save: 'Save this payment method for staff collection', methods: 'Saved payment methods',
-    card: 'Card', bank: 'Bank account', ending: 'ending', revoke: 'Revoke authorization',
+    card: 'Card', bank: 'Bank account', ending: 'ending', pendingMethod: 'Payment method awaiting confirmation', revoke: 'Revoke authorization',
     reason: 'Reason to revoke authorization', revoked: 'Saved payment authorization revoked.',
     authorize: (balance: string) => `I authorize staff to collect the remaining balance of this invoice using this saved method, up to ${balance}, in total. No scheduled or other invoice charges. I can revoke this authorization.`,
   },
@@ -15,7 +15,7 @@ const text = {
     title: 'Pagar esta factura', amount: 'Importe del pago en centavos de USD', confirm: 'Autorizo este pago',
     continue: 'Continuar a Stripe', opening: 'Abriendo Stripe…', details: 'Ingrese los datos de su tarjeta o cuenta bancaria en Stripe.',
     save: 'Guardar este método de pago para cobros del personal', methods: 'Métodos de pago guardados',
-    card: 'Tarjeta', bank: 'Cuenta bancaria', ending: 'terminada en', revoke: 'Revocar autorización',
+    card: 'Tarjeta', bank: 'Cuenta bancaria', ending: 'terminada en', pendingMethod: 'Método de pago pendiente de confirmación', revoke: 'Revocar autorización',
     reason: 'Motivo para revocar la autorización', revoked: 'Se revocó la autorización de pago guardada.',
     authorize: (balance: string) => `Autorizo al personal a cobrar el saldo restante de esta factura mediante este método guardado, hasta ${balance} en total. No autorizo cargos programados ni de otras facturas. Puedo revocar esta autorización.`,
   },
@@ -50,9 +50,9 @@ function SavedPortalMethod({ token, method, copy }: { token: string; method: Row
   const [status, setStatus] = useState(method.status), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const pending = useRef(false);
   return <article className="record stack">
-    <div className="split"><strong>{method.kind === 'card' ? copy.card : copy.bank} {copy.ending} {method.last4}</strong><Status value={status} /></div>
+    <div className="split"><strong>{method.last4 ? <>{method.kind === 'card' ? copy.card : copy.bank} {copy.ending} {method.last4}</> : copy.pendingMethod}</strong><Status value={status} /></div>
     {error && <p className="error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    {status === 'active' && <Form label={copy.revoke} danger disabled={busy} submit={async data => {
+    {['active', 'pending'].includes(status) && <Form label={copy.revoke} danger disabled={busy} submit={async data => {
       if (pending.current) return;
       pending.current = true; setBusy(true); setError('');
       try {

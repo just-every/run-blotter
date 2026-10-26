@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { api, Empty, Field, Form, money, Status, when, type Row, type Run } from './common';
 
 type Payment = { id: string; state: string; amount_cents: number; refunded_cents: number; fee_cents: number; provider_id: string | null; created_at: string };
-type Mandate = { id: string; status: string; kind: 'card' | 'us_bank_account'; last4: string; max_cents: number; authorized_at: string };
+type Mandate = { id: string; status: string; kind: 'card' | 'us_bank_account' | null; last4: string | null; max_cents: number; authorized_at: string };
 type PaymentState = { configured: boolean; payments: Payment[]; mandates: Mandate[] };
 type Change = (job: () => Promise<unknown>, message: string) => Promise<void>;
 const refundable = (payment: Payment) => payment.state === 'settled' && payment.amount_cents > payment.refunded_cents;
-const methodName = (mandate: Mandate) => `${mandate.kind === 'card' ? 'Card' : 'Bank account'} ending ${mandate.last4}`;
+const methodName = (mandate: Mandate) => mandate.last4 ? `${mandate.kind === 'card' ? 'Card' : 'Bank account'} ending ${mandate.last4}` : 'Payment method awaiting confirmation';
 
 function PaymentRecord({ payment, billing, busy, change }: { payment: Payment; billing: boolean; busy: boolean; change: Change }) {
   const remaining = payment.amount_cents - payment.refunded_cents;
@@ -49,9 +49,9 @@ export function InvoicePayments({ invoice, billing, run, tick }: { invoice: Row;
     {error && <p role="alert">{error} <button type="button" className="quiet" onClick={() => load().catch(e => setError(e.message))}>Refresh payments</button></p>}
     {!state ? !error && <p>Opening payments…</p> : <>
       {!state.configured && <p role="status">Stripe payments are not configured for this firm.</p>}
-      {canWrite && invoice.balance_cents > 0 && <details><summary>Collect payment</summary>
+      {canWrite && invoice.balance_cents >= 50 && <details><summary>Collect payment</summary>
         <Form label="Create payment link" disabled={busy} submit={data => change(async () => { const amountCents = Number(data.amountCents); const created = await api(`/invoices/${invoice.id}/payment-link`, { amountCents }); setLink({ ...created, amountCents }); }, 'Stripe payment link created')}>
-          <Field label="Payment link amount in USD cents" name="amountCents"><input name="amountCents" type="number" min={1} max={invoice.balance_cents} step={1} defaultValue={invoice.balance_cents} required /></Field>
+          <Field label="Payment link amount in USD cents" name="amountCents"><input name="amountCents" type="number" min={50} max={invoice.balance_cents} step={1} defaultValue={invoice.balance_cents} required /></Field>
         </Form>
         {active.length ? <Form label="Quick collect" disabled={busy || !eligible.length} submit={data => change(() => api(`/invoices/${invoice.id}/quick-collect`, { mandateId: data.mandateId, requestId: crypto.randomUUID() }), 'Collection requested with the saved payment method')}>
           <p>Collect the open balance of {money(invoice.balance_cents)} using the client's authorized saved method.</p>
@@ -69,7 +69,7 @@ export function InvoicePayments({ invoice, billing, run, tick }: { invoice: Row;
         {!state.mandates.length ? <Empty>No saved payment methods.</Empty> : state.mandates.map(mandate => <article key={mandate.id} className="record stack" aria-label={`Saved method ${mandate.id}`}>
           <div className="split"><strong>{methodName(mandate)}</strong><Status value={mandate.status} /></div>
           <p>Authorized {when(mandate.authorized_at)} · limit {money(mandate.max_cents)}</p>
-          {billing && mandate.status === 'active' && <Form label="Revoke saved method" danger disabled={busy} submit={data => change(() => api(`/payment-mandates/${mandate.id}/revoke`, { reason: data.reason }), 'Saved payment method revoked')}><Field label="Reason to revoke saved method" name="reason" /></Form>}
+          {billing && ['active', 'pending'].includes(mandate.status) && <Form label="Revoke saved method" danger disabled={busy} submit={data => change(() => api(`/payment-mandates/${mandate.id}/revoke`, { reason: data.reason }), 'Saved payment method revoked')}><Field label="Reason to revoke saved method" name="reason" /></Form>}
         </article>)}
       </details>
     </>}
