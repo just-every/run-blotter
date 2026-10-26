@@ -80,6 +80,9 @@ test('Notice reading is practitioner-only, quotes each extracted value, records 
   await h.json(`/ai/drafts/${draft.id}`,undefined,s.prep,403);
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'question:0',decision:'accept'},s.reviewer);
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'question:1',decision:'reject'},s.reviewer);
+  await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'plan:0',decision:'accept'},s.reviewer);
+  const reviewed=await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'plan:1',decision:'reject'},s.reviewer);
+  assert.deepEqual(reviewed.decisions.filter(d=>d.field.startsWith('plan:')).map(d=>({field:d.field,decision:d.decision,value:d.value})).sort((a,b)=>a.field.localeCompare(b.field)),r.output.plan.map((value,index)=>({field:`plan:${index}`,decision:index===0?'accept':'reject',value})));
   assert.equal(h.mails.length,before);assert.equal((await s.detail(s.j.id)).job.due_date,'2027-04-15');assert.equal((await h.json('/notices',undefined,h.owner)).length,0);
   assert.equal((await h.json(`/jobs/${s.j.id}/ai`,undefined,s.prep)).drafts.some(d=>d.id===draft.id),false);
   await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'extraction:2',decision:'accept'},s.reviewer);
@@ -87,7 +90,9 @@ test('Notice reading is practitioner-only, quotes each extracted value, records 
   assert.equal((await h.json('/notices',undefined,h.owner)).length,0,'Even reviewed fields remain proposals until a separate native staff action');
   const opened=await h.json('/notices',{fileId:s.file.id,agency:'IRS',jurisdiction:'federal',noticeType:r.output.extraction[0].value,taxPeriod:r.output.extraction[1].value,noticeDate:'2027-01-15',responseDue:r.output.extraction[3].value,assigneeEmail:'reviewer@example.test',plan:r.output.plan.join('\n')},s.reviewer);
   assert.equal(opened.source.id,s.file.id);assert.equal(opened.notice.due_verified_at,null);
-  const verified=await h.json(`/notices/${opened.notice.id}/deadline`,{responseDue:r.output.extraction[3].value},s.reviewer);assert.equal(verified.notice.due_verified_by,'reviewer@example.test');
+  const agentKey=await h.json('/keys',{label:'Synthetic notice preparation'},h.owner);
+  await h.json(`/notices/${opened.notice.id}/deadline`,{responseDue:'2027-03-01'},'',401,{authorization:'Bearer '+agentKey.key});
+  const verified=await h.json(`/notices/${opened.notice.id}/deadline`,{responseDue:'2027-03-01'},s.reviewer);assert.equal(verified.notice.due_verified_by,'reviewer@example.test');assert.equal(verified.notice.response_due,'2027-03-01');
   const sent=await h.json(`/jobs/${s.j.id}/portal/messages`,{body:r.output.questions[0]},s.reviewer);assert.ok(sent.messages.some(m=>m.body===r.output.questions[0]));assert.ok(!sent.messages.some(m=>m.body===r.output.questions[1]));
   assert.equal(h.mails.length,before,'The human portal post never sends an email or contacts an agency');assert.equal(h.aiCalls.length,1);
  }finally{await h.close();}

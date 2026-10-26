@@ -4,9 +4,11 @@ import {harness} from './harness.mjs';
 import {aiFixture,invoiceText} from './ai-fixture.mjs';
 
 assert.ok(process.env.AI_API_KEY,'Inject the held provider key into AI_API_KEY');
+const noticeOnly=process.argv.includes('--notice-only');
+const callLimit=noticeOnly?1:3;
 let calls=0;
 const h=await harness({bindings:{AI_API_KEY:process.env.AI_API_KEY,AI_MODEL:'gpt-5-nano'},aiResponse:async(payload,request)=>{
- assert.ok(++calls<=3,'This journey permits at most three provider requests');
+ assert.ok(++calls<=callLimit,'This journey stays within its selected request cap');
  assert.equal(payload.store,false);assert.equal(payload.max_completion_tokens,1200);assert.equal(payload.tools,undefined);
  const wire=JSON.stringify(payload);for(const identifier of ['123-45-6789','12-3456789','123456789012','987-65-4321','7654321','GB82 WEST'])assert.ok(!wire.includes(identifier));
  assert.ok(wire.length<12000,'Synthetic input and schema remain within the run cap');
@@ -27,8 +29,10 @@ try {
   assert.equal((await h.db.prepare("SELECT COUNT(*) n FROM b_audit WHERE action='ai.request'").first()).n,calls);
   console.log(JSON.stringify({purpose,result:'PASS',calls,syntheticOnly:true,noSavedOutput:true,noSend:true}));
  };
- await s.request('summary',s.prep,{},403);assert.equal(calls,0);
- await s.enable();await s.request('summary',s.prep,{confirm:false},400);assert.equal(calls,0);
+ const purpose=noticeOnly?'notice':'summary',actor=noticeOnly?s.reviewer:s.prep;
+ await s.request(purpose,actor,{},403);assert.equal(calls,0);
+ await s.enable();await s.request(purpose,actor,{confirm:false},400);assert.equal(calls,0);
+ if(!noticeOnly){
  const summary=await s.request('summary');assert.ok(summary.output.summary);assert.ok(summary.output.conflicts.length);
  assert.match(summary.output.conflicts.join(' '),/900/);assert.match(summary.output.conflicts.join(' '),/1,?250/);
  await proveDraftOnly('summary');
@@ -36,12 +40,16 @@ try {
  const document=await s.request('document',s.prep,{sourceId:invoice.id});assert.ok(document.output.validation.length);assert.ok(document.output.suggestedName);
  for(const value of ['Cedar Lane LLC','2026'])assert.ok(document.output.extraction.some(item=>item.value===value),`Document extraction retains ${value}`);
  await proveDraftOnly('document');
+ }
  const notice=await s.request('notice',s.reviewer);assert.ok(notice.output.plan.length);
  console.log(JSON.stringify({syntheticNoticeExtraction:notice.output.extraction}));
- for(const field of ['CP2000','2024','$1,250.00','2027-02-28'])assert.ok(notice.output.extraction.some(item=>item.value===field),`Notice extraction retains ${field}`);
+ for(const field of ['CP2000','2024','$1,250.00','2027-02-28']){
+  const item=notice.output.extraction.find(item=>item.value===field);assert.ok(item,`Notice extraction retains ${field}`);
+  assert.ok(notice.source.text.includes(item.quote));assert.ok(item.quote.includes(item.value));
+ }
  await proveDraftOnly('notice');
- assert.equal(calls,3);assert.equal(h.mails.length,before);
+ assert.equal(calls,callLimit);assert.equal(h.mails.length,before);
  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);
- assert.equal((await h.db.prepare("SELECT COUNT(*) n FROM b_audit WHERE action='ai.request'").first()).n,3);
- console.log(JSON.stringify({result:'PASS',calls,maximumOutputTokens:3600,syntheticOnly:true,disabledRefused:true,missingClickRefused:true,noSavedOutput:true,noSend:true,purposes:['summary','document','notice']}));
+ assert.equal((await h.db.prepare("SELECT COUNT(*) n FROM b_audit WHERE action='ai.request'").first()).n,callLimit);
+ console.log(JSON.stringify({result:'PASS',calls,maximumOutputTokens:1200*callLimit,syntheticOnly:true,disabledRefused:true,missingClickRefused:true,noSavedOutput:true,noSend:true,purposes:noticeOnly?['notice']:['summary','document','notice']}));
 } finally {await h.close();}
