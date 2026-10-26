@@ -78,6 +78,7 @@ async function checkout(page, fixture, account) {
   assert.equal(created.length, 1, 'The client payment door created exactly one accounting payment');
   const payment = created[0]; assert.equal(payment.amount_cents, 100);
   await sandboxBank(page, account, h.origin);
+  console.log('ACH hosted authorization completed');
   let current = await reconcile(payment);
   if (current.state === 'requires_action') {
     const pi = await stripe(`payment_intents/${current.provider_id}`);
@@ -108,15 +109,16 @@ try {
     const gate = await sandboxGate(h, fixture, `ACH ${scenario.state} final work product`);
     await gate.assert(402);
     let current = await checkout(page, fixture, scenario.account), pendingAccepted = false;
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 60; attempt++) {
       if (current.state === 'pending' && !pendingAccepted) {
         await gate.assert(402);
         await policy('pending'); await gate.assert(200); pendingAccepted = true;
         if (scenario.state !== 'returned') { await policy('settled'); await gate.assert(402); }
       }
       if (current.state === scenario.state) break;
-      await pause(1000); current = await reconcile(current);
+      await pause(5000); current = await reconcile(current);
     }
+    console.log(`ACH observed ${current.state}; expected ${scenario.state}`);
     assert.equal(current.state, scenario.state, `Observed terminal ACH scenario ${scenario.state}`);
     assert.equal(current.kind, 'us_bank_account');
     assert.equal(current.net_cents, scenario.state === 'settled' ? 100 : 0);
