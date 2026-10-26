@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "cd08d09a0ebb73aabffbd5fedc9674d440fc7753be5cffffe51577ffe07a868d",
+      "sha256": "24f706058c9f9440d4e5544dd7aaa6963e63fc79a4bafc674987082c8a187035",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "faa702f0fa6164dd42acb3c173406b18b22dc85f2cd1f87f4e685fec80257e43",
+      "sha256": "f874c4d2ac6dc79f49d4551f0b7f95ecb6983e7990665a4716cb45111986c126",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4160,7 +4160,7 @@
       "executable": false
     },
     "STRIPE.md": {
-      "sha256": "b74f0df1ca0111d9cd873a8b38b8a7985e2ea13ed37c00e71674313090c7ba03",
+      "sha256": "8be871233ed8a3a0267b3db91c4bb101663ca9b8c16e1c307a598e109e46dd06",
       "executable": false
     },
     "test-budget.json": {
@@ -4344,7 +4344,7 @@
       "executable": false
     },
     "tests/blotter/payments-live.mjs": {
-      "sha256": "41faff6119be312e61b6ee22a1584e92b287fea42473954453bc1432cba28904",
+      "sha256": "7774b9f9a29ada5e0196f87692d9aff8e08fe500c74dbc5f2dc8698b98f73c18",
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {

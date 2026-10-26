@@ -72,7 +72,7 @@ try{
  await sandboxCard(finalPage);await finalPage.waitForURL(h.origin+'/**',{timeout:45_000});
  const remaining=(await h.json(`/invoices/${s.invoice.id}/payments`,undefined,h.owner)).payments.find(p=>p.amount_cents===201);
  assert.ok(remaining);const cleared=await h.json(`/payments/${remaining.id}/reconcile`,{},h.owner);assert.equal(cleared.state,'settled');await gate.assert(200);
- await finalPage.goto(gate.url);
+ await finalPage.goto(gate.url);await finalPage.getByRole('link',{name:/Version 1: return.txt/}).waitFor();
  for(const width of [1440,390]){await finalPage.setViewportSize({width,height:1000});assert.equal(await finalPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await finalPage.screenshot({path:`${directory}/card-unlocked-${width}.png`,fullPage:true});}
  await finalContext.close();await browser.close();browser=null;
  const result={result:'PASS',testMode:true,invoiceId:s.invoice.id,payments:[paid.provider_id,collected.provider_id],card:true,savedMandate:true,quickCollect:true,duplicateChargeRefused:true,partialRefund:true,revocation:true,clientCardUnlock:true,netCents:1000,receipts};
