@@ -69,7 +69,7 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
     await api(`/ai/drafts/${result.savedId}/decisions`, { field, decision, ...(decision === 'accept' ? { value, ...(targetRequestId ? { targetRequestId } : {}) } : {}) });
     setDecisions(current => [...current.filter(item => item.field !== field), { field, decision, value }]);
   }, decision === 'accept' ? 'Proposal accepted' : 'Proposal rejected');
-  const proposal = (field: string, label: string, value: string, quote?: string) => <AiProposal key={field} field={field} label={label} value={value} quote={quote} editable={writable} saved={saved} busy={busy} targets={targets} decision={decisions.find(item => item.field === field)} decide={decide} edit={value => setOutput(current => ({ ...current, [field === 'name' ? 'suggestedName' : field]: value }))} />;
+  const proposal = (field: string, label: string, value: string, quote?: string) => <AiProposal key={field} field={field} label={label} value={value} quote={quote} notice={result.purpose==='notice'} editable={writable} saved={saved} busy={busy} targets={targets} decision={decisions.find(item => item.field === field)} decide={decide} edit={value => setOutput(current => ({ ...current, [field === 'name' ? 'suggestedName' : field]: value }))} />;
   return <section aria-label="AI proposals">
     <h3>{saved ? 'Saved draft' : 'Unsaved proposals'}</h3>
     {result.provider && <p className="muted">Prepared by {result.provider} · {result.model}</p>}
@@ -110,8 +110,8 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
   </section>;
 }
 
-function AiProposal({ field, label, value, quote, editable, saved, busy, targets, decision, decide, edit }: {
-  field: string; label: string; value: string; quote?: string; editable: boolean; saved: boolean; busy: boolean; targets: Row[]; decision?: Row;
+function AiProposal({ field, label, value, quote, notice, editable, saved, busy, targets, decision, decide, edit }: {
+  field: string; label: string; value: string; quote?: string; notice: boolean; editable: boolean; saved: boolean; busy: boolean; targets: Row[]; decision?: Row;
   decide: (field: string, decision: string, value: string, target?: string) => Promise<void>; edit: (value: string) => void;
 }) {
   const [target, setTarget] = useState('');
@@ -121,7 +121,7 @@ function AiProposal({ field, label, value, quote, editable, saved, busy, targets
       : field === 'name' ? <Field label={label} name="aiFilename"><input value={decision?.decision === 'accept' ? decision.value ?? value : value} maxLength={160} readOnly={!canEdit} disabled={busy} onChange={event => edit(event.target.value)} /></Field>
       : <p><strong>{label}</strong>: {value}</p>}
     {quote && <blockquote>{quote}</blockquote>}
-    {field.startsWith('extraction:') && /amount|deadline|due|date/i.test(label) && <p className="muted">Proposed — verify against the notice</p>}
+    {field.startsWith('extraction:') && (notice || /amount|deadline|due|date/i.test(label)) && <p className="muted">Proposed — verify against the notice</p>}
     {decision ? <p className="muted">{decision.decision === 'accept' ? 'Accepted' : 'Rejected'}</p> : saved && editable && <>
       {field === 'routing' && <><p className="muted">Accepting routing creates an internal copy in the selected request. Accept the filename proposal first to use that name for the copy. The original stays unchanged.</p><Field label="Destination request on this job" name="aiTarget"><select value={target} disabled={busy} onChange={event => setTarget(event.target.value)}><option value="">Choose a destination</option>{targets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Field></>}
       <div className="actions"><button className="quiet" disabled={busy || (field === 'routing' && !target) || !value.trim()} onClick={() => decide(field, 'accept', value, target || undefined)}>{field === 'routing' ? 'Accept routing and create copy' : `Accept ${label.toLowerCase()}`}</button><button className="quiet" disabled={busy} onClick={() => decide(field, 'reject', value)}>Reject</button></div>

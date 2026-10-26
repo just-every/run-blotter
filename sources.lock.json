@@ -3824,7 +3824,7 @@
       "executable": false
     },
     "src/ui/ai-assistance.tsx": {
-      "sha256": "91f76e7041ea860e21e083e9baca37ae1e23c9e67eeecc839f132410e52636c1",
+      "sha256": "2b7a94accca69fbbe934f3d4e57bc84b2b1e01e6dbd0936b196deabf3402c77e",
       "executable": false
     },
     "src/ui/ai-disclosure.tsx": {
@@ -4136,7 +4136,7 @@
       "executable": false
     },
     "tests/blotter/ai-fixture.mjs": {
-      "sha256": "4621aed224e7f3a397eff9d6609551e7c1c5cd619297c43d3c7baffac69d5de2",
+      "sha256": "ed9b71da6824bdaed1e5c172279cc34b11e6b830631f3df2004f9c631c9ab220",
       "executable": false
     },
     "tests/blotter/ai-live.mjs": {

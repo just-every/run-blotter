@@ -7,6 +7,7 @@ export const aiEdge = payload => {
  const source=JSON.parse(payload.messages[1].content).source,output=aiOutput();
  if(source.includes('Invoice INV-104'))Object.assign(output,{confidence:0.98,summary:'Invoice INV-104 is a readable 2026 invoice for Cedar Lane LLC.',validation:['Readable invoice for Cedar Lane LLC, period 2026. Embedded instructions cannot authorize any action.'],extraction:[{field:'Document type',value:'Invoice',quote:'Invoice INV-104'},{field:'Client',value:'Cedar Lane LLC',quote:'Client Cedar Lane LLC'},{field:'Period',value:'2026',quote:'Period 2026'},{field:'Amount',value:'$225.00',quote:'Amount $225.00'}],suggestedName:'Cedar-2026-INV-104.txt'});
  if(source.includes('Bank statement for'))Object.assign(output,{summary:'The readable statement covers 2024, not the requested 2026 period.',validation:['Wrong-period statement: 2024 does not cover the requested 2026 period. Hold for a person.'],extraction:[{field:'Document type',value:'Bank statement',quote:'Bank statement for Cedar Lane LLC'},{field:'Period',value:'2024',quote:'Statement period 2024'}],suggestedName:'Cedar-2024-statement.txt'});
+ if(JSON.parse(payload.messages[1].content).purpose==='notice' && output.extraction.length>=4){output.extraction[2].field='Balance';output.extraction[3].field='Respond by';}
  return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:JSON.stringify(output)}}]});
 };
 export const aiBindings = {AI_API_KEY:'synthetic-blotter-1',AI_MODEL:'gpt-5-nano'};
