@@ -6,6 +6,7 @@ import {chromium} from '@playwright/test';
 import {harness} from './harness.mjs';
 import {paymentFixture} from './payment-fixture.mjs';
 import {paymentJourney} from './payment-ui.mjs';
+import {sandboxCard,sandboxGate} from './payment-sandbox.mjs';
 assert.ok(process.env.STRIPE_SECRET_KEY,'Inject the held Stripe test key');
 assert.ok(process.env.STRIPE_SECRET_KEY.startsWith('sk_test_'),'This journey accepts only a test key');
 const directory=process.env.BLOTTER_PAYMENT_EVIDENCE;
@@ -28,7 +29,7 @@ const build=spawnSync('pnpm',['exec','rer','build'],{env:buildEnv,stdio:'inherit
 const h=await harness({bindings:{STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET:'synthetic-blotter-1'},stripeResponse:provider});
 let browser,lastPage;
 try{
- const s=await paymentFixture(h,1000);browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const s=await paymentFixture(h,1000),gate=await sandboxGate(h,s);await gate.assert(402);browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),page=await context.newPage();lastPage=page;
  await page.goto(h.origin+`/invoice/${s.token}`);await page.getByRole('heading',{name:'Pay this invoice',exact:true}).waitFor();
  await page.getByLabel('Payment amount in USD cents',{exact:true}).fill('100');
@@ -37,28 +38,16 @@ try{
  await page.getByRole('checkbox',{name:/I authorize staff to collect/}).check();
  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`${directory}/payment-portal-consent-${width}.png`,fullPage:true});}
  await page.getByRole('button',{name:'Continue to Stripe',exact:true}).click();
- await page.waitForURL('https://checkout.stripe.com/**',{timeout:60_000});
- await page.setViewportSize({width:1440,height:1000});
- const currency=page.getByRole('button',{name:/\$1\.00/});if(await currency.count())await currency.click();
- await page.locator('#email').fill('synthetic-blotter@example.com');
- const card=page.getByRole('button',{name:/Card|Credit or debit card/i});if(await card.count())await card.first().click();
- await page.locator('#cardNumber').fill('4242424242424242');await page.locator('#cardExpiry').fill('1230');await page.locator('#cardCvc').fill('123');
- const name=page.locator('#billingName');if(await name.count())await name.fill('Synthetic Blotter');
- const zip=page.locator('#billingPostalCode');if(await zip.count())await zip.fill('02108');
- const address=page.locator('#billingAddressLine1');if(await address.count())await address.fill('10 Main Street');
- const country=page.locator('#billingCountry');if(await country.count())await country.selectOption('US');
- if(await zip.count())await zip.fill('02108');
- const linkConsent=page.getByRole('checkbox',{name:/Save my information with Link/});if(await linkConsent.count())await linkConsent.uncheck();
- await page.getByRole('button',{name:/^Pay|^Authorize/}).last().click();
+ await sandboxCard(page);
  await page.screenshot({path:`${directory}/stripe-submitted.png`,fullPage:true});
  await page.waitForURL(h.origin+'/**',{timeout:45_000});
  const pending=(await h.json(`/invoices/${s.invoice.id}/payments`,undefined,h.owner)).payments.at(-1);
- const paid=await h.json(`/payments/${pending.id}/reconcile`,{},h.owner);assert.equal(paid.state,'settled');assert.equal(paid.net_cents,100);
+ const paid=await h.json(`/payments/${pending.id}/reconcile`,{},h.owner);assert.equal(paid.state,'settled');assert.equal(paid.net_cents,100);await gate.assert(402);
  const mandate=(await h.json(`/invoices/${s.invoice.id}/payments`,undefined,h.owner)).mandates.find(m=>m.status==='active');assert.ok(mandate);
  const request={mandateId:mandate.id,requestId:crypto.randomUUID()};
- const collected=await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner);assert.equal(collected.state,'settled');assert.equal(collected.net_cents,900);
+ const collected=await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner);assert.equal(collected.state,'settled');assert.equal(collected.net_cents,900);await gate.assert(200);
  assert.equal((await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner)).id,collected.id);
- const refunded=await h.json(`/payments/${collected.id}/refund`,{amountCents:200,reason:'Sandbox partial refund authorized by the synthetic client',requestId:crypto.randomUUID()},h.owner);assert.equal(refunded.refunded_cents,200);
+ const refunded=await h.json(`/payments/${collected.id}/refund`,{amountCents:200,reason:'Sandbox partial refund authorized by the synthetic client',requestId:crypto.randomUUID()},h.owner);assert.equal(refunded.refunded_cents,200);await gate.assert(402);
  await h.json(`/invoice-portal/${s.token}/mandates/${mandate.id}/revoke`,{reason:'Sandbox client withdraws saved-method authority'});
  await h.json(`/invoices/${s.invoice.id}/quick-collect`,{mandateId:mandate.id,requestId:crypto.randomUUID()},h.owner,409);
  await page.goto(h.origin+`/invoice/${s.token}`);await page.getByText('Saved payment methods',{exact:true}).click();
@@ -66,7 +55,18 @@ try{
  await context.close();await browser.close();browser=null;
  await paymentJourney(h,s,s.invoice);
  const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2030-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,201); // UI journey refunds one additional cent.
- const result={result:'PASS',testMode:true,invoiceId:s.invoice.id,payments:[paid.provider_id,collected.provider_id],card:true,savedMandate:true,quickCollect:true,duplicateChargeRefused:true,partialRefund:true,revocation:true,netCents:799,receipts};
+ browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const finalContext=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),finalPage=await finalContext.newPage();lastPage=finalPage;
+ await finalPage.goto(h.origin+`/invoice/${s.token}`);
+ await finalPage.getByLabel('I authorize this payment',{exact:true}).check();
+ await finalPage.getByRole('button',{name:'Continue to Stripe',exact:true}).click();
+ await sandboxCard(finalPage);await finalPage.waitForURL(h.origin+'/**',{timeout:45_000});
+ const remaining=(await h.json(`/invoices/${s.invoice.id}/payments`,undefined,h.owner)).payments.find(p=>p.amount_cents===201);
+ assert.ok(remaining);const cleared=await h.json(`/payments/${remaining.id}/reconcile`,{},h.owner);assert.equal(cleared.state,'settled');await gate.assert(200);
+ await finalPage.goto(gate.url);
+ for(const width of [1440,390]){await finalPage.setViewportSize({width,height:1000});assert.equal(await finalPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await finalPage.screenshot({path:`${directory}/card-unlocked-${width}.png`,fullPage:true});}
+ await finalContext.close();await browser.close();browser=null;
+ const result={result:'PASS',testMode:true,invoiceId:s.invoice.id,payments:[paid.provider_id,collected.provider_id],card:true,savedMandate:true,quickCollect:true,duplicateChargeRefused:true,partialRefund:true,revocation:true,clientCardUnlock:true,netCents:1000,receipts};
  await writeFile(`${directory}/stripe-sandbox.json`,JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }catch(error){await lastPage?.screenshot({path:`${directory}/sandbox-failure.png`,fullPage:true}).catch(()=>{});throw error;}finally{
  await browser?.close();await h.close();
