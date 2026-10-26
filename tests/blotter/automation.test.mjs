@@ -303,7 +303,7 @@ test('FOLLOWUP-001: portal steps expose only the recipient’s current actionabl
   const tokenFor=id=>new URL(invitations.recipients.find(x=>x.contactId===id).portalUrl).pathname.split('/').at(-1);
   const {PDFDocument}=await import('pdf-lib'),pdf=await PDFDocument.create();pdf.addPage([612,792]);
   const signature=await h.json(`/jobs/${a.id}/signatures`,{title:'Management representation',formKind:'management representation',mode:'parallel',contactIds:[contact.id],fields:[{type:'signature',contactId:contact.id,page:1,x:40,y:100,width:240,height:28,label:'Client signature'}],file:{name:'synthetic-blotter-5.pdf',mime:'application/pdf',contentBase64:Buffer.from(await pdf.save()).toString('base64')}},s.prep);
-  await h.json(`/signatures/${signature.id}/send`,{revision:signature.revision},s.prep);
+  const signatureSent=await h.json(`/signatures/${signature.id}/send`,{revision:signature.revision},s.prep),ownToken=new URL(signatureSent.invitations[0].portalUrl).pathname.split('/').at(-1);
   await h.json(`/jobs/${a.id}/portal/todos`,{body:'Confirm bank account ownership'},s.prep);
   const personal=await h.json(`/messages/templates/${s.message.id}/copy`,{name:'Personal close reminder'},s.prep);
   await h.json(`/messages/templates/${personal.id}`,{subject:personal.subject,body:personal.body,attachments:[{name:'synthetic-blotter-9.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-9').toString('base64')}]},s.prep);
@@ -311,7 +311,6 @@ test('FOLLOWUP-001: portal steps expose only the recipient’s current actionabl
   const f=await h.json('/followups',input,h.owner),mailCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,mailCount,'Portal steps do not claim email delivery');
   const reminders=(await h.json(`/jobs/${a.id}`,undefined,h.owner)).reminders;assert.equal(reminders.length,1);assert.deepEqual(JSON.parse(reminders[0].outstanding),['Bank statement','Who owns the company?','Management representation','Confirm bank account ownership']);
   assert.equal(reminders[0].delivery,'posted to portal (no email sent)');
-  const currentLink=await h.json(`/jobs/${a.id}/reminders`,{contactId:contact.id},s.prep),ownToken=new URL(currentLink.portalUrl).pathname.split('/').at(-1);
   const own=await h.json(`/portal/${ownToken}`),outside=await h.json(`/portal/${tokenFor(other.id)}`);
   assert.equal(own.messages.filter(x=>x.id===reminders[0].id).length,1);assert.equal(outside.messages.filter(x=>x.id===reminders[0].id).length,0,'Other contacts cannot see a recipient-bound step');
   const ownFile=await h.request(`/api/blotter/portal/${ownToken}/messages/${reminders[0].id}/files/1`);assert.equal(ownFile.status,200);assert.equal(await ownFile.text(),'synthetic-blotter-9');

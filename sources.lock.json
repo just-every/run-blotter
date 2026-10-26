@@ -1404,7 +1404,7 @@
       "executable": false
     },
     "src/blotter/documents.ts": {
-      "sha256": "f74fedcef7d7cb03eec641437c3139d4aa4c149d52d5dca4fc378825c6a082b2",
+      "sha256": "afa1c32af27173f7e9738757c4783c71a83f0d0cecacb46f97a0d45b6c7a9537",
       "executable": false
     },
     "src/blotter/duplicates.ts": {
@@ -4244,7 +4244,7 @@
       "executable": false
     },
     "tests/blotter/automation.test.mjs": {
-      "sha256": "11c37bb1f160950347c211a8f30924c44759ea8432e258c6d5a625220f85d4db",
+      "sha256": "c56ae0f2142d47570b46115a99ebdcecb84f9a9554b755b9c70fa936ef4ac0c6",
       "executable": false
     },
     "tests/blotter/billing-analysis.test.mjs": {

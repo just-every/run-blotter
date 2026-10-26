@@ -149,7 +149,10 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   const bindings = runtimeBindings(env), db = bindings.DB;
   const ctx = await reminderContext(db, actor, jobId, body.contactId,!!actor.followup), { j, client, outstanding } = ctx;
   const reminderId = actor.followup?.attemptId ?? actor.automation?.attemptId ?? actor.approval?.resultId ?? id(), at = now();
-  const { url, expiresAt: expires, statements } = await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
+  const portalOnly=!!actor.followup&&body.channel==='portal';
+  const { url, expiresAt: expires, statements } = portalOnly
+    ? {url:'this secure page',expiresAt:'',statements:[] as D1PreparedStatement[]}
+    : await issueLink(db, actor, j.id, bindings.AUTH_ORIGIN, ctx.contact.id);
   const language: Language = ctx.contact.language ?? 'en', T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars);
   let subject = T('mail.request.subject', { work: `${j.title} ${j.period_label}` }), message: string, template: { id: string | null; version: number | null } = { id: null, version: null }, files: Data[] = [];
   if (body.templateId || body.subject !== undefined || body.body !== undefined) {
@@ -168,10 +171,9 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   }
   const [check, release] = openGuard(db, j.id);
   const [authorized, authorizedDone] = contactGuard(db,j.client_id,ctx.contact.id,'request',ctx.contact.revision);
-  const portalOnly=!!actor.followup&&body.channel==='portal';
   await atomic(db, actor, [check, authorized, authorizedDone, ...statements,
     stmt(db, 'INSERT INTO b_reminders(id,job_id,to_email,outstanding,message,delivery,sent_by,proposal_id,sent_at,subject,template_id,template_version,attachments,language) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      reminderId, j.id, client.contact_email, JSON.stringify(outstanding), message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
+      reminderId, j.id, client.contact_email, JSON.stringify(outstanding), portalOnly?message:message.replaceAll(url, `${bindings.AUTH_ORIGIN}/portal/…`), 'pending', actor.email, actor.approval?.id ?? null, at,
       subject, template.id, template.version, JSON.stringify(files.map(f => ({ name: f.name, mime: f.mime, size: f.size, sha256: f.sha256 }))), language),
     ...(portalOnly?[stmt(db,`INSERT INTO b_portal_items(id,job_id,kind,body,author,status,created_at,subject,template_id,template_version,template_edited,attachments,contact_id) VALUES(?,?,'message',?,?,'sent',?,?,?,?,0,?,?)`,reminderId,j.id,message.replaceAll(url,'this secure page'),actor.email,at,subject,template.id,template.version,JSON.stringify(files.map(({content_base64,...f})=>f)),ctx.contact.id)]:[]),
     release, audit(db, actor, 'reminder.sent', j.id, client.contact_email)]);
@@ -189,7 +191,7 @@ export async function sendReminder(env: Bindings, actor: Actor, jobId: string, b
   }
   const delivery = portalOnly ? 'posted to portal (no email sent)' : await sendMail(bindings, reminderId, client.contact_email, subject, message, files);
   await stmt(db, 'UPDATE b_reminders SET delivery=? WHERE id=?', delivery, reminderId).run();
-  return { id: reminderId, delivery, portalUrl: url, expiresAt: expires };
+  return { id: reminderId, delivery, portalUrl: portalOnly?null:url, expiresAt: portalOnly?null:expires };
 }
 
 // ---- Public client portal, authorised only by the link's secret ----
