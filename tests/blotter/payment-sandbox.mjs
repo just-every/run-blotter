@@ -5,8 +5,8 @@ export async function sandboxCard(page) {
   await page.waitForURL('https://checkout.stripe.com/**', { timeout: 60_000 });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('#email').fill('synthetic-blotter@example.com');
-  const card = page.getByRole('button', { name: /Card|Credit or debit card/i });
-  if (await card.first().isVisible()) await card.first().click();
+  const card = page.getByText('Card', { exact: true }).filter({ visible: true });
+  if (await card.count()) await card.first().click();
   await page.locator('#cardNumber').fill('4242424242424242');
   await page.locator('#cardExpiry').fill('1230');
   await page.locator('#cardCvc').fill('123');
