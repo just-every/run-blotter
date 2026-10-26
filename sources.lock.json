@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "379c6743ff322891f609639eddaed2869cfe70e6cf052e1d33daca32606f326e",
+      "sha256": "3fba5681af3f8baa4a8278cffba49d6fff7d415cc15e9bf4b87c77cd339996a8",
       "executable": false
     },
     "AGENTS.md": {
@@ -1433,6 +1433,10 @@
     },
     "src/blotter/filters.ts": {
       "sha256": "d45e9a37ff0116c4cb305c35a7a00d8a3616d3295943bd91e570246c6e0aa367",
+      "executable": false
+    },
+    "src/blotter/firm-day.ts": {
+      "sha256": "ac1bd7553654d9679437c0794eb0498789fb02db71607cb92f93321223ffd69c",
       "executable": false
     },
     "src/blotter/firm.ts": {
