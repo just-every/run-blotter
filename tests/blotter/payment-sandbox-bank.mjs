@@ -16,7 +16,7 @@ export async function sandboxBank(page, account, returnOrigin) {
   await page.locator('#email').fill('synthetic-blotter@example.com');
   const name = page.locator('#billingName');
   if (await name.isVisible()) await name.fill('Synthetic Blotter');
-  await page.getByText('US bank account', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('US bank account', { exact: true }).filter({ visible: true }).first().click({ force: true });
   let entered = false, submitted = false;
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {

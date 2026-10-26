@@ -6,7 +6,7 @@ export async function sandboxCard(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('#email').fill('synthetic-blotter@example.com');
   const card = page.getByText('Card', { exact: true }).filter({ visible: true });
-  if (!await page.locator('#cardNumber').isVisible()) await card.first().click();
+  if (!await page.locator('#cardNumber').isVisible()) await card.first().click({ force: true });
   await page.locator('#cardNumber').fill('4242424242424242');
   await page.locator('#cardExpiry').fill('1230');
   await page.locator('#cardCvc').fill('123');
