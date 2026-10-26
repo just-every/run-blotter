@@ -271,6 +271,7 @@ test('FOLLOWUP-001 / BASE-001: unresolved values and uncertain mail hold with ow
   const scoped=await h.json('/followups',input,h.owner);await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[]},h.owner);
   const privateCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,privateCount);assert.equal((await h.json('/followups',undefined,h.owner)).sequences.find(x=>x.id===scoped.id).status,'held');
   await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
+  await h.json('/access/people',{email:'reviewer@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
   const readOnly=await h.json('/followups',input,h.owner);await h.json('/access/people',{email:'prep@example.test',readOnly:true,clientIds:[s.client.id]},h.owner);
   await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,privateCount);assert.equal((await h.json('/followups',undefined,h.owner)).sequences.find(x=>x.id===readOnly.id).status,'held');
   await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
