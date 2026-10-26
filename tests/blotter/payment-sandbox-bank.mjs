@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 async function visible(page, selector) {
-  for (const frame of page.frames()) {
+  for (const frame of page.frames().toReversed()) {
     for (const locator of await selector(frame).all()) {
       if (await locator.isVisible()) return locator;
     }
@@ -17,7 +17,7 @@ export async function sandboxBank(page, account, returnOrigin) {
   const name = page.locator('#billingName');
   if (await name.isVisible()) await name.fill('Synthetic Blotter');
   await page.getByText('US bank account', { exact: true }).filter({ visible: true }).first().click({ force: true });
-  let entered = false, submitted = false;
+  let entered = false, submitted = false, manualOpened = false, lastAction;
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     if (new URL(page.url()).origin === returnOrigin) {
@@ -26,7 +26,7 @@ export async function sandboxBank(page, account, returnOrigin) {
     }
     if (await name.isVisible() && !await name.inputValue()) await name.fill('Synthetic Blotter');
     const routing = await visible(page, frame => frame.getByLabel(/routing number/i));
-    if (routing) {
+    if (routing && !entered) {
       await routing.fill('110000000');
       const number = await visible(page, frame => frame.getByLabel(/^account number$/i));
       assert.ok(number, 'Stripe manual entry exposes an account number field');
@@ -39,15 +39,18 @@ export async function sandboxBank(page, account, returnOrigin) {
       if (checking) await checking.check();
       entered = true;
     }
-    const manual = await visible(page, frame => frame.getByText('Enter bank details manually', { exact: true }));
+    const manual = manualOpened ? null : await visible(page, frame => frame.getByText('Enter bank details manually', { exact: true }));
     if (manual) {
+      manualOpened = true;
       await manual.click();
       await pause(500);
       await page.screenshot({ path: `${process.env.BLOTTER_PAYMENT_EVIDENCE}/ach-bank-entry.png`, fullPage: true });
       continue;
     }
     const next = await visible(page, frame => frame.getByRole('button', { name: /^(Continue|Confirm account|Agree and continue|Verify account|Connect account|Submit|Pay(?:\s.*)?|Authorize(?:\s.*)?)$/i }));
-    if (next && await next.isEnabled() && (entered || !/^Pay/.test(await next.innerText()))) {
+    const action = next ? await next.innerText() : '';
+    if (next && await next.isEnabled() && action !== lastAction && (entered || !/^Pay/.test(action))) {
+      lastAction = action;
       if (entered) submitted = true;
       await next.click();
     }
