@@ -160,11 +160,11 @@ function PaymentPolicy({ run }: { run: Run }) {
   useEffect(() => { api('/payment-policy').then(setPolicy).catch(() => undefined); }, []);
   return <details><summary>Payment policy: gated files and credit hold</summary>
     <p>{policy ? <>A pending ACH payment {policy.achUnlock === 'pending' ? 'releases' : 'does not release'} a gated file. {policy.holdThresholdCents === null ? 'No credit hold is set.' : <>Clients with {money(policy.holdThresholdCents)} or more overdue for more than {policy.holdGraceDays} days are on credit hold.</>}</> : 'Loading the payment policy.'}</p>
-    <Form label="Save payment policy" submit={data => run(async () => setPolicy(await api('/payment-policy', { achUnlock: data.achUnlock, holdThresholdCents: data.holdThresholdCents ? Number(data.holdThresholdCents) : null, holdGraceDays: Number(data.holdGraceDays || 0), reason: data.reason })), 'Payment policy saved')}>
-      <Field label="ACH payments release a gated file when" name="achUnlock"><select name="achUnlock" defaultValue={policy?.achUnlock ?? 'settled'}><option value="settled">Settled</option><option value="pending">Pending</option></select></Field>
-      <Field label="Credit hold threshold in USD cents (blank for none)" name="holdThresholdCents" type="number" required={false} />
-      <Field label="Days past due before an invoice counts toward the hold" name="holdGraceDays" type="number" required={false} value={0} />
+    {policy && <Form key={policy.setAt ?? 'initial'} label="Save payment policy" submit={data => run(async () => setPolicy(await api('/payment-policy', { achUnlock: data.achUnlock, holdThresholdCents: data.holdThresholdCents ? Number(data.holdThresholdCents) : null, holdGraceDays: Number(data.holdGraceDays || 0), reason: data.reason })), 'Payment policy saved')}>
+      <Field label="ACH payments release a gated file when" name="achUnlock"><select name="achUnlock" defaultValue={policy.achUnlock}><option value="settled">Settled</option><option value="pending">Pending</option></select></Field>
+      <Field label="Credit hold threshold in USD cents (blank for none)" name="holdThresholdCents" type="number" required={false} value={policy.holdThresholdCents ?? ''} />
+      <Field label="Days past due before an invoice counts toward the hold" name="holdGraceDays" type="number" required={false} value={policy.holdGraceDays} />
       <Field label="Reason for this policy" name="reason" />
-    </Form>
+    </Form>}
   </details>;
 }

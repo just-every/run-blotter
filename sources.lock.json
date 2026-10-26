@@ -4000,7 +4000,7 @@
       "executable": false
     },
     "src/ui/invoices.tsx": {
-      "sha256": "2a0fb2e5f40385ee6662646f5f181789b98599478cfed00f9a9e7c3b06ca821c",
+      "sha256": "435a00f4fe9d1b7b40cfbdb0c5ae63be5708da81b585873261d4051e2251e48b",
       "executable": false
     },
     "src/ui/job.tsx": {
@@ -4284,7 +4284,7 @@
       "executable": false
     },
     "tests/blotter/invoices-ui.mjs": {
-      "sha256": "b75470ef0fdf3c5e203da29e90393138780b651ec05fd0ea66ac50a98d689357",
+      "sha256": "c41bd5d219b418a55777cd7ae9a930769a4e1dcfa616bd0381314170c323d47e",
       "executable": false
     },
     "tests/blotter/invoices.test.mjs": {
