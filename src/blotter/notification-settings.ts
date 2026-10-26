@@ -10,6 +10,8 @@ export const kinds = [
   ['mention','Mention',true],['correction','Correction requested',true],['reply','Discussion reply',true],['resolved','Discussion resolved',true],
   ['client_question','Client reply',true],['client_todo_done','Client to-do completed',true],
   ['upload','Client upload',false],['organizer_submitted','Organizer submitted',false],
+  ['payment_settled','Payment settled',false],['payment_failed','Payment failed',false],
+  ['payment_refunded','Payment refunded',false],['payment_returned','Payment returned',false],
   ['due_soon','Work due soon',false],['overdue','Overdue work',false],['status_changed','Work status changed',false],
   ['delivery_failed','Delivery failed',false],['task_ready','Task ready',true],['partner_sign_off','Partner sign-off',true],
   ['coverage','Coverage changed',true],['internal_report','Scheduled report',true],['authorization_expiring','Authorization coverage ending',false],

@@ -43,7 +43,7 @@ export async function sandboxGate(h, s, title = 'Final return copy') {
       const own = await h.request(`/api/blotter/portal/${token}/files/${encodeURIComponent(upload.id)}`);
       assert.equal(own.status, 200); assert.equal(await own.text(), 'Client supplied record');
       const listing = await h.json(`/portal/${token}/deliverables`);
-      assert.equal(Boolean(listing.find(d => d.id === final.id).locked), status === 402);
+      assert.equal(Boolean(listing.find(d => d.id === final.deliverableId).locked), status === 402);
     },
   };
 }

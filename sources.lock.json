@@ -1620,11 +1620,11 @@
       "executable": false
     },
     "src/blotter/notification-events.ts": {
-      "sha256": "0898924e6b91d63887234abb197640793c6fac3429f3d970a09f3f98f2ce801d",
+      "sha256": "8beef59e622524d506c774153f6b6f5ec4bee66f1fd27a139256e78e0c75d97e",
       "executable": false
     },
     "src/blotter/notification-settings.ts": {
-      "sha256": "d0c3db9b99e0518eace78b69b9fe091e08d2a1d14cc2adc9e068645354f9e1ea",
+      "sha256": "5bb6b2a8c1b3259c49ea8402856f84c9856c9b0236d833e852cb931d44020876",
       "executable": false
     },
     "src/blotter/notifications.ts": {
@@ -4323,6 +4323,10 @@
       "sha256": "efb5394845a81827438ec7b65b4b973a8d761b2a4fa545894d837f24bade6c5d",
       "executable": false
     },
+    "tests/blotter/payment-sandbox.mjs": {
+      "sha256": "90430031de46dcca41123d9713b95e34aa0409a6644557b63d53c9aaf8c1b054",
+      "executable": false
+    },
     "tests/blotter/payment-ui.mjs": {
       "sha256": "bc67f9fb90b5c8ad40b96b45a37a395d8caac83ee53a33592b468c39f4d3a2af",
       "executable": false
@@ -4332,7 +4336,7 @@
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {
-      "sha256": "538f6ff494f3e3ae4495ed07799d53b6f54879418ca6c44c6693fc06d5eb3e82",
+      "sha256": "42c0811956626067b66c587475e047b109207adb45b7fe37b36e344e42e8d5ae",
       "executable": false
     },
     "tests/blotter/pdf-text.mjs": {

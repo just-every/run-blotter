@@ -6,6 +6,12 @@ import {paymentFixture} from './payment-fixture.mjs';
 import {stripeEdge} from './stripe-edge.mjs';
 import {paymentJourney} from './payment-ui.mjs';
 const secret='synthetic-blotter-1';
+const preferences={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:[]};
+const paymentAlerts=async(h,actor)=> (await h.json('/notifications',undefined,actor)).filter(n=>n.kind.startsWith('payment_'));
+function safeSummaries(alerts,s,privateValues=[]){
+ assert.ok(alerts.length);
+ for(const alert of alerts)for(const value of [s.client.name,s.billing.email,s.invoice.id,...privateValues])assert.ok(!alert.summary.includes(value));
+}
 const start=async()=>{const edge=stripeEdge(),h=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2',STRIPE_WEBHOOK_SECRET:secret},stripeResponse:edge.respond});try{return {h,edge,s:await paymentFixture(h)};}catch(error){await h.close();throw error;}};
 async function authorize(h,s,amount=100){
  const link=await h.json(`/invoice-portal/${s.token}/pay`,{amountCents:amount,confirm:true,saveMethod:true,authorizeSaved:true,requestId:randomUUID()});
@@ -16,11 +22,31 @@ async function notify(h,event,extra={}){const raw=JSON.stringify(event),timestam
 test('Authorized saved-card collection reconciles partial payment and refund into balances, statements and attributed client history',async()=>{
  const {h,s}=await start();try{
   await h.json('/team/invite',{email:'preparer@example.test'},h.owner);const preparer=await h.login('preparer@example.test');
+  await h.json('/team/invite',{email:'reviewer@example.test'},h.owner);const reviewer=await h.login('reviewer@example.test');
+  const reminder=await h.json(`/jobs/${s.job.id}/reminders`,{contactId:s.billing.id},preparer);
+  const requestMail=h.mails.findLast(m=>m.to.includes(s.billing.email)&&m.text.includes(reminder.portalUrl));
+  assert.ok(requestMail);assert.match(reminder.delivery,/accepted/);
+  const uploadToken=requestMail.text.match(/\/portal\/(up_[0-9a-f]{64})/)[1];
+  const portal=await h.json(`/portal/${uploadToken}`),documentRequest=portal.requests[0];
+  const uploaded=await h.json(`/portal/${uploadToken}/requests/${documentRequest.id}`,{name:'Source statement.txt',mime:'text/plain',contentBase64:Buffer.from('Client supplied source statement').toString('base64')});
+  await h.json(`/requests/${documentRequest.id}/decide`,{decision:'accept',note:'Source checked against the engagement'},reviewer);
+  let work=await h.json(`/jobs/${s.job.id}`,undefined,preparer);
+  for(const step of work.steps)work=await h.json(`/jobs/${s.job.id}/steps`,{ordinal:step.ordinal,done:true,revision:work.job.revision},preparer);
+  work=await h.json(`/jobs/${s.job.id}/submit`,{revision:work.job.revision},preparer);
+  await h.json(`/jobs/${s.job.id}/review`,{revision:work.job.revision,decision:'signoff',note:'Reviewed the accepted client source and completed work'},reviewer);
+  await h.json('/notifications/defaults',{emailKinds:['payment_settled','payment_refunded'],mandatoryKinds:[]},h.owner);
+  const beforePayments=h.mails.length;
   await h.json(`/invoices/${s.invoice.id}/quick-collect`,{},preparer,403);
   await h.json(`/invoices/${s.invoice.id}/payments`,undefined,preparer,403);
   await h.json(`/invoices/${s.invoice.id}/quick-collect`,{},h.owner,409);
   await h.json(`/invoice-portal/${s.token}/pay`,{amountCents:100,confirm:false},undefined,400);
   const {paid,mandate}=await authorize(h,s);assert.equal(paid.net_cents,100);assert.equal(mandate.kind,'card');
+  let alerts=await paymentAlerts(h,h.owner);assert.equal(alerts.filter(n=>n.kind==='payment_settled').length,1);
+  assert.equal(h.mails.length,beforePayments,'Firm suggestions leave payment events in app until a person opts in');
+  assert.equal((await paymentAlerts(h,preparer)).length,0);
+  await h.json(`/notifications/${alerts[0].id}/read`,{read:true},preparer,404);
+  await h.json(`/notifications/${alerts[0].id}/read`,{read:true},h.owner);
+  assert.ok((await paymentAlerts(h,h.owner)).find(n=>n.id===alerts[0].id).read_at);
   const request={mandateId:mandate.id,requestId:randomUUID()};
   const collected=await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner);assert.equal(collected.net_cents,900);
   assert.equal((await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner)).id,collected.id);
@@ -29,6 +55,17 @@ test('Authorized saved-card collection reconciles partial payment and refund int
   assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,200);
   const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2030-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,200);assert.equal(statement.payments.reduce((n,p)=>n+p.net_cents,0),800);
   const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.history.some(e=>e.action==='payment.settled'&&e.detail.includes(collected.provider_id)&&e.actor=== 'owner@example.test'&&e.at&&e.job_id===s.job.id));
+  const engagement=await h.json(`/clients/${s.client.id}/history`,undefined,h.owner);
+  assert.equal(engagement.client.id,s.client.id);
+  let previous=0;
+  for(const [action,source,actor] of [['reminder.sent',s.job.id,'preparer@example.test'],['file.uploaded',uploaded.id,'client upload link'],['request.accepted',documentRequest.id,'reviewer@example.test'],['job.submitted',s.job.id,'preparer@example.test'],['job.signed_off',s.job.id,'reviewer@example.test'],['payment.settled',s.invoice.id,'owner@example.test']]){
+   const event=engagement.history.filter(e=>e.action===action&&e.object_id===source&&e.actor===actor).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))[0];
+   assert.ok(event,action);assert.equal(event.job_id,s.job.id);assert.ok(Number.isFinite(Date.parse(event.at)));assert.ok(Date.parse(event.at)>=previous);previous=Date.parse(event.at);
+  }
+  alerts=await paymentAlerts(h,h.owner);assert.equal(alerts.filter(n=>n.kind==='payment_settled').length,2);assert.equal(alerts.filter(n=>n.kind==='payment_refunded').length,1);
+  safeSummaries(alerts,s,[paid.provider_id,collected.provider_id,'Client supplied source statement']);
+  await h.json('/access/people',{email:'reviewer@example.test',readOnly:false,clientIds:[]},h.owner);
+  await h.json(`/clients/${s.client.id}/history`,undefined,reviewer,404);
   await paymentJourney(h,s,{...s.invoice,balance_cents:200});
  }finally{await h.close();}
 });
@@ -37,9 +74,31 @@ test('Signed duplicate and out-of-order notifications cannot undo refunds; inval
   const {paid}=await authorize(h,s,500),event={id:'synthetic-blotter-100',type:'payment_intent.succeeded',data:{object:{id:paid.provider_id}}};
   assert.equal((await notify(h,event,{'stripe-signature':'invalid'})).status,401);
   assert.equal((await notify(h,event)).status,200);assert.equal((await (await notify(h,event)).json()).replayed,true);
+  assert.equal((await paymentAlerts(h,h.owner)).filter(n=>n.kind==='payment_settled').length,1);
+  await h.json('/team/invite',{email:'reviewer@example.test'},h.owner);const reviewer=await h.login('reviewer@example.test');
+  await h.json(`/clients/${s.client.id}/unresolved/owner`,{kind:'invoice',id:s.invoice.id,owner:'reviewer@example.test'},h.owner);
+  // Keep the HTTP mutation quiet too; the Cron assertions use fixed instants.
+  const timeZone=new Date().getUTCHours()<12?'UTC':'Etc/GMT+12';
+  await h.json('/notifications/settings',{...preferences,timeZone,quietEnd:'23:59',emailKinds:['payment_refunded']},reviewer);
+  const beforeRefund=h.mails.length;
   await h.json(`/payments/${paid.id}/refund`,{amountCents:200,reason:'Partial refund',requestId:randomUUID()},h.owner);
+  await h.scheduled('2026-11-01T15:00:00Z');
+  assert.equal(h.mails.length,beforeRefund,'Payment email waits through personal quiet hours');
+  const refunded=(await paymentAlerts(h,reviewer)).filter(n=>n.kind==='payment_refunded');assert.equal(refunded.length,1);
+  await h.json('/access/people',{email:'reviewer@example.test',readOnly:false,clientIds:[]},h.owner);
+  assert.equal((await paymentAlerts(h,reviewer)).length,0);
+  await h.json(`/notifications/${refunded[0].id}/read`,{read:true},reviewer,404);
+  await h.json(`/invoices/${s.invoice.id}/payments`,undefined,reviewer,404);
+  const release=timeZone==='UTC'?'2026-11-01T23:59:30Z':'2026-11-02T11:59:30Z';
+  await h.scheduled(release);assert.equal(h.mails.length,beforeRefund,'Delivery rechecks the recipient client grant');
+  await h.json('/access/people',{email:'reviewer@example.test',readOnly:false,clientIds:[s.client.id]},h.owner);
+  await h.scheduled(release);await h.scheduled(release);await h.restart();await h.scheduled(release);
+  const paymentMails=h.mails.slice(beforeRefund);assert.equal(paymentMails.length,1);assert.deepEqual(paymentMails[0].to,['reviewer@example.test']);assert.ok(paymentMails[0].text.includes('/app?job='+s.job.id));
+  for(const value of [s.client.name,s.billing.email,paid.provider_id])assert.ok(!JSON.stringify(paymentMails).includes(value));
+  safeSummaries(refunded,s,[paid.provider_id]);
   assert.equal((await notify(h,{...event,id:'synthetic-blotter-101',created:1})).status,200);
   assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,700);
+  assert.equal((await paymentAlerts(h,reviewer)).filter(n=>n.kind==='payment_refunded').length,1);
   assert.equal((await notify(h,{...event,type:'payment_intent.processing'})).status,409);
   assert.equal(edge.intents.get(paid.provider_id).latest_charge.amount_refunded,200);
   edge.intents.get(paid.provider_id).latest_charge.disputed=true;
@@ -59,11 +118,16 @@ test('Failed card and returned ACH create owned follow-up, pending acceptance is
   await h.json('/payment-policy',{achUnlock:'pending',holdThresholdCents:null,reason:'Principal permits pending ACH release'},h.owner);assert.equal((await file()).status,200);
   pi.status='requires_payment_method';pi.last_payment_error={code:'debit_not_authorized'};
   const returned=await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);assert.equal(returned.state,'returned');assert.equal((await file()).status,402,'A returned ACH relocks the final file');
+  await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);
+  assert.equal((await paymentAlerts(h,h.owner)).filter(n=>n.kind==='payment_returned').length,1);
   const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.unresolved.some(i=>i.kind==='invoice'&&i.owner&&/returned/.test(i.nextAction)&&i.due));
   await h.json(`/invoice-portal/${s.token}/mandates/${mandate.id}/revoke`,{reason:'Client withdrew authorization'});
   const before=edge.calls.length;await h.json(`/invoices/${s.invoice.id}/quick-collect`,{mandateId:mandate.id,requestId:randomUUID()},h.owner,409);assert.equal(edge.calls.length,before);
   const second=await h.json(`/invoices/${s.invoice.id}/payment-link`,{amountCents:100},h.owner),failedPi=[...edge.intents.values()].at(-1);failedPi.status='requires_payment_method';failedPi.last_payment_error={code:'card_declined'};
   assert.equal((await h.json(`/payments/${second.paymentId}/reconcile`,{},h.owner)).state,'failed');
+  await h.json(`/payments/${second.paymentId}/reconcile`,{},h.owner);
+  const alerts=await paymentAlerts(h,h.owner);assert.equal(alerts.filter(n=>n.kind==='payment_failed').length,1);assert.equal(alerts.filter(n=>n.kind==='payment_returned').length,1);
+  safeSummaries(alerts,s,[paid.provider_id,failedPi.id,'card_declined','debit_not_authorized','6789']);
  }finally{await h.close();}
 });
 test('Payment archives retain accounting and restore without charging authority; erasure lists Stripe copies and honors holds',async()=>{

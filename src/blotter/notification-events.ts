@@ -96,6 +96,9 @@ export async function syncNotificationEvents(db: D1Database) {
         "a.action='file.uploaded' AND f.channel='portal' AND f.erased_at IS NULL"),
       auditProjection(db, ids, 'organizer_submitted', 'Organizer submitted', 'JOIN b_jobs j ON j.id=a.object_id', 'j.preparer_email',
         "a.action='organizer.submitted' AND EXISTS(SELECT 1 FROM b_job_organizers g WHERE g.job_id=j.id AND g.erased_at IS NULL)"),
+      ...['settled', 'failed', 'refunded', 'returned'].map(state => auditProjection(db, ids, `payment_${state}`, `Payment ${state}`,
+        'JOIN b_invoices i ON i.id=a.object_id JOIN b_jobs j ON j.id=i.job_id', 'i.owner_email',
+        `a.action='payment.${state}' AND i.erased_at IS NULL`)),
       stmt(db, `INSERT OR IGNORE INTO b_notification_events(source_key) SELECT 'audit:'||id FROM b_audit WHERE id IN (SELECT value FROM json_each(?))`, ids),
     ]);
     if (events.length < 100) break;
