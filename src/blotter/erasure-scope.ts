@@ -120,6 +120,8 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { cls: 'message', table: 'b_organizer_deliveries', action: 'redact', label: 'Organizer delivery mail: address, subject, message', where: `organizer_id IN ${s.ORG}`, set: `to_email='',subject='',message='${MARK}',attachments='[]'` },
     { cls: 'message', table: 'b_portal_items', action: 'redact', label: 'Portal questions, messages and responses no signed-off decision consumed', where: `job_id IN ${s.JE} AND id NOT IN (SELECT todo_id FROM b_readiness_questions WHERE todo_id IS NOT NULL AND id IN ${s.RQR})`,
       set: `body='${MARK}',${text('response')},${text('subject')},attachments='[]'` },
+    { cls: 'message', table: 'b_followup_attempts', action: 'delete', label: 'Reminder sequence attempts', where: `sequence_id IN (SELECT id FROM b_followups WHERE job_id IN ${s.JE})` },
+    { cls: 'message', table: 'b_followups', action: 'delete', label: 'Reminder sequences', where: `job_id IN ${s.JE}` },
     { cls: 'message', table: 'b_reminders', action: 'redact', label: 'Reminder mail: address, subject, message and language', where: `job_id IN ${s.JE}`, set: `to_email='',message='${MARK}',subject=NULL,attachments='[]',outstanding='[]',language=NULL` },
     { cls: 'readiness', table: 'b_readiness_questions', action: 'delete', label: 'Readiness preparations no signed-off job consumed', where: `id IN ${s.RQE}` },
     { cls: 'message', table: 'b_thread_messages', action: 'redact', label: 'Discussion messages (authors and times stay)', where: `thread_id IN ${s.TH}`, set: `body='${MARK}',mentions='[]'` },

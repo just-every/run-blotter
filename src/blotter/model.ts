@@ -7,6 +7,7 @@ export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
   id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'integration'; integration?: { keyId: string; action: string }; agentKeyId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
+  followup?: { sequenceId: string; attemptId: string; revision: string };
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -51,7 +52,7 @@ export function need(actor: Actor, ...roles: Role[]) { insist(roles.includes(act
 /** The principal, or a member the principal granted financial authority (ACCESS-002). */
 export const canBill = (actor: Actor) => actor.role === 'owner' || !!actor.financial;
 export const canReadBilling = (actor: Actor) => actor.role !== 'preparer' || !!actor.financial;
-export function human(actor: Actor) { insist(actor.channel === 'person' || !!actor.automation, 'A person must approve this action', 403); }
+export function human(actor: Actor) { insist(actor.channel === 'person' || !!actor.automation || !!actor.followup, 'A person must approve this action', 403); }
 
 export const stmt = (db: D1Database, sql: string, ...values: unknown[]) => db.prepare(sql).bind(...values);
 export async function rows(db: D1Database, sql: string, ...values: unknown[]) { return (await stmt(db, sql, ...values).all<Data>()).results; }
@@ -85,12 +86,12 @@ export async function readableJob(db: D1Database, actor: Actor, jobId: string) {
 /** The actor's role is re-checked inside the same D1 batch as the write. */
 function authority(actor: Actor) {
   return {
-    sql: `(? IS NULL OR COALESCE((SELECT revision FROM b_access_policy WHERE id=1),'')=?) AND EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ((o.role='owner' AND ?='owner') OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=o.email AND m.active=1 AND m.role=?)))`,
+    sql: `(? IS NULL OR COALESCE((SELECT revision FROM b_access_policy WHERE id=1),'')=?) AND EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status ${actor.followup ? "IN ('active','invited')" : "='active'"} AND ((o.role='owner' AND ?='owner') OR EXISTS(SELECT 1 FROM b_members m WHERE m.email=o.email AND m.active=1 AND m.role=?)))`,
     params: [actor.accessRevision ?? null, actor.accessRevision ?? null, actor.id, actor.role, actor.role],
   };
 }
 export function audit(db: D1Database, actor: Actor, action: string, objectId: string, detail = '') {
-  const who = actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
+  const who = actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.followup ? `${actor.email} (reminder sequence: ${actor.followup.sequenceId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
   return stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, action, objectId, detail, now());
 }
 /** A guard row that only inserts when `sql` holds, so the whole batch fails otherwise. */
@@ -129,6 +130,13 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
       AND (json_extract(r.definition,'$.action.kind')<>'reminder' OR EXISTS(SELECT 1 FROM b_msg_templates m WHERE m.id=json_extract(r.definition,'$.action.templateId') AND m.version=json_extract(r.definition,'$.action.templateVersion') AND m.deleted_at IS NULL)))` , x.attemptId, x.ruleId, x.jobId, x.revision, actor.id);
     execution.push(allowed, finish);
     completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
+  }
+  if (actor.followup) {
+    const x=actor.followup;
+    const [allowed,finish]=guard(db,`EXISTS(SELECT 1 FROM b_followups f JOIN b_followup_attempts a ON a.sequence_id=f.id JOIN b_jobs j ON j.id=f.job_id JOIN b_clients c ON c.id=j.client_id JOIN oa_operators p ON p.id=f.principal_id
+      WHERE f.id=? AND a.id=? AND a.status='running' AND f.status='active' AND f.revision=? AND f.owner_email=? AND p.status='active' AND p.role='owner' AND p.email=f.approved_by AND j.status='open' AND c.lifecycle='active' AND c.merged_into IS NULL AND (? IN ('owner','reviewer') OR j.preparer_email=?) AND ${clientScopeSql('j.client_id')} AND (?='owner' OR NOT EXISTS(SELECT 1 FROM b_access_members am WHERE am.email=f.owner_email AND am.read_only=1)))`,x.sequenceId,x.attemptId,x.revision,actor.email,actor.role,actor.email,...clientScopeParams(actor),actor.role);
+    execution.push(allowed,finish);
+    completed.push(stmt(db,"UPDATE b_followup_attempts SET status='dispatching' WHERE id=? AND status='running'",x.attemptId));
   }
   try { const results = await db.batch([...approval, check, ...execution, ...integration, ...statements, ...decision, ...completed, release]); return results.slice(approval.length + 1 + execution.length + integration.length, approval.length + 1 + execution.length + integration.length + statements.length); }
   catch (error) {

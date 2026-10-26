@@ -54,14 +54,14 @@ export async function clientProgress(db: D1Database, j: Data,contactId?:string,l
 }
 
 /** The job's portal items, as the client sees them (no staff emails) or as staff see them. */
-async function items(db: D1Database, jobId: string, staff: boolean) {
-  const all = await rows(db, 'SELECT * FROM b_portal_items WHERE job_id=? ORDER BY created_at,id', jobId);
+async function items(db: D1Database, jobId: string, staff: boolean, contactId?:string) {
+  const all = await rows(db, 'SELECT * FROM b_portal_items WHERE job_id=? AND (?=1 OR contact_id IS NULL OR contact_id=?) ORDER BY created_at,id', jobId,staff?1:0,contactId??'');
   const shown = (i: Data) => staff ? i : { id: i.id, kind: i.kind, replyTo: i.reply_to, body: i.body, from: i.author === 'client' ? 'you' : 'your accountant', status: i.status, dueDate: i.due_date, response: i.response, closedAt: i.closed_at, createdAt: i.created_at,
     ...(i.subject ? { subject: i.subject } : {}), files: JSON.parse(i.attachments).map((f: Data) => ({ ordinal: f.ordinal, name: f.name, mime: f.mime, size: f.size })) };
   return { messages: all.filter(i => i.kind !== 'todo').map(shown), todos: all.filter(i => i.kind === 'todo').map(shown) };
 }
 
-export async function portalItems(db: D1Database, j: Data,contactId?:string,language:Language='en') { return { progress: await clientProgress(db, j,contactId,language), ...await items(db, j.id, false) }; }
+export async function portalItems(db: D1Database, j: Data,contactId?:string,language:Language='en') { return { progress: await clientProgress(db, j,contactId,language), ...await items(db, j.id, false,contactId) }; }
 export async function staffPortal(db: D1Database, j: Data) { return { progress: await clientProgress(db, j), ...await items(db, j.id, true) }; }
 
 const linkGuard = (db: D1Database, linkId: string) => guard(db, "EXISTS(SELECT 1 FROM b_portal_links l JOIN b_jobs j ON j.id=l.job_id WHERE l.id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status<>'signed_off' AND EXISTS(SELECT 1 FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=l.contact_id AND c.client_id=j.client_id AND c.authorized=1 AND c.active=1 AND c.portal=1 AND c.request_consent=1 AND e.lifecycle='active'))", linkId, now());
@@ -164,11 +164,11 @@ export async function staffMessage(env: Bindings, actor: Actor, jobId: string, b
 
 /** The client downloads a file that came with a message; the bytes must still be the ones recorded. */
 export async function portalMessageFile(db: D1Database, token: string, itemId: string, ordinal: string) {
-  const { link, job: j } = await portalJob(db, token);
+  const { link, job: j,contact } = await portalJob(db, token);
   const item = await stmt(db, "SELECT * FROM b_portal_items WHERE id=? AND job_id=? AND kind='message' AND template_id IS NOT NULL", itemId, j.id).first<Data>();
   const recorded = item && (JSON.parse(item.attachments) as Data[]).find(f => String(f.ordinal) === ordinal);
   const file = recorded && await stmt(db, 'SELECT name,mime,sha256,content_base64 FROM b_msg_template_files WHERE template_id=? AND version=? AND ordinal=?', item.template_id, item.template_version, recorded.ordinal).first<Data>();
-  insist(file && file.sha256 === recorded.sha256, 'File not found', 404);
+  insist((!item?.contact_id||item.contact_id===contact.id)&&file && file.sha256 === recorded.sha256, 'File not found', 404);
   await stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), CLIENT, 'portal.message_file', item.id, `${file.name} ${file.sha256}`, now()).run();
   const safeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'text/csv', 'text/plain'];
   return new Response(Uint8Array.from(atob(file.content_base64), c => c.charCodeAt(0)), { headers: {

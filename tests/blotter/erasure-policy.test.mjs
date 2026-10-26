@@ -19,6 +19,12 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     const spanishContact = s.client.contacts.find(c => c.language === 'es');
     await h.json(`/clients/${s.client.id}/contacts`, { id: spanishContact.id, revision: spanishContact.revision, roles: ['primary', 'tax'] }, h.owner);
     const reviewTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Erasure review fixture', subject: '{{work_type}} review', body: '{{work_type}} document review.' }, h.owner);
+    const reminderRequest=(await h.json(`/jobs/${s.open.id}`,undefined,h.owner)).requests[0];
+    await h.json(`/requests/${reminderRequest.id}/decide`,{decision:'return',note:'Please replace the statement'},s.prep);
+    const followup=await h.json('/followups',{name:'synthetic-blotter-erased-sequence',jobId:s.open.id,ownerEmail:'prep@example.test',contactId:s.alex.id,steps:[reviewTemplate.id],maximumSends:1,cadenceHours:24,startAt:'2027-01-04T14:00:00Z',timezone:'America/New_York',weekdays:[1,2,3,4,5],startHour:9,endHour:17,escalateAfter:1,confirm:'APPROVE'},h.owner);
+    await h.scheduled('2027-01-04T14:00:00Z');
+    assert.equal((await h.json('/followups',undefined,h.owner)).attempts.filter(x=>x.sequence_id===followup.id).length,1,'FOLLOWUP-001 stores a real sequence attempt before erasure');
+    await h.json(`/requests/${reminderRequest.id}/files`,{name:'synthetic-blotter-replacement.txt',contentBase64:b64('synthetic-blotter-replacement')},s.prep);
     const reviewBatch = await h.json('/bulk-messages/preview', { class: 'engagement', templateId: reviewTemplate.id, workTypeId: 'wt-' + s.template.id, role: 'tax', reason: 'Prepare a requested document review', idempotencyKey: 'synthetic-blotter-25' }, h.owner);
     const archive = async () => (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     const old = await archive();
@@ -93,6 +99,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     preview = await h.json(`/clients/${id}/erasure/preview`, undefined, h.owner);
     assert.deepEqual(preview.blockers, [], preview.blockers.join(' | '));
     assert.equal(preview.eligible, true);
+    for(const table of ['b_followups','b_followup_attempts'])assert.equal(preview.erase.find(x=>x.table===table).count,1,'FOLLOWUP-001 names sequence custody in the approved erasure preview');
     const byClass = Object.fromEntries(preview.classes.map(c => [c.class, c]));
     assert.deepEqual(Object.keys(byClass).sort(), ['api', 'billing', 'contact', 'derived_ai', 'efile_auth', 'engagement', 'link', 'message', 'notification', 'organizer', 'prospect', 'readiness', 'signed_documents', 'signed_work', 'vault']);
     assert.ok(byClass.signed_work.retained >= 4 && byClass.billing.retained >= 2 && byClass.engagement.retained === 1 && byClass.vault.marker >= 1 && byClass.message.marker > 0 && byClass.readiness.removed === 1 && byClass.derived_ai.removed + byClass.derived_ai.marker >= 1);
@@ -118,6 +125,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     const receipt = await h.json(`/clients/${id}/erasure`, { planHash: preview.planHash, confirm: IDENTITY.name, reason: 'Client asked for deletion', requestId: request.id }, h.owner);
     assert.deepEqual(Object.fromEntries(receipt.steps.map(c => [c.table, c.count])), Object.fromEntries(preview.erase.map(e => [e.table, e.count])), 'Recorded counts equal the previewed counts');
     assert.equal(receipt.planHash, preview.planHash);
+    const followupState=await h.json('/followups',undefined,h.owner);assert.equal(followupState.sequences.filter(x=>x.id===followup.id).length,0);assert.equal(followupState.attempts.filter(x=>x.sequence_id===followup.id).length,0,'FOLLOWUP-001 erasure removes both sequence and attempt content');
     await h.json(`/clients/${id}/erasure`, { planHash: preview.planHash, confirm: IDENTITY.name, reason: 'Again' }, h.owner, 409);
 
     // Signed work, the held engagement and approved billing stay whole; the rest is marker-redacted or gone.

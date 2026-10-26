@@ -1,3 +1,4 @@
+import { followups, approveFollowup, followupStatus, runFollowups, reconcileFollowup } from './followups';
 import { integrationWebhooks, registerWebhook, revokeWebhook, replayWebhook, reconcileWebhook, runIntegrationWebhooks } from './integration-webhooks';
 import { integrationKeys, mintIntegrationKey, revokeIntegrationKey } from './integration-keys';
 import { integrationRequest } from './integration-api';
@@ -177,6 +178,11 @@ api.post(`${P}/marketing-consents/confirm`,as(async(a,c)=>confirmMarketing(db(c)
 api.post(`${P}/marketing-consents/:id/correct`,as(async(a,c)=>correctConsent(db(c),a,param(c),await body(c))));
 // Provider delivery events: authenticated by the provider's webhook signature, not a session.
 api.post(`${P}/mail/events`,async c=>c.json(await providerEvent(c.env,c.req.raw)));
+api.get(`${P}/followups`,as((a,c)=>followups(db(c),a)));
+api.post(`${P}/followups`,as(async(a,c)=>approveFollowup(db(c),a,await body(c))));
+api.post(`${P}/followups/attempts/:id/reconcile`,as(async(a,c)=>reconcileFollowup(db(c),a,param(c),await body(c))));
+api.post(`${P}/followups/run`,as(async(a,c)=>{await followups(db(c),a);return runFollowups(c.env);}));
+for(const status of ['paused','active','stopped']) api.post(`${P}/followups/:id/${status}`,as(async(a,c)=>followupStatus(db(c),a,param(c),status,await body(c))));
 api.get(`${P}/automation`,as((a,c)=>automationState(db(c),a)));
 api.post(`${P}/automation/preview`,as(async(a,c)=>previewAutomation(db(c),a,await body(c))));
 api.post(`${P}/automation`,as(async(a,c)=>saveAutomation(db(c),a,await body(c))));
