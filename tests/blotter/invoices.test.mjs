@@ -512,6 +512,10 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
     // Credit hold: staff see it on the client, new work warns, and a partner can override it with a reason.
     assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.configured, false);
     const hold = { achUnlock: 'settled', holdThresholdCents: 25000, holdGraceDays: 0, reason: 'Clients owing USD 250 past due go on hold' };
+    // The principal's grace setting changes the warning without blocking new work.
+    await h.json('/payment-policy', { ...hold, holdGraceDays: 365 }, h.owner);
+    assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.onHold, false);
+    for (const who of [s.preparer, s.reviewer]) await h.json('/payment-policy', { ...hold, holdGraceDays: 365 }, who, 403);
     await h.json('/payment-policy', hold, h.owner);
     await holdJourney(h, s);
     const owner = (await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold, staff = (await h.json(`/clients/${s.client.id}/detail`, undefined, s.preparer)).creditHold;
@@ -544,6 +548,11 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
     const settle = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', method: 'card', reference: 'CARD-CONFIRM-3', amountCents: 20000, reason: 'Card payment confirmed' }, h.owner);
     await h.json(`/invoices/${c.id}/credits`, { creditId: settle.id, amountCents: 20000, reason: 'Apply the card receipt' }, h.owner);
     assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.onHold, false);
+    await h.json('/payment-policy', { ...hold, holdThresholdCents: 19000 }, h.owner);
+    assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.onHold, true);
+    await h.json(`/invoices/${c.id}/write-off`, { amountCents: 100, reason: 'Principal forgives the remaining small adjustment' }, h.owner);
+    assert.equal((await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).creditHold.onHold, false, 'A write-off below the threshold ends the hold');
+    assert.equal((await file(third)).status, 402, 'The same write-off never releases the file gate');
     // A restore carries the gates, the overrides, the policy and each receipt's method and settlement.
     await h.json('/payment-policy', { ...hold, holdThresholdCents: 25000 }, h.owner);
     await h.stepUp(h.owner);
@@ -557,7 +566,7 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for unpaid, undisputed, deliverable invoices; clients opt out; two invoices resend in bulk; the statement reconciles to open balances; quick collect refuses without PAY-001; a restore pauses the schedule', async () => {
+test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for unpaid, undisputed, deliverable invoices; clients opt out; two invoices resend in bulk; the statement reconciles to open balances; quick collect refuses without saved-method authorization; a restore pauses the schedule', async () => {
   const edge=stripeEdge();
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-9',STRIPE_SECRET_KEY:'synthetic-blotter-10' },stripeResponse:edge.respond }); let restored;
   try {
