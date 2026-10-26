@@ -50,6 +50,7 @@ async function checkout(env: Bindings, invoice: Data, payment: Data, returnUrl: 
   return { url: session.url, paymentId: payment.id };
 }
 export async function portalPayment(env: Bindings, token: string, body: Data) {
+  insist(env.STRIPE_SECRET_KEY,'Stripe is not configured',409);
   const { delivery, invoice } = await invoicePortalContext(env.DB, token);
   insist(body.confirm === true, 'Explicit authorization is required');
   const current = await stmt(env.DB, `SELECT ${invoiceBalanceSql('i')} balance FROM b_invoices i WHERE i.id=?`, invoice.id).first<Data>();
@@ -74,8 +75,12 @@ export async function portalPayment(env: Bindings, token: string, body: Data) {
 export async function quickCollect(env: Bindings, actor: Actor, invoiceId: string, body: Data) {
   const invoice = await invoiceFor(env.DB, actor, invoiceId), mandate = await stmt(env.DB, "SELECT * FROM b_payment_mandates WHERE id=? AND invoice_id=? AND status='active'", body.mandateId ?? '', invoiceId).first<Data>();
   insist(mandate, 'PAY-001 requires an active client-authorized saved method for this invoice', 409);
+  const requestKey=`collect:${invoiceId}:${text(body.requestId,'Request identifier',100)}`;
+  const prior=await stmt(env.DB,'SELECT * FROM b_provider_payments WHERE request_key=?',requestKey).first<Data>();
+  if(prior){insist(prior.mandate_id===mandate.id && prior.created_by===actor.email && (body.amountCents===undefined || Number(body.amountCents)===prior.amount_cents),'Collection request changed',409);return reconcilePayment(env,prior.id,undefined,actor.email);}
+  insist(invoice.collection_hold!=='disputed' && !await stmt(env.DB,"SELECT 1 FROM b_provider_payments WHERE invoice_id=? AND state='disputed'",invoiceId).first(),'Resolve the invoice dispute before collection',409);
   const amount = integer(body.amountCents ?? invoice.balance_cents, 'Collection in USD cents', 50, invoice.balance_cents);
-  const payment = await reserve(env, invoice, amount, `collect:${invoiceId}:${text(body.requestId, 'Request identifier', 100)}`, actor.email, actor, mandate);
+  const payment = await reserve(env, invoice, amount, requestKey, actor.email, actor, mandate);
   if (payment.provider_id) return reconcilePayment(env, payment.id, undefined, actor.email);
   insist(await stmt(env.DB, "SELECT 1 FROM b_payment_mandates WHERE id=? AND status='active'", mandate.id).first(), 'Authorization revoked', 409);
   try {

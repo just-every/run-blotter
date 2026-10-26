@@ -18,7 +18,9 @@ test('Authorized saved-card collection reconciles partial payment and refund int
   await h.json(`/invoices/${s.invoice.id}/quick-collect`,{},h.owner,409);
   await h.json(`/invoice-portal/${s.token}/pay`,{amountCents:100,confirm:false},undefined,400);
   const {paid,mandate}=await authorize(h,s);assert.equal(paid.net_cents,100);assert.equal(mandate.kind,'card');
-  const collected=await h.json(`/invoices/${s.invoice.id}/quick-collect`,{mandateId:mandate.id,requestId:randomUUID()},h.owner);assert.equal(collected.net_cents,900);
+  const request={mandateId:mandate.id,requestId:randomUUID()};
+  const collected=await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner);assert.equal(collected.net_cents,900);
+  assert.equal((await h.json(`/invoices/${s.invoice.id}/quick-collect`,request,h.owner)).id,collected.id);
   assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,0);
   await h.json(`/payments/${collected.id}/refund`,{amountCents:200,reason:'Client requested a partial refund',requestId:randomUUID()},h.owner);
   assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,200);

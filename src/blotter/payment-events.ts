@@ -45,7 +45,7 @@ export async function reconcilePayment(env: Bindings, paymentId: string, event?:
       AND EXISTS(SELECT 1 FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=b_payment_mandates.contact_id AND c.revision=b_payment_mandates.contact_revision AND c.active=1 AND c.authorized=1 AND c.portal=1 AND e.erased_at IS NULL AND e.lifecycle='active')`, method.id, reference(pi.customer), method.type, method[method.type]?.last4 ?? null, payment.mandate_id));
   if (event) changes.push(stmt(db, 'INSERT INTO b_payment_events(id,payment_id,payload_digest,event_type,received_at) VALUES(?,?,?,?,?)', event.id, payment.id, event.digest, event.type, at));
   if (state !== payment.state || net !== payment.net_cents || refunded !== payment.refunded_cents) changes.push(
-    stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), actor, `payment.${state}`, payment.invoice_id,
+    stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), actor, refunded>payment.refunded_cents?'payment.refunded':`payment.${state}`, payment.invoice_id,
       `${pi.id}; USD ${(payment.amount_cents / 100).toFixed(2)}; net USD ${(net / 100).toFixed(2)}; refund USD ${(refunded / 100).toFixed(2)}; fee USD ${(fee / 100).toFixed(2)}${pi.last_payment_error?.code ? '; ' + pi.last_payment_error.code : ''}`, at));
   changes.push(release);
   await db.batch(changes);

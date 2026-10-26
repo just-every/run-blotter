@@ -84,11 +84,11 @@ export function invoiceSourceGuards(db: D1Database, lines: Data[]) {
 export async function invoiceOpenBalances(db: D1Database, clientId: string) {
   const invoices = await rows(db, `SELECT i.id,i.number,i.title,i.owner_email,i.due_date,'invoice' kind,
     ${invoiceBalanceSql('i')} balance_cents
-    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND ${invoiceBalanceSql('i')}>0 ORDER BY i.due_date,i.id`, clientId);
+    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND (${invoiceBalanceSql('i')}>0 OR EXISTS(SELECT 1 FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('creating','pending','requires_action','held'))) ORDER BY i.due_date,i.id`, clientId);
   const liabilities = await rows(db, `SELECT c.id,NULL number,'Unapplied '||c.kind||': '||c.reference title,c.recorded_by owner_email,NULL due_date,c.kind,
     c.amount_cents-COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) balance_cents
     FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) ORDER BY c.recorded_at,c.id`, clientId);
   return [...invoices, ...liabilities];
 }
-export const noInvoiceOpenBalanceSql = `NOT EXISTS(SELECT 1 FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND ${invoiceBalanceSql('i')}>0)
+export const noInvoiceOpenBalanceSql = `NOT EXISTS(SELECT 1 FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND (${invoiceBalanceSql('i')}>0 OR EXISTS(SELECT 1 FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('creating','pending','requires_action','held'))))
  AND NOT EXISTS(SELECT 1 FROM b_invoice_credits c WHERE c.client_id=? AND c.amount_cents>COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0))`;

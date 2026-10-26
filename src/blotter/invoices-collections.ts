@@ -171,7 +171,7 @@ export async function runInvoiceReminders(env: Bindings, at = new Date()) {
   if (!template || template.message_class !== 'engagement') return pause('The consented reminder template version is no longer an available engagement template');
   const today = await firmToday(db, at), firm = await firmSettings(db), results: Data[] = [];
   for (const i of await rows(db, `SELECT i.*,${balanceSql} balance_cents,o.mode override_mode,o.offsets override_offsets FROM b_invoices i JOIN b_clients c ON c.id=i.client_id
-    LEFT JOIN b_invoice_reminder_clients o ON o.client_id=i.client_id WHERE i.status='issued' AND i.erased_at IS NULL AND i.collection_hold IS NULL
+    LEFT JOIN b_invoice_reminder_clients o ON o.client_id=i.client_id WHERE i.status='issued' AND i.erased_at IS NULL AND i.collection_hold IS NULL AND NOT EXISTS(SELECT 1 FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state='disputed')
     AND c.lifecycle='active' AND c.erased_at IS NULL AND c.merged_into IS NULL AND ${balanceSql}>0 ORDER BY i.due_date,i.id`)) {
     if (i.override_mode === 'off') continue;
     const due = (JSON.parse(i.override_offsets ?? policy.offsets) as number[]).filter(o => addDays(i.due_date, o) <= today);
