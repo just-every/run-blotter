@@ -58,7 +58,7 @@ export async function invitePortal(env: Bindings, actor: Actor, clientId: string
   insist(contact, 'Invite an active, authorized contact with portal access, an email address and email consent', 409);
   const account = await stmt(db, 'SELECT * FROM b_portal_accounts WHERE email=?', contact.email).first<Data>();
   insist(!account || account.status === 'active', 'This portal account is disabled', 409);
-  const accountId = account?.id ?? id(), token = secret('pi_'), at = now(), expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000).toISOString();
+  const accountId = account?.id ?? id(), token = secret('pi_'), at = now(), expiresAt = new Date(Date.parse(at) + INVITE_DAYS * 86_400_000).toISOString();
   const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_client_contacts WHERE id=? AND revision=? AND active=1 AND authorized=1 AND portal=1)`, contact.id, contact.revision);
   await atomic(db, actor, [check,
     ...(account ? [] : [stmt(db, 'INSERT INTO b_portal_accounts(id,email,created_by,created_at) VALUES(?,?,?,?)', accountId, contact.email, actor.email, at)]),
@@ -66,13 +66,14 @@ export async function invitePortal(env: Bindings, actor: Actor, clientId: string
     stmt(db, `INSERT INTO b_portal_grants(contact_id,account_id,client_id,invited_by,invited_at) VALUES(?,?,?,?,?) ON CONFLICT(contact_id) DO UPDATE SET
       accepted_at=CASE WHEN b_portal_grants.revoked_at IS NULL AND b_portal_grants.account_id=excluded.account_id THEN b_portal_grants.accepted_at ELSE NULL END,
       account_id=excluded.account_id,invited_by=excluded.invited_by,invited_at=excluded.invited_at,revoked_by=NULL,revoked_at=NULL,revoke_reason=NULL`, contact.id, accountId, clientId, actor.email, at),
+    stmt(db, 'UPDATE b_portal_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL', at, accountId),
     stmt(db, 'UPDATE b_portal_invitations SET used_at=? WHERE contact_id=? AND used_at IS NULL', at, contact.id),
     stmt(db, 'INSERT INTO b_portal_invitations(digest,contact_id,account_id,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)', await digest(token), contact.id, accountId, actor.email, at, expiresAt),
     release, audit(db, actor, 'portal.invited', clientId, `${contact.id}: ${contact.email}`)]);
   const language = contactLanguage(contact.language), T = (key: Key, vars: Record<string, string | number> = {}) => tr(language, key, vars), firm = (await firmSettings(db)).name || T('unsub.thisPractice');
-  const delivery = await sendMail(bindings, id(), contact.email, T('account.invite.subject', { firm }),
+  await sendMail(bindings, id(), contact.email, T('account.invite.subject', { firm }),
     [T('mail.hello', { name: contact.name || contact.email }), '', T('account.invite.body', { firm, client: client.name }), `${bindings.AUTH_ORIGIN}/client?invite=${token}&lang=${language}`, T('account.invite.expires', { date: expiresAt.slice(0, 10) })].join('\n'));
-  return { contactId: contact.id, accountId, status: 'invited', expiresAt, delivery };
+  return { requested: true };
 }
 
 /** Revoke one contact's grant; the account's sessions lose that entity on their next request. */
@@ -92,9 +93,9 @@ export async function resetPortalFactor(db: D1Database, actor: Actor, accountId:
   human(actor); need(actor, 'owner');
   const reason = text(body.reason, 'Reason to reset the second factor', 1000), at = now();
   const account = await stmt(db, 'SELECT id,email FROM b_portal_accounts WHERE id=?', accountId).first<Data>();
-  insist(account, 'Portal account not found', 404);
+  if (!account) return { requested: true };
   await atomic(db, actor, [stmt(db, 'UPDATE b_portal_accounts SET totp_sealed=NULL,totp_pending_sealed=NULL,totp_confirmed_at=NULL WHERE id=?', account.id),
     stmt(db, 'DELETE FROM b_portal_recovery WHERE account_id=?', account.id), stmt(db, 'UPDATE b_portal_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL', at, account.id),
     audit(db, actor, 'portal.factor_reset', account.id, `${account.email}: ${reason}`)]);
-  return { accountId: account.id, factor: false };
+  return { requested: true };
 }

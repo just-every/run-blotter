@@ -98,6 +98,62 @@ test('Client teams overlap; read-only and sensitive workpaper authority, revocat
  }finally{await stale?.close();await destination?.close();await h.close();}
 });
 
+test('A sign-in that still owes its second factor cannot change the account email or invite another principal',async()=>{
+ const h=await harness();
+ try{
+  const codes=await enroll(h,h.owner);
+  const fresh=await h.login('owner@example.test');
+  assert.equal((await h.json('/state',undefined,fresh,403)).mfa,'verify');
+  for(const [path,body] of [['/auth/email',{email:'elsewhere@example.test'}],['/auth/invite',{email:'elsewhere@example.test',role:'owner'}]]){
+   const refused=await h.send(path,body,fresh);
+   assert.equal(refused.status,403,path);assert.equal((await refused.json()).mfa,'verify');
+  }
+  assert.equal((await(await h.send('/auth/session',undefined,h.owner)).json()).operator.email,'owner@example.test');
+  // The same session may change its own email once it confirms its factor.
+  await h.json('/mfa/verify',{recoveryCode:codes[0]},fresh);
+  assert.equal((await h.send('/auth/email',{email:'principal@example.test'},fresh)).status,200);
+ }finally{await h.close();}
+});
+
+test('A person whose client grant is removed no longer sees that client’s tasks or planned items in their week',async()=>{
+ const h=await harness();
+ try{
+  await h.json('/team',{email:'prep@example.test',name:'Prep',role:'preparer'},h.owner);await h.json('/team/invite',{email:'prep@example.test'},h.owner);
+  const prep=await h.login('prep@example.test');
+  const kept=await h.json('/clients',{name:'Cedar Lane LLC'},h.owner),revoked=await h.json('/clients',{name:'Harbor Studio LLC'},h.owner);
+  const t=await h.json('/templates',{name:'Tax return',recurrence:'annual',steps:'unused',requests:'Workpaper',feeCents:55500,tasks:[{label:'Gather synthetic-blotter-2 facts',assignee:'prep@example.test',dueFrom:'due',dueDays:-1,instructions:'synthetic-blotter-2 private instructions'}]},h.owner);
+  const jobs=[];for(const client of [kept,revoked])jobs.push(await h.json('/jobs',{clientId:client.id,templateId:t.id,periodStart:'2026-01-01',dueDate:'2026-10-28',dueNote:'Client schedule',preparerEmail:'prep@example.test',reviewerEmail:'owner@example.test'},h.owner));
+  await h.json('/plan',{day:'2026-10-27',jobId:jobs[1].id,ordinal:1},prep);
+  assert.ok(JSON.stringify(await h.json('/plan?week=2026-10-26',undefined,prep)).includes(jobs[1].id));
+  await h.json('/access/people',{email:'prep@example.test',readOnly:false,clientIds:[kept.id]},h.owner);
+  await h.json('/jobs/'+jobs[1].id,undefined,prep,404);
+  const plan=await h.json('/plan?week=2026-10-26',undefined,prep);
+  assert.deepEqual(plan.tasks.map(x=>x.job_id),[jobs[0].id]);
+  assert.ok(!JSON.stringify(plan).includes(jobs[1].id)&&!JSON.stringify(plan).includes(revoked.name));
+ }finally{await h.close();}
+});
+
+test('A restricted workpaper’s review notes stay out of client history for people without its grant',async()=>{
+ const h=await harness();
+ try{
+  for(const email of ['granted@example.test','other@example.test']){await h.json('/team',{email,name:email,role:'reviewer'},h.owner);await h.json('/team/invite',{email},h.owner);}
+  const granted=await h.login('granted@example.test'),other=await h.login('other@example.test');
+  const client=await h.json('/clients',{name:'Cedar Lane LLC'},h.owner);
+  const t=await h.json('/templates',{name:'Tax return',recurrence:'annual',steps:'Review',requests:'Workpaper'},h.owner);
+  const job=await h.json('/jobs',{clientId:client.id,templateId:t.id,periodStart:'2026-01-01',dueDate:'2026-10-28',dueNote:'Client schedule',preparerEmail:'other@example.test',reviewerEmail:'owner@example.test'},h.owner);
+  const request=(await h.json('/jobs/'+job.id,undefined,h.owner)).requests[0];
+  const file=await h.json(`/requests/${request.id}/files`,{name:'Return workpaper.txt',mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-3 workpaper').toString('base64')},h.owner);
+  const fileId=file.id??(await h.json('/jobs/'+job.id,undefined,h.owner)).requests[0].files[0].id;
+  await h.json(`/document-packets/${fileId}/review`,{revision:null,status:'accepted',note:'synthetic-blotter-3 confidential taxpayer note'},h.owner);
+  for(const email of ['granted@example.test','other@example.test'])await h.json('/access/people',{email,readOnly:false,clientIds:[client.id]},h.owner);
+  await h.json(`/access/documents/${fileId}`,{classification:'Tax return',reason:'Private return restricted to one reviewer',emails:['granted@example.test']},h.owner);
+  await h.json('/files/'+fileId,undefined,other,404);
+  const history=who=>h.json(`/clients/${client.id}/history?kind=documents`,undefined,who).then(JSON.stringify);
+  assert.ok(!(await history(other)).includes('synthetic-blotter-3'));
+  assert.ok((await history(granted)).includes('synthetic-blotter-3 confidential taxpayer note'));
+ }finally{await h.close();}
+});
+
 test('Delegated manage-access and financial-authority grants are bounded and live, and export step-up applies from installation',async()=>{
  const h=await harness();
  try{

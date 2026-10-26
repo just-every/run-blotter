@@ -60,7 +60,9 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const s = selectors(x), at = lit(x.at), who = lit(x.who), why = lit(x.reason);
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
-  const all: Step[] = [...signatureErasureSteps(x),...invoiceErasureSteps(x),
+  const all: Step[] = [
+    {cls:'link',table:'b_agent_rules',action:'redact',label:'Scheduled agent grants revoked',where:`client_id=${s.c} AND status<>'revoked'`,set:`status='revoked'`},
+    {cls:'derived_ai',table:'b_agent_rules',action:'redact',label:'Agent rule names and due-date notes',where:`client_id=${s.c}`,set:`name='[erased]',due_note='[erased]',provider_name='[erased]',model_name='[erased]',data_use='[erased]',provider_retention='[erased]',model_policy='[erased]'`},...signatureErasureSteps(x),...invoiceErasureSteps(x),
     {cls:'signed_documents',table:'b_authorizations',action:'redact',label:'Taxpayer authorizations: representative, CAF number and reasons (form, years, dates and status stay)',where:`client_id=${s.c}`,set:`representative='${MARK}',representative_email=NULL,caf_number=NULL,status_reason=NULL`},
     {cls:'link',table:'b_access_grants',action:'delete',label:'Staff client grants',where:`client_id=${s.c}`},
     {cls:'link',table:'b_access_team_clients',action:'delete',label:'Team client grants',where:`client_id=${s.c}`},
@@ -122,6 +124,9 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { cls: 'structure', table: 'b_time_suggestions', action: 'delete', label: 'Time suggestions', where: `job_id IN ${s.JE}` },
     { cls: 'structure', table: 'b_plan_items', action: 'delete', label: 'Daily plan items', where: `job_id IN ${s.JE}` },
     { cls: 'notification', table: 'b_notifications', action: 'redact', label: 'Staff notification text (alerts, not evidence; held jobs too)', where: `job_id IN ${s.JALL}`, set: `summary='${MARK}'` },
+    { cls: 'derived_ai', table: 'b_onboarding_plans', action: 'delete', label: 'Onboarding scope reviews and derived setup observations', where: `client_id=${s.c}` },
+    {cls:'derived_ai',table:'b_agent_runs',action:'redact',label:'Agent preparation fingerprints',where:`job_id IN ${s.JE} AND preparation_hash IS NOT NULL`,set:`preparation_hash=NULL`},
+    {cls:'derived_ai',table:'b_proposals',action:'redact',label:'Scheduled agent labels and decision notes (ids and decision attribution stay)',where:`id IN (SELECT proposal_id FROM b_agent_runs WHERE job_id IN ${s.JE})`,set:`agent_label='[erased]',decision_note=CASE WHEN decision_note IS NULL THEN NULL ELSE '[erased]' END`},
     { cls: 'derived_ai', table: 'b_proposals', action: 'redact', label: 'Agent plans and outputs for this work (derived drafts; run and decision ids stay)', where: `kind IN ('rollforward','reminder') AND json_extract(payload,'$.jobId') IN ${s.JE} AND payload<>'{}'`, set: `payload='{}'` },
     { cls: 'signed_work', table: 'b_deliverable_versions', action: 'redact', label: 'Deliverable versions the client did not approve', where: `job_id IN ${s.JE} AND status<>'approved'`, set: `content_base64='',note='${MARK}',${text('comment')}` },
     { cls: 'vault', table: 'b_vault_credentials', action: 'redact', label: 'Stored credentials (ciphertext erased)', where: `client_id=${s.c} AND erased_at IS NULL`, set: `sealed=NULL,erased_at=${at},erased_by=${who},erase_reason=${why},revision=revision+1` },

@@ -12,7 +12,7 @@ const totp = (secret, offset = 0) => {
   return String((mac.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
 };
 const enroll = async (h, who) => { const start = await h.json('/mfa/totp/start', {}, who); const done = await h.json('/mfa/totp/confirm', { id: start.id, code: totp(start.secret, -1) }, who); return { secret: start.secret, recovery: done.recoveryCodes }; };
-const PASSWORD = 'Buckeye-Sales-7731!', USERNAME = 'cedar-lane-sales';
+const PASSWORD = 'synthetic-blotter-1', USERNAME = 'cedar-lane-sales';
 
 test('VAULT-001 credential vault: client adds through the portal, assigned preparer reveals after step-up and is logged, unassigned and revoked staff are refused, absent from search, agents, mail and exports, archives encrypt or exclude', async () => {
   const h = await harness(), restored = [];
@@ -61,7 +61,7 @@ test('VAULT-001 credential vault: client adds through the portal, assigned prepa
     assert.ok((await h.json(`/clients/${client.id}/history`, undefined, h.owner)).history.some(e => e.action === 'vault.revealed' && e.actor === 'prep@example.test'));
 
     // Never in search, agent context, mail or a plain CSV export; agent keys cannot reach the vault.
-    for (const q of [USERNAME, 'Buckeye', 'gateway']) assert.ok(!JSON.stringify((await h.json(`/search?q=${encodeURIComponent(q)}`, undefined, h.owner)).results).match(/cedar-lane-sales|Buckeye/), `search for ${q} finds no credential`);
+    for (const q of [USERNAME, 'synthetic-blotter', 'gateway']) assert.ok(!JSON.stringify((await h.json(`/search?q=${encodeURIComponent(q)}`, undefined, h.owner)).results).match(/cedar-lane-sales|synthetic-blotter/), `search for ${q} finds no credential`);
     const key = await h.json('/keys', { label: 'Assistant' }, h.owner), auth = { authorization: 'Bearer ' + key.key };
     assert.ok(!JSON.stringify(await h.json('/agent/context', undefined, '', 200, auth)).includes(USERNAME));
     await h.json(`/clients/${client.id}/credentials`, undefined, '', 401, auth);

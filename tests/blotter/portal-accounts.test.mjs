@@ -53,7 +53,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     await h.json(`/clients/${cedar.id}/contacts/${patBirch.id}/portal-invite`, {}, h.owner, 409);
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-invite`, {}, reviewer);
     await h.json(`/clients/${birch.id}/contacts/${patBirch.id}/portal-invite`, {}, h.owner);
-    await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    const unknownAccountInvitation = await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
     // Branding (principal only): a PNG or JPEG logo and an accent colour that clients see on the portal, even before they sign in.
     const logo = png(120, 40, [31, 111, 80]), upload = { name: 'logo.png', mime: 'image/png', contentBase64: logo.toString('base64') };
     await h.json('/portal-branding', { accent: '#1f6f50', logo: upload }, reviewer, 403);
@@ -69,10 +69,12 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     const as = cookie => ({ cookie, get: (path, expected = 200) => h.json('/client' + path, undefined, cookie, expected), post: (path, body, expected = 200) => h.json('/client' + path, body, cookie, expected) });
 
     // Pat accepts Cedar; nothing about any entity shows until the required second factor is set up.
-    const first = as(await enter('accept', patCedarInvite));
+    const browserFirst = await portalAccountJourney(h, { stage: 'invitation', inviteUrl: `${h.origin}/client?invite=${patCedarInvite}` });
+    const first = as(browserFirst ?? await enter('accept', patCedarInvite));
     await h.request('/api/blotter/client/accept', { token: patCedarInvite }).then(r => assert.equal(r.status, 404, 'An invitation works once'));
     assert.deepEqual(await first.get('/me').then(m => [m.mfa, m.entities]), ['enroll', []]);
     assert.equal((await first.get(`/entities/${cedar.id}`, 403)).mfa, 'enroll');
+    await portalAccountJourney(h, { stage: 'enrollment', clientCookie: first.cookie });
     const patKey = (await first.post('/factor/start', {})).secret;
     await first.post('/factor/confirm', { code: '000000' }, 400);
     const patCodes = (await first.post('/factor/confirm', { code: code(patKey) })).recoveryCodes;
@@ -127,6 +129,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
 
     // Recover a lost factor: a recovery code opens only the setup of a new authenticator, which then ends every other session.
     assert.equal((await lost.get('/me')).mfa, 'verify');
+    await portalAccountJourney(h, { stage: 'recovery', clientCookie: lost.cookie, recoveryCode: patCodes[1] });
     assert.deepEqual(await lost.post('/verify', { recoveryCode: patCodes[0] }), { verified: false, recovered: true, next: 'enroll' });
     assert.equal((await lost.get(`/entities/${cedar.id}`, 403)).mfa, 'enroll');
     const newKey = (await lost.post('/factor/start', {})).secret;
@@ -159,8 +162,48 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     assert.equal((await h.json('/portal-policy', undefined, reviewer)).mfaRequired, true, 'A second factor is required until the principal says otherwise');
     const samAccount = (await h.json(`/clients/${birch.id}/portal-access`, undefined, h.owner)).grants.find(g => g.contactId === sam.id).accountId;
     await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Lost phone' }, reviewer, 403);
-    await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Sam lost the phone holding the authenticator' }, h.owner);
+    const knownReset = await h.json(`/portal-accounts/${samAccount}/reset`, { reason: 'Sam lost the phone holding the authenticator' }, h.owner);
+    assert.deepEqual(await h.json('/portal-accounts/no-such-account/reset', { reason: 'Reset requested for an unknown account' }, h.owner), knownReset, 'Reset responses do not disclose whether the account exists');
     await samSession.get('/me', 401);
+    await portalAccountJourney(h, { stage: 'reset', clientCookie: samSession.cookie });
+
+    // The invitation lifetime is seven days; expired links never start a session.
+    const knownAccountInvitation = await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    assert.deepEqual(knownAccountInvitation, unknownAccountInvitation, 'Invitation responses do not disclose whether the address already has an account');
+    const expired = { accountId: samAccount };
+    const invitation = await h.db.prepare('SELECT created_at,expires_at FROM b_portal_invitations WHERE contact_id=? ORDER BY created_at DESC LIMIT 1').bind(sam.id).first();
+    assert.equal(Date.parse(invitation.expires_at) - Date.parse(invitation.created_at), 7 * 86400000);
+    await h.db.prepare("UPDATE b_portal_invitations SET expires_at='2000-01-01T00:00:00.000Z' WHERE contact_id=? AND used_at IS NULL").bind(sam.id).run();
+    assert.equal((await h.request('/api/blotter/client/accept', { token: tokenFrom('sam@example.test', 'invite') })).status, 404);
+    await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    const fresh = as(await enter('accept', tokenFrom('sam@example.test', 'invite')));
+    const freshKey = (await fresh.post('/factor/start', {})).secret;
+    // Five incorrect codes lock even a correct code out, across the account's sessions.
+    await h.db.prepare("UPDATE b_portal_failures SET at='2000-01-01T00:00:00.000Z' WHERE account_id=?").bind(expired.accountId).run();
+    const valid = code(freshKey), invalid = String((Number(valid) + 1) % 1000000).padStart(6, '0');
+    for (let attempt = 0; attempt < 5; attempt++) await fresh.post('/factor/confirm', { code: invalid }, 400);
+    await fresh.post('/factor/confirm', { code: valid }, 429);
+    await h.db.prepare("UPDATE b_portal_failures SET at='2000-01-01T00:00:00.000Z' WHERE account_id=?").bind(expired.accountId).run();
+    await fresh.post('/factor/confirm', { code: valid });
+    const session = await h.db.prepare('SELECT created_at,expires_at FROM b_portal_sessions WHERE account_id=? AND revoked_at IS NULL').bind(expired.accountId).first();
+    assert.equal(Date.parse(session.expires_at) - Date.parse(session.created_at), 8 * 3600000);
+    await h.db.prepare("UPDATE b_portal_sessions SET expires_at='2000-01-01T00:00:00.000Z' WHERE account_id=?").bind(expired.accountId).run();
+    await fresh.get('/me', 401);
+    await portalAccountJourney(h, { stage: 'expiry', clientCookie: fresh.cookie });
+    const beforeInvite = as(await enter('accept', (await (async () => {
+      await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+      return tokenFrom('sam@example.test', 'invite');
+    })())));
+    await beforeInvite.get('/me');
+    await h.json(`/clients/${birch.id}/contacts/${sam.id}/portal-invite`, {}, h.owner);
+    await beforeInvite.get('/me', 401);
+    await portalAccountJourney(h, { stage: 'revocation', clientCookie: beforeInvite.cookie });
+    const beforeDisable = as(await enter('accept', tokenFrom('sam@example.test', 'invite')));
+    const currentSam = (await h.json(`/clients/${birch.id}/contacts`, undefined, h.owner)).find(c => c.id === sam.id);
+    await h.json(`/clients/${birch.id}/contacts`, { id: sam.id, revision: currentSam.revision, active: false }, h.owner);
+    await beforeDisable.get('/me', 401);
+    const disabledSam = (await h.json(`/clients/${birch.id}/contacts`, undefined, h.owner)).find(c => c.id === sam.id);
+    await h.json(`/clients/${birch.id}/contacts`, { id: sam.id, revision: disabledSam.revision, active: true }, h.owner);
 
     // Archives carry accounts and grants but never sessions, links or factors: a restored account sets up a new factor.
     await h.stepUp(h.owner);

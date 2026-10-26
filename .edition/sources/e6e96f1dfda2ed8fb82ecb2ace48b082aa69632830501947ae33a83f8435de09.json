@@ -1,0 +1,30 @@
+{
+  "key": "e6e96f1dfda2ed8fb82ecb2ace48b082aa69632830501947ae33a83f8435de09",
+  "origin": {
+    "repository": "https://github.com/runeditrun/base.git",
+    "revision": "96c425bd95ac2eb07ce2c7cccc419386d7f085e3",
+    "path": ".",
+    "paths": [
+      "foundation/template/src/mail.server.mjs",
+      "foundation/template/src/mail.server.d.mts",
+      "foundation/template/src/server.dev.ts"
+    ],
+    "excludeSnapshots": false
+  },
+  "digest": "b14bdd03880fc119b3bdcc8eaa8b55563c273b89c71ccbb2e3479a0ff34bc523",
+  "files": {
+    "foundation/template/src/mail.server.mjs": {
+      "data": "aW1wb3J0IHsgY3JlYXRlTWFpbFNlbmRlciB9IGZyb20gJy4vbW9kdWxlcy9tYWlsL2luZGV4Lm1qcycKCmV4cG9ydCBmdW5jdGlvbiBvcGVyYXRvck1haWwoZW52KSB7CiBpZiAoZW52LlJFUl9ERU1PID09PSAnMScgfHwgZW52LkFVVEhfTE9DQUwgPT09ICd0cnVlJykgewogIHJldHVybiBjcmVhdGVNYWlsU2VuZGVyKHsgcHJvdmlkZXI6ICdkZXZlbG9wbWVudCcsIG1vZGU6ICdkZXZlbG9wbWVudCcgfSkKIH0KIGlmICghZW52Lk1BSUxfUFJPVklERVIgfHwgZW52Lk1BSUxfUFJPVklERVIgPT09ICdkZXZlbG9wbWVudCcpIHJldHVybiB1bmRlZmluZWQKIHJldHVybiB7CiAgYXN5bmMgc2VuZChtZXNzYWdlKSB7CiAgIHJldHVybiBjcmVhdGVNYWlsU2VuZGVyKHsgcHJvdmlkZXI6IGVudi5NQUlMX1BST1ZJREVSLCBtb2RlOiAncHJvZHVjdGlvbicsIGFwaUtleTogZW52Lk1BSUxfQVBJX0tFWSwgLi4uKGVudi5NQUlMX1BST1ZJREVSID09PSAnY2xvdWRmbGFyZScgPyB7IGFjY291bnRJZDogZW52Lk1BSUxfQUNDT1VOVF9JRCB9IDoge30pIH0pLnNlbmQobWVzc2FnZSkKICB9LAogfQp9Cg==",
+      "executable": false
+    },
+    "foundation/template/src/mail.server.d.mts": {
+      "data": "aW1wb3J0IHR5cGUgeyBNYWlsU2VuZGVyIH0gZnJvbSAnLi9tb2R1bGVzL29wZXJhdG9yLWF1dGgvaW5kZXgubWpzJwppbXBvcnQgdHlwZSB7IEJpbmRpbmdzIH0gZnJvbSAnLi9hdXRoLnNlcnZlcicKZXhwb3J0IGZ1bmN0aW9uIG9wZXJhdG9yTWFpbChlbnY6IEJpbmRpbmdzKTogTWFpbFNlbmRlciB8IHVuZGVmaW5lZAo=",
+      "executable": false
+    },
+    "foundation/template/src/server.dev.ts": {
+      "data": "Ly8gTG9jYWwtb25seSBXb3JrZXIgZW50cnkuIHZpdGUuY29uZmlnLnRzIGxvYWRzIGl0IG9ubHkgZm9yIGB2aXRlIGRldmA7IHRoZQovLyBkZXBsb3llZCBtYWluIHN0YXlzIHNyYy9zZXJ2ZXIudHMsIGFuZCBgcmVyIGJ1aWxkYCByZWZ1c2VzIGFueSBvdXRwdXQgdGhhdAovLyBjb250YWlucyB0aGUgZGV2IGxheWVyLiBJdCBhZGRzIGRldiBzaWduLWluLCBwZXJzb25hcyBhbmQgdGhlIERldiB0aXRsZSBhbmQgbmFtZSBzdWZmaXguCmltcG9ydCB3b3JrZXIgZnJvbSAnLi9zZXJ2ZXInCmltcG9ydCB7IHdpdGhEZXZJZGVudGl0eSB9IGZyb20gJy4vbW9kdWxlcy9vcGVyYXRvci1hdXRoL2Rldi9pbmRleC5tanMnCmltcG9ydCB7IGF1dGhDb25maWcsIHJ1bnRpbWVCaW5kaW5ncywgdHlwZSBCaW5kaW5ncyB9IGZyb20gJy4vYXV0aC5zZXJ2ZXInCmltcG9ydCB7IGRldlBlcnNvbmFzIH0gZnJvbSAnLi9kZXYtcGVyc29uYXMnCmltcG9ydCB7IHdpdGhEZXZBaSB9IGZyb20gJy4vbW9kdWxlcy9haS9kZXYvaW5kZXgubWpzJwoKY29uc3QgZGV2ZWxvcG1lbnQgPSB3aXRoRGV2QWk8QmluZGluZ3MsIHR5cGVvZiB3b3JrZXI+KHdvcmtlciwgeyBiaW5kaW5nczogcnVudGltZUJpbmRpbmdzIH0pCmV4cG9ydCBkZWZhdWx0IHdpdGhEZXZJZGVudGl0eTxCaW5kaW5ncywgdHlwZW9mIHdvcmtlcj4oZGV2ZWxvcG1lbnQsIHsgYmluZGluZ3M6IHJ1bnRpbWVCaW5kaW5ncywgY29uZmlnOiBhdXRoQ29uZmlnLCBwZXJzb25hczogZGV2UGVyc29uYXMgfSkK",
+      "executable": false
+    }
+  },
+  "dependencies": []
+}

@@ -58,8 +58,34 @@ a forward migration and verified transition/recovery.
 deployment declaration and builds locally without provider requests. Real
 deployment requires privately supplied `CLOUDFLARE_ACCOUNT_ID` and
 `CLOUDFLARE_API_TOKEN`, the declared owner/session/setup secrets, and a real
-verified mail sender in `deploy.json`. Follow the owner-account deploy-kit
+verified mail sender in `deploy.json`. Edit and commit `vars.MAIL_PROVIDER` and
+`vars.MAIL_FROM` there before deploying. Required private inputs are
+`OWNER_EMAIL`, `SESSION_SECRET`, `SETUP_TOKEN` and `MAIL_API_KEY`;
+`VAULT_KEY` is optional. Follow the owner-account deploy-kit
 instructions under `node_modules/@runeditrun/rer/modules/deploy-kit`; account scope,
 resource ownership, migrations, receipt and health checks are defined there.
 Local validation does not prove hosted acceptance, provider delivery or remote
 health.
+
+## Hosted installation package
+
+The source policy in `packaging.json` packages Blotter's real Worker build,
+its DB binding and the unchanged SQL files in `./migrations/core/`.
+Run `pnpm run build`, then `pnpm delivery:spec` after an intentional policy or
+migration addition. Commit `management/integration/deployment-spec.json` with
+that source change. `pnpm check:deployment-spec` checks freshness against the
+real build and is part of the hosted verification operation.
+
+The exported producer creates the artifact with
+`node scripts/delivery/base/cli.mjs artifact --config packaging.json`.
+A fresh package also emits the digest-bound setup manifest, project descriptor
+and dispatch-only Managed workflow. Generated package and artifact directories
+are disposable build output.
+
+Hosted mail supports RER managed mail, Resend, SendGrid and Cloudflare Email
+Sending. Assisted installations select their provider and supply its sender and
+private API key through setup; Cloudflare also needs the account ID. Managed
+installations receive their provider, sender, HTTPS relay URL and private
+installation key from RER. Local development suppresses mail. Retain private
+configuration outside source, and follow [Backup and restore](docs/backup-and-restore.md)
+for practice recovery, the vault key and the latest erasure journal.

@@ -17,6 +17,7 @@ import { issueBulkOrganizer, organizerAttachment, recheckOrganizer } from './bul
 import { LINK_PREVIEW, localize, render, templateFiles, usable, valuesFor } from './messages';
 import { tr } from '../i18n/catalog';
 import { marketingGrantSql, marketingHold, withdrawnSql } from './marketing-consent';
+import { clientGrantSql } from './access-sql';
 import { Fault, atomic, audit, digest, human, id, insist, integer, need, now, optional, rows, secret, stmt, text, type Actor, type Data } from './model';
 
 /** Placeholders that tie a message to the recipient's current engagement (refusal g). */
@@ -209,8 +210,14 @@ export async function scheduleBatch(db: D1Database, actor: Actor, batchId: strin
   return batchDetail(db, actor, b.id);
 }
 
+/** The batch's sender (?1) still holds the recipient's client (?2): the active principal, or an active, writable reviewer with the client grant. */
+const senderHolds = `EXISTS(SELECT 1 FROM oa_operators o WHERE o.email=?1 AND o.status='active' AND (o.role='owner'
+  OR (EXISTS(SELECT 1 FROM b_members m WHERE m.email=?1 AND m.active=1 AND m.role='reviewer')
+    AND NOT EXISTS(SELECT 1 FROM b_access_members am WHERE am.email=?1 AND am.read_only=1) AND ${clientGrantSql('?2', '?1', '0')})))`;
+
 /** Why a claimed recipient may not be sent now (Q6/Q7), or '' when it may. */
 async function recheck(db: D1Database, b: Data, r: Data, linked: boolean) {
+  if (!await stmt(db, `SELECT 1 WHERE ${senderHolds}`, b.owner_email, r.client_id).first()) return 'the sender no longer holds this client';
   const c = await stmt(db, `SELECT c.*,e.lifecycle,e.merged_into,${suppressed} invalid,${marketingGrantSql} granted,EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value=?) has_role
     FROM b_client_contacts c JOIN b_clients e ON e.id=c.client_id WHERE c.id=? AND c.client_id=?`, b.role, r.contact_id, r.client_id).first<Data>();
   if (!c || c.lifecycle !== 'active' || c.merged_into) return 'client archived or merged';

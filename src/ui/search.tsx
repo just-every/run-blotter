@@ -1,3 +1,4 @@
+import { Tooltip } from './tooltip';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api, Empty, prose, type Row, type Run, ExportLink } from './common';
@@ -29,7 +30,7 @@ export function Search({ state, run, open }: { state: Row; run: Run; open: (id: 
   return <div className="topsearch">
     <form role="search" onSubmit={e => { e.preventDefault(); find(q, type); }}>
       <label htmlFor="search-box" className="sr-only">Search everything (press /)</label>
-      <button type="submit" className="search-go" aria-label="Search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" /><path d="M13 13l5 5" /></svg></button>
+      <Tooltip label="Search workspace"><button type="submit" className="search-go" aria-label="Search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" /><path d="M13 13l5 5" /></svg></button></Tooltip>
       <input id="search-box" ref={box} type="search" placeholder="Search clients, jobs…" value={q} onChange={e => setQ(e.target.value)} aria-controls="search-results"
         onKeyDown={e => { if (e.key === 'Escape') close(); if (!results.length) return; if (e.key === 'ArrowDown') { e.preventDefault(); setAt(n => Math.min(results.length - 1, n + 1)); } else if (e.key === 'ArrowUp') { e.preventDefault(); setAt(n => Math.max(0, n - 1)); } else if (e.key === 'Enter' && found?.q === q) { e.preventDefault(); choose(results[at]); } }} />
     </form>

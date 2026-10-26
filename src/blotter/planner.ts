@@ -147,15 +147,16 @@ export async function personalPlan(db: D1Database, actor: Actor, query: Data) {
   const end = shift(start, 6), who = planOwner(actor, query.email), today = now().slice(0, 10);
   // Everything the person can read (the principal reads all), and of it the jobs they hold a role on.
   const readable = await listJobs(db, who === actor.email ? actor : { ...actor, role: 'owner' }, parseFilters({}));
+  const known = new Map(readable.map(j => [j.id, j]));
   const mine = readable.filter(j => [j.preparer_email, j.reviewer_email, j.manager_email || j.reviewer_email, j.partner_email].includes(who));
   const open = mine.filter(j => j.status !== 'signed_off'), jobs = open.filter(j => j.due_date <= end);
-  const steps = await rows(db, `SELECT j.*,c.name client_name,s.${columns.split(',').join(',s.')} FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id
-    WHERE ${pendingStep('s')} AND j.status<>'signed_off' AND ${ownerSql}=?`, who);
+  // Tasks and saved items stay only while their job is readable, so a removed client grant takes them off the week.
+  const steps = (await rows(db, `SELECT j.*,c.name client_name,s.${columns.split(',').join(',s.')} FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id
+    WHERE ${pendingStep('s')} AND j.status<>'signed_off' AND ${ownerSql}=?`, who)).filter(r => known.has(r.job_id));
   const tasks = steps.map((r): Data => ({ ...resolveTask(r, r), job_id: r.job_id, job: r.title, period: r.period_label, client: r.client_name }))
     .filter(t => !t.due_date || t.due_date <= end).sort((a, b) => String(a.due_date ?? '9').localeCompare(String(b.due_date ?? '9')) || a.ordinal - b.ordinal);
-  const items = await rows(db, `SELECT p.id,p.day,p.job_id,p.ordinal,(SELECT label FROM b_job_steps WHERE job_id=p.job_id AND ordinal=p.ordinal) task FROM b_plan_items p
-    WHERE p.owner_email=? AND p.day BETWEEN ? AND ? ORDER BY p.day,p.created_at`, who, start, end);
-  const known = new Map(readable.map(j => [j.id, j]));
+  const items = (await rows(db, `SELECT p.id,p.day,p.job_id,p.ordinal,(SELECT label FROM b_job_steps WHERE job_id=p.job_id AND ordinal=p.ordinal) task FROM b_plan_items p
+    WHERE p.owner_email=? AND p.day BETWEEN ? AND ? ORDER BY p.day,p.created_at`, who, start, end)).filter(i => known.has(i.job_id));
   const days = [0, 1, 2, 3, 4, 5, 6].map(n => shift(start, n)).map(d => ({ date: d, items: items.filter(i => i.day === d).map(i => ({ ...i, job: known.get(i.job_id) ?? null })) }));
   return { email: who, weekStart: start, weekEnd: end, today, days, tasks, jobs: jobs.map(j => ({ ...j, planned: items.filter(i => i.job_id === j.id && !i.ordinal).map(i => i.day) })) };
 }

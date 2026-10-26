@@ -9,14 +9,7 @@
     "record": "A client job rolled forward from a recurring template"
   },
   "description": "Recurring client jobs for small Australian bookkeeping and accounting practices: document requests with client upload links, reviewer sign-off and AUD time exported for billing.",
-  "capabilities": [
-    {
-      "id": "http-dispatch",
-      "clauses": [
-        "HTTP-001"
-      ]
-    }
-  ],
+  "capabilities": [],
   "nonGoals": [
     "Lodgement with the ATO or SBR",
     "Tax, GST or due-date calculation",
@@ -85,5 +78,6 @@
       "operator-auth",
       "owner-claim"
     ]
-  }
+  },
+  "replaces": []
 }

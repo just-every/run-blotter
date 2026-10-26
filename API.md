@@ -362,3 +362,50 @@ Pending requests transfer in the ordinary offboarding batch. Completed attributi
 Signed documents join retention clocks, holds, erasure preview/receipt and restore fencing;
 restored pending requests remain held until explicitly resent. Signature-complete automation
 uses the same scoped, budgeted, live-authority and once-only effect transaction.
+
+
+### Service costs and supervised native plans
+
+The principal uses `GET /api/blotter/costs` for current quotes, immutable quote versions, usage and owned exceptions; `POST /costs/prices` records `{service,included,unitCents,basisPoints,source}`. Quantities and USD cents are whole numbers; basis points are 0–10000. `POST /costs/estimate` takes `{items:[{service,quantity,amountCents}]}`. Missing prices leave the total unavailable. `POST /costs/budget` records `{limitCents,thresholdCents,reason}`. These paths all have the `/api/blotter` prefix.
+
+Only `agent_plan` can currently be enabled, with `POST /costs/services/agent_plan` and `{revision,enabled,reason}` after price review. Other service estimates never enable an unbuilt provider. `POST /costs/usage/:actionId/reconcile` takes `{cents,receipt}` and records verified/native cost evidence without repeating an effect. `GET /costs/export` exports the complete current JSON costs and usage through the native fresh-confirmation gate, with an attributed download audit. The Preparations screen uses this same door. Quotes are firm estimates, not provider tariff verification. Included units apply per price revision; reservations remain counted after reconciliation.
+
+`GET /agent-rules` returns grants and retained runs/decisions. `POST /agent-rules` takes `{name,keyId,clientId,trigger,tool,budget}`. Triggers are `file`, `tasks_complete`, `question` and `schedule`; tools are `reminder` and `rollforward` preparations only. A schedule also needs `{startsAt,everyHours}` with an explicit timezone; roll-forward needs `{dueDate,dueNote}`. The principal is the named supervisor. `POST /agent-rules/run` evaluates current native events; the same bounded processor runs on Cron. `POST /agent-rules/:id/revoke` immediately refuses further plans and pending effects. New grants do not replay older file/task/question events. Duplicate schedule/event evaluations never duplicate plans or reservations.
+
+This is a deterministic native planner; no model/provider is called. Its grant covers only job metadata and outstanding request labels for that client. A key bound to a native rule may read only those active client scopes and cannot bypass rule/service budgets through legacy preparation or learning commands. It receives no financial context or file bytes. Existing person-only proposal decisions perform the effect under the current client, source and key/rule authority. Archives exclude keys and restore grants paused and service prices disabled. Retained history cannot authorize replay; after restoring, create a fresh key and explicitly review a new grant. Full AI/provider capabilities remain partial under CONTRACT.md.
+
+External agent plans: a principal may choose `mode: external` when approving an agent rule, supplying `providerName`, `modelName`, `dataUse` and `providerRetention` (owner declarations, never credentials; not provider verification). `GET /api/blotter/agent/plans` with that key lists only its budgeted queued job metadata and outstanding labels. `POST /api/blotter/agent/plans/:id` accepts the granted reminder `message` or roll-forward `dueDate`/`dueNote`. The first preparation is immutable; an identical replay returns the same proposal and incurs no additional usage. Changing job/tool is refused. Every read/fill and later human effect rechecks source, key, client, supervisor and grant. Blotter sends no content to any model provider. Document bytes, portal/internal discussions, vault and financial context stay excluded.
+
+
+### Native onboarding scope review (ONBOARD-001, partial)
+
+The principal uses POST `/api/blotter/clients/:id/onboarding/preview` with
+`source: {kind: "signature" | "engagement", id}` and a `services` array. Each
+service names `kind` (tax or bookkeeping), an exact readable signed-text `quote`
+and `templateId`; tax mappings choose `authorization` (2848 or 8821), and
+bookkeeping mappings choose `ledger` (qbo or xero). Completed SIGN-002 documents
+and practitioner-recorded letters keep distinct labels. Sources must belong to
+the active client, retain their bytes and pass their recorded digest check.
+Unreadable text and unsupported mappings are refused; no scope is guessed.
+
+The response contains a fingerprint, template cadence, and source-linked proposed
+setup items. It does not establish that the mapping covers the entire engagement.
+POST `/api/blotter/clients/:id/onboarding/plans` repeats that mapping with the
+current `fingerprint`, distinct `selectedItemIds` and a `reason`. Only displayed
+items can be selected. The first review is retained once per signed source; an
+identical replay returns its id, and a different selection is refused. Source,
+client, contact and template state are rechecked inside the write. This review
+does not authorize any invitation, request, account connection or billing action.
+
+GET `/api/blotter/clients/:id/onboarding/plans/:plan` reads the review. POST
+`/api/blotter/clients/:id/onboarding/plans/:plan/progress` requires its current
+`revision`, selected `itemId`, `state` (pending, received or blocked), `note`,
+`nextAction` including its due condition, and the principal's own `ownerEmail`.
+These are practitioner-recorded observations, never independently verified client
+responses or provider connections. Missing items include an unsent chase draft.
+Removed items cannot acquire progress. All doors require the principal's person
+session; agent keys have no onboarding authority. Reviews are held on restore,
+refuse erased sources, and join the derived-data erasure class and its holds.
+There is no execution or reactivation door. Delegated partner review, native
+engagement generation, agent grants, sending, response ingestion and automatic
+escalation remain explicit contract gaps.
