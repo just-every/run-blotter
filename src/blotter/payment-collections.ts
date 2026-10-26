@@ -14,7 +14,7 @@ export async function invoicePayments(env: Bindings, actor: Actor, invoiceId: st
   const invoice=await invoiceFor(env.DB, actor, invoiceId, false);
   const reserved=await stmt(env.DB,"SELECT COALESCE(sum(amount_cents),0) cents FROM b_provider_payments WHERE invoice_id=? AND state IN ('creating','pending','requires_action','held')",invoiceId).first<Data>();
   return { availableCents:Math.max(0,invoice.balance_cents-Number(reserved!.cents)),configured: Boolean(env.STRIPE_SECRET_KEY), payments: await rows(env.DB, 'SELECT id,state,kind,amount_cents,refunded_cents,fee_cents,net_cents,provider_id,created_at,failure_code FROM b_provider_payments WHERE invoice_id=? ORDER BY created_at', invoiceId),
-    mandates: await rows(env.DB, `SELECT m.id,m.status,m.kind,m.last4,m.max_cents,m.authorized_at,max(0,m.max_cents-COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.mandate_id=m.id AND p.state NOT IN ('failed','held','returned')),0)) remaining_cents FROM b_payment_mandates m WHERE m.invoice_id=? ORDER BY m.authorized_at`, invoiceId) };
+    mandates: await rows(env.DB, `SELECT m.id,m.status,m.kind,m.last4,m.max_cents,m.authorized_at,max(0,m.max_cents-COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.mandate_id=m.id AND p.state NOT IN ('failed','returned')),0)) remaining_cents FROM b_payment_mandates m WHERE m.invoice_id=? ORDER BY m.authorized_at`, invoiceId) };
 }
 const reservedSql = `COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('creating','pending','requires_action','held')),0)`;
 async function reserve(env: Bindings, invoice: Data, amount: number, requestKey: string, who: string, actor?: Actor, mandate?: Data, portal?: Data) {
@@ -27,7 +27,7 @@ async function reserve(env: Bindings, invoice: Data, amount: number, requestKey:
     const [valid,done]=guard(db,`EXISTS(SELECT 1 FROM b_invoice_deliveries d JOIN b_client_contacts c ON c.id=d.contact_id WHERE d.id=? AND d.revoked_at IS NULL AND d.expires_at>? AND c.revision=d.contact_revision AND c.active=1 AND c.authorized=1 AND c.portal=1 AND c.email_consent=1 AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing'))`,portal.id,now());changes.unshift(valid);changes.push(done);
   }
   if (mandate) {
-    const [valid, done] = guard(db, `EXISTS(SELECT 1 FROM b_payment_mandates m JOIN b_client_contacts c ON c.id=m.contact_id WHERE m.id=? AND m.invoice_id=? AND m.status='active' AND c.revision=m.contact_revision AND c.active=1 AND c.authorized=1 AND c.portal=1 AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing') AND m.max_cents>=?+COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.mandate_id=m.id AND p.state NOT IN ('failed','held','returned')),0))`, mandate.id, invoice.id, amount);
+    const [valid, done] = guard(db, `EXISTS(SELECT 1 FROM b_payment_mandates m JOIN b_client_contacts c ON c.id=m.contact_id WHERE m.id=? AND m.invoice_id=? AND m.status='active' AND c.revision=m.contact_revision AND c.active=1 AND c.authorized=1 AND c.portal=1 AND EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing') AND m.max_cents>=?+COALESCE((SELECT sum(p.amount_cents) FROM b_provider_payments p WHERE p.mandate_id=m.id AND p.state NOT IN ('failed','returned')),0))`, mandate.id, invoice.id, amount);
     changes.unshift(valid); changes.push(done);
   }
   if (actor) await atomic(db, actor, billed(db, actor, changes)); else await db.batch(changes);
