@@ -149,11 +149,12 @@ export async function followupPortalJourney(h,ownToken,otherToken,message) {
   if(evidence)await mkdir(evidence,{recursive:true});
   for(const width of [1440,390]) {
    await page.setViewportSize({width,height:1000});await page.goto(h.origin+'/portal/'+ownToken);
-   await page.getByText(message,{exact:true}).waitFor();
+   await page.locator('.message').filter({hasText:'Who owns the company?'}).waitFor();
+   assert.equal((await page.locator('.message').filter({hasText:'Who owns the company?'}).innerText()).replace(/\s+/g,' ').trim(),message.replace(/\s+/g,' ').trim());
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Recipient portal fits the viewport');
    if(evidence)await page.screenshot({path:`${evidence}/followup-portal-${width}.png`,fullPage:true});
-   await page.goto(h.origin+'/portal/'+otherToken);await page.getByRole('heading').first().waitFor();
-   assert.equal(await page.getByText(message,{exact:true}).count(),0,'The other contact has no sequence message');
+   await page.goto(h.origin+'/portal/'+otherToken);await page.getByRole('heading',{name:'Messages',exact:true}).waitFor();
+   assert.equal(await page.locator('.message').filter({hasText:'Who owns the company?'}).count(),0,'The other contact has no sequence message');
    if(evidence)await page.screenshot({path:`${evidence}/followup-other-contact-${width}.png`,fullPage:true});
   }
   await context.close();

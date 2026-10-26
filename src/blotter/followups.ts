@@ -61,8 +61,11 @@ function businessHours(d:Data,at:Date) {
   const day=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(parts.find(p=>p.type==='weekday')!.value),hour=Number(parts.find(p=>p.type==='hour')!.value);
   return d.weekdays.includes(day)&&hour>=d.startHour&&hour<d.endHour;
 }
-function alert(db:D1Database,f:Data,kind:string,summary:string,to=f.owner_email) {
-  return stmt(db,"INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at) VALUES(?,?,?,?,?,'in-app only',?)",`${f.id}:${kind}:${f.used}`,to,kind,f.job_id,summary,now());
+function alert(db:D1Database,f:Data,kind:string,summary:string) {
+  // Resolve ownership in the write: an offboarding batch may have moved a dispatched step.
+  return stmt(db,`INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at)
+    SELECT ?,CASE WHEN ?='followup_escalated' THEN j.manager_email ELSE live.owner_email END,?,live.job_id,?,'in-app only',?
+    FROM b_followups live JOIN b_jobs j ON j.id=live.job_id WHERE live.id=?`,`${f.id}:${kind}:${f.used}`,kind,kind,summary,now(),f.id);
 }
 export async function runFollowups(env:Bindings,at=new Date()) {
   const db=runtimeBindings(env).DB;
@@ -95,7 +98,7 @@ export async function runFollowups(env:Bindings,at=new Date()) {
       const accepted=/^accepted by |^posted to portal /.test(result.delivery),status=accepted?(d.channel==='portal'?'posted':'accepted'):/^uncertain by |^failed:/.test(result.delivery)?'held':'failed';
       const changes=[stmt(db,'UPDATE b_followup_attempts SET status=?,delivery=? WHERE id=?',status,result.delivery,attemptId),stmt(db,'UPDATE b_followups SET status=?,reason=? WHERE id=? AND status=\'active\'',accepted?(f.used+1>=d.maximumSends?'completed':'active'):'held',accepted?'':'Provider outcome requires review; never replay',f.id)];
       if(!accepted)changes.push(alert(db,f,'followup_failed',`Reminder not confirmed: ${result.delivery}`));
-      if(f.used+1>=d.escalateAfter&&!f.escalated)changes.push(alert(db,f,'followup_escalated','Client items remain outstanding after the configured reminder attempts',j.manager_email),stmt(db,'UPDATE b_followups SET escalated=1 WHERE id=?',f.id));
+      if(f.used+1>=d.escalateAfter&&!f.escalated)changes.push(alert(db,f,'followup_escalated','Client items remain outstanding after the configured reminder attempts'),stmt(db,'UPDATE b_followups SET escalated=1 WHERE id=?',f.id));
       await db.batch(changes);
     }catch(error) {
       // A concurrent runner losing the same claim must not hold the winner's step.

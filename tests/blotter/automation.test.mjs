@@ -283,7 +283,8 @@ test('FOLLOWUP-001 / BASE-001: unresolved values and uncertain mail hold with ow
   assert.equal((await h.request('/auth/operator/role',{operatorId:successor.id,role:'owner'},h.owner)).status,200);
   assert.equal((await h.request('/auth/operator/role',{operatorId:principal.id,role:'member'},h.owner)).status,200);
   const revokedCount=h.mails.length;await h.scheduled('2027-01-04T14:00:00Z');assert.equal(h.mails.length,revokedCount);
-  const revoked=(await h.json('/followups',undefined,s.reviewer)).sequences.find(x=>x.id===authority.id);assert.equal(revoked.status,'held');assert.match(revoked.reason,/principal no longer has authority/);
+  const successorSession=await h.login('reviewer@example.test');
+  const revoked=(await h.json('/followups',undefined,successorSession)).sequences.find(x=>x.id===authority.id);assert.equal(revoked.status,'held');assert.match(revoked.reason,/principal no longer has authority/);
 
 
  }finally{await h.close();for(const copy of copies)await copy.close();}
