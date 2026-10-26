@@ -4140,7 +4140,7 @@
       "executable": false
     },
     "tests/blotter/ai-live.mjs": {
-      "sha256": "df175f1fac9e266f3435e6691c4ad114d038d132c4a645438a5dee6bb19ba55c",
+      "sha256": "5ed3e9d33311c8e370005adcb208250a58d47941596fdaded11b15a61f095ad9",
       "executable": false
     },
     "tests/blotter/ai-ui.mjs": {

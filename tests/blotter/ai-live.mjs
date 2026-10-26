@@ -25,8 +25,10 @@ try {
  await s.request('summary',s.prep,{},403);assert.equal(calls,0);
  await s.enable();await s.request('summary',s.prep,{confirm:false},400);assert.equal(calls,0);
  const summary=await s.request('summary');assert.ok(summary.output.summary);assert.ok(summary.output.conflicts.length);
+ assert.match(summary.output.conflicts.join(' '),/900/);assert.match(summary.output.conflicts.join(' '),/1,?250/);
  const invoice=await h.json(`/requests/${s.d.requests[0].id}/files`,{name:'synthetic-blotter-invoice.txt',mime:'text/plain',contentBase64:Buffer.from(invoiceText).toString('base64')},s.prep);
  const document=await s.request('document',s.prep,{sourceId:invoice.id});assert.ok(document.output.validation.length);assert.ok(document.output.suggestedName);
+ for(const value of ['Cedar Lane LLC','2026'])assert.ok(document.output.extraction.some(item=>item.value===value),`Document extraction retains ${value}`);
  const notice=await s.request('notice',s.reviewer);assert.ok(notice.output.plan.length);
  for(const field of ['CP2000','2024','$1,250.00','2027-02-28'])assert.ok(notice.output.extraction.some(item=>item.value===field),`Notice extraction retains ${field}`);
  assert.equal(calls,3);assert.equal(h.mails.length,before);
