@@ -4327,6 +4327,10 @@
       "sha256": "90430031de46dcca41123d9713b95e34aa0409a6644557b63d53c9aaf8c1b054",
       "executable": false
     },
+    "tests/blotter/payment-tooltips.mjs": {
+      "sha256": "7567659aaac82bdac9b17bc869a89d91a87d098d3a78ce2def0a3e6ab523a653",
+      "executable": false
+    },
     "tests/blotter/payment-ui.mjs": {
       "sha256": "2ec32304c182bfd09eb388d9713d80e980fd15bb3acad578d05ae20d8bd50c66",
       "executable": false
