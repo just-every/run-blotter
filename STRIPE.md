@@ -18,8 +18,10 @@ Payment settlement, refund, failure and return events notify the current invoice
 
 The committed public-door flows are in `tests/blotter/payments.test.mjs`; the optional browser journey is `tests/blotter/payment-ui.mjs`. The explicitly invoked sandbox journey is `tests/blotter/payments-live.mjs`, run locally through the held-key injector and heavy slot. It accepts only a test key and keeps provider request identifiers in its output. It and `tests/blotter/payments-ach-live.mjs` are excluded from ordinary tests and Verify. The ACH journey uses Stripe’s published processing, successful and insufficient-funds test bank accounts through hosted Checkout, checks actual provider events and file access, and records truthful retained test objects.
 
-The complete card journey passed with the held test key on 26 October 2026 at 11:21Z, including client card confirmation, saved-card quick collect, idempotence, partial refunds, revocation and payment-gated file release. Provider request identifiers are retained with the run.
+The complete card journey passed with the held test key on 26 October 2026 at 11:38Z, including client card confirmation, saved-card quick collect, idempotence, partial refunds, revocation and payment-gated file release. Provider request identifiers are retained with the run.
 
-Still unproved: settled live-sandbox ACH and ACH return, recurring and due-date collection authorization, incumbent method reauthorization tracking, complete provider-record erasure and expiry activation evidence. The held US test account accepted a USD bank Checkout session on 26 October 2026; a disabled ACH account is not the current blocker.
+The complete ACH journey passed with the held test key on 26 October 2026 at 11:36Z. The processing, succeeded and insufficient-funds return events are actual Stripe events; a return relocked the file after the principal had allowed pending release.
+
+Still unproved: recurring and due-date collection authorization, incumbent method reauthorization tracking, complete provider-record erasure and expiry activation evidence. The held US test account accepted a USD bank Checkout session on 26 October 2026; a disabled ACH account is not the current blocker.
 
 API semantics follow [Stripe's payment-method migration guidance](https://docs.stripe.com/payments/payment-methods/dynamic-payment-methods) and [Stripe's test methods](https://docs.stripe.com/testing).

@@ -77,6 +77,19 @@ export async function sandboxBankScreens(page, h, fixture, gate, directory, stat
   for (const [label, url] of [['invoice', `${h.origin}/invoice/${fixture.token}`], ['file-gate', gate.url]]) {
     await page.goto(url);
     await page.locator('h1').first().waitFor();
+    if (label === 'file-gate') {
+      const deliverable = page.getByRole('region', { name: `ACH ${state} final work product`, exact: true });
+      await deliverable.waitFor();
+      if (state === 'settled') await deliverable.getByRole('link', { name: /Version 1:/ }).waitFor();
+      else {
+        await deliverable.getByRole('status').waitFor();
+        assert.equal(await deliverable.getByRole('link').count(), 0, 'A locked deliverable has no client download link');
+      }
+      await page.getByRole('link', { name: 'Client statement.txt', exact: true }).first().waitFor();
+    } else {
+      const invoice = await h.json(`/invoices/${fixture.invoice.id}`, undefined, h.owner);
+      await page.locator('strong').filter({ hasText: `USD ${(invoice.balance_cents / 100).toFixed(2)}` }).waitFor();
+    }
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `ACH ${state} portal fits ${width}`);

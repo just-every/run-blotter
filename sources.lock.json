@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "24f706058c9f9440d4e5544dd7aaa6963e63fc79a4bafc674987082c8a187035",
+      "sha256": "712304d4cfd6dcce459c4ef06886003fa8ed195155c63ba32ecec25ad7a42d0e",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f874c4d2ac6dc79f49d4551f0b7f95ecb6983e7990665a4716cb45111986c126",
+      "sha256": "5e25699047a8f5d72562b359e477c1aaa91cbc321cbaeafbf56587f42f4339a1",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4160,7 +4160,7 @@
       "executable": false
     },
     "STRIPE.md": {
-      "sha256": "8be871233ed8a3a0267b3db91c4bb101663ca9b8c16e1c307a598e109e46dd06",
+      "sha256": "b9214e6b1a550474a7132e1538e67c90d5f65a3ececcb167bf7e2dad78c9d75b",
       "executable": false
     },
     "test-budget.json": {
@@ -4324,7 +4324,7 @@
       "executable": false
     },
     "tests/blotter/payment-sandbox-bank.mjs": {
-      "sha256": "253cdd143f9b8900bfc1d3505569772e93da6bbd5db9905a17fab072d2051edc",
+      "sha256": "16bef92620e16dfd1289c034025a77e7e4bdaeef827d271c32855636a257c838",
       "executable": false
     },
     "tests/blotter/payment-sandbox.mjs": {
@@ -4344,7 +4344,7 @@
       "executable": false
     },
     "tests/blotter/payments-live.mjs": {
-      "sha256": "7774b9f9a29ada5e0196f87692d9aff8e08fe500c74dbc5f2dc8698b98f73c18",
+      "sha256": "ca758ca6a36144db088fa1773c8a2b91393ca45dc08c9f2f1275b4c771219ba8",
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {

@@ -75,7 +75,7 @@ try{
  await finalPage.goto(gate.url);await finalPage.getByRole('link',{name:/Version 1: return.txt/}).waitFor();
  for(const width of [1440,390]){await finalPage.setViewportSize({width,height:1000});assert.equal(await finalPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await finalPage.screenshot({path:`${directory}/card-unlocked-${width}.png`,fullPage:true});}
  await finalContext.close();await browser.close();browser=null;
- const result={result:'PASS',testMode:true,invoiceId:s.invoice.id,payments:[paid.provider_id,collected.provider_id],card:true,savedMandate:true,quickCollect:true,duplicateChargeRefused:true,partialRefund:true,revocation:true,clientCardUnlock:true,netCents:1000,receipts};
+ const result={result:'PASS',testMode:true,invoiceId:s.invoice.id,payments:[paid.provider_id,collected.provider_id,cleared.provider_id],card:true,savedMandate:true,quickCollect:true,duplicateChargeRefused:true,partialRefund:true,revocation:true,clientCardUnlock:true,netCents:1000,receipts};
  await writeFile(`${directory}/stripe-sandbox.json`,JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }catch(error){await lastPage?.screenshot({path:`${directory}/sandbox-failure.png`,fullPage:true}).catch(()=>{});throw error;}finally{
  await browser?.close();await h.close();
