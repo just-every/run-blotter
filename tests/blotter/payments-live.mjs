@@ -1,6 +1,7 @@
 // Explicitly invoked held-key sandbox journey. Never run as part of ordinary tests or Verify.
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
 import {chromium} from '@playwright/test';
 import {harness} from './harness.mjs';
 import {paymentFixture} from './payment-fixture.mjs';
@@ -22,6 +23,8 @@ const provider=async request=>{
  if(!response.ok)console.log(JSON.stringify({providerStatus:response.status,code:data.error?.code,param:data.error?.param,message:data.error?.message}));
  return response;
 };
+const buildEnv={...process.env};delete buildEnv.STRIPE_SECRET_KEY;
+const build=spawnSync('pnpm',['exec','rer','build'],{env:buildEnv,stdio:'inherit'});assert.equal(build.status,0,'Build the exact committed checkout before the sandbox journey');
 const h=await harness({bindings:{STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET:'synthetic-blotter-1'},stripeResponse:provider});
 let browser,lastPage;
 try{
