@@ -73,7 +73,7 @@ export async function reconcileInvoiceDelivery(db: D1Database, actor: Actor, del
 }
 
 /** Every portal view/download rechecks the exact contact relationship and its revision. */
-async function invoicePortalContext(db: D1Database, token: string) {
+export async function invoicePortalContext(db: D1Database, token: string) {
   insist(/^iv_[0-9a-f]{64}$/.test(token), 'Invoice link not found', 404);
   const delivery = await stmt(db, `SELECT d.* FROM b_invoice_deliveries d JOIN b_invoices i ON i.id=d.invoice_id JOIN b_client_contacts c ON c.id=d.contact_id JOIN b_clients e ON e.id=i.client_id
     WHERE d.digest=? AND d.revoked_at IS NULL AND d.expires_at>? AND i.status='issued' AND i.erased_at IS NULL AND c.client_id=i.client_id
@@ -92,7 +92,7 @@ export async function invoicePortalView(db: D1Database, token: string) {
     issueDate: invoice.issue_date, dueDate: invoice.due_date, totalCents: invoice.total_cents, balanceCents: invoice.subtotal_cents + invoice.tax_cents - used,
     terms: snapshot.terms, taxTreatment: snapshot.taxTreatment, taxCents: invoice.tax_cents,
     language: (await stmt(db, 'SELECT language FROM b_client_contacts WHERE id=?', delivery.contact_id).first<Data>())?.language ?? 'en',
-    client: snapshot.client.name, firm: snapshot.firm.name, recipient: delivery.recipient_name, expiresAt: delivery.expires_at, sha256: invoice.pdf_sha256 };
+    client: snapshot.client.name, firm: snapshot.firm.name, recipient: delivery.recipient_name, expiresAt: delivery.expires_at, sha256: invoice.pdf_sha256, savedMethods: await rows(db, 'SELECT id,status,kind,last4 FROM b_payment_mandates WHERE invoice_id=?',invoice.id) };
 }
 export async function invoicePortalPdf(db: D1Database, token: string) {
   const { delivery, invoice } = await invoicePortalContext(db, token), [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_invoice_deliveries WHERE id=? AND revoked_at IS NULL AND expires_at>?) AND EXISTS(SELECT 1 FROM b_invoices WHERE id=? AND status='issued' AND erased_at IS NULL)", delivery.id, now(), invoice.id);

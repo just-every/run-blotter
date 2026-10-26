@@ -644,6 +644,9 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     await h.json(`/clients/${s.client.id}/contacts`, { id: s.billing.id, revision: s.billing.revision, language: 'es' }, h.owner);
     await h.json(`/clients/${cedro.id}/invoice-reminders`, { mode: 'off', reason: 'This client is outside the late fallback scenario' }, h.owner);
     const fallbackTemplate = await h.json('/messages/templates', { name: 'Late English-only reminder', scope: 'firm', subject: 'Reminder: {{invoice_amount}} due {{invoice_due_date}}', body: 'Hello {{contact_first_name}}, {{client_name}} owes {{invoice_amount}} by {{invoice_due_date}}.' }, h.owner);
+    const editedSchedule = await h.json('/invoices/reminders', { ...schedule, templateId: fallbackTemplate.id, offsets: [-3, 0, 7, 30, 31] }, h.owner);
+    assert.equal(editedSchedule.policy.status,'paused','Editing steps or template ends the prior consent');
+    assert.equal(editedSchedule.policy.consenter_id,null);
     const localizedSchedule = await h.json('/invoices/reminders', { ...schedule, templateId: fallbackTemplate.id, offsets: [-3, 0, 7, 30, 31] }, h.owner);
     assert.ok(localizedSchedule.warnings.some(w => w.contactId === s.billing.id && w.kind === 'no_translation' && /English text/.test(w.message)));
     await collectionsJourney(h, s);

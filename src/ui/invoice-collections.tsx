@@ -67,7 +67,6 @@ export function InvoiceCollectionControls({ detail, billing, run }: { detail: Ro
         <Field label="Collection status" name="hold"><select name="hold" defaultValue={detail.collection_hold ?? ''}><option value="">Remind on the schedule</option><option value="disputed">Disputed: stop reminders</option><option value="payment_plan">Payment plan: stop reminders</option></select></Field>
         <Field label="Note" name="note" required={false} />
       </Form>
-      <button className="quiet" onClick={() => run(() => api(`/invoices/${detail.id}/quick-collect`, {}))}>Quick collect</button>
     </details>}
   </>;
 }

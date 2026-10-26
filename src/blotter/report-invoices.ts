@@ -18,7 +18,7 @@ export async function invoiceReport(db: D1Database, actor: Actor, selectedJobs: 
   const jobIds = [...new Set(selectedJobs.map(j => j.id))].sort();
   const clientIds = [...new Set(selectedJobs.map(j => j.client_id))].sort();
   const jobs = JSON.stringify(jobIds), clients = JSON.stringify(clientIds);
-  const [nativeInvoices, nativeRetainers, nativeCredits, uses, reservations, amendments, writeOffs, expenses, firm] = await Promise.all([
+  const [nativeInvoices, nativeRetainers, nativeCredits, uses, reservations, amendments, writeOffs, expenses, providerPayments, firm] = await Promise.all([
     rows(db, `SELECT i.id,i.client_id,i.job_id,i.status,i.number,i.currency,i.snapshot,i.subtotal_cents,i.tax_cents,i.credit_cents,i.total_cents,
       i.issue_date,i.due_date,i.prepared_at,i.issued_at,i.voided_at,i.erased_at,i.retainer_id,i.period,c.name client_name,c.erased_at client_erased_at
       FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE i.job_id ${selectedSql} ORDER BY i.prepared_at,i.id`, jobs),
@@ -35,6 +35,8 @@ export async function invoiceReport(db: D1Database, actor: Actor, selectedJobs: 
     rows(db, `SELECT a.* FROM b_invoice_amendments a JOIN b_invoice_retainers r ON r.id=a.retainer_id WHERE r.job_id ${selectedSql} ORDER BY a.effective_month,a.id`, jobs),
     rows(db, `SELECT w.id,w.invoice_id,w.amount_cents,w.reason,w.approved_by,w.approved_at FROM b_invoice_writeoffs w JOIN b_invoices i ON i.id=w.invoice_id WHERE i.job_id ${selectedSql} ORDER BY w.approved_at,w.id`, jobs),
     rows(db, `SELECT e.id,e.cost_cents FROM b_expenses e WHERE e.id IN (SELECT substr(s.source_key,5) FROM b_invoice_sources s JOIN b_invoices i ON i.id=s.invoice_id WHERE i.job_id ${selectedSql} AND s.source_key LIKE 'exp:%')`, jobs),
+    rows(db, `SELECT p.id,p.invoice_id,p.provider_id,p.state,p.amount_cents,p.refunded_cents,p.net_cents,p.fee_cents,p.kind,p.created_at,p.updated_at FROM b_provider_payments p
+      JOIN b_invoices i ON i.id=p.invoice_id WHERE i.job_id ${selectedSql} ORDER BY p.created_at,p.id`, jobs),
     firmSettings(db),
   ]);
   const asOf = localClock(firm, new Date(generatedAt)).localDate, asOfMonth = asOf.slice(0, 7);
@@ -43,6 +45,9 @@ export async function invoiceReport(db: D1Database, actor: Actor, selectedJobs: 
     const allocations = uses.filter(u => u.invoice_id === i.id).map(u => ({ id: u.id, creditId: u.credit_id, kind: u.kind,
       reference: removed ? '[erased]' : u.reference, amountCents: Number(u.amount_cents), recordedAt: u.recorded_at, source: jobUrl(i.job_id) }));
     const allocatedCreditCents = sum(allocations, 'amountCents');
+    const payments = providerPayments.filter(p => p.invoice_id === i.id).map(p => ({ id: p.id, reference: removed ? '[erased]' : p.provider_id, state: p.state, kind: p.kind,
+      amountCents: Number(p.amount_cents), refundedCents: Number(p.refunded_cents), netCents: Number(p.net_cents), feeCents: Number(p.fee_cents), createdAt: p.created_at, updatedAt: p.updated_at, source: jobUrl(i.job_id) }));
+    const providerNetCents = i.status === 'issued' ? sum(payments, 'netCents') : 0, providerFeeCents = i.status === 'issued' ? sum(payments, 'feeCents') : 0;
     const offs = writeOffs.filter(w => w.invoice_id === i.id).map(w => ({ id: w.id, amountCents: Number(w.amount_cents), reason: removed ? '[erased]' : w.reason, approvedBy: w.approved_by, approvedAt: w.approved_at, source: jobUrl(i.job_id) }));
     const writtenOffCents = i.status === 'issued' ? sum(offs, 'amountCents') : 0;
     // Expiry deliberately removes line payloads while retaining the source registry.
@@ -55,8 +60,8 @@ export async function invoiceReport(db: D1Database, actor: Actor, selectedJobs: 
       subtotalCents: Number(i.subtotal_cents), taxCents: Number(i.tax_cents), creditCents: Number(i.credit_cents), totalCents: Number(i.total_cents),
       allocatedCreditCents, appliedCreditCents: i.status === 'issued' ? allocatedCreditCents : 0,
       reservedCreditCents: i.status === 'draft' ? allocatedCreditCents : 0,
-      writtenOffCents, writeOffs: offs, aging: i.status === 'issued' ? agingBucket(asOf, i.due_date) : null,
-      balanceCents: i.status === 'void' ? 0 : Number(i.subtotal_cents) + Number(i.tax_cents) - allocatedCreditCents - writtenOffCents,
+      writtenOffCents, writeOffs: offs, providerNetCents, providerFeeCents, payments, aging: i.status === 'issued' ? agingBucket(asOf, i.due_date) : null,
+      balanceCents: i.status === 'void' ? 0 : Number(i.subtotal_cents) + Number(i.tax_cents) - allocatedCreditCents - writtenOffCents - providerNetCents,
       issueDate: i.issue_date, dueDate: i.due_date, preparedAt: i.prepared_at, issuedAt: i.issued_at, voidedAt: i.voided_at,
       erasedAt: i.erased_at, retainerId: i.retainer_id, period: i.period, source: jobUrl(i.job_id),
       pdf: i.number !== null && !removed ? `/api/blotter/invoices/${encodeURIComponent(i.id)}/pdf` : null, sources, allocations };
@@ -83,10 +88,10 @@ export async function invoiceReport(db: D1Database, actor: Actor, selectedJobs: 
     allocations: invoices.flatMap(i => i.allocations.filter(a => a.creditId === c.id).map(a => ({ ...a, invoiceId: i.id, invoiceStatus: i.status }))) }));
   const issued = invoices.filter(i => i.status === 'issued');
   return { generatedAt, currency: 'USD', jobIds, clientIds,
-    basis: 'Current native USD invoices and retainers for the selected period-start job cohort. Credits belong to those clients; their availability includes allocations across all their jobs. Unreserved credit is available for allocation; unapplied credit includes draft reservations. Draft reservations do not discharge client credit liabilities. Write-offs are partner-approved, immutable and separate from credits. Only issued non-void invoices contribute receivables. Issue amounts remain fixed; current allocations change balances. Supplied deposits and credits are practitioner-recorded evidence, not provider settlement; no payment-provider proceeds or staff costs are inferred.',
+    basis: 'Current native USD invoices and retainers for the selected period-start job cohort. Credits belong to those clients; their availability includes allocations across all their jobs. Unreserved credit is available for allocation; unapplied credit includes draft reservations. Draft reservations do not discharge client credit liabilities. Write-offs are partner-approved, immutable and separate from credits. Only issued non-void invoices contribute receivables. Issue amounts remain fixed; current allocations change balances. Supplied deposits and credits are practitioner-recorded evidence, not provider settlement; provider payments contribute their observed net settled amounts after refunds, returns and disputes. Provider fees are shown separately; pending payments do not discharge receivables.',
     totals: { invoices: invoices.length, issued: issued.length, drafts: invoices.filter(i => i.status === 'draft').length, voids: invoices.filter(i => i.status === 'void').length,
       issuedSubtotalCents: sum(issued, 'subtotalCents'), issuedTaxCents: sum(issued, 'taxCents'), issuedCreditCents: sum(issued, 'creditCents'), issuedTotalCents: sum(issued, 'totalCents'),
-      issuedAppliedCreditCents: sum(issued, 'appliedCreditCents'), writtenOffCents: sum(issued, 'writtenOffCents'), receivableCents: sum(issued, 'balanceCents'),
+      issuedAppliedCreditCents: sum(issued, 'appliedCreditCents'), providerNetCents: sum(issued, 'providerNetCents'), providerFeeCents: sum(issued, 'providerFeeCents'), writtenOffCents: sum(issued, 'writtenOffCents'), receivableCents: sum(issued, 'balanceCents'),
       draftTotalCents: sum(invoices.filter(i => i.status === 'draft'), 'totalCents'), voidTotalCents: sum(invoices.filter(i => i.status === 'void'), 'totalCents'),
       suppliedCreditCents: sum(credits, 'amountCents'), availableCreditCents: sum(credits, 'availableCents'),
       reservedCreditCents: sum(credits, 'reservedCents'), issuedAppliedClientCreditCents: sum(credits, 'appliedCents'), unappliedCreditCents: sum(credits, 'unappliedCents'),
@@ -106,6 +111,8 @@ export function invoiceReportRows(data: Awaited<ReturnType<typeof invoiceReport>
     ...data.invoices.flatMap(i => i.sources.map((s: Data) => [i.id,s.sourceKey,s.sourceId,s.entitlementId,s.kind,s.amountCents,s.description,s.jobId,url(s.source)])),
     ['invoice_id','credit_id','kind','reference','allocated_cents','recorded_at','source'],
     ...data.invoices.flatMap(i => i.allocations.map(a => [i.id,a.creditId,a.kind,a.reference,a.amountCents,a.recordedAt,url(a.source)])),
+    ['invoice_id','payment_id','provider_reference','state','method_kind','amount_cents','refunded_cents','net_settled_cents','provider_fee_cents','created_at','updated_at','source'],
+    ...data.invoices.flatMap(i => i.payments.map(p => [i.id,p.id,p.reference,p.state,p.kind,p.amountCents,p.refundedCents,p.netCents,p.feeCents,p.createdAt,p.updatedAt,url(p.source)])),
     ['retainer_id','client_id','client','job_id','title','status','start_month','cancelled_from','as_of_month','currency','monthly_cents','supplied_tax_cents','bill_day','due_days','invoice_ids','source'],
     ...data.retainers.map(r => [r.id,r.clientId,r.clientName,r.jobId,r.title,r.status,r.startMonth,r.cancelledFrom,r.asOfMonth,r.currency,r.amountCents,r.taxCents,r.billDay,r.dueDays,r.invoiceIds.join(' '),url(r.source)]),
     ['retainer_id','amendment_id','effective_month','before_monthly_cents','after_monthly_cents','supplied_tax_cents','cancelled_from','authorized_at','source'],
@@ -119,7 +126,7 @@ export function invoiceReportRows(data: Awaited<ReturnType<typeof invoiceReport>
     ['aging_bucket','balance_cents','invoice_ids'], ...data.receivables.aging.map((a: Data) => [a.bucket,a.cents,a.invoiceIds.join(' ')]),
     ['retainer_earned_cents',data.receivables.retainers.earnedCents,data.receivables.retainers.earnedInvoiceIds.join(' ')],
     ['retainer_deferred_cents',data.receivables.retainers.deferredCents,data.receivables.retainers.deferredInvoiceIds.join(' ')],
-    ['receivable_group','id','name','invoices','recorded_cents','write_up_cents','write_down_cents','billed_cents','collected_cents','credited_cents','written_off_cents','outstanding_cents','expense_cost_cents','net_margin_before_staff_cost_cents','staff_cost_cents','unrated_staff_minutes','profit_cents','billed_realization_bps','settled_bps'],
-    ...(['clients','services','jobs'] as const).flatMap(kind => data.receivables[kind].map((g: Data) => [kind,g.id,g.name,g.invoices,g.recordedCents,g.writeUpCents,g.writeDownCents,g.billedCents,g.collectedCents,g.creditedCents,g.writtenOffCents,g.outstandingCents,g.expenseCostCents,g.netMarginBeforeStaffCostCents,g.staffCostCents,g.unratedStaffMinutes,g.profitCents,g.billedRealizationBps,g.settledBps])),
+    ['receivable_group','id','name','invoices','recorded_cents','write_up_cents','write_down_cents','billed_cents','collected_cents','credited_cents','written_off_cents','outstanding_cents','expense_cost_cents','net_margin_before_staff_cost_cents','staff_cost_cents','unrated_staff_minutes','profit_cents','billed_realization_bps','settled_bps','provider_net_cents','provider_fee_cents'],
+    ...(['clients','services','jobs'] as const).flatMap(kind => data.receivables[kind].map((g: Data) => [kind,g.id,g.name,g.invoices,g.recordedCents,g.writeUpCents,g.writeDownCents,g.billedCents,g.collectedCents,g.creditedCents,g.writtenOffCents,g.outstandingCents,g.expenseCostCents,g.netMarginBeforeStaffCostCents,g.staffCostCents,g.unratedStaffMinutes,g.profitCents,g.billedRealizationBps,g.settledBps,g.providerNetCents,g.providerFeeCents])),
   ];
 }

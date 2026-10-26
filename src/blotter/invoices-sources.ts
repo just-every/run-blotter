@@ -28,7 +28,7 @@ export async function liveBillingActor(db: D1Database, operatorId: string | null
 }
 
 /** An issued invoice's open balance: its gross less applied credits and approved write-offs (BILL-003). */
-export const invoiceDischargedSql = (a: string) => `COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=${a}.id),0)+COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=${a}.id),0)`;
+export const invoiceDischargedSql = (a: string) => `COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u WHERE u.invoice_id=${a}.id),0)+COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=${a}.id),0)+COALESCE((SELECT sum(p.net_cents) FROM b_provider_payments p WHERE p.invoice_id=${a}.id),0)`;
 export const invoiceBalanceSql = (a: string) => `${a}.subtotal_cents+${a}.tax_cents-(${invoiceDischargedSql(a)})`;
 export const activeInvoiceClientSql = "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL AND erased_at IS NULL)";
 export async function invoiceAuthority(db: D1Database) {

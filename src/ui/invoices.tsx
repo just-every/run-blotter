@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { LanguageProvider, useT } from './i18n';
 import type { Language } from '../i18n/catalog';
 import { InvoiceCollectionControls, InvoiceCollections } from './invoice-collections';
+import { InvoicePayments } from './invoice-payments';
+import { InvoicePaymentPortal } from './invoice-payment-portal';
 import { api, day, Empty, Field, Form, money, moneyText, prose, Status, today, when, type Row, type Run, ExportLink } from './common';
 
 function InvoiceLines({ snapshot }: { snapshot: Row }) {
@@ -54,6 +56,7 @@ function InvoiceRecord({ item, contacts, owner, run, tick }: { item: Row; contac
         </>}
         {detail.writeOffs?.length > 0 && <><h4>Approved write-offs</h4><ul>{detail.writeOffs.map((w: Row) => <li key={w.id}>{money(w.amount_cents)} · {w.approved_by} · {when(w.approved_at)} · {w.reason}</li>)}</ul></>}
         <InvoiceCollectionControls detail={detail} billing={owner} run={run} />
+        {detail.status === 'issued' && !detail.erased_at && <InvoicePayments invoice={detail} billing={owner} run={run} tick={tick} />}
         {owner && detail.status !== 'void' && <details><summary>Void invoice</summary><p>{detail.number ? 'The numbered PDF and source reservations remain in history.' : 'Voiding a draft releases its source reservations.'}</p><Form danger label="Void invoice" submit={data => run(() => api(`/invoices/${item.id}/void`, { ...data, revision: detail.revision }), 'Invoice voided')}><Field label="Void reason" name="reason" /></Form></details>}
         <ul>{detail.deliveries.map((d: Row) => <li key={d.id}>{d.recipient_name} · {d.recipient_email} · {d.delivery} · {when(d.sent_at)}</li>)}</ul>
         <details><summary>Audited invoice history</summary><ul>{detail.history.map((event: Row) => <li key={event.id}>{when(event.at)} · {event.actor} · {event.action}: {prose(event.detail)}</li>)}</ul></details>
@@ -146,6 +149,7 @@ function InvoicePortalPage({ token, invoice, error }: { token: string; invoice?:
     <p className="eyebrow">{invoice.firm}</p><h1>{invoice.number}</h1><h2>{invoice.title}</h2><p>{t('inv.forRecipient', { client: invoice.client, recipient: invoice.recipient })}</p><Status value={invoice.status} />
     <p>{t('inv.dates', { issued: day(invoice.issueDate), due: day(invoice.dueDate) })}</p><p>{t('inv.amounts', { total: moneyText(invoice.totalCents) })}<strong>{t('inv.balance', { balance: moneyText(invoice.balanceCents) })}</strong></p>
     <p>{invoice.terms}</p><p>{t('inv.tax', { tax: moneyText(invoice.taxCents), treatment: invoice.taxTreatment })}</p><a className="button" href={`/api/blotter/invoice-portal/${encodeURIComponent(token)}/pdf`}>{t('inv.download')}</a>
+    <InvoicePaymentPortal key={token} token={token} invoice={invoice} />
     <small className="muted" style={{overflowWrap:'anywhere'}}>{t('inv.private', { when: day(invoice.expiresAt), sha: invoice.sha256 })}</small>
   </>}</section></main></div>;
 }

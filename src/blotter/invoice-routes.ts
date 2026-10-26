@@ -10,7 +10,11 @@ import {overrideCreditHold,readPaymentPolicy,setPaymentPolicy} from './payment-p
 import {approveInvoiceWriteOff} from './invoices-writeoffs';
 import {createInvoiceRetainer,generateRetainerInvoice,previewRetainerAmendment,amendInvoiceRetainer,setInvoiceAutoConsent,setInvoiceRetainerStatus} from './invoices-retainers';
 import {previewInvoiceDelivery,sendInvoice,reconcileInvoiceDelivery,invoicePortalView,invoicePortalPdf} from './invoices-delivery';
-import {bulkResend,clientStatement,clientStatementCsv,previewResend,quickCollect,reminderState,setClientReminders,setCollectionHold,setReminderPolicy} from './invoices-collections';
+import {actOnPayment,invoicePayments,paymentLink,portalPayment,portalRevokeMandate,quickCollect,revokeMandate} from './payment-collections';
+import {stripeEvent} from './payment-events';
+import {runtimeBindings} from '../auth.server';
+import {insist} from './model';
+import {bulkResend,clientStatement,clientStatementCsv,previewResend,reminderState,setClientReminders,setCollectionHold,setReminderPolicy} from './invoices-collections';
 export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:any){
  const P='/api/blotter';
  api.get(`${P}/invoices`,as((a:any,c:any)=>invoiceState(db(c),a)));
@@ -35,7 +39,14 @@ export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:a
  api.post(`${P}/clients/:id/invoice-reminders`,as(async(a:any,c:any)=>setClientReminders(db(c),a,param(c),await body(c))));
  api.get(`${P}/invoices/:id`,as((a:any,c:any)=>invoiceDetail(db(c),a,param(c))));
  api.post(`${P}/invoices/:id/collection`,as(async(a:any,c:any)=>setCollectionHold(db(c),a,param(c),await body(c))));
- api.post(`${P}/invoices/:id/quick-collect`,as((a:any,c:any)=>quickCollect(db(c),a,param(c))));
+ api.get(`${P}/invoices/:id/payments`,as((a:any,c:any)=>invoicePayments(c.env,a,param(c))));
+ api.post(`${P}/invoices/:id/payment-link`,as(async(a:any,c:any)=>paymentLink(c.env,a,param(c),await body(c))));
+ api.post(`${P}/invoices/:id/quick-collect`,as(async(a:any,c:any)=>quickCollect(c.env,a,param(c),await body(c))));
+ api.post(`${P}/payments/:id/reconcile`,as(async(a:any,c:any)=>actOnPayment(c.env,a,param(c),await body(c))));
+ api.post(`${P}/payments/:id/refund`,as(async(a:any,c:any)=>actOnPayment(c.env,a,param(c),await body(c),true)));
+ api.post(`${P}/payment-mandates/:id/revoke`,as(async(a:any,c:any)=>revokeMandate(c.env,a,param(c),await body(c))));
+ api.post(`${P}/stripe/events`,async c=>c.json(await stripeEvent(c.env,c.req.raw)));
+ api.post(`${P}/invoice-portal/:token/pay`,async c=>{insist(c.req.header('origin')===runtimeBindings(c.env).AUTH_ORIGIN && c.req.header('sec-fetch-site')!=='cross-site','Invalid request origin',403);return c.json(await portalPayment(c.env,c.req.param('token'),await body(c)));});
  api.post(`${P}/invoices/:id/issue`,as(async(a:any,c:any)=>issueInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/void`,as(async(a:any,c:any)=>voidInvoice(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoices/:id/credits`,as(async(a:any,c:any)=>allocateInvoiceCredit(db(c),a,param(c),await body(c))));
@@ -50,6 +61,7 @@ export function invoiceRoutes(api:Hono<{Bindings:Bindings}>,{as,body,db,param}:a
  api.post(`${P}/invoice-retainers/:id/amend`,as(async(a:any,c:any)=>amendInvoiceRetainer(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoice-retainers/:id/auto-consent`,as(async(a:any,c:any)=>setInvoiceAutoConsent(db(c),a,param(c),await body(c))));
  api.post(`${P}/invoice-retainers/:id/status`,as(async(a:any,c:any)=>setInvoiceRetainerStatus(db(c),a,param(c),await body(c))));
- api.get(`${P}/invoice-portal/:token`,async c=>c.json(await invoicePortalView(db(c),c.req.param('token'))));
+ api.get(`${P}/invoice-portal/:token`,async c=>c.json({...await invoicePortalView(db(c),c.req.param('token')),paymentsConfigured:Boolean(c.env.STRIPE_SECRET_KEY)}));
+ api.post(`${P}/invoice-portal/:token/mandates/:mandate/revoke`,async c=>{insist(c.req.header('origin')===runtimeBindings(c.env).AUTH_ORIGIN && c.req.header('sec-fetch-site')!=='cross-site','Invalid request origin',403);return c.json(await portalRevokeMandate(c.env,c.req.param('token'),c.req.param('mandate'),await body(c)));});
  api.get(`${P}/invoice-portal/:token/pdf`,async c=>invoicePortalPdf(db(c),c.req.param('token')));
 }

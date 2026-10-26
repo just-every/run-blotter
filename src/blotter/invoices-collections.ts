@@ -2,7 +2,7 @@
 // overrides, dispute and payment-plan holds, bulk resend and monthly client statements.
 // Reminders are automatic outbound mail, so they run only under a recorded consent of the
 // principal or a financial-authority holder, rechecked on every run (conservative default
-// pending ct, as BILL-002's automatic issue and send). Quick collect needs PAY-001.
+// approved by ct on 22 October 2026).
 import { runtimeBindings, type Bindings } from '../auth.server';
 import { sendMail } from './documents';
 import { firmSettings, localClock } from './firm';
@@ -61,6 +61,10 @@ export async function setReminderPolicy(db: D1Database, actor: Actor, body: Data
   const offsets = steps(body.offsets), template = await usable(db, actor, text(body.templateId, 'Reminder template', 100)), reason = text(body.reason, 'Consent and reason for automatic reminders', 1000);
   engagementOnly(template);
   insist(template.scope === 'firm', 'Choose a firm template for firm-wide reminders', 409);
+  if (current?.status === 'active' && (JSON.stringify(offsets) !== current.offsets || template.id !== current.template_id || template.version !== current.template_version)) {
+    await atomic(db, actor, billed(db, actor, [stmt(db, "UPDATE b_invoice_reminder_policy SET offsets=?,template_id=?,template_version=?,status='paused',consenter_id=NULL,revision=? WHERE id=1", JSON.stringify(offsets),template.id,template.version,id()),audit(db,actor,'invoice.reminders_paused','invoice-reminders','Schedule edited; fresh consent required')]));
+    return reminderState(db,actor);
+  }
   await atomic(db, actor, billed(db, actor, [stmt(db, `INSERT INTO b_invoice_reminder_policy(id,offsets,template_id,template_version,status,revision,consenter_id,consented_by,reason,consented_at) VALUES(1,?,?,?,'active',?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET offsets=excluded.offsets,template_id=excluded.template_id,template_version=excluded.template_version,status='active',revision=excluded.revision,consenter_id=excluded.consenter_id,consented_by=excluded.consented_by,reason=excluded.reason,consented_at=excluded.consented_at`,
     JSON.stringify(offsets), template.id, template.version, id(), actor.id, actor.email, reason, now()),
@@ -94,11 +98,7 @@ export async function setCollectionHold(db: D1Database, actor: Actor, invoiceId:
 }
 
 /** Quick collect charges only a saved method authorized under PAY-001; none can exist until PAY-001 ships, so it refuses honestly. */
-export async function quickCollect(db: D1Database, actor: Actor, invoiceId: string) {
-  invoiceHuman(actor);
-  insist(await stmt(db, "SELECT 1 FROM b_invoices WHERE id=? AND status='issued' AND erased_at IS NULL", invoiceId).first(), 'Issued invoice not found', 404);
-  insist(false, 'Quick collect needs a saved payment method authorized under PAY-001. No payment processor or authorization exists here, so nothing was charged.', 409);
-}
+
 
 /** One reviewed preview for several invoices; the send repeats the same recipients, documents and reason. */
 export async function previewResend(db: D1Database, actor: Actor, body: Data) {
@@ -130,17 +130,19 @@ export async function clientStatement(db: D1Database, actor: Actor, clientId: st
   const asOf = query.asOf ? date(query.asOf, 'Statement date') : localClock(firm, new Date()).localDate;
   const end = firmDayEnd(asOf, firm.timeZone);
   const issued = await rows(db, `SELECT i.id,i.number,i.title,i.issue_date,i.due_date,i.total_cents,i.subtotal_cents+i.tax_cents gross_cents,i.collection_hold,
+    COALESCE((SELECT sum(o.net_cents) FROM b_provider_payments p JOIN b_payment_observations o ON o.id=(SELECT x.id FROM b_payment_observations x WHERE x.payment_id=p.id AND x.observed_at<=? ORDER BY x.observed_at DESC,x.rowid DESC LIMIT 1) WHERE p.invoice_id=i.id),0) provider_cents,
     COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=i.id AND c.recorded_at<=?),0) applied_cents,
     COALESCE((SELECT sum(w.amount_cents) FROM b_invoice_writeoffs w WHERE w.invoice_id=i.id AND w.approved_at<=?),0) written_off_cents
-    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.erased_at IS NULL AND i.issue_date<=? ORDER BY i.due_date,i.number`, end, end, clientId, asOf);
+    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.erased_at IS NULL AND i.issue_date<=? ORDER BY i.due_date,i.number`, end, end, end, clientId, asOf);
   const bucket = (due: string) => agingBucket(asOf, due);
   const invoices = issued.map(i => ({ id: i.id, number: invoiceNumber(i.number), title: i.title, issueDate: i.issue_date, dueDate: i.due_date, totalCents: i.total_cents, creditsCents: i.applied_cents, writtenOffCents: i.written_off_cents,
-    balanceCents: i.gross_cents - i.applied_cents - i.written_off_cents, aging: bucket(i.due_date), hold: i.collection_hold })).filter(i => i.balanceCents > 0);
+    balanceCents: i.gross_cents - i.applied_cents - i.written_off_cents - i.provider_cents, aging: bucket(i.due_date), hold: i.collection_hold })).filter(i => i.balanceCents > 0);
   const credits = (await rows(db, `SELECT c.id,c.kind,c.reference,c.amount_cents,c.recorded_at,COALESCE((SELECT sum(u.amount_cents) FROM b_invoice_credit_uses u JOIN b_invoices i ON i.id=u.invoice_id WHERE u.credit_id=c.id AND i.status='issued'),0) applied_cents
     FROM b_invoice_credits c WHERE c.client_id=? AND c.recorded_at<=? ORDER BY c.recorded_at,c.id`, clientId, end)).map(c => ({ id: c.id, kind: c.kind, reference: c.reference, recordedAt: c.recorded_at, amountCents: c.amount_cents, appliedCents: c.applied_cents, availableCents: c.amount_cents - c.applied_cents }));
+  const payments = await rows(db, `SELECT p.id,p.invoice_id,p.provider_id,p.amount_cents,o.state,o.net_cents,o.fee_cents,o.observed_at FROM b_provider_payments p JOIN b_payment_observations o ON o.id=(SELECT x.id FROM b_payment_observations x WHERE x.payment_id=p.id AND x.observed_at<=? ORDER BY x.observed_at DESC,x.rowid DESC LIMIT 1) WHERE p.client_id=? ORDER BY p.created_at`,end,clientId);
   const openCents = invoices.reduce((n, i) => n + i.balanceCents, 0), availableCents = credits.reduce((n, c) => n + c.availableCents, 0);
   const aging = AGING_BUCKETS.map(b => ({ bucket: b, cents: invoices.filter(i => i.aging === b).reduce((n, i) => n + i.balanceCents, 0) }));
-  return { client, asOf, currency: 'USD', invoices, credits, payments: [], paymentsNote: 'No provider payments: PAY-001 is not active here. Deposits and credits the practice recorded are listed as credits.',
+  return { client, asOf, currency: 'USD', invoices, credits, payments, paymentsNote: payments.length ? 'Stripe payments show confirmed net receipts after refunds, returns and disputes. Pending acceptance is not settlement.' : 'No provider payments recorded. Deposits and credits recorded by the practice are listed as credits.',
     totals: { openCents, availableCreditCents: availableCents, netCents: openCents - availableCents }, aging };
 }
 export async function clientStatementCsv(db: D1Database, actor: Actor, clientId: string, query: Data) {
@@ -165,7 +167,7 @@ export async function runInvoiceReminders(env: Bindings, at = new Date()) {
   const consenter = await liveBillingActor(db, policy.consenter_id);
   if (!consenter || (consenter.role !== 'owner' && consenter.accessScoped)) return pause(`${policy.consented_by} no longer holds firm-wide financial authority`);
   const template = await stmt(db, `SELECT v.subject,v.body,v.message_class FROM b_msg_templates t JOIN b_msg_template_versions v ON v.template_id=t.id AND v.version=?
-    WHERE t.id=? AND t.deleted_at IS NULL AND t.scope='firm'`, policy.template_version, policy.template_id).first<Data>();
+    WHERE t.id=? AND t.deleted_at IS NULL AND t.scope='firm' AND t.version=v.version`, policy.template_version, policy.template_id).first<Data>();
   if (!template || template.message_class !== 'engagement') return pause('The consented reminder template version is no longer an available engagement template');
   const today = await firmToday(db, at), firm = await firmSettings(db), results: Data[] = [];
   for (const i of await rows(db, `SELECT i.*,${balanceSql} balance_cents,o.mode override_mode,o.offsets override_offsets FROM b_invoices i JOIN b_clients c ON c.id=i.client_id

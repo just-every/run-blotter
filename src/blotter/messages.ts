@@ -117,6 +117,7 @@ export async function editTemplate(db: D1Database, actor: Actor, templateId: str
     // New files replace the attachments; otherwise the new version keeps the previous version's.
     ...(files ? insertFiles(db, t.id, next, files) : [stmt(db, 'INSERT INTO b_msg_template_files(template_id,version,ordinal,name,mime,size,sha256,content_base64) SELECT template_id,?,ordinal,name,mime,size,sha256,content_base64 FROM b_msg_template_files WHERE template_id=? AND version=?', next, t.id, t.version)]),
     stmt(db, 'UPDATE b_msg_templates SET version=?,name=?,category=? WHERE id=? AND version=?', next, name, category, t.id, t.version),
+    stmt(db, "UPDATE b_invoice_reminder_policy SET status='paused',consenter_id=NULL,revision=? WHERE template_id=? AND status='active'",id(),t.id),
     audit(db, actor, 'template.message_edited', t.id, `version ${next}${cls === current ? '' : `: class ${current} to ${cls}`}`)]);
   return { id: t.id, version: next, message_class: cls };
 }

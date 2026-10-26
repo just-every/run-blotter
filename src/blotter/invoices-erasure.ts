@@ -11,6 +11,9 @@ export function invoiceErasureSteps(x: Context): Step[] {
   const client = lit(x.client), at = lit(x.at), invoices = `(SELECT id FROM b_invoices WHERE client_id=${client})`, retainers = `(SELECT id FROM b_invoice_retainers WHERE client_id=${client})`;
   const keep = `(SELECT s.entitlement_id FROM b_invoice_sources s JOIN b_invoices i ON i.id=s.invoice_id WHERE i.number IS NOT NULL AND i.erased_at IS NULL AND s.entitlement_id IS NOT NULL)`;
   const all: Step[] = [
+    { cls: 'link', table: 'b_payment_mandates', action: 'redact', label: 'Saved payment authorities revoked and method references and wording erased', where: `client_id=${client}`, set: `status='revoked',revoked_at=COALESCE(revoked_at,${at}),method_id=NULL,customer_id=NULL,last4='',authorization='[erased]'` },
+    { cls: 'link', table: 'b_payment_events', action: 'delete', label: 'Provider event references and payload digests', where: `payment_id IN (SELECT id FROM b_provider_payments WHERE client_id=${client})` },
+    { cls: 'billing', table: 'b_provider_payments', action: 'redact', label: 'Provider customer and checkout references (amounts, outcomes and attribution stay; collection disabled)', where: `client_id=${client}`, set: `customer_id=NULL,session_id=NULL,restored=1` },
     { cls: 'link', table: 'b_invoice_reminders', action: 'redact', label: 'Invoice reminder recipients and message bodies (steps, dates and outcomes stay)', where: `invoice_id IN ${invoices}`, set: `recipient_email=NULL,subject='[erased]',message='[erased]',status=CASE WHEN status='dispatching' THEN 'held' ELSE status END` },
     { cls: 'link', table: 'b_payment_gates', action: 'redact', label: 'Payment gate reasons (the gate and its invoice link stay until the deliverable is erased)', where: `client_id=${client}`, set: `reason='[erased]',remove_reason=CASE WHEN remove_reason IS NULL THEN NULL ELSE '[erased]' END` },
     { cls: 'link', table: 'b_payment_overrides', action: 'redact', label: 'Partner override reasons for payment gates and credit holds (approver and time stay)', where: `client_id=${client}`, set: `reason='[erased]',revoke_reason=CASE WHEN revoke_reason IS NULL THEN NULL ELSE '[erased]' END` },
@@ -23,12 +26,16 @@ export function invoiceErasureSteps(x: Context): Step[] {
   ];
   // Keep list positions stable: the parent engine applies client/class holds to
   // all steps and compares each with its unheld form when counting the preview.
-  return all.map(s => s.cls === 'link' ? s : { ...s, where: `${s.where} AND ${s.table === 'b_invoice_amendments' ? `retainer_id IN (SELECT id FROM b_invoice_retainers WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : `job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"})`}` });
+  return all.map(s => s.cls === 'link' ? s : { ...s, where: `${s.where} AND ${s.table === 'b_provider_payments' ? `invoice_id IN (SELECT id FROM b_invoices WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : s.table === 'b_invoice_amendments' ? `retainer_id IN (SELECT id FROM b_invoice_retainers WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : `job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"})`}` });
 }
 
 export function invoiceRetainedRows(clientId: string, owner: string) {
   const c = lit(clientId);
   return [
+    { key: 'billing_provider_payments', cls: 'billing' as const, label: 'Provider payment amounts, refunds, returns, disputes and attribution', reason: 'Financial evidence stays with its invoice until confirmed expiry.', owner,
+      sql: `SELECT count(*) n FROM b_provider_payments WHERE client_id=${c}` },
+    { key: 'billing_payment_observations', cls: 'billing' as const, label: 'Observed payment outcomes, net amounts and fees', reason: 'Payment observations stay with their invoice until confirmed expiry.', owner,
+      sql: `SELECT count(*) n FROM b_payment_observations WHERE payment_id IN (SELECT id FROM b_provider_payments WHERE client_id=${c})` },
     { key: 'billing_invoices', cls: 'billing' as const, label: 'Issued and voided numbered invoice PDFs, line snapshots and source links', reason: 'Immutable billing evidence stays until confirmed expiry.', owner,
       sql: `SELECT count(*) n FROM b_invoices WHERE client_id=${c} AND number IS NOT NULL AND erased_at IS NULL` },
     { key: 'billing_invoice_credits', cls: 'billing' as const, label: 'Recorded deposits, credits and allocation references', reason: 'Billing evidence stays with its invoiced allocations until confirmed expiry.', owner,
@@ -46,6 +53,8 @@ export async function invoiceClocks(db: D1Database, timeZone: string, years: num
       ...(await rows(db, 'SELECT c.recorded_at FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=?', invoice.id)).map(c => c.recorded_at),
       ...(await rows(db, "SELECT at FROM b_audit WHERE object_id=? AND action='invoice.credit_applied'", invoice.id)).map(e => e.at),
       ...(await rows(db, 'SELECT approved_at FROM b_invoice_writeoffs WHERE invoice_id=?', invoice.id)).map(w => w.approved_at),
+      ...(await rows(db, 'SELECT updated_at FROM b_provider_payments WHERE invoice_id=?', invoice.id)).map(p => p.updated_at),
+      ...(await rows(db, 'SELECT o.observed_at FROM b_payment_observations o JOIN b_provider_payments p ON p.id=o.payment_id WHERE p.invoice_id=?', invoice.id)).map(o => o.observed_at),
     ].filter(Boolean).map(at => localDate(at, timeZone)).sort();
     const clock = events.at(-1)!;
     result.push({ kind: 'invoice', id: invoice.id, cls: 'billing', clientIds: [invoice.client_id], jobId: invoice.job_id, label: invoice.client_erased_at?'Retained invoice '+invoice.id.slice(0,8):invoice.title, clock, years, expiry: addYears(clock, years) });
@@ -57,6 +66,9 @@ export async function invoiceClocks(db: D1Database, timeZone: string, years: num
 export function invoiceExpiryEffects(invoiceId: string, at: string) {
   const r = lit(invoiceId), lines = `(SELECT substr(source_key,6) FROM b_invoice_sources WHERE invoice_id=${r} AND source_key LIKE 'time:%')`, spend = `(SELECT substr(source_key,5) FROM b_invoice_sources WHERE invoice_id=${r} AND source_key LIKE 'exp:%')`;
   return [
+    { table: 'b_payment_mandates', label: 'Saved payment authorities revoked; method references and authorization wording removed', where: `invoice_id=${r}`, set: `status='revoked',revoked_at=COALESCE(revoked_at,${lit(at)}),method_id=NULL,customer_id=NULL,last4='',authorization='[erased]'`, action: 'redact' as const },
+    { table: 'b_payment_events', label: 'Provider event references and payload digests', where: `payment_id IN (SELECT id FROM b_provider_payments WHERE invoice_id=${r})`, action: 'delete' as const },
+    { table: 'b_provider_payments', label: 'Provider customer and checkout references (financial amounts and outcomes stay; collection disabled)', where: `invoice_id=${r}`, set: `customer_id=NULL,session_id=NULL,restored=1`, action: 'redact' as const },
     { table: 'b_invoices', label: 'Numbered invoice PDF and personal snapshot (number, totals, revision, authors and SHA-256 stay)', where: `id=${r} AND erased_at IS NULL`, set: `pdf_base64=NULL,title='[erased]',snapshot=json_object('erased',1,'currency',currency,'totalCents',total_cents),erased_at=${lit(at)}`, action: 'redact' as const },
     { table: 'b_invoice_reminders', label: 'Invoice reminder recipients and bodies (steps, dates and outcomes stay)', where: `invoice_id=${r}`, set: "recipient_email=NULL,subject='[erased]',message='[erased]'", action: 'redact' as const },
     { table: 'b_invoice_deliveries', label: 'Invoice notice recipients, bodies and portal access', where: `invoice_id=${r}`, set: `recipient_email='',recipient_name='[erased]',subject='[erased]',message='[erased]',resolution=NULL,revoked_at=COALESCE(revoked_at,${lit(at)})`, action: 'redact' as const },
@@ -71,6 +83,10 @@ export function invoiceExpiryEffects(invoiceId: string, at: string) {
 
 export async function invoiceObservedCopies(db: D1Database, clientId: string) {
   const out: { source: string; label: string; owner: string; count: number; kind: 'observed' }[] = [];
+  const payments = (await rows(db, 'SELECT count(*) n FROM b_provider_payments WHERE client_id=? AND (provider_id IS NOT NULL OR session_id IS NOT NULL OR customer_id IS NOT NULL)', clientId))[0].n;
+  if (payments) out.push({ source: 'stripe-payment', label: 'Stripe payment, refund, return and dispute references', owner: 'Stripe (provider-retained payment records)', count: Number(payments), kind: 'observed' });
+  const mandates = (await rows(db, 'SELECT count(*) n FROM b_payment_mandates WHERE client_id=? AND (method_id IS NOT NULL OR customer_id IS NOT NULL)', clientId))[0].n;
+  if (mandates) out.push({ source: 'stripe-mandate', label: 'Stripe customer and saved payment method references', owner: 'Stripe (provider-retained saved payment authorities)', count: Number(mandates), kind: 'observed' });
   const mail = (await rows(db, "SELECT count(*) n FROM b_invoice_deliveries d JOIN b_invoices i ON i.id=d.invoice_id WHERE i.client_id=? AND (d.status IN ('accepted','held','dispatching'))", clientId))[0].n;
   if (mail) for (const owner of ['The invoice mail provider (provider-retained; unresolved sends included)', 'The invoice recipients (recipient-controlled)']) out.push({ source: 'invoice-mail', label: 'Invoice PDF and notice email', owner, count: Number(mail), kind: 'observed' });
   const reminders = (await rows(db, "SELECT count(*) n FROM b_invoice_reminders r JOIN b_invoices i ON i.id=r.invoice_id WHERE i.client_id=? AND r.status IN ('accepted','held','dispatching') AND r.delivery NOT LIKE 'held: not sent%'", clientId))[0].n;

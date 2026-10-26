@@ -7,6 +7,7 @@
 // person, next action and due condition. A preparer sees only the jobs they
 // may read; client-wide records are for reviewers and the principal. A
 // reviewer or the principal hands any unresolved item to another person.
+import {invoiceBalanceSql} from './invoices-sources';
 import { atomic, audit, email, guard, human, id, insist, need, optional, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 import { eligible } from './jobs';
 import { documentAuthority } from './permissions';
@@ -68,11 +69,11 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
       WHERE j.id IN (${open}) AND j.status<>'signed_off' AND p.status='open' ORDER BY p.created_at`, ids),
     rows(db, `SELECT k.id,k.reason,k.owner_email,j.id job_id,j.title,j.period_label,j.due_date FROM b_coverage_conflicts k JOIN b_jobs j ON j.id=k.job_id
       WHERE j.id IN (${open}) AND k.resolved_at IS NULL ORDER BY k.created_at`, ids),
-    rows(db,`SELECT i.id,i.title,i.job_id,i.owner_email,i.due_date FROM b_invoices i WHERE i.job_id IN (${open}) AND i.status='issued' AND i.subtotal_cents+i.tax_cents>COALESCE((SELECT sum(amount_cents) FROM b_invoice_credit_uses WHERE invoice_id=i.id),0)`,ids),
+    rows(db,`SELECT i.id,i.title,i.job_id,i.owner_email,i.due_date,(SELECT p.state FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('failed','returned','disputed','requires_action','held') ORDER BY p.updated_at DESC LIMIT 1) payment_issue FROM b_invoices i WHERE i.job_id IN (${open}) AND i.status='issued' AND ${invoiceBalanceSql('i')}>0`,ids),
   ]);
   const work = (j: Data) => `${j.title} · ${j.period_label}`;
   return [
-    ...invoices.map(i=>({kind:'invoice',id:i.id,jobId:i.job_id,work:i.title,owner:i.owner_email,nextAction:'Resolve the open invoice balance',due:`invoice due ${i.due_date}`})),
+    ...invoices.map(i=>({kind:'invoice',id:i.id,jobId:i.job_id,work:i.title,owner:i.owner_email,nextAction:i.payment_issue?`Resolve ${i.payment_issue.replaceAll('_',' ')} payment with the client; no automatic retry`:'Resolve the open invoice balance',due:`invoice due ${i.due_date}`})),
     ...requests.map(r => ({ kind: 'request', id: r.id, jobId: r.job_id, work: work(r), owner: r.preparer_email, nextAction: r.status === 'requested' ? `Collect “${r.label}” from the client` : `Accept or return “${r.label}”`, due: `job due ${r.due_date}` })),
     ...tasks.map(t => {
       const role = t.assignee_role === 'reviewer' ? t.reviewer_email : t.assignee_role === 'manager' ? t.manager_email || t.reviewer_email : t.preparer_email;

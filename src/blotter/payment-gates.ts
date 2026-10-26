@@ -14,15 +14,20 @@ export const gateLockedSql = `EXISTS(SELECT 1 FROM b_payment_gates g WHERE g.rem
   AND NOT EXISTS(SELECT 1 FROM b_payment_overrides o WHERE o.kind='gate' AND o.gate_id=g.id AND o.revoked_at IS NULL)
   AND NOT EXISTS(SELECT 1 FROM b_invoices i WHERE i.id=g.invoice_id AND i.status='issued' AND i.erased_at IS NULL AND i.subtotal_cents+i.tax_cents<=COALESCE((SELECT sum(u.amount_cents)
     FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=i.id
-    AND (c.kind='credit' OR c.settlement='settled' OR COALESCE((SELECT ach_unlock FROM b_payment_policy WHERE id=1),'settled')='pending')),0)))`;
+    AND (c.kind='credit' OR c.settlement='settled' OR COALESCE((SELECT ach_unlock FROM b_payment_policy WHERE id=1),'settled')='pending')),0)+COALESCE((SELECT sum(p.net_cents+CASE WHEN p.state='pending' AND p.kind='us_bank_account'
+      AND COALESCE((SELECT ach_unlock FROM b_payment_policy WHERE id=1),'settled')='pending' THEN max(0,p.amount_cents-p.refunded_cents) ELSE 0 END)
+      FROM b_provider_payments p WHERE p.invoice_id=i.id),0)))`;
 
 /** What a gate needs right now, from the invoice, its applied receipts and the firm's ACH policy. */
 export async function gateState(db: D1Database, gate: Data) {
   const policy = await paymentPolicy(db);
   const invoice = await stmt(db, 'SELECT id,number,status,subtotal_cents+tax_cents gross_cents,erased_at FROM b_invoices WHERE id=?', gate.invoice_id).first<Data>();
   const uses = await rows(db, 'SELECT u.amount_cents,c.kind,c.method,c.settlement FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=?', gate.invoice_id);
-  const counted = uses.filter(u => u.kind === 'credit' || u.settlement === 'settled' || policy.achUnlock === 'pending').reduce((n, u) => n + Number(u.amount_cents), 0);
-  const pending = uses.filter(u => u.settlement === 'pending').reduce((n, u) => n + Number(u.amount_cents), 0);
+  const payments = await rows(db, 'SELECT state,kind,amount_cents,refunded_cents,net_cents FROM b_provider_payments WHERE invoice_id=?', gate.invoice_id);
+  const pendingProviderCents = payments.filter(p => p.state === 'pending' && p.kind === 'us_bank_account').reduce((n, p) => n + Math.max(0, Number(p.amount_cents) - Number(p.refunded_cents)), 0);
+  const providerCents = payments.reduce((n, p) => n + Number(p.net_cents), 0) + (policy.achUnlock === 'pending' ? pendingProviderCents : 0);
+  const counted = providerCents + uses.filter(u => u.kind === 'credit' || u.settlement === 'settled' || policy.achUnlock === 'pending').reduce((n, u) => n + Number(u.amount_cents), 0);
+  const pending = pendingProviderCents + uses.filter(u => u.settlement === 'pending').reduce((n, u) => n + Number(u.amount_cents), 0);
   const override = await stmt(db, "SELECT id,reason,approved_by,approved_at FROM b_payment_overrides WHERE kind='gate' AND gate_id=? AND revoked_at IS NULL ORDER BY approved_at DESC LIMIT 1", gate.id).first<Data>();
   const paid = invoice?.status === 'issued' && !invoice.erased_at && Number(invoice.gross_cents) <= counted;
   const remainingCents = Math.max(0, Number(invoice?.gross_cents ?? 0) - counted);
