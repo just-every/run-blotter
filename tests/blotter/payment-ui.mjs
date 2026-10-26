@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
+import { paymentTooltips } from './payment-tooltips.mjs';
 
 const capture = async (page, panel, directory, name) => {
   for (const width of [1440, 390]) {
@@ -31,6 +32,7 @@ export async function paymentJourney(h, fixture, invoice) {
       await page.getByRole('button', { name: 'Finish setup' }).click();
       await page.waitForURL('**/app');
     }
+    await paymentTooltips(page, directory);
     await page.getByRole('navigation', { name: 'Workspace' }).getByRole('button', { name: 'Time & billing', exact: true }).click();
     const invoices = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Invoices and retainers', exact: true }) });
     const record = invoices.locator('article.record').filter({ hasText: `INV-${String(invoice.number).padStart(6, '0')}` }).first();

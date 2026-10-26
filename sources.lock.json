@@ -4328,11 +4328,11 @@
       "executable": false
     },
     "tests/blotter/payment-ui.mjs": {
-      "sha256": "bc67f9fb90b5c8ad40b96b45a37a395d8caac83ee53a33592b468c39f4d3a2af",
+      "sha256": "2ec32304c182bfd09eb388d9713d80e980fd15bb3acad578d05ae20d8bd50c66",
       "executable": false
     },
     "tests/blotter/payments-live.mjs": {
-      "sha256": "9d24f3ff3f3b1af2769987ffdf53514b900ccfb261243cddcd17d7ceda6f8656",
+      "sha256": "41faff6119be312e61b6ee22a1584e92b287fea42473954453bc1432cba28904",
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {

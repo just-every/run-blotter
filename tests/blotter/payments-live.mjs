@@ -55,6 +55,15 @@ try{
  await context.close();await browser.close();browser=null;
  await paymentJourney(h,s,s.invoice);
  const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2030-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,201); // UI journey refunds one additional cent.
+ // Close the unpaid link created by the staff-screen journey before paying the whole remaining balance.
+ for(const sessionId of [...objects.sessions]){
+  const headers={authorization:`Bearer ${process.env.STRIPE_SECRET_KEY}`,'Stripe-Version':'2026-09-30.endive'};
+  const session=await (await provider(new Request(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`,{headers}))).json();
+  if(session.status==='open'){
+   const expired=await provider(new Request(`https://api.stripe.com/v1/checkout/sessions/${sessionId}/expire`,{method:'POST',headers}));assert.equal(expired.ok,true);
+   const abandoned=await h.json(`/payments/${session.metadata.blotter_payment_id}/reconcile`,{},h.owner);assert.equal(abandoned.state,'failed');
+  }
+ }
  browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
  const finalContext=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),finalPage=await finalContext.newPage();lastPage=finalPage;
  await finalPage.goto(h.origin+`/invoice/${s.token}`);
