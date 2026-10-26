@@ -6,6 +6,7 @@ import { pdfText } from './pdf-text.mjs';
 import { PDFDocument } from 'pdf-lib';
 import { harness } from './harness.mjs';
 import { collectionsJourney, gateJourney, holdJourney, invoiceJourney, receivablesJourney } from './invoices-ui.mjs';
+import {stripeEdge} from './stripe-edge.mjs';
 import {assertInvoiceReport} from './invoice-report-proof.mjs';
 import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
 
@@ -557,7 +558,8 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
 });
 
 test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for unpaid, undisputed, deliverable invoices; clients opt out; two invoices resend in bulk; the statement reconciles to open balances; quick collect refuses without PAY-001; a restore pauses the schedule', async () => {
-  const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-9' } }); let restored;
+  const edge=stripeEdge();
+  const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-9',STRIPE_SECRET_KEY:'synthetic-blotter-10' },stripeResponse:edge.respond }); let restored;
   try {
     const s = await fixture(h);
     await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
@@ -596,9 +598,10 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     assert.equal(h.mails.find(m => /^Reminder:/.test(m.subject)).attachments.length, 1, 'The reminder carries the numbered PDF');
     const spanishReminder = h.mails.filter(m => /^Recordatorio:/.test(m.subject));
     assert.deepEqual(spanishReminder.map(m => [m.to[0], m.subject]), [['lucia@example.test', 'Recordatorio: USD 70.00 vence el 2026-12-01']]); assert.match(spanishReminder[0].text, /^Hola Lucía, Cedro Taller LLC debe USD 70\.00 antes del 2026-12-01\./);
-    // The first invoice is paid (a recorded receipt settles it) and the third is disputed between steps.
-    const receipt = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', reference: 'BANK-RECEIPT-A', amountCents: 10000, reason: 'Client paid by bank transfer; receipt supplied' }, h.owner);
-    await h.json(`/invoices/${a.id}/credits`, { creditId: receipt.id, amountCents: 10000, reason: 'Apply the recorded bank receipt' }, h.owner);
+    // A provider-confirmed card payment settles the first invoice between reminder steps.
+    const collection=await h.json(`/invoices/${a.id}/payment-link`,{amountCents:10000},h.owner);
+    const payment=await h.json(`/payments/${collection.paymentId}/reconcile`,{},h.owner);
+    assert.equal(payment.state,'settled');assert.equal(payment.net_cents,10000);
     await h.json(`/invoices/${c.id}/collection`, { hold: 'disputed', note: 'Client disputes the milestone scope' }, h.owner);
     await h.scheduled('2026-12-01T15:00:00Z');
     assert.equal(sent().length, 1, 'A paid invoice is not reminded');
@@ -657,6 +660,9 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     assert.deepEqual((await h.json('/invoices/reminders', undefined, h.owner)).warnings, []);
     translatedMailCount = h.mails.length; await h.scheduled('2027-01-10T15:00:00Z');
     assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Recordatorio: USD 200.00 vence 2026-12-10');
+    await h.json(`/messages/templates/${fallbackTemplate.id}`,{subject:'Changed reminder {{invoice_amount}}',body:'Hello {{contact_first_name}}, {{client_name}} owes {{invoice_amount}}.'},h.owner);
+    const paused=(await h.json('/invoices/reminders',undefined,h.owner)).policy;assert.equal(paused.status,'paused');assert.equal(paused.consenter_id,null);
+    const afterEdit=h.mails.length;await h.scheduled('2027-01-11T15:00:00Z');assert.equal(h.mails.length,afterEdit,'A template edit revokes consent before the next step');
 
   } finally { await restored?.close(); await h.close(); }
 });

@@ -15,6 +15,9 @@ async function authorize(h,s,amount=100){
 async function notify(h,event,extra={}){const raw=JSON.stringify(event),timestamp=Math.floor(Date.now()/1000),sig=createHmac('sha256',secret).update(`${timestamp}.${raw}`).digest('hex');return h.request('/api/blotter/stripe/events',event,'',{'stripe-signature':`t=${timestamp},v1=${sig}`,...extra});}
 test('Authorized saved-card collection reconciles partial payment and refund into balances, statements and attributed client history',async()=>{
  const {h,s}=await start();try{
+  await h.json('/team/invite',{email:'preparer@example.test'},h.owner);const preparer=await h.login('preparer@example.test');
+  await h.json(`/invoices/${s.invoice.id}/quick-collect`,{},preparer,403);
+  await h.json(`/invoices/${s.invoice.id}/payments`,undefined,preparer,403);
   await h.json(`/invoices/${s.invoice.id}/quick-collect`,{},h.owner,409);
   await h.json(`/invoice-portal/${s.token}/pay`,{amountCents:100,confirm:false},undefined,400);
   const {paid,mandate}=await authorize(h,s);assert.equal(paid.net_cents,100);assert.equal(mandate.kind,'card');
@@ -46,11 +49,16 @@ test('Signed duplicate and out-of-order notifications cannot undo refunds; inval
 });
 test('Failed card and returned ACH create owned follow-up, pending acceptance is unsettled, and revoked mandates never debit again',async()=>{
  const {h,s,edge}=await start();try{
-  const {paid,mandate}=await authorize(h,s),pi=edge.intents.get(paid.provider_id);
+  const {paid,mandate}=await authorize(h,s,1000),pi=edge.intents.get(paid.provider_id);
+  const final=await h.json(`/jobs/${s.job.id}/deliverables`,{title:'Final return',name:'return.txt',mime:'text/plain',contentBase64:Buffer.from('Final work product').toString('base64'),contactId:s.billing.id},h.owner);
+  await h.json(`/jobs/${s.job.id}/payment-gates`,{deliverableId:final.deliverableId,invoiceId:s.invoice.id,reason:'Payment releases the final work product'},h.owner);
+  const portalToken=new URL(final.portalUrl).pathname.split('/').at(-1),file=()=>h.request(`/api/blotter/portal/${portalToken}/deliverables/${final.id}/file`);
+  assert.equal((await file()).status,200);
   pi.status='processing';pi.payment_method.type='us_bank_account';pi.payment_method.us_bank_account={last4:'6789'};
-  const pending=await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);assert.equal(pending.state,'pending');assert.equal(pending.net_cents,0);
+  const pending=await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);assert.equal(pending.state,'pending');assert.equal(pending.net_cents,0);assert.equal((await file()).status,402);
+  await h.json('/payment-policy',{achUnlock:'pending',holdThresholdCents:null,reason:'Principal permits pending ACH release'},h.owner);assert.equal((await file()).status,200);
   pi.status='requires_payment_method';pi.last_payment_error={code:'debit_not_authorized'};
-  const returned=await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);assert.equal(returned.state,'returned');
+  const returned=await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);assert.equal(returned.state,'returned');assert.equal((await file()).status,402,'A returned ACH relocks the final file');
   const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.unresolved.some(i=>i.kind==='invoice'&&i.owner&&/returned/.test(i.nextAction)&&i.due));
   await h.json(`/invoice-portal/${s.token}/mandates/${mandate.id}/revoke`,{reason:'Client withdrew authorization'});
   const before=edge.calls.length;await h.json(`/invoices/${s.invoice.id}/quick-collect`,{mandateId:mandate.id,requestId:randomUUID()},h.owner,409);assert.equal(edge.calls.length,before);
