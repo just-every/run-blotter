@@ -23,10 +23,10 @@ const provider=async request=>{
  return response;
 };
 const h=await harness({bindings:{STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET:'synthetic-blotter-1'},stripeResponse:provider});
-let browser;
+let browser,lastPage;
 try{
  const s=await paymentFixture(h,1000);browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
- const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),page=await context.newPage();
+ const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}}),page=await context.newPage();lastPage=page;
  await page.goto(h.origin+`/invoice/${s.token}`);await page.getByRole('heading',{name:'Pay this invoice',exact:true}).waitFor();
  await page.getByLabel('Payment amount in USD cents',{exact:true}).fill('100');
  assert.equal(await page.getByRole('button',{name:'Continue to Stripe',exact:true}).isEnabled(),false);
@@ -60,7 +60,7 @@ try{
  const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2030-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,201); // UI journey refunds one additional cent.
  const result={result:'PASS',testMode:true,invoiceId:s.invoice.id,payments:[paid.provider_id,collected.provider_id],card:true,savedMandate:true,quickCollect:true,duplicateChargeRefused:true,partialRefund:true,revocation:true,netCents:799,receipts};
  await writeFile(`${directory}/stripe-sandbox.json`,JSON.stringify(result,null,2));console.log(JSON.stringify(result));
-}finally{
+}catch(error){await lastPage?.screenshot({path:`${directory}/sandbox-failure.png`,fullPage:true}).catch(()=>{});throw error;}finally{
  await browser?.close();await h.close();
  for(const session of objects.sessions)await fetch(`https://api.stripe.com/v1/checkout/sessions/${session}/expire`,{method:'POST',headers:{authorization:`Bearer ${process.env.STRIPE_SECRET_KEY}`,'Stripe-Version':'2026-09-30.endive'}});
  for(const customer of objects.customers)await fetch(`https://api.stripe.com/v1/customers/${customer}`,{method:'DELETE',headers:{authorization:`Bearer ${process.env.STRIPE_SECRET_KEY}`,'Stripe-Version':'2026-09-30.endive'}});
