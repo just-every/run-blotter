@@ -81,6 +81,10 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  await prepare(duplicate,s.reviewer,403);
  const key=await h.json('/keys',{label:'Revenue preparation refusal'},h.owner);
  await prepare(duplicate,'',401,{authorization:'Bearer '+key.key});
+ await h.json('/periods/close',{startDate:'2026-11-02',endDate:'2026-11-08',note:'Principal closed approved revenue source time'},h.owner);
+ const closedTime=await h.json('/timesheets',undefined,h.owner);
+ assert.equal(closedTime.entries.length,3);assert.ok(closedTime.entries.every(e=>e.locked&&e.status==='approved'&&e.decided_by==='reviewer@example.test'));
+ assert.equal(closedTime.periods[0].closed_by,'owner@example.test');
  s.revenueDecisionStart=Date.now();s.revenueWriteStart=Date.now();
  const mails=h.mails.length,charges=edge.calls.filter(c=>c.path==='payment_intents').length;
  const amend=await prepare(amendment),fix=await prepare(duplicate);
@@ -91,11 +95,12 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  await h.json(`/revenue/proposals/${amend.id}/decide`,{decision:'decline',reason:'Discuss the scope with the client first'},h.owner);
  s.revenueDecisions=[{id:amend.id,kind:'amendment',status:'declined',reason:'Discuss the scope with the client first'},{id:fix.id,kind:'duplicate',status:'approved',reason:'Reviewed both and confirmed duplicate'}];
  const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
+ assert.deepEqual(await h.json('/timesheets',undefined,h.owner),closedTime);
  assert.equal(corrected.status,'approved');assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).status,'void');
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).status,'issued');
  await h.json('/invoices/preview',s.duplicateInput,h.owner,409);
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Replay'},h.owner,409);
- map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,42000);
+ map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,52000);
  assert.equal(h.mails.length,mails);assert.equal(edge.calls.filter(c=>c.path==='payment_intents').length,charges);
  const link=await h.json(`/invoices/${s.invoice.id}/payment-link`,{amountCents:10000},h.owner);
  const pi=[...edge.intents.values()].at(-1);pi.payment_method.type='us_bank_account';pi.payment_method.us_bank_account={last4:'6789'};pi.status='processing';
