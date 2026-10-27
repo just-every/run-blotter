@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, Empty, Field, Form, readFile, when, type Row, type Run, ExportLink } from './common';
+import { api, Empty, Field, Form, readFile, when, type Row, type Run, ExportLink, download } from './common';
 
 function Codes({ codes }: { codes: string[] }) {
   if (!codes.length) return null;
@@ -81,6 +81,14 @@ export function Security({ actor, run, tick }: { actor: Row; run: Run; tick: num
       {mine.factors.length > 0 && <button className="quiet" onClick={() => run(async () => setCodes((await api('/mfa/recovery-codes', {})).recoveryCodes), 'New recovery codes; earlier ones no longer work')}>New recovery codes</button>}
     </div>
     {owner && firm && <>
+      <details><summary>Export access log</summary>
+        <p>Recorded successful document downloads by staff, contact portal and document bearers. This is not a complete access history: sign-ins, other reads, failed attempts and activity before recording began are excluded. A bearer does not verify a person.</p>
+        <p>Both dates are UTC calendar dates, inclusive: start at 00:00 UTC on the first date and stop before 00:00 UTC after the last date. Daylight saving changes do not shift these boundaries. Document contents, names, contact details and sealed or erased audit details are excluded.</p>
+        <Form label="Download access log (CSV)" submit={async data => run(() => download('/api/blotter/security/access-log.csv?' + new URLSearchParams({from:data.from,to:data.to})), 'Access log downloaded')}>
+          <div className="row"><Field label="Start date (UTC)" name="from" type="date" /><Field label="End date (UTC, inclusive)" name="to" type="date" /></div>
+        </Form>
+        <p className="muted">Principal only. Confirm your second factor to export; confirmation lasts five minutes in this session. Empty ranges download column headings only. Keep downloaded logs private; Blotter cannot erase your external copy.</p>
+      </details>
       <h3>Practice policy</h3>
       <button onClick={() => run(() => api('/team/mfa-policy', { required: !firm.required }), firm.required ? 'Second factor no longer required' : 'Second factor now required for every staff sign-in')}>
         {firm.required ? 'Stop requiring a second factor' : 'Require a second factor for every staff sign-in'}</button>
