@@ -311,9 +311,11 @@ The native deterministic planner grants one principal-owned live key, one active
 
 ## Status
 
-Judged from the code and tests at commit `254d43d34f4352a40a64c7189e0a58ec6a8a1d11` (27 October 2026).
+Judged from the code and tests at commit `7bc2dbcb01872282b30dd4bb9093cd281460d563` (27 October 2026) for REVENUE-001 and at commit `254d43d34f4352a40a64c7189e0a58ec6a8a1d11` for the identity candidate.
 
-The identity candidate adds atomic native-deactivation fencing and isolated live-journey proof configuration to that source baseline; its exact commit and recorded runs are in the branch handoff. Guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
+That reachable REVENUE-001 proof snapshot contains the production source and all cited revenue assertions, including first-write and replay acknowledgments, and includes the fresh ct fix-round assertions for taxable and voided retainers, nonzero native receipts and attributed preparation and accounting writes. CT judged REVENUE-001 and accepted it as done.
+
+The identity candidate adds atomic native-deactivation fencing and isolated live-journey proof configuration to its source baseline; its exact commit and recorded runs are in the branch handoff. Guarded landing and CT judgment remain required before counting ACCESS-003.
 
 BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgements are retained.
 
