@@ -7,9 +7,13 @@ export async function assertRevenueCustody(h,s,read) {
  let map=await read();
  const finding=map.exceptions.find(e=>e.kind==='amendment'&&e.jobId===s.extra.id);
  const reviewed=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
+ const scopeBefore=await(await h.request(map.scope.source.href,undefined,h.owner)).text();
+ const entitlementsBefore=(await h.json('/invoices',undefined,h.owner)).entitlements;
  const before=await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner),mails=h.mails.length;
  await h.json(`/revenue/proposals/${reviewed.id}/decide`,{decision:'approve',reason:'Reviewed amendment draft; client agreement still required'},h.owner);
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,before.balance_cents);assert.equal(h.mails.length,mails);
+ assert.equal(await(await h.request(map.scope.source.href,undefined,h.owner)).text(),scopeBefore);
+ assert.ok(entitlementsBefore.length>=3);assert.deepEqual((await h.json('/invoices',undefined,h.owner)).entitlements,entitlementsBefore);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-02',minutes:1,description:'Fresh evidence after draft review'},s.prep);map=await read();
  const draft=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-02',minutes:1,description:'Additional context changes the evidence snapshot'},s.prep);
@@ -26,17 +30,33 @@ export async function assertRevenueCustody(h,s,read) {
   await copy.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,copy.owner,409);
   const restored=await(await copy.request('/api/blotter/backup',undefined,copy.owner)).text();
   assert.deepEqual(archivedRevenue(restored),portable);
+  const observedRows=data=>data.trim().split('\n').flatMap(line=>JSON.parse(line).items??[]).filter(i=>i.table==='b_revenue_accounting').map(i=>i.row).sort((a,b)=>a.id.localeCompare(b.id));
+  assert.equal(observedRows(restored).length,3);assert.deepEqual(observedRows(restored),observedRows(archive));
  }finally{await copy.close();}
+ const archiveRows=archive.trim().split('\n').flatMap(line=>JSON.parse(line).items??[]);
+ const observed=archiveRows.filter(item=>item.table==='b_revenue_accounting').map(item=>item.row);
+ assert.equal(observed.length,3);assert.deepEqual(observed.map(o=>JSON.parse(o.facts).receiptCents).sort((a,b)=>a-b),[0,0,10000]);
  const history=await h.json(`/clients/${s.client.id}/history`,undefined,h.owner);
  assert.equal(history.history.filter(e=>e.action==='revenue.approved').length,2);
  assert.equal(history.history.filter(e=>e.action==='revenue.declined').length,2);
+ const expected=[...s.revenueDecisions,{id:reviewed.id,kind:'amendment',status:'approved',reason:'Reviewed amendment draft; client agreement still required'},{id:draft.id,kind:'amendment',status:'declined',reason:'Refresh the evidence first'}];assert.equal(expected.length,4);
+ for(const proposal of expected) {
+  const events=history.history.filter(e=>e.action===`revenue.${proposal.status}`&&JSON.parse(e.detail).proposalId===proposal.id);
+  assert.equal(events.length,1);const event=events[0];
+  assert.equal(event.actor,'owner@example.test');assert.equal(event.object_id,s.client.id);
+  assert.deepEqual(JSON.parse(event.detail),{proposalId:proposal.id,kind:proposal.kind,reason:proposal.reason});
+  const recorded=portable.find(p=>p.id===proposal.id);assert.equal(recorded.decided_by,'owner@example.test');assert.equal(recorded.decision_note,proposal.reason);assert.equal(recorded.status,proposal.status);
+  assert.ok(Date.parse(event.at)>=s.revenueDecisionStart&&Date.parse(event.at)<=Date.now());assert.ok(Math.abs(Date.parse(event.at)-Date.parse(recorded.decided_at))<1000);
+ }
  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
+ assert.ok(preview.retained.some(r=>r.key==='billing_revenue_accounting'&&r.count===3));
  assert.ok(preview.blockers.some(b=>/Open balance/.test(b)));
  assert.ok(preview.erase.some(step=>step.table==='b_revenue_proposals'&&step.count===5));
  const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve revenue review drafts'},h.owner);
  const held=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(!held.erase.some(step=>step.table==='b_revenue_proposals'&&step.count>0));
  await h.json(`/retention/${hold.id}/release`,{reason:'Revenue custody proof complete'},h.owner);
+ await assertRevenueRevocation(h,s,pending,read);
  await h.json(`/files/${s.letter.id}/erase`,{confirm:'scope.txt',reason:'Remove expired synthetic source'},h.owner);
  await h.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,h.owner,404);
 }
@@ -67,4 +87,23 @@ export async function assertRevenueErasure(h) {
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'approve',reason:'Erased drafts cannot execute'},h.owner,404);
  const later=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),copy=await harness();assert.ok(!archivedRevenue(later).some(p=>p.id===draft.id));
  try{await copy.json('/restore',{archive,journal:later,confirm:'RESTORE'},copy.owner,409);}finally{await copy.close();}
+}
+
+async function assertRevenueRevocation(h,s,pending,read) {
+ let r=await h.request('/auth/step-up',{action:'owner:transfer',returnTo:'/app'},h.owner);assert.equal(r.status,202);
+ const proof=h.mails.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)[1];r=await h.request('/auth/confirm',{token:proof},h.owner);assert.equal(r.status,303);
+ const operators=await(await h.request('/auth/operators',undefined,h.owner)).json(),old=operators.find(o=>o.email==='owner@example.test'),next=operators.find(o=>o.email==='reviewer@example.test');
+ assert.equal((await h.request('/auth/operator/role',{operatorId:next.id,role:'owner'},h.owner)).status,200);
+ const snapshot=await read();
+ assert.equal((await h.request('/auth/operator/role',{operatorId:old.id,role:'member'},h.owner)).status,200);
+ for(const decision of ['approve','decline'])assert.ok([401,403].includes((await h.request(`/api/blotter/revenue/proposals/${pending.id}/decide`,{decision,reason:'Former principal has no decision authority'},h.owner)).status));
+ assert.ok([401,403].includes((await h.request('/api/blotter/revenue?clientId='+s.client.id+'&planId='+s.plan.id,undefined,h.owner)).status));
+ assert.ok([401,403].includes((await h.request('/api/blotter/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:snapshot.fingerprint,exceptionId:pending.payload.id},h.owner)).status));
+ const successor=await h.login('reviewer@example.test');
+ const current=(await h.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,successor)).map;
+ assert.equal(current.proposals.find(p=>p.id===pending.id).status,'pending');
+ r=await h.request('/auth/step-up',{action:'owner:transfer',returnTo:'/app'},successor);assert.equal(r.status,202);
+ const restore=h.mails.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)[1];assert.equal((await h.request('/auth/confirm',{token:restore},successor)).status,303);
+ assert.equal((await h.request('/auth/operator/role',{operatorId:old.id,role:'owner'},successor)).status,200);
+ h.owner=await h.login('owner@example.test');
 }

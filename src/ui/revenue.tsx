@@ -3,7 +3,7 @@ import { api, Blotter, Empty, Field, Form, MessageText, money, Status, when, typ
 
 type Citation = { label: string; href: string };
 type Exception = {
-  id: string; kind: 'amendment' | 'duplicate' | 'collection'; summary: string;
+  id: string; kind: 'amendment' | 'duplicate' | 'collection' | 'retainer' | 'accounting'; summary: string;
   amountCents: number; currency: string; ownerEmail: string; nextAction: string;
   citations: Citation[]; draftText: string; canPrepare: boolean; paymentId?: string; canReconcile?: boolean;
 };
@@ -28,7 +28,7 @@ type RevenueState = {
   map?: RevenueMap;
 };
 
-const kindLabel = (kind: string) => kind === 'amendment' ? 'Scope amendment' : kind === 'duplicate' ? 'Possible duplicate' : 'Collection';
+const kindLabel = (kind: string) => kind === 'amendment' ? 'Scope amendment' : kind === 'duplicate' ? 'Possible duplicate' : kind === 'retainer' ? 'Retainer schedule' : kind === 'accounting' ? 'Accounting comparison' : 'Collection';
 
 function EvidenceLinks({ citations }: { citations: Citation[] }) {
   return citations.length > 0 && <ul className="list" aria-label="Evidence">{citations.map((citation, index) => <li key={`${citation.href}:${index}`}><a href={citation.href}>{citation.label}</a></li>)}</ul>;

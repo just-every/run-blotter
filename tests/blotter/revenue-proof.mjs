@@ -22,15 +22,19 @@ export async function revenueFixture(h) {
  const time=await h.json(`/jobs/${extra.id}/time`,{date:'2026-11-02',minutes:90,description:'Correct payroll outside monthly books'},prep);
  await h.json('/timesheets/submit',{weekStart:'2026-11-02'},prep);
  for(const entry of [time,within,overrun])await h.json(`/time/${entry.id}/review`,{decision:'approve'},reviewer);
- const ent=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-42',description:'Monthly books accidentally authorized twice',amountCents:10000,authorization:'Principal recorded duplicate source for correction proof'},h.owner);
- const input={title:'Monthly scope',issueDate:'2026-11-02',jobId:s.job.id,sourceKeys:[ent.sourceKey],contactId:s.billing.id,dueDate:'2026-12-15',terms:'Due on the recorded date',taxCents:0,taxTreatment:'No sales tax under supplied treatment',taxAuthorization:'Principal checked treatment'};
+ const ent=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-42',description:'Monthly books accidentally authorized twice',amountCents:9000,authorization:'Principal recorded duplicate source for correction proof'},h.owner);
+ const input={title:'Monthly scope',issueDate:'2026-11-02',jobId:s.job.id,sourceKeys:[ent.sourceKey],contactId:s.billing.id,dueDate:'2026-12-15',terms:'Due on the recorded date',taxCents:1000,taxTreatment:'No sales tax under supplied treatment',taxAuthorization:'Principal checked treatment'};
  const invoicePreview=await h.json('/invoices/preview',input,h.owner),duplicate=await h.json('/invoices',{...input,previewHash:invoicePreview.previewHash},h.owner);
+ const distinct=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-43',description:'Different agreed work amount',amountCents:12000,authorization:'Separately authorized work'},h.owner);
+ const differentInput={...input,title:'MONTHLY SCOPE',sourceKeys:[distinct.sourceKey],taxCents:0};
+ const differentPreview=await h.json('/invoices/preview',differentInput,h.owner);
+ const different=await h.json('/invoices',{...differentInput,previewHash:differentPreview.previewHash},h.owner);
  const retainer=await h.json('/invoice-retainers',{jobId:s.job.id,title:'Monthly scheduled fee',amountCents:10000,billDay:1,dueDays:14,contactId:s.billing.id,terms:'Monthly agreed payment',taxCents:0,taxTreatment:'Supplied no-tax treatment',taxAuthorization:'Principal checked treatment',authorization:'Accepted monthly signed fee',startMonth:'2026-11'},h.owner);
  const change={effectiveMonth:'2027-01',action:'price',amountCents:12000,taxCents:0,taxTreatment:'Supplied no-tax treatment',taxAuthorization:'Principal checked amended treatment',authorization:'Recorded accepted amended monthly fee',reason:'Accepted additional monthly review'};
  const amendmentPreview=await h.json(`/invoice-retainers/${retainer.id}/amendment-preview`,change,h.owner);
  await h.json(`/invoice-retainers/${retainer.id}/amend`,{...change,previewHash:amendmentPreview.previewHash},h.owner);
  const credit=await h.json('/invoice-credits',{clientId:s.client.id,kind:'credit',reference:'synthetic-blotter-55',amountCents:2500,reason:'Separately authorized client credit'},h.owner);
- return {...s,plan,letter,extra,time,prep,reviewer,duplicate,duplicateInput:input,budgetJob,retainer,credit};
+ return {...s,plan,letter,extra,time,prep,reviewer,duplicate,different,duplicateInput:input,budgetJob,retainer,credit};
 }
 
 export async function assertRevenueFlow(h,edge,s,ui) {
@@ -38,9 +42,29 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  const read=async()=> (await h.json(mapDoor,undefined,h.owner)).map;
  let map=await read();
  assert.equal(map.totals.unbilledCents,42000);
- assert.deepEqual(map.exceptions.map(e=>e.kind).sort(),['amendment','amendment','duplicate']);
+ assert.deepEqual(map.exceptions.filter(e=>e.kind!=='retainer').map(e=>e.kind).sort(),['amendment','amendment','duplicate']);
+ assert.deepEqual(map.exceptions.filter(e=>e.kind==='retainer').map(e=>[e.period,e.expectedCents,e.actualCents]),[['2026-11',10000,0],['2026-12',10000,0],['2027-01',12000,0]]);
  assert.equal(map.exceptions.find(e=>e.jobId===s.budgetJob.id).amountCents,18000);assert.match(map.exceptions.find(e=>e.jobId===s.budgetJob.id).summary,/budget/);assert.ok(!map.exceptions.some(e=>e.kind==='amendment'&&e.jobId===s.job.id));
  assert.equal(JSON.parse(map.retainers[0].definition).amountCents,10000);assert.equal(JSON.parse(map.amendments[0].after_snapshot).amountCents,12000);assert.equal(map.collections.credits[0].id,s.credit.id);
+ // A generated scheduled draft removes only that period's discrepancy.
+ const scheduled=await h.json(`/invoice-retainers/${s.retainer.id}/generate`,{period:'2026-11'},h.owner);
+ let compared=await read();assert.deepEqual(compared.exceptions.filter(e=>e.kind==='retainer').map(e=>[e.period,e.amountCents]),[['2026-12',10000],['2027-01',12000]]);
+ assert.equal(scheduled.total_cents,10000);
+ const change={effectiveMonth:'2027-02',action:'price',amountCents:15000,taxCents:0,taxTreatment:'No supplied tax',taxAuthorization:'Principal checked',authorization:'Accepted further scope amendment',reason:'Accepted extra review'};
+ const preview=await h.json(`/invoice-retainers/${s.retainer.id}/amendment-preview`,change,h.owner);
+ await h.json(`/invoice-retainers/${s.retainer.id}/amend`,{...change,previewHash:preview.previewHash},h.owner);
+ compared=await read();assert.deepEqual(compared.exceptions.filter(e=>e.kind==='retainer').map(e=>[e.period,e.amountCents]),[['2026-12',10000],['2027-01',12000],['2027-02',15000]]);
+ assert.ok(compared.exceptions.find(e=>e.period==='2027-02').citations.some(c=>c.label.includes('Accepted extra review')));
+ // Selecting a genuinely accepted amended scope changes the out-of-scope finding.
+ const quote='Monthly bookkeeping and payroll correction are accepted.';
+ const letter=await h.json(`/clients/${s.client.id}/engagements`,{title:'Accepted amended scope',signers:['Alex Owner'],signedDate:'2026-11-01',file:{name:'amended.txt',mime:'text/plain',contentBase64:Buffer.from(quote).toString('base64')}},h.owner);
+ const extraJob=(await h.json(`/jobs/${s.extra.id}`,undefined,h.owner)).job;
+ const mapped={source:{kind:'engagement',id:letter.id},services:[{kind:'bookkeeping',quote,templateId:map.scope.services[0].template.id,ledger:'qbo'},{kind:'bookkeeping',quote,templateId:extraJob.template_id,ledger:'qbo'}]};
+ const amendedPreview=await h.json(`/clients/${s.client.id}/onboarding/preview`,mapped,h.owner);
+ const accepted=await h.json(`/clients/${s.client.id}/onboarding/plans`,{...mapped,fingerprint:amendedPreview.fingerprint,selectedItemIds:amendedPreview.items.map(i=>i.id),reason:'Principal reviewed accepted amended scope'},h.owner);
+ const amendedMap=(await h.json(`/revenue?clientId=${s.client.id}&planId=${accepted.id}`,undefined,h.owner)).map;
+ assert.ok(!amendedMap.exceptions.some(e=>e.kind==='amendment'&&e.jobId===s.extra.id));assert.ok(amendedMap.exceptions.some(e=>e.kind==='amendment'&&e.jobId===s.budgetJob.id));
+ map=await read();
  const amendment=map.exceptions.find(e=>e.kind==='amendment'&&e.jobId===s.extra.id),duplicate=map.exceptions.find(e=>e.kind==='duplicate');
  assert.equal(amendment.amountCents,18000);assert.match(amendment.draftText,/outside|absent/);assert.match(amendment.draftText,/180.00/);
  assert.deepEqual(map.scope.services.map(s=>s.scope.quote),['Monthly bookkeeping only; payroll services require an amendment.']);
@@ -48,16 +72,19 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.ok(amendment.citations.some(c=>c.label.includes('time:'+s.time.id)));
  assert.deepEqual(duplicate.citations.map(c=>c.href).sort(),[s.invoice.id,s.duplicate.id].map(id=>`/api/blotter/invoices/${id}`).sort());
  for(const c of [...amendment.citations,...duplicate.citations])assert.equal((await h.request(c.href,undefined,h.owner)).status,200);
+ assert.equal(duplicate.invoiceId,s.duplicate.id);assert.ok(!map.exceptions.some(e=>e.kind==='duplicate'&&e.invoiceId===s.different.id));
  const prepare=async(e,who=h.owner,status=200,extra={})=>h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:e.id},who,status,extra);
  await h.json('/revenue',undefined,s.reviewer,403);await h.json(mapDoor,undefined,s.prep,403);await h.json(mapDoor,undefined,'',401);
  await prepare(duplicate,s.reviewer,403);
  const key=await h.json('/keys',{label:'Revenue preparation refusal'},h.owner);
  await prepare(duplicate,'',401,{authorization:'Bearer '+key.key});
+ s.revenueDecisionStart=Date.now();
  const mails=h.mails.length,charges=edge.calls.filter(c=>c.path==='payment_intents').length;
  const amend=await prepare(amendment),fix=await prepare(duplicate);
  assert.equal((await prepare(amendment)).id,amend.id);
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},s.reviewer,403);
  await h.json(`/revenue/proposals/${amend.id}/decide`,{decision:'decline',reason:'Discuss the scope with the client first'},h.owner);
+ s.revenueDecisions=[{id:amend.id,kind:'amendment',status:'declined',reason:'Discuss the scope with the client first'},{id:fix.id,kind:'duplicate',status:'approved',reason:'Reviewed both and confirmed duplicate'}];
  const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
  assert.equal(corrected.status,'approved');assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).status,'void');
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).status,'issued');
@@ -69,6 +96,9 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  const pi=[...edge.intents.values()].at(-1);pi.payment_method.type='us_bank_account';pi.payment_method.us_bank_account={last4:'6789'};pi.status='processing';
  await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);
  map=await read();assert.equal(map.totals.providerNetCents,0);assert.equal(map.totals.openCents,10000);
+ pi.status='synthetic_uncertain';await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);
+ map=await read();const uncertain=map.exceptions.find(e=>e.kind==='collection');
+ assert.equal(uncertain.ownerEmail,'owner@example.test');assert.match(uncertain.nextAction,/no automatic retry/);assert.match(uncertain.nextAction,/2026-12-15/);assert.equal(uncertain.amountCents,10000);assert.equal(map.totals.providerNetCents,0);
  pi.status='succeeded';await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);map=await read();assert.equal(map.totals.openCents,0);assert.equal(map.totals.providerNetCents,10000);
  pi.status='requires_payment_method';pi.last_payment_error={code:'debit_not_authorized'};
  const event={id:'synthetic-blotter-80',type:'payment_intent.payment_failed',data:{object:{id:pi.id}}},timestamp=Math.floor(Date.now()/1000),raw=JSON.stringify(event),sig=createHmac('sha256','synthetic-blotter-1').update(`${timestamp}.${raw}`).digest('hex');
@@ -83,6 +113,20 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.unresolved.some(i=>i.owner==='owner@example.test'&&/returned/.test(i.nextAction)));
  const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2999-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,10000);
+ const accounting={invoiceId:s.invoice.id,currency:'USD',source:'Synthetic firm ledger',reference:'synthetic-blotter-91',grossCents:10000,receiptCents:10000,creditCents:0,writeoffCents:0,reason:'Principal read the ledger collection event'};
+ await h.json('/revenue/accounting',accounting,s.reviewer,403);await h.json('/revenue/accounting',accounting,'',401);
+ await h.json('/revenue/accounting',{...accounting,invoiceId:s.duplicate.id},h.owner,409);
+ const observed=await h.json('/revenue/accounting',accounting,h.owner);assert.equal((await h.json('/revenue/accounting',accounting,h.owner)).id,observed.id);
+ await h.json('/revenue/accounting',{...accounting,receiptCents:0},h.owner,409);
+ map=await read();assert.deepEqual(map.accounting.comparisons.map(c=>c.differences),[['receiptCents']]);
+ assert.deepEqual(map.exceptions.filter(e=>e.kind==='accounting').map(e=>[e.amountCents,e.ownerEmail]),[[10000,'owner@example.test']]);
+ assert.match(map.exceptions.find(e=>e.kind==='accounting').nextAction,/2026-12-15/);
+ await h.json('/revenue/accounting',{...accounting,reference:'synthetic-blotter-93',grossCents:9000,receiptCents:0,creditCents:100,writeoffCents:25},h.owner);
+ map=await read();assert.deepEqual(map.accounting.comparisons.map(c=>c.differences),[['grossCents','creditCents','writeoffCents']]);
+ await h.json('/revenue/accounting',{...accounting,reference:'synthetic-blotter-92',receiptCents:0,reason:'Principal recorded confirmed returned collection'},h.owner);
+ map=await read();assert.deepEqual(map.accounting.comparisons.map(c=>c.differences),[[]]);assert.equal(map.exceptions.filter(e=>e.kind==='accounting').length,0);
+ assert.deepEqual(map.accounting.comparisons[0].native,{grossCents:10000,receiptCents:0,creditCents:0,writeoffCents:0});
+ assert.equal(map.accounting.observations.length,3);assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  if(ui)await ui(h,s);
  return {read,map};
 }

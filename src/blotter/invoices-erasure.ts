@@ -11,6 +11,7 @@ export function invoiceErasureSteps(x: Context): Step[] {
   const client = lit(x.client), at = lit(x.at), invoices = `(SELECT id FROM b_invoices WHERE client_id=${client})`, retainers = `(SELECT id FROM b_invoice_retainers WHERE client_id=${client})`;
   const keep = `(SELECT s.entitlement_id FROM b_invoice_sources s JOIN b_invoices i ON i.id=s.invoice_id WHERE i.number IS NOT NULL AND i.erased_at IS NULL AND s.entitlement_id IS NOT NULL)`;
   const all: Step[] = [
+    { cls: 'billing', table: 'b_revenue_accounting', action: 'redact', label: 'Accounting source references and reasons (amounts and attribution stay)', where: `client_id=${client}`, set: `source='[erased]',reference='erased:'||id,reason='[erased]'` },
     { cls: 'link', table: 'b_payment_mandates', action: 'redact', label: 'Saved payment authorities revoked and method references and wording erased', where: `client_id=${client}`, set: `status='revoked',revoked_at=COALESCE(revoked_at,${at}),method_id=NULL,customer_id=NULL,last4='',authorization='[erased]'` },
     { cls: 'link', table: 'b_payment_events', action: 'delete', label: 'Provider event references and payload digests', where: `payment_id IN (SELECT id FROM b_provider_payments WHERE client_id=${client})` },
     { cls: 'billing', table: 'b_provider_payments', action: 'redact', label: 'Provider customer and checkout references (amounts, outcomes and attribution stay; collection disabled)', where: `client_id=${client}`, set: `customer_id=NULL,session_id=NULL,restored=1` },
@@ -26,12 +27,13 @@ export function invoiceErasureSteps(x: Context): Step[] {
   ];
   // Keep list positions stable: the parent engine applies client/class holds to
   // all steps and compares each with its unheld form when counting the preview.
-  return all.map(s => s.cls === 'link' ? s : { ...s, where: `${s.where} AND ${s.table === 'b_provider_payments' ? `invoice_id IN (SELECT id FROM b_invoices WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : s.table === 'b_invoice_amendments' ? `retainer_id IN (SELECT id FROM b_invoice_retainers WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : `job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"})`}` });
+  return all.map(s => s.cls === 'link' ? s : { ...s, where: `${s.where} AND ${['b_provider_payments','b_revenue_accounting'].includes(s.table) ? `invoice_id IN (SELECT id FROM b_invoices WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : s.table === 'b_invoice_amendments' ? `retainer_id IN (SELECT id FROM b_invoice_retainers WHERE job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"}))` : `job_id NOT IN (${x.held.jobs.map(lit).join(',') || "''"})`}` });
 }
 
 export function invoiceRetainedRows(clientId: string, owner: string) {
   const c = lit(clientId);
   return [
+    { key: 'billing_revenue_accounting', cls: 'billing' as const, label: 'Practitioner-recorded firm accounting observations', reason: 'Accounting amounts and attribution stay with the native invoice.', owner, sql: `SELECT count(*) n FROM b_revenue_accounting WHERE client_id=${c}` },
     { key: 'billing_provider_payments', cls: 'billing' as const, label: 'Provider payment amounts, refunds, returns, disputes and attribution', reason: 'Financial evidence stays with its invoice until confirmed expiry.', owner,
       sql: `SELECT count(*) n FROM b_provider_payments WHERE client_id=${c}` },
     { key: 'billing_payment_observations', cls: 'billing' as const, label: 'Observed payment outcomes, net amounts and fees', reason: 'Payment observations stay with their invoice until confirmed expiry.', owner,
@@ -50,6 +52,7 @@ export async function invoiceClocks(db: D1Database, timeZone: string, years: num
   const result: { kind: 'invoice'; id: string; cls: 'billing'; clientIds: string[]; jobId: string; label: string; clock: string; years: number; expiry: string }[] = [];
   for (const invoice of await rows(db, 'SELECT i.id,i.client_id,i.job_id,i.title,i.issued_at,i.voided_at,c.erased_at client_erased_at FROM b_invoices i JOIN b_clients c ON c.id=i.client_id WHERE i.number IS NOT NULL AND i.erased_at IS NULL')) {
     const events = [invoice.issued_at, invoice.voided_at,
+      ...(await rows(db, 'SELECT recorded_at FROM b_revenue_accounting WHERE invoice_id=?', invoice.id)).map(o=>o.recorded_at),
       ...(await rows(db, 'SELECT c.recorded_at FROM b_invoice_credit_uses u JOIN b_invoice_credits c ON c.id=u.credit_id WHERE u.invoice_id=?', invoice.id)).map(c => c.recorded_at),
       ...(await rows(db, "SELECT at FROM b_audit WHERE object_id=? AND action='invoice.credit_applied'", invoice.id)).map(e => e.at),
       ...(await rows(db, 'SELECT approved_at FROM b_invoice_writeoffs WHERE invoice_id=?', invoice.id)).map(w => w.approved_at),
@@ -66,6 +69,7 @@ export async function invoiceClocks(db: D1Database, timeZone: string, years: num
 export function invoiceExpiryEffects(invoiceId: string, at: string) {
   const r = lit(invoiceId), lines = `(SELECT substr(source_key,6) FROM b_invoice_sources WHERE invoice_id=${r} AND source_key LIKE 'time:%')`, spend = `(SELECT substr(source_key,5) FROM b_invoice_sources WHERE invoice_id=${r} AND source_key LIKE 'exp:%')`;
   return [
+    { table: 'b_revenue_accounting', label: 'Accounting source references and reasons (amounts and attribution stay)', where: `invoice_id=${r}`, set: "source='[erased]',reference='erased:'||id,reason='[erased]'", action: 'redact' as const },
     { table: 'b_payment_mandates', label: 'Saved payment authorities revoked; method references and authorization wording removed', where: `invoice_id=${r}`, set: `status='revoked',revoked_at=COALESCE(revoked_at,${lit(at)}),method_id=NULL,customer_id=NULL,last4='',authorization='[erased]'`, action: 'redact' as const },
     { table: 'b_payment_events', label: 'Provider event references and payload digests', where: `payment_id IN (SELECT id FROM b_provider_payments WHERE invoice_id=${r})`, action: 'delete' as const },
     { table: 'b_provider_payments', label: 'Provider customer and checkout references (financial amounts and outcomes stay; collection disabled)', where: `invoice_id=${r}`, set: `customer_id=NULL,session_id=NULL,restored=1`, action: 'redact' as const },

@@ -7,7 +7,7 @@ export async function revenueJourney(h,s) {
  const directory=process.env.BLOTTER_REVENUE_EVIDENCE;
  if(directory)await mkdir(directory,{recursive:true});
  await h.stepUp(h.owner);
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const browser=await chromium.launch({headless:true,...(process.env.BLOTTER_CHROMIUM?{executablePath:process.env.BLOTTER_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']});
  try {
   const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
   await context.addCookies(h.owner.split('; ').map(cookie=>{const at=cookie.indexOf('=');return {name:cookie.slice(0,at),value:cookie.slice(at+1),url:h.origin};}));
@@ -19,6 +19,8 @@ export async function revenueJourney(h,s) {
   await panel.getByLabel('Signed scope review',{exact:true}).selectOption(s.plan.id);
   await panel.getByText('Returned ACH: Monthly scope',{exact:true}).waitFor();
   await panel.getByText('Source integrity',{exact:true}).click();
+  const {createHash}=await import('node:crypto');const expectedDigest=createHash('sha256').update('Monthly bookkeeping only; payroll services require an amendment.').digest('hex');
+  assert.equal(await panel.locator('code').textContent(),expectedDigest);
   const drafts=panel.locator('section').filter({has:page.getByRole('heading',{name:'Prepared drafts and decisions',exact:true})});
   assert.equal(await drafts.locator('article').count(),2);
   await drafts.getByText('Approved',{exact:true}).waitFor();await drafts.getByText('Declined',{exact:true}).waitFor();

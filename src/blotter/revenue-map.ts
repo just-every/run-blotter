@@ -1,4 +1,6 @@
 // Principal-invoked revenue assistance over native evidence; findings confer no execution authority.
+import { revenueAccounting } from './revenue-accounting';
+import { retainerDefinition } from './invoices-retainers';
 import { signedSource } from './onboarding';
 import { revenueWork } from './billing';
 import { revenueCollections } from './invoices-collections';
@@ -22,6 +24,7 @@ export const revenueStampSql = `WITH target AS (SELECT ? id) SELECT json_array(
  (SELECT json_group_array(json_array(source_key,export_id)) FROM (SELECT s.* FROM b_export_sources s JOIN b_exports e ON e.id=s.export_id,json_each(e.snapshot,'$.lines') l,target WHERE json_extract(l.value,'$.source_key')=s.source_key AND json_extract(l.value,'$.job_id') IN (SELECT id FROM b_jobs WHERE client_id=target.id) ORDER BY s.source_key)),
  (SELECT json_group_array(json_array(id,charge_cents,status,billable)) FROM (SELECT e.* FROM b_expenses e,target WHERE e.client_id=target.id ORDER BY e.id)),
  (SELECT json_group_array(json_array(id,amount_cents)) FROM (SELECT a.* FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id JOIN b_jobs j ON j.id=t.job_id,target WHERE j.client_id=target.id ORDER BY a.id)),
+ (SELECT json_group_array(json_array(id,facts)) FROM (SELECT a.* FROM b_revenue_accounting a,target WHERE a.client_id=target.id ORDER BY a.id)),
  (SELECT json_group_array(json_array(b_clients.id,revision,lifecycle,erased_at,merged_into)) FROM b_clients,target WHERE b_clients.id=target.id)
  )`;
 
@@ -59,7 +62,7 @@ export async function revenueMap(db: D1Database, actor: Actor, clientId: string,
   }
   const groups = new Map<string, Data[]>();
   for (const i of invoices) {
-    const key = JSON.stringify([i.job_id,i.title.trim().toLowerCase(),i.currency,i.subtotal_cents,i.tax_cents]);
+    const key = JSON.stringify([i.job_id,i.title.trim().toLowerCase(),i.currency,i.total_cents]);
     groups.set(key,[...(groups.get(key)??[]),i]);
   }
   for (const group of groups.values()) for (const duplicate of group.slice(1)) {
@@ -71,11 +74,24 @@ export async function revenueMap(db: D1Database, actor: Actor, clientId: string,
       draftText:`Suspected duplicate of ${original.id}: same work item, title, currency and gross amount. Distinct source entitlements do not establish distinct work. Principal review must confirm duplication.${duplicate.status==='draft'?' Approving this correction voids only the identified draft and retains its billing-source reservations to prevent rebilling.':' No issued invoice is changed by this finding.'}`,canPrepare:duplicate.status==='draft' });
   }
   exceptions.push(...collections.exceptions);
-  const retainers=await rows(db,'SELECT id,title,status,start_month,definition,revision FROM b_invoice_retainers WHERE client_id=? ORDER BY id',clientId);
+  const retainers=await rows(db,'SELECT * FROM b_invoice_retainers WHERE client_id=? ORDER BY id',clientId);
   const amendments=await rows(db,'SELECT a.id,a.retainer_id,a.effective_month,a.before_snapshot,a.after_snapshot,a.reason FROM b_invoice_amendments a JOIN b_invoice_retainers r ON r.id=a.retainer_id WHERE r.client_id=? ORDER BY a.id',clientId);
+  for(const r of retainers) {
+    const periods=new Set([r.start_month,...jobs.map(j=>j.period_start.slice(0,7)),...amendments.filter(a=>a.retainer_id===r.id).map(a=>a.effective_month)]);
+    for(const period of [...periods].sort()) {
+      if(r.status!=='active'||period<r.start_month||(r.cancelled_from&&period>=r.cancelled_from))continue;
+      const expected=await retainerDefinition(db,r,period);
+      const generated=await rows(db,"SELECT id,total_cents FROM b_invoices WHERE retainer_id=? AND period=? AND status<>'void' AND erased_at IS NULL",r.id,period);
+      const actual=generated.reduce((n,i)=>n+i.total_cents,0),expectedCents=expected.amountCents+expected.taxCents;
+      if(actual!==expectedCents)exceptions.push({id:`retainer:${r.id}:${period}`,kind:'retainer',jobId:r.job_id,period,retainerId:r.id,expectedCents,actualCents:actual,amountCents:expectedCents-actual,currency:'USD',ownerEmail:r.owner_email,
+        summary:`Retainer schedule discrepancy: ${r.title} (${period})`,nextAction:'Review the accepted fee and billing calendar; generate a draft only through the separately authorized retainer door',
+        citations:[{label:`Retainer ${r.title}: ${period}; expected ${expectedCents} USD cents; recorded ${actual}`,href:'/api/blotter/invoices'},...amendments.filter(a=>a.retainer_id===r.id&&a.effective_month<=period).map(a=>({label:`Accepted amendment ${a.id}: ${a.reason}`,href:'/api/blotter/invoices'}))],canPrepare:false,draftText:''});
+    }
+  }
+  const accounting=await revenueAccounting(db,clientId);exceptions.push(...accounting.exceptions);
   const stamp=(await stmt(db,revenueStampSql,clientId).first<Data>())!;
   const stampValue=String(Object.values(stamp)[0]);
-  const evidence={clientId,planId,scope:{source:plan.source,services:plan.services},exceptions,lines,retainers,amendments,collections,stamp:stampValue,authorityRevision:authority.revision};
+  const evidence={clientId,planId,scope:{source:plan.source,services:plan.services},exceptions,lines,retainers,amendments,collections,accounting,stamp:stampValue,authorityRevision:authority.revision};
   const fingerprint=await digest(JSON.stringify(evidence));
   return {...evidence,fingerprint,totals:{unbilledCents:lines.filter(l=>l.currency==='USD').reduce((n,l)=>n+l.amount_cents,0),...collections.totals},
     proposals:(await rows(db,'SELECT * FROM b_revenue_proposals WHERE client_id=? ORDER BY created_at,id',clientId)).map(p=>({...p,payload:JSON.parse(p.payload)}))};

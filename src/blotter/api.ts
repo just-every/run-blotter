@@ -77,6 +77,7 @@ import { decideSuggestion, setConsent, suggestions } from './suggestions';
 import { commitReassign, commitSchedule, previewReassign, previewSchedule } from './bulk';
 import { adjustEntry, closePeriod, correctEntry, entryHistory, reviewEntry, submitWeek, timesheets } from './timesheets';
 import { agentContext, decideProposal, propose, prepareRevenue, decideRevenue } from './proposals';
+import { recordRevenueAccounting, revenueAccountingState } from './revenue-accounting';
 import { revenueState } from './revenue-map';
 import { importAction, importState } from './imports';
 import { backup, eraseFile, restore } from './archive';
@@ -466,6 +467,8 @@ api.get(`${P}/engagements/:id/file`, as((a, c) => downloadEngagement(db(c), a, p
 api.post(`${P}/clients/:id/retained-records`, as(async (a, c) => retainedRecords(db(c), a, vaultSite(c), param(c), await body(c))));
 api.get(`${P}/erasures/:id`, as((a, c) => erasureReceipt(db(c), a, param(c))));
 api.get(`${P}/erasure-journal`, as((a, c) => erasureJournal(db(c), a)));
+api.get(`${P}/revenue/accounting`, as((a,c)=>revenueAccountingState(db(c),a,c.req.query())));
+api.post(`${P}/revenue/accounting`, as(async(a,c)=>recordRevenueAccounting(db(c),a,await body(c))));
 api.get(`${P}/revenue`, as((a,c)=>revenueState(db(c),a,c.req.query())));
 api.post(`${P}/revenue/proposals`, as(async(a,c)=>prepareRevenue(db(c),a,await body(c))));
 api.post(`${P}/revenue/proposals/:id/decide`, as(async(a,c)=>decideRevenue(db(c),a,param(c),await body(c))));
