@@ -12,7 +12,7 @@ export async function saveMember(db: D1Database, actor: Actor, body: Data) {
   const active = body.active === false || body.active === 'false' ? 0 : 1;
   await atomic(db, actor, [
     stmt(db, 'INSERT INTO b_members(email,name,role,active) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET name=excluded.name,role=excluded.role,active=excluded.active', address, name, body.role, active),
-    ...(active ? [] : deactivation(db, address)),
+    ...(active ? [stmt(db,'UPDATE b_enterprise_identities SET active=1,blocked=0 WHERE email=?',address)] : deactivation(db, address)),
     stmt(db,'INSERT OR IGNORE INTO b_access_members(email) SELECT ? WHERE EXISTS(SELECT 1 FROM b_access_policy WHERE id=1)',address),
     audit(db, actor, active ? 'member.saved' : 'member.deactivated', address, body.role),
   ]);

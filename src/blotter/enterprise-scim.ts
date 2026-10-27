@@ -47,7 +47,7 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
       }
       if(request.method==='DELETE')attributes.active=false;
       insist(attributes.userName===undefined||String(attributes.userName).toLowerCase()===target.email,'Provisioning cannot reassign an identity',403);
-      const active=attributes.active;insist(typeof active==='boolean','Active must be a boolean');
+      const active=attributes.active;insist(typeof active==='boolean','Active must be a boolean');insist(!active||!target.blocked,'The principal disabled this member; only the principal can reactivate them',403);
       const external=attributes.externalId===undefined?target.external_id:text(attributes.externalId,'External identity reference',255);
       insist(!target.external_id||external===target.external_id,'Provisioning cannot reassign an external identity',403);
       const display=attributes.displayName===undefined?target.display_name:text(attributes.displayName,'Display name',100);

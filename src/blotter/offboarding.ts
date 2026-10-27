@@ -126,6 +126,8 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
 /** Deactivating a member revokes every session and agent key they hold; reactivation needs a new sign-in and new keys. */
 export function deactivation(db: D1Database, address: string) {
   return [
+    stmt(db,'UPDATE b_enterprise_identities SET active=0,blocked=1 WHERE email=?',address),
+    stmt(db,'DELETE FROM b_enterprise_group_members WHERE identity_id IN(SELECT id FROM b_enterprise_identities WHERE email=?)',address),
     stmt(db, 'UPDATE b_members SET active=0 WHERE email=?', address),
     stmt(db, 'UPDATE oa_sessions SET revoked_at=? WHERE revoked_at IS NULL AND operator_id IN (SELECT id FROM oa_operators WHERE email=?)', Date.now(), address),
     stmt(db, 'UPDATE b_agent_keys SET revoked=1 WHERE revoked=0 AND owner_id IN (SELECT id FROM oa_operators WHERE email=?)', address),

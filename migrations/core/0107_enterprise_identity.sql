@@ -1,6 +1,6 @@
 -- Enterprise policy is optional; the principal always retains native recovery.
 CREATE TABLE b_enterprise_connection(id INTEGER PRIMARY KEY CHECK(id=1),tenant TEXT NOT NULL,required INTEGER NOT NULL CHECK(required IN(0,1)),require_mfa INTEGER NOT NULL CHECK(require_mfa IN(0,1)),active INTEGER NOT NULL CHECK(active IN(0,1)),revision INTEGER NOT NULL DEFAULT 1,principal_id TEXT,token_digest TEXT);
-CREATE TABLE b_enterprise_identities(id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,subject TEXT NOT NULL UNIQUE,external_id TEXT UNIQUE,display_name TEXT NOT NULL DEFAULT '',active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1)));
+CREATE TABLE b_enterprise_identities(id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,subject TEXT NOT NULL UNIQUE,external_id TEXT UNIQUE,display_name TEXT NOT NULL DEFAULT '',blocked INTEGER NOT NULL DEFAULT 0 CHECK(blocked IN(0,1)),active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1)));
 CREATE TABLE b_enterprise_groups(id TEXT PRIMARY KEY,display_name TEXT NOT NULL);
 CREATE TABLE b_enterprise_group_members(group_id TEXT NOT NULL REFERENCES b_enterprise_groups(id) ON DELETE CASCADE,identity_id TEXT NOT NULL REFERENCES b_enterprise_identities(id) ON DELETE CASCADE,PRIMARY KEY(group_id,identity_id));
 CREATE TABLE b_enterprise_mappings(group_id TEXT PRIMARY KEY,role TEXT NOT NULL CHECK(role IN('preparer','reviewer')),team_id TEXT REFERENCES b_access_teams(id));
