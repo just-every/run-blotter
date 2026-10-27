@@ -13,7 +13,9 @@ for(const args of [['run','build'],['exec','rer','queue','test:blotter','--','no
 const bindings=Object.fromEntries(['ENTRA_TENANT_ID','ENTRA_CLIENT_ID','ENTRA_CLIENT_SECRET'].map(name=>{assert.ok(process.env[name],name+' is required');return [name,process.env[name]];}));
 bindings.ENTRA_TRANSACTION_SECRET=randomBytes(32).toString('hex');
 const operations=[];
-const h=await harness({bindings,identityResponse:async request=>{const response=await fetch(request.url,{method:request.method,headers:request.headers,...(request.method==='POST'?{body:await request.text()}:{}),redirect:'manual',signal:AbortSignal.timeout(10000)});operations.push({operation:new URL(request.url).hostname==='graph.microsoft.com'?'tenant-directory':'client-credentials',status:response.status,requestId:response.headers.get('request-id')??response.headers.get('x-ms-request-id')});return response;}});
+const h=await harness({bindings,identityResponse:async request=>{const headers=Object.fromEntries(request.headers);for(const name of ['host','content-length','transfer-encoding'])delete headers[name];
+ const response=await fetch(request.url,{method:request.method,headers,...(request.method==='POST'?{body:await request.text()}:{}),redirect:'manual',signal:AbortSignal.timeout(10000)});
+ if(!response.ok){const error=await response.clone().json().catch(()=>({}));console.log(JSON.stringify({operation:'provider-refusal',status:response.status,error:typeof error.error==='string'&&/^[a-z_]+$/.test(error.error)?error.error:null,codes:error.error_codes?.filter(Number.isInteger)}));}operations.push({operation:new URL(request.url).hostname==='graph.microsoft.com'?'tenant-directory':'client-credentials',status:response.status,requestId:response.headers.get('request-id')??response.headers.get('x-ms-request-id')});return response;}});
 try{
  const connected=await h.json('/enterprise',{required:true,requireMfa:true,reason:'Authorized sandbox connection proof'},h.owner);
  assert.equal(connected.connection.active,1);assert.equal(connected.connection.tenant,bindings.ENTRA_TENANT_ID);
