@@ -92,6 +92,8 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  await assertRevenueAudit(h,s.client.id,'revenue.prepared',{proposalId:amend.id,kind:'amendment',sourceId:s.letter.id},s.revenueWriteStart);
  await assertRevenueAudit(h,s.client.id,'revenue.prepared',{proposalId:fix.id,kind:'duplicate',sourceId:s.letter.id},s.revenueWriteStart);
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},s.reviewer,403);
+ for(const decision of ['approve','decline'])await h.json(`/revenue/proposals/${fix.id}/decide`,{decision,reason:'Non-principal correction refused'},s.reviewer,403);
+ await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Agent correction refused'},'',401,{authorization:'Bearer '+key.key});
  await h.json(`/revenue/proposals/${amend.id}/decide`,{decision:'decline',reason:'Discuss the scope with the client first'},h.owner);
  s.revenueDecisions=[{id:amend.id,kind:'amendment',status:'declined',reason:'Discuss the scope with the client first'},{id:fix.id,kind:'duplicate',status:'approved',reason:'Reviewed both and confirmed duplicate'}];
  const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
@@ -132,6 +134,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.unresolved.some(i=>i.owner==='owner@example.test'&&/returned/.test(i.nextAction)));
  const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2999-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,10000);
+ s.accountingInput=accounting;
  await h.json('/revenue/accounting',{...accounting,receiptCents:0},h.owner,409);
  map=await read();assert.deepEqual(map.accounting.comparisons.map(c=>c.differences),[['receiptCents']]);
  assert.deepEqual(map.exceptions.filter(e=>e.kind==='accounting').map(e=>[e.amountCents,e.ownerEmail]),[[10000,'owner@example.test']]);
@@ -161,6 +164,8 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.ok(issuedFinding);assert.equal(issuedFinding.canPrepare,false);assert.equal(issuedFinding.amountCents,10000);
  await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:issuedFinding.id},h.owner,409);
  assert.equal((await h.json(`/invoices/${issued.id}`,undefined,h.owner)).status,'issued');
+ assert.match(issuedFinding.nextAction,/separate explicit financial approval/);
+ assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  return {read,map};
 }
 

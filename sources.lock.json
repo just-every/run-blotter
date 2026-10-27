@@ -1856,7 +1856,7 @@
       "executable": false
     },
     "src/blotter/revenue-accounting.ts": {
-      "sha256": "a361a5743333186133b6478c21661c2f8ff9019a737094e6c94bc7c4402b06fe",
+      "sha256": "49c5d317b587e5a8cde7e8fe9a1bceef0fc46899807364b75fda0c8724542ea3",
       "executable": false
     },
     "src/blotter/revenue-map.ts": {
@@ -4536,11 +4536,11 @@
       "executable": false
     },
     "tests/blotter/revenue-custody.mjs": {
-      "sha256": "721375b4d59145664c9ac32f351b25080e7c7a46ccb28ad6cee40b646a88646c",
+      "sha256": "09098b000b07031b1448842115f13bf173ae22e9f9003b0a67865eca845b8cb2",
       "executable": false
     },
     "tests/blotter/revenue-proof.mjs": {
-      "sha256": "9c7afd265b61dc0de1c9a19161f9e4d01af368fb29fb5b4c206fb881c6019fb9",
+      "sha256": "b87afe1f537d867d07cf1ec9a5bf09d0c03a777998c9073c9fdece0fb8c068cb",
       "executable": false
     },
     "tests/blotter/revenue-ui.mjs": {
