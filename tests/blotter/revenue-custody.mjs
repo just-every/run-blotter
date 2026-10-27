@@ -79,19 +79,28 @@ export async function assertRevenueErasure(h) {
  const draft=await h.json('/revenue/proposals',{clientId:client.id,planId:plan.id,fingerprint:map.fingerprint,exceptionId:map.exceptions[0].id},h.owner);
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'decline',reason:'Principal declined amendment'},h.owner);
  const contact=await h.json(`/clients/${client.id}/contacts`,{name:'Synthetic billing contact',email:'synthetic@example.test',roles:['billing'],authorized:true,emailConsent:true,consentNote:'Explicit test invoice authority'},h.owner);
- const entitlement=await h.json('/invoice-entitlements',{jobId:j.id,kind:'milestone',reference:'synthetic-blotter-95',description:'Sourced one-cent correction',amountCents:1,authorization:'Explicit principal authority'},h.owner);
+ const entitlement=await h.json('/invoice-entitlements',{jobId:j.id,kind:'milestone',reference:'synthetic-blotter-95',description:'Sourced approved correction',amountCents:10000,authorization:'Explicit principal authority'},h.owner);
  const input={jobId:j.id,title:'Synthetic accounting erasure',issueDate:'2026-11-02',dueDate:'2026-12-15',contactId:contact.id,sourceKeys:[entitlement.sourceKey],terms:'Explicit invoice authority',taxCents:0,taxTreatment:'No supplied tax',taxAuthorization:'Principal reviewed'};
  const invoicePreview=await h.json('/invoices/preview',input,h.owner),invoice=await h.json('/invoices',{...input,previewHash:invoicePreview.previewHash},h.owner);
  await h.json(`/invoices/${invoice.id}/issue`,{revision:invoice.revision,snapshotHash:invoice.snapshotHash,reviewNote:'Explicit principal invoice approval'},h.owner);
- await h.json(`/invoices/${invoice.id}/write-off`,{amountCents:1,reason:'Explicit principal approval for the erasure fixture'},h.owner);
- const facts={invoiceId:invoice.id,currency:'USD',source:'Synthetic erasure ledger',reference:'synthetic-blotter-96',grossCents:1,receiptCents:0,creditCents:0,writeoffCents:1,reason:'Practitioner-recorded ledger match'};
+ const credit=await h.json('/invoice-credits',{clientId:client.id,kind:'credit',reference:'synthetic-blotter-97',amountCents:2500,reason:'Explicit principal credit approval'},h.owner);
+ await h.json(`/invoices/${invoice.id}/credits`,{creditId:credit.id,amountCents:2500,reason:'Principal applied the separately approved credit'},h.owner);
+ await h.json(`/invoices/${invoice.id}/write-off`,{amountCents:7500,reason:'Explicit principal approval for the erasure fixture'},h.owner);
+ const facts={invoiceId:invoice.id,currency:'USD',source:'Synthetic erasure ledger',reference:'synthetic-blotter-96',grossCents:10000,receiptCents:0,creditCents:2500,writeoffCents:7500,reason:'Practitioner-recorded ledger match'};
  const observation=await h.json('/revenue/accounting',facts,h.owner);
+ const reconciled=(await h.json(`/revenue?clientId=${client.id}&planId=${plan.id}`,undefined,h.owner)).map;
+ assert.deepEqual(reconciled.accounting.comparisons,[{observationId:observation.id,invoiceId:invoice.id,recorded:{grossCents:10000,receiptCents:0,creditCents:2500,writeoffCents:7500},native:{grossCents:10000,receiptCents:0,creditCents:2500,writeoffCents:7500},differences:[]}]);
+ assert.deepEqual(reconciled.totals,{unbilledCents:5000,providerNetCents:0,openCents:0,creditCents:2500,writtenOffCents:7500});
+ await h.json(`/revenue?clientId=${client.id}&planId=synthetic-blotter-absent`,undefined,h.owner,409);
  const accountingHold=await h.json(`/clients/${client.id}/retention`,{scope:'class',class:'billing',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve accounting evidence'},h.owner);
  const holdPreview=await h.json(`/clients/${client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(!holdPreview.erase.some(s=>s.table==='b_revenue_accounting'&&s.count>0));
  await h.json(`/retention/${accountingHold.id}/release`,{reason:'Accounting hold proof complete'},h.owner);
  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
  await h.json(`/clients/${client.id}/lifecycle`,{lifecycle:'archived',revision:(await h.json(`/clients/${client.id}/detail`,undefined,h.owner)).revision},h.owner);
+ // Archived clients cannot acquire accounting authority, including exact replay.
+ await h.json('/revenue/accounting',facts,h.owner,409);
+ await h.json('/revenue/accounting',{...facts,reference:'synthetic-blotter-98'},h.owner,409);
  const preview=await h.json(`/clients/${client.id}/erasure/preview`,undefined,h.owner);
  assert.deepEqual(preview.blockers,[]);assert.ok(preview.erase.some(s=>s.table==='b_revenue_proposals'&&s.count===1));
  const receipt=await h.json(`/clients/${client.id}/erasure`,{planHash:preview.planHash,confirm:name,reason:'Erase derived revenue drafts'},h.owner);
@@ -100,7 +109,7 @@ export async function assertRevenueErasure(h) {
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'approve',reason:'Erased drafts cannot execute'},h.owner,404);
  const later=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),copy=await harness();
  const retained=later.trim().split('\n').flatMap(line=>JSON.parse(line).items??[]).find(i=>i.table==='b_revenue_accounting'&&i.row.id===observation.id).row;
- assert.equal(retained.source,'[erased]');assert.equal(retained.reason,'[erased]');assert.equal(retained.reference,'erased:'+observation.id);assert.deepEqual(JSON.parse(retained.facts),{grossCents:1,receiptCents:0,creditCents:0,writeoffCents:1});assert.equal(retained.recorded_by,'owner@example.test');assert.ok(!archivedRevenue(later).some(p=>p.id===draft.id));
+ assert.equal(retained.source,'[erased]');assert.equal(retained.reason,'[erased]');assert.equal(retained.reference,'erased:'+observation.id);assert.deepEqual(JSON.parse(retained.facts),{grossCents:10000,receiptCents:0,creditCents:2500,writeoffCents:7500});assert.equal(retained.recorded_by,'owner@example.test');assert.ok(!archivedRevenue(later).some(p=>p.id===draft.id));
  try{await copy.json('/restore',{archive,journal:later,confirm:'RESTORE'},copy.owner,409);}finally{await copy.close();}
 }
 
@@ -114,6 +123,8 @@ async function assertRevenueRevocation(h,s,pending,read) {
  for(const decision of ['approve','decline'])assert.ok([401,403].includes((await h.request(`/api/blotter/revenue/proposals/${pending.id}/decide`,{decision,reason:'Former principal has no decision authority'},h.owner)).status));
  assert.ok([401,403].includes((await h.request('/api/blotter/revenue?clientId='+s.client.id+'&planId='+s.plan.id,undefined,h.owner)).status));
  assert.ok([401,403].includes((await h.request('/api/blotter/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:snapshot.fingerprint,exceptionId:pending.payload.id},h.owner)).status));
+ assert.ok([401,403].includes((await h.request('/api/blotter/revenue/accounting?clientId='+s.client.id,undefined,h.owner)).status));
+ assert.ok([401,403].includes((await h.request('/api/blotter/revenue/accounting',s.accountingInput,h.owner)).status));
  const successor=await h.login('reviewer@example.test');
  const current=(await h.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,successor)).map;
  assert.equal(current.proposals.find(p=>p.id===pending.id).status,'pending');
