@@ -607,6 +607,10 @@
       "sha256": "9a2eb30892b21d7ba581c091b1a7ff14aa374f4c720f4c8c4232e65b017f037b",
       "executable": false
     },
+    "migrations/core/0108_portal_packet_uploads.sql": {
+      "sha256": "6cbd5b0ec0103d90a1f6861ee717efe204f388bd9cf6bcb3763585ae56ece570",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "0c6494a4aba09099ce7b2fc37b145c3e917dad82ee47934b6a6205d37a454632",
       "executable": false
@@ -1244,7 +1248,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "5bd1ce532705cebd2f5e5eb361daf3e49550685c6106e5476e0163029e198c14",
+      "sha256": "765bbd45a9ca171e5459fa4919fb9ab5a410f8342d118dc620424ecfa169f052",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1404,7 +1408,7 @@
       "executable": false
     },
     "src/blotter/document-packets.ts": {
-      "sha256": "f4521259a23ae6307b2d3f8397ab0c7a5493da8cfb57602f128ace0183f65b69",
+      "sha256": "e1d339550eb38b215fa86290522a7dd607a5ca60c1d3e2c7fea29fa25909db38",
       "executable": false
     },
     "src/blotter/document-related.ts": {
@@ -1785,6 +1789,10 @@
     },
     "src/blotter/portal-items.ts": {
       "sha256": "da9dc6136b2c5ba5ccf62fd336b73180b3953feaac7db878548e01cb7bb354c1",
+      "executable": false
+    },
+    "src/blotter/portal-packet-uploads.ts": {
+      "sha256": "b9e63870c88387f580283c2697313b6a75b3b3dd3420ba0449b2473b570acfd5",
       "executable": false
     },
     "src/blotter/portal-session.ts": {
