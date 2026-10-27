@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {harness} from './harness.mjs';
+import {assertRevenueAudit} from './revenue-proof.mjs';
 
 const archivedRevenue=archive=>archive.trim().split('\n').map(line=>JSON.parse(line)).flatMap(part=>part.items??[]).filter(item=>item.table==='b_revenue_proposals').map(item=>item.row).sort((a,b)=>a.id.localeCompare(b.id));
 
@@ -21,6 +22,8 @@ export async function assertRevenueCustody(h,s,read) {
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'decline',reason:'Refresh the evidence first'},h.owner);
  map=await read();
  const pending=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
+ for(const proposal of [reviewed,draft,pending])await assertRevenueAudit(h,s.client.id,'revenue.prepared',{proposalId:proposal.id,kind:'amendment',sourceId:s.letter.id},s.revenueWriteStart);
+ assert.equal((await h.json(`/clients/${s.client.id}/history`,undefined,h.owner)).history.filter(e=>e.action==='revenue.prepared').length,5);
  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
  const portable=archivedRevenue(archive);assert.equal(portable.length,5);assert.equal(portable.find(p=>p.id===pending.id).status,'held');assert.equal(portable.find(p=>p.id===reviewed.id).status,'approved');assert.ok(portable.some(p=>p.decision_note==='Reviewed both and confirmed duplicate'));
  const copy=await harness();
