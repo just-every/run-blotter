@@ -65,6 +65,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     AND NOT (r.source_kind='document' AND r.source_id IN ${s.HF}))`;
   const integrationFamily=integrationFamilySql(s.c);
   const all: Step[] = [
+    {cls:'derived_ai',table:'b_revenue_proposals',action:'delete',label:'Revenue findings and amendment drafts',where:`client_id=${s.c} AND job_id IN ${s.JE}`},
     {cls:'link',table:'b_integration_deliveries',action:'redact',label:'Pending integration deliveries cancelled as record_erased',where:`client_id IN ${integrationFamily} AND status IN ('pending','dispatching','held','failed')`,set:`status='record_erased',outcome='record_erased',next_action='Never replay erased records'`},
     {cls:'link',table:'b_integration_keys',action:'redact',label:'Integration keys suspended when no client scope will remain',where:`status='active' AND id IN (SELECT key_id FROM b_integration_clients WHERE client_id IN ${integrationFamily}) AND NOT EXISTS(SELECT 1 FROM b_integration_clients other WHERE other.key_id=b_integration_keys.id AND other.client_id NOT IN ${integrationFamily})`,set:`status='suspended'`},
     {cls:'link',table:'b_integration_clients',action:'delete',label:'Integration key client scopes removed',where:`client_id IN ${integrationFamily}`},

@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import {createHmac} from 'node:crypto';
+import {paymentFixture} from './payment-fixture.mjs';
+
+export async function revenueFixture(h) {
+ const s=await paymentFixture(h,10000);
+ const quote='Monthly bookkeeping only; payroll services require an amendment.';
+ const letter=await h.json(`/clients/${s.client.id}/engagements`,{title:'Accepted monthly scope',signers:['Alex Owner'],signedDate:'2026-10-01',file:{name:'scope.txt',mime:'text/plain',contentBase64:Buffer.from(quote).toString('base64')}},h.owner);
+ const mapped={source:{kind:'engagement',id:letter.id},services:[{kind:'bookkeeping',quote,templateId:(await h.json(`/jobs/${s.job.id}`,undefined,h.owner)).job.template_id,ledger:'qbo'}]};
+ const preview=await h.json(`/clients/${s.client.id}/onboarding/preview`,mapped,h.owner);
+ const plan=await h.json(`/clients/${s.client.id}/onboarding/plans`,{...mapped,fingerprint:preview.fingerprint,selectedItemIds:preview.items.map(i=>i.id),reason:'Principal checked the signed scope'},h.owner);
+ const extraTemplate=await h.json('/templates',{name:'Payroll correction',recurrence:'monthly',steps:'Review payroll',requests:'Payroll report',feeCents:0,currency:'USD'},h.owner);
+ const extra=await h.json('/jobs',{clientId:s.client.id,templateId:extraTemplate.id,periodStart:'2026-11-01',dueDate:'2026-12-15',dueNote:'Client requested payroll correction',preparerEmail:'preparer@example.test',reviewerEmail:'reviewer@example.test'},h.owner);
+ await h.json('/team/rates',{email:'preparer@example.test',rateCents:12000,effectiveFrom:'2026-01-01'},h.owner);
+ for(const address of ['preparer@example.test','reviewer@example.test'])await h.json('/team/invite',{email:address},h.owner);
+ const prep=await h.login('preparer@example.test'),reviewer=await h.login('reviewer@example.test');
+ const time=await h.json(`/jobs/${extra.id}/time`,{date:'2026-11-02',minutes:90,description:'Correct payroll outside monthly books'},prep);
+ await h.json('/timesheets/submit',{weekStart:'2026-11-02'},prep);
+ await h.json(`/time/${time.id}/review`,{decision:'approve'},reviewer);
+ const ent=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-42',description:'Monthly books accidentally authorized twice',amountCents:10000,authorization:'Principal recorded duplicate source for correction proof'},h.owner);
+ const input={title:'Monthly scope',issueDate:'2026-11-02',jobId:s.job.id,sourceKeys:[ent.sourceKey],contactId:s.billing.id,dueDate:'2026-12-15',terms:'Due on the recorded date',taxCents:0,taxTreatment:'No sales tax under supplied treatment',taxAuthorization:'Principal checked treatment'};
+ const invoicePreview=await h.json('/invoices/preview',input,h.owner),duplicate=await h.json('/invoices',{...input,previewHash:invoicePreview.previewHash},h.owner);
+ return {...s,plan,letter,extra,time,prep,reviewer,duplicate};
+}
+
+export async function assertRevenueFlow(h,edge,s,ui) {
+ const mapDoor=`/revenue?${new URLSearchParams({clientId:s.client.id,planId:s.plan.id})}`;
+ const read=async()=> (await h.json(mapDoor,undefined,h.owner)).map;
+ let map=await read();
+ assert.equal(map.totals.unbilledCents,18000);
+ assert.deepEqual(map.exceptions.map(e=>e.kind).sort(),['amendment','duplicate']);
+ const amendment=map.exceptions.find(e=>e.kind==='amendment'),duplicate=map.exceptions.find(e=>e.kind==='duplicate');
+ assert.equal(amendment.amountCents,18000);assert.match(amendment.draftText,/outside|absent/);assert.match(amendment.draftText,/180.00/);
+ assert.deepEqual(map.scope.services.map(s=>s.scope.quote),['Monthly bookkeeping only; payroll services require an amendment.']);
+ assert.equal(map.scope.source.id,s.letter.id);assert.match(map.scope.source.label,/practitioner-recorded/);
+ assert.ok(amendment.citations.some(c=>c.label.includes('time:'+s.time.id)));
+ assert.deepEqual(duplicate.citations.map(c=>c.href).sort(),[s.invoice.id,s.duplicate.id].map(id=>`/api/blotter/invoices/${id}`).sort());
+ for(const c of [...amendment.citations,...duplicate.citations])assert.equal((await h.request(c.href,undefined,h.owner)).status,200);
+ const prepare=async(e,who=h.owner,status=200,extra={})=>h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:e.id},who,status,extra);
+ await h.json('/revenue',undefined,s.reviewer,403);await h.json(mapDoor,undefined,s.prep,403);await h.json(mapDoor,undefined,'',401);
+ await prepare(duplicate,s.reviewer,403);
+ const key=await h.json('/keys',{label:'Revenue preparation refusal'},h.owner);
+ await prepare(duplicate,'',401,{authorization:'Bearer '+key.key});
+ const mails=h.mails.length,charges=edge.calls.filter(c=>c.path==='payment_intents').length;
+ const amend=await prepare(amendment),fix=await prepare(duplicate);
+ assert.equal((await prepare(amendment)).id,amend.id);
+ await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},s.reviewer,403);
+ await h.json(`/revenue/proposals/${amend.id}/decide`,{decision:'decline',reason:'Discuss the scope with the client first'},h.owner);
+ const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
+ assert.equal(corrected.status,'approved');assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).status,'void');
+ assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).status,'issued');
+ await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Replay'},h.owner,409);
+ map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,28000);
+ assert.equal(h.mails.length,mails);assert.equal(edge.calls.filter(c=>c.path==='payment_intents').length,charges);
+ const link=await h.json(`/invoices/${s.invoice.id}/payment-link`,{amountCents:10000},h.owner);
+ const pi=[...edge.intents.values()].at(-1);pi.payment_method.type='us_bank_account';pi.payment_method.us_bank_account={last4:'6789'};pi.status='processing';
+ await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);
+ map=await read();assert.equal(map.totals.providerNetCents,0);assert.equal(map.totals.openCents,10000);
+ pi.status='succeeded';await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);map=await read();assert.equal(map.totals.openCents,0);assert.equal(map.totals.providerNetCents,10000);
+ pi.status='requires_payment_method';pi.last_payment_error={code:'debit_not_authorized'};
+ const event={id:'synthetic-blotter-80',type:'payment_intent.payment_failed',data:{object:{id:pi.id}}},timestamp=Math.floor(Date.now()/1000),raw=JSON.stringify(event),sig=createHmac('sha256','synthetic-blotter-1').update(`${timestamp}.${raw}`).digest('hex');
+ const notify=()=>h.request('/api/blotter/stripe/events',event,'',{'stripe-signature':`t=${timestamp},v1=${sig}`});
+ assert.equal((await notify()).status,200);assert.equal((await(await notify()).json()).replayed,true);
+ const chargeCount=edge.calls.filter(c=>c.body).length;
+ await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);await h.restart();await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);
+ map=await read();const returned=map.exceptions.find(e=>e.kind==='collection');
+ assert.deepEqual([map.totals.providerNetCents,map.totals.openCents,map.totals.creditCents,map.totals.writtenOffCents],[0,10000,0,0]);
+ assert.match(returned.summary,/Returned ACH/);assert.equal(returned.ownerEmail,'owner@example.test');assert.match(returned.nextAction,/no automatic retry/);assert.match(returned.nextAction,/2026-12-15/);
+ assert.ok(returned.citations.some(c=>c.label.includes('synthetic-blotter-80')));
+ assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
+ const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.unresolved.some(i=>i.owner==='owner@example.test'&&/returned/.test(i.nextAction)));
+ const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2030-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,10000);
+ if(ui)await ui(h,s);
+ return {read,map};
+}

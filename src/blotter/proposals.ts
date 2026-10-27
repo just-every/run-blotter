@@ -79,3 +79,6 @@ export async function agentContext(db: D1Database, actor: Actor) {
     commands: limited ? [] : [...(actor.role === 'owner' ? ['POST /api/blotter/agent/learning/evidence', 'POST /api/blotter/agent/prepare-learning'] : []), 'POST /api/blotter/agent/prepare-rollforward', 'POST /api/blotter/agent/prepare-reminder', 'POST /api/blotter/agent/prepare-export'],
   };
 }
+
+// Revenue drafts have a separate derived record; all decisions remain native human actions.
+export { prepareRevenue, decideRevenue } from './revenue-proposals';

@@ -5,7 +5,7 @@ import { atomic, audit, digest, guard, human, insist, rows, stmt, text, type Act
 const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
 
 /** Keep the source label honest: recorded letters are not native signatures. */
-async function signedSource(db: D1Database, clientId: string, body: Data) {
+export async function signedSource(db: D1Database, clientId: string, body: Data) {
   const kind = body.source?.kind, sourceId = text(body.source?.id, 'Signed scope source', 100);
   insist(kind === 'engagement' || kind === 'signature', 'Choose a recorded engagement or completed signed document');
   const record = kind === 'engagement'

@@ -209,3 +209,21 @@ export async function runInvoiceReminders(env: Bindings, at = new Date()) {
   }
   return results;
 }
+
+/** Revenue findings use the invoice's confirmed balance and named owner, never event narratives. */
+export async function revenueCollections(db: D1Database, clientId: string) {
+  const invoices = await rows(db, `SELECT i.id,i.job_id,i.title,i.number,i.owner_email,i.due_date,i.collection_hold,i.collection_note,${invoiceBalanceSql('i')} balance_cents
+    FROM b_invoices i WHERE i.client_id=? AND i.status='issued' AND i.erased_at IS NULL ORDER BY i.id`, clientId);
+  const payments = await rows(db, `SELECT p.id,p.invoice_id,p.state,p.net_cents,p.amount_cents,p.failure_code,p.provider_id,p.revision,p.restored,
+    (SELECT provider_event_id FROM b_payment_observations o WHERE o.payment_id=p.id ORDER BY o.observed_at DESC,o.rowid DESC LIMIT 1) event_id
+    FROM b_provider_payments p WHERE p.client_id=? ORDER BY p.id`,clientId);
+  const credits=await rows(db,'SELECT id,kind,reference,amount_cents FROM b_invoice_credits WHERE client_id=? ORDER BY id',clientId);
+  const writeoffs=await rows(db,'SELECT w.id,w.invoice_id,w.amount_cents FROM b_invoice_writeoffs w JOIN b_invoices i ON i.id=w.invoice_id WHERE i.client_id=? ORDER BY w.id',clientId);
+  const exceptions=payments.filter(p=>['returned','failed','disputed','held','pending','requires_action','creating'].includes(p.state)).map(p=>{
+    const i=invoices.find(i=>i.id===p.invoice_id);
+    return i && {id:`collection:${p.id}`,kind:'collection',jobId:i.job_id,paymentId:p.id,summary:`${p.state==='returned'?'Returned ACH':`Payment ${p.state}`}: ${i.title}`,amountCents:i.balance_cents,currency:'USD',ownerEmail:i.owner_email,
+      nextAction:`${i.collection_note || `Review ${p.failure_code || p.state} with the client; no automatic retry`}. Invoice due ${i.due_date}.`,
+      citations:[{label:`Invoice ${i.number}: open ${i.balance_cents} USD cents`,href:`/api/blotter/invoices/${i.id}`},{label:`Confirmed provider state: ${p.state}; net ${p.net_cents} USD cents${p.event_id?`; event ${p.event_id}`:''}`,href:`/api/blotter/invoices/${i.id}/payments`}],canPrepare:false,canReconcile:!p.restored,draftText:''};
+  }).filter((finding): finding is NonNullable<typeof finding> => Boolean(finding));
+  return {invoices,payments,credits,writeoffs,exceptions,totals:{providerNetCents:payments.reduce((n,p)=>n+p.net_cents,0),openCents:invoices.reduce((n,i)=>n+Math.max(0,i.balance_cents),0),creditCents:credits.reduce((n,c)=>n+c.amount_cents,0),writtenOffCents:writeoffs.reduce((n,w)=>n+w.amount_cents,0)}};
+}

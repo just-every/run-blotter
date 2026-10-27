@@ -187,3 +187,12 @@ export async function downloadExport(db: D1Database, actor: Actor, exportId: str
   await atomic(db, actor, [audit(db, actor, 'export.downloaded', e.id, e.csv_sha256)]);
   return new Response(e.csv, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="blotter-export-${e.id.slice(0, 8)}.csv"`, 'cache-control': 'no-store' } });
 }
+
+/** Revenue comparisons retain the same approved, unreserved WIP as billing. */
+export async function revenueWork(db: D1Database, jobIds: Set<string>) {
+  const fees = await rows(db, `SELECT e.source_key,e.kind,e.id source_id,e.job_id,e.description,e.amount_cents,e.currency FROM b_invoice_entitlements e
+    WHERE NOT EXISTS(SELECT 1 FROM b_invoice_sources s WHERE s.source_key=e.source_key)
+    AND NOT EXISTS(SELECT 1 FROM b_export_sources s WHERE s.source_key=e.source_key) ORDER BY e.id`);
+  const claimed = new Set(fees.map(line => line.source_key));
+  return [...fees, ...(await unbilled(db)).filter(line => !claimed.has(line.source_key))].filter(line => jobIds.has(line.job_id));
+}

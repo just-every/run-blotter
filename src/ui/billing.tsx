@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Blotter, api, day, money, moneyTotals, moneyTotalsText, Empty, Field, Form, prose, Status, today, when, who, type Row, type Run, ExportLink } from './common';
 import { ExpenseSettings } from './expenses';
 import { TimeApprovals } from './timesheet';
+import { RevenueReview } from './revenue';
 
 export function Billing({ actor, people, run, tick }: { actor: Row; people: Row[]; run: Run; tick: number }) {
   const [state, setState] = useState<Row>(), [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -11,6 +12,7 @@ export function Billing({ actor, people, run, tick }: { actor: Row; people: Row[
   const selected: Row[] = state.unbilled.filter((l: Row) => chosen.has(l.source_key));
   const mixed = new Set(selected.map(l => l.currency)).size > 1;
   return <div className="stack">
+    <RevenueReview actor={actor} run={run} tick={tick} />
     <TimeApprovals actor={actor} people={people} run={run} tick={tick} />
     <Blotter><section className="panel">
       <h2>Ready to bill</h2>

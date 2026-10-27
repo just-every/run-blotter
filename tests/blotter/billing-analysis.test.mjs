@@ -75,3 +75,12 @@ test('BILL-003: native client and service financial groups retain sources, curre
     await h.close();
   }
 });
+
+// One end-to-end revenue flow: real HTTP, database and invoice authority; Stripe alone is a network-edge fake.
+test('REVENUE-001 / BASE-001: cited scope leakage and duplicate correction, declined amendment and confirmed ACH return retain owned open balances without charging or write-off', async () => {
+  const {stripeEdge}=await import('./stripe-edge.mjs');
+  const {revenueFixture,assertRevenueFlow}=await import('./revenue-proof.mjs');
+  const {revenueJourney}=await import('./revenue-ui.mjs');
+  const edge=stripeEdge(),h=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2',STRIPE_WEBHOOK_SECRET:'synthetic-blotter-1'},stripeResponse:edge.respond});
+  try {const s=await revenueFixture(h);await assertRevenueFlow(h,edge,s,revenueJourney);}finally{await h.close();}
+});
