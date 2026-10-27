@@ -4340,7 +4340,7 @@
       "executable": false
     },
     "tests/blotter/enterprise-live.mjs": {
-      "sha256": "dad596d0dedd8041164e0324eb10a019b65a3e56885dbdedab5094bf096b45fd",
+      "sha256": "e91913dabc24ed8b22e59610212091fc2aee97d086764e73919ecac0406e9074",
       "executable": false
     },
     "tests/blotter/enterprise-provider.mjs": {
