@@ -123,6 +123,8 @@ async function assertRevenueRevocation(h,s,pending,read) {
  for(const decision of ['approve','decline'])assert.ok([401,403].includes((await h.request(`/api/blotter/revenue/proposals/${pending.id}/decide`,{decision,reason:'Former principal has no decision authority'},h.owner)).status));
  assert.ok([401,403].includes((await h.request('/api/blotter/revenue?clientId='+s.client.id+'&planId='+s.plan.id,undefined,h.owner)).status));
  assert.ok([401,403].includes((await h.request('/api/blotter/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:snapshot.fingerprint,exceptionId:pending.payload.id},h.owner)).status));
+ assert.ok([401,403].includes((await h.request('/api/blotter/revenue/accounting?clientId='+s.client.id,undefined,h.owner)).status));
+ assert.ok([401,403].includes((await h.request('/api/blotter/revenue/accounting',{invoiceId:s.invoice.id,currency:'USD',source:'Synthetic revoked ledger',reference:'synthetic-blotter-99',grossCents:10000,receiptCents:0,creditCents:0,writeoffCents:0,reason:'Former principal cannot record observations'},h.owner)).status));
  const successor=await h.login('reviewer@example.test');
  const current=(await h.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,successor)).map;
  assert.equal(current.proposals.find(p=>p.id===pending.id).status,'pending');
