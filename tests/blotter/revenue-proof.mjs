@@ -126,6 +126,13 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  await h.json('/revenue/accounting',{...accounting,reference:'synthetic-blotter-92',receiptCents:0,reason:'Principal recorded confirmed returned collection'},h.owner);
  map=await read();assert.deepEqual(map.accounting.comparisons.map(c=>c.differences),[[]]);assert.equal(map.exceptions.filter(e=>e.kind==='accounting').length,0);
  assert.deepEqual(map.accounting.comparisons[0].native,{grossCents:10000,receiptCents:0,creditCents:0,writeoffCents:0});
+ const accountingDoor=`/revenue/accounting?clientId=${s.client.id}`;
+ await h.json(accountingDoor,undefined,s.reviewer,403);await h.json(accountingDoor,undefined,'',401);
+ await h.json(accountingDoor,undefined,'',401,{authorization:'Bearer '+key.key});
+ await h.json('/revenue/accounting',accounting,'',401,{authorization:'Bearer '+key.key});
+ const observedHistory=await h.json(accountingDoor,undefined,h.owner);
+ assert.deepEqual(observedHistory.observations.map(o=>o.reference).sort(),['synthetic-blotter-91','synthetic-blotter-92','synthetic-blotter-93']);
+ assert.ok(observedHistory.observations.every(o=>o.recorded_by==='owner@example.test'&&o.client_id===s.client.id&&o.invoice_id===s.invoice.id));
  assert.equal(map.accounting.observations.length,3);assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  if(ui)await ui(h,s);
  return {read,map};
