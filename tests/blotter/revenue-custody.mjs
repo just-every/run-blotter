@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import {harness} from './harness.mjs';
 
+const archivedRevenue=archive=>archive.trim().split('\n').map(line=>JSON.parse(line)).flatMap(part=>part.items??[]).filter(item=>item.table==='b_revenue_proposals').map(item=>item.row).sort((a,b)=>a.id.localeCompare(b.id));
+
 export async function assertRevenueCustody(h,s,read) {
  let map=await read();
  const finding=map.exceptions.find(e=>e.kind==='amendment');
+ const reviewed=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
+ const before=await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner),mails=h.mails.length;
+ await h.json(`/revenue/proposals/${reviewed.id}/decide`,{decision:'approve',reason:'Reviewed amendment draft; client agreement still required'},h.owner);
+ assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,before.balance_cents);assert.equal(h.mails.length,mails);
+ await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-02',minutes:1,description:'Fresh evidence after draft review'},s.prep);map=await read();
  const draft=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-02',minutes:1,description:'Additional context changes the evidence snapshot'},s.prep);
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'approve',reason:'Stale evidence must refuse'},h.owner,409);
@@ -11,21 +18,21 @@ export async function assertRevenueCustody(h,s,read) {
  map=await read();
  const pending=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
- assert.ok(archive.includes('b_revenue_proposals'));assert.ok(archive.includes(pending.id));assert.ok(archive.includes('Reviewed both and confirmed duplicate'));
+ const portable=archivedRevenue(archive);assert.equal(portable.length,5);assert.equal(portable.find(p=>p.id===pending.id).status,'held');assert.equal(portable.find(p=>p.id===reviewed.id).status,'approved');assert.ok(portable.some(p=>p.decision_note==='Reviewed both and confirmed duplicate'));
  const copy=await harness();
  try {
   await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},copy.owner);
   await copy.json(`/revenue/proposals/${pending.id}/decide`,{decision:'approve',reason:'Restored drafts cannot execute'},copy.owner,409);
   await copy.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,copy.owner,409);
   const restored=await(await copy.request('/api/blotter/backup',undefined,copy.owner)).text();
-  assert.ok(restored.includes(pending.id));assert.ok(restored.includes('held'));
+  assert.deepEqual(archivedRevenue(restored),portable);
  }finally{await copy.close();}
  const history=await h.json(`/clients/${s.client.id}/history`,undefined,h.owner);
- assert.equal(history.history.filter(e=>e.action==='revenue.approved').length,1);
+ assert.equal(history.history.filter(e=>e.action==='revenue.approved').length,2);
  assert.equal(history.history.filter(e=>e.action==='revenue.declined').length,2);
  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(preview.blockers.some(b=>/Open balance/.test(b)));
- assert.ok(preview.erase.some(step=>step.table==='b_revenue_proposals'&&step.count===4));
+ assert.ok(preview.erase.some(step=>step.table==='b_revenue_proposals'&&step.count===5));
  const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve revenue review drafts'},h.owner);
  const held=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(!held.erase.some(step=>step.table==='b_revenue_proposals'&&step.count>0));
@@ -58,6 +65,6 @@ export async function assertRevenueErasure(h) {
  const receipt=await h.json(`/clients/${client.id}/erasure`,{planHash:preview.planHash,confirm:name,reason:'Erase derived revenue drafts'},h.owner);
  assert.ok(receipt.steps.some(s=>s.table==='b_revenue_proposals'&&s.count===1));
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'approve',reason:'Erased drafts cannot execute'},h.owner,404);
- const later=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),copy=await harness();
+ const later=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),copy=await harness();assert.ok(!archivedRevenue(later).some(p=>p.id===draft.id));
  try{await copy.json('/restore',{archive,journal:later,confirm:'RESTORE'},copy.owner,409);}finally{await copy.close();}
 }
