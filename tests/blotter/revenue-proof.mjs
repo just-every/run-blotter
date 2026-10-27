@@ -82,7 +82,8 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  const mails=h.mails.length,charges=edge.calls.filter(c=>c.path==='payment_intents').length;
  const amend=await prepare(amendment),fix=await prepare(duplicate);
  assert.equal((await prepare(amendment)).id,amend.id);
- await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},s.reviewer,403);
+ for(const decision of ['approve','decline'])await h.json(`/revenue/proposals/${fix.id}/decide`,{decision,reason:'Non-principal correction refused'},s.reviewer,403);
+ await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Agent correction refused'},'',401,{authorization:'Bearer '+key.key});
  await h.json(`/revenue/proposals/${amend.id}/decide`,{decision:'decline',reason:'Discuss the scope with the client first'},h.owner);
  s.revenueDecisions=[{id:amend.id,kind:'amendment',status:'declined',reason:'Discuss the scope with the client first'},{id:fix.id,kind:'duplicate',status:'approved',reason:'Reviewed both and confirmed duplicate'}];
  const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
@@ -116,6 +117,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  const accounting={invoiceId:s.invoice.id,currency:'USD',source:'Synthetic firm ledger',reference:'synthetic-blotter-91',grossCents:10000,receiptCents:10000,creditCents:0,writeoffCents:0,reason:'Principal read the ledger collection event'};
  await h.json('/revenue/accounting',accounting,s.reviewer,403);await h.json('/revenue/accounting',accounting,'',401);
  await h.json('/revenue/accounting',{...accounting,invoiceId:s.duplicate.id},h.owner,409);
+ s.accountingInput=accounting;
  const observed=await h.json('/revenue/accounting',accounting,h.owner);assert.equal((await h.json('/revenue/accounting',accounting,h.owner)).id,observed.id);
  await h.json('/revenue/accounting',{...accounting,receiptCents:0},h.owner,409);
  map=await read();assert.deepEqual(map.accounting.comparisons.map(c=>c.differences),[['receiptCents']]);
@@ -135,5 +137,15 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.ok(observedHistory.observations.every(o=>o.recorded_by==='owner@example.test'&&o.client_id===s.client.id&&o.invoice_id===s.invoice.id));
  assert.equal(map.accounting.observations.length,3);assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  if(ui)await ui(h,s);
+ // An issued duplicate remains a finding, never an assistant correction.
+ const entitlement=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-99',description:'Issued duplicate for human review',amountCents:10000,authorization:'Principal recorded this separate source'},h.owner);
+ const input={...s.duplicateInput,credits:[],sourceKeys:[entitlement.sourceKey],taxCents:0};
+ const issuePreview=await h.json('/invoices/preview',input,h.owner),issued=await h.json('/invoices',{...input,previewHash:issuePreview.previewHash},h.owner);
+ await h.json(`/invoices/${issued.id}/issue`,{revision:issued.revision,snapshotHash:issued.snapshotHash,reviewNote:'Principal issued before revenue review'},h.owner);
+ map=await read();const issuedFinding=map.exceptions.find(e=>e.kind==='duplicate'&&e.invoiceId===issued.id);
+ assert.ok(issuedFinding);assert.equal(issuedFinding.canPrepare,false);assert.match(issuedFinding.nextAction,/separate explicit financial approval/);
+ await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:issuedFinding.id},h.owner,409);
+ assert.equal((await h.json(`/invoices/${issued.id}`,undefined,h.owner)).status,'issued');
+ assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  return {read,map};
 }
