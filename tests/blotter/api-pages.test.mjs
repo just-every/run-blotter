@@ -43,7 +43,7 @@ before(async () => {
   hidden = await start(client.id, '06', otherEmail);
   entries = [];
   for (const date of ['2026-10-01', '2026-10-02', '2026-10-02', '2026-10-02', '2026-10-03']) {
-    entries.push(await h.json(`/jobs/${jobs[0].id}/time`, { date, minutes: 15, description: 'Page boundary work' }, prep));
+    entries.push(await h.json('/v1/time', { jobId: jobs[0].id, date, minutes: 15, description: 'Page boundary work' }, prep, 200, { 'idempotency-key': `synthetic-blotter-page-${entries.length}` }));
   }
   await h.json(`/jobs/${hidden.id}/time`, { date: '2026-10-02', minutes: 30, description: 'Private second preparer time' }, other);
 });
@@ -85,6 +85,7 @@ test('API-002 native work pages: tied due/client keys, filters, live visibility 
 test('API-002 native time pages: descending keys, inclusive dates, own-person scope and bound cursors', async () => {
   const listed = await allPages('time', { limit: 2, from: '2026-10-01', to: '2026-10-03' }, prep);
   assert.deepEqual(listed.map(item => item.id).sort(), entries.map(item => item.id).sort());
+  assert.deepEqual(listed.map(item => [item.person_email,item.minutes,item.rate_cents,item.amount_cents,item.currency,item.description,item.status]), entries.map(() => [firstEmail,15,6000,1500,'USD','Page boundary work',null]), 'Versioned writes read back exactly once with native snapshots and no submission');
   const ordered = [...listed].sort((a, b) => cmp(b.date, a.date) || cmp(b.created_at, a.created_at) || cmp(b.id, a.id));
   assert.deepEqual(listed.map(item => item.id), ordered.map(item => item.id));
   const tied = await allPages('time', { limit: 1, from: '2026-10-02', to: '2026-10-02' }, prep);

@@ -79,7 +79,7 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   }
   // New writes often carry their target in the body. Only these established
   // resource-creation doors accept that authority; unknown doors fail closed.
-  if(write && (['/jobs','/plan','/notices','/rules','/prepare-reminder','/prepare-rollforward'].includes(path) || (actor.financial && financialCreates.includes(path)))) {
+  if(write && (['/v1/time','/jobs','/plan','/notices','/rules','/prepare-reminder','/prepare-rollforward'].includes(path) || (actor.financial && financialCreates.includes(path)))) {
     const body=await request.clone().json() as Data;
     if(body.clientId) {await requireClient(db,actor,String(body.clientId));return;}
     if(body.jobId) {const j=await stmt(db,'SELECT client_id FROM b_jobs WHERE id=?',String(body.jobId)).first<Data>();insist(j,'Not found',404);await requireClient(db,actor,j.client_id);return;}
