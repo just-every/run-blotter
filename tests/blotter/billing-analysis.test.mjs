@@ -83,5 +83,5 @@ test('REVENUE-001 / BASE-001: cited scope leakage and duplicate correction, decl
   const {revenueJourney}=await import('./revenue-ui.mjs');
   const {assertRevenueCustody,assertRevenueErasure}=await import('./revenue-custody.mjs');
   const edge=stripeEdge(),h=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2',STRIPE_WEBHOOK_SECRET:'synthetic-blotter-1'},stripeResponse:edge.respond});
-  try {const s=await revenueFixture(h);const {read}=await assertRevenueFlow(h,edge,s,revenueJourney);await assertRevenueCustody(h,s,read);await assertRevenueErasure(h);}finally{await h.close();}
+  try {const s=await revenueFixture(h);const {read}=await assertRevenueFlow(h,edge,s,revenueJourney);await assertRevenueCustody(h,s,read,edge);await assertRevenueErasure(h);}finally{await h.close();}
 });

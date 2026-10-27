@@ -86,6 +86,9 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.equal(closedTime.entries.length,3);assert.ok(closedTime.entries.every(e=>e.locked&&e.status==='approved'&&e.decided_by==='reviewer@example.test'));
  assert.equal(closedTime.periods[0].closed_by,'owner@example.test');
  s.revenueDecisionStart=Date.now();s.revenueWriteStart=Date.now();
+ const timesheetBefore=await h.json('/timesheets',undefined,s.prep);
+ assert.deepEqual(timesheetBefore.entries.map(e=>[e.minutes,e.status,e.locked]).sort((a,b)=>a[0]-b[0]),[[30,'approved',1],[90,'approved',1],[90,'approved',1]]);
+ const financialBefore=await h.json('/invoices',undefined,h.owner);
  const mails=h.mails.length,charges=edge.calls.filter(c=>c.path==='payment_intents').length;
  const amend=await prepare(amendment),fix=await prepare(duplicate);
  assert.equal((await prepare(amendment)).id,amend.id);
@@ -95,10 +98,12 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  for(const decision of ['approve','decline'])await h.json(`/revenue/proposals/${fix.id}/decide`,{decision,reason:'Non-principal correction refused'},s.reviewer,403);
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Agent correction refused'},'',401,{authorization:'Bearer '+key.key});
  await h.json(`/revenue/proposals/${amend.id}/decide`,{decision:'decline',reason:'Discuss the scope with the client first'},h.owner);
+ assert.deepEqual(await h.json('/invoices',undefined,h.owner),financialBefore,'Declining the amendment changes no invoice, fee, credit or retainer authority');
  s.revenueDecisions=[{id:amend.id,kind:'amendment',status:'declined',reason:'Discuss the scope with the client first'},{id:fix.id,kind:'duplicate',status:'approved',reason:'Reviewed both and confirmed duplicate'}];
  const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
  assert.deepEqual(await h.json('/timesheets',undefined,h.owner),closedTime);
  assert.equal(corrected.status,'approved');assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).status,'void');
+ assert.deepEqual(await h.json('/timesheets',undefined,s.prep),timesheetBefore,'The correction and declined amendment preserve all closed source time and period attribution');
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).status,'issued');
  await h.json('/invoices/preview',s.duplicateInput,h.owner,409);
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Replay'},h.owner,409);

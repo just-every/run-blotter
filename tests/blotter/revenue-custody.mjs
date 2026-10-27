@@ -4,17 +4,17 @@ import {assertRevenueAudit} from './revenue-proof.mjs';
 
 const archivedRevenue=archive=>archive.trim().split('\n').map(line=>JSON.parse(line)).flatMap(part=>part.items??[]).filter(item=>item.table==='b_revenue_proposals').map(item=>item.row).sort((a,b)=>a.id.localeCompare(b.id));
 
-export async function assertRevenueCustody(h,s,read) {
+export async function assertRevenueCustody(h,s,read,edge) {
  let map=await read();
  const finding=map.exceptions.find(e=>e.kind==='amendment'&&e.jobId===s.extra.id);
  const reviewed=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  const scopeBefore=await(await h.request(map.scope.source.href,undefined,h.owner)).text();
- const financialBefore=await h.json('/invoices',undefined,h.owner),entitlementsBefore=financialBefore.entitlements;
+ const financialBefore=await h.json('/invoices',undefined,h.owner),entitlementsBefore=financialBefore.entitlements,charges=edge.calls.filter(c=>c.body).length;
  const before=await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner),mails=h.mails.length;
  await h.json(`/revenue/proposals/${reviewed.id}/decide`,{decision:'approve',reason:'Reviewed amendment draft; client agreement still required'},h.owner);
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,before.balance_cents);assert.equal(h.mails.length,mails);
  assert.equal(await(await h.request(map.scope.source.href,undefined,h.owner)).text(),scopeBefore);
- assert.ok(entitlementsBefore.length>=3);assert.deepEqual(await h.json('/invoices',undefined,h.owner),financialBefore);
+ assert.ok(entitlementsBefore.length>=3);assert.deepEqual(await h.json('/invoices',undefined,h.owner),financialBefore);assert.equal(edge.calls.filter(c=>c.body).length,charges);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-09',minutes:1,description:'Fresh evidence after draft review'},s.prep);map=await read();
  const draft=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-09',minutes:1,description:'Additional context changes the evidence snapshot'},s.prep);
