@@ -2,17 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {harness} from './harness.mjs';
 import {enterpriseProvider,tenant} from './enterprise-provider.mjs';
-import {enroll} from './erasure-fixture.mjs';
 import {enterpriseJourney} from './enterprise-ui.mjs';
 
 const cookies=r=>r.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ');
 test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes live access and restores inactive',async()=>{
  const provider=enterpriseProvider(),h=await harness({bindings:provider.bindings,identityResponse:provider.response});let destination,stale;
  try{
-  const staff='preparer@example.com';
-  await h.json('/team',{email:staff,name:'Maya Chen',role:'preparer'},h.owner);
-  await h.json('/team/invite',{email:staff},h.owner);const native=await h.login(staff);
   const before=await h.send('/api/blotter/enterprise',{required:true,requireMfa:true,reason:'Firm SSO'},h.owner);assert.equal(before.status,403);assert.equal((await before.json()).mfa,'step-up');
+  const staff='preparer@example.com';
+  await h.json('/team',{email:staff,name:'Maya Chen',role:'reviewer'},h.owner);
+  await h.json('/team/invite',{email:staff},h.owner);const native=await h.login(staff);
+  const oldKey=await h.json('/keys',{label:'Tax assistant'},native);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,200);
   await h.json('/enterprise',{required:true,requireMfa:true,reason:'Firm SSO'},h.owner);
   await h.json('/enterprise',undefined,native,403);await h.json('/state',undefined,native,403);
   const signin=await(await h.request('/signin')).text();assert.ok(signin.includes('/auth/oidc/enterprise/start'));
@@ -36,17 +36,16 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   };
   await signinStaff({iss:'https://login.microsoftonline.com/22222222-2222-4222-8222-222222222222/v2.0'},400);
   await signinStaff({amr:['pwd']},403);await signinStaff({sub:'unknown'},403);
-  const accepted=await signinStaff();const state=await h.json('/state',undefined,accepted.cookie);assert.equal(state.actor.role,'reviewer');assert.deepEqual(state.clients.map(c=>c.id),[client.id]);
+  const accepted=await signinStaff();const state=await h.json('/state',undefined,accepted.cookie);await h.json('/v1/clients',undefined,accepted.cookie);assert.equal(state.actor.role,'reviewer');assert.deepEqual(state.clients.map(c=>c.id),[client.id]);
   const replay=await h.request(accepted.callback,undefined,accepted.correlation);assert.equal(replay.status,400);
-  const factor=await enroll(h,accepted.cookie);await h.json('/access/step-up',{recoveryCode:factor.recovery[0]},accepted.cookie);
-  const oldKey=await h.json('/keys',{label:'Tax assistant'},accepted.cookie);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,200);
+  await h.json('/keys',{label:'Scoped staff cannot mint a firm key'},accepted.cookie,403);
   await enterpriseJourney(h);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(!archive.includes(token));
+  const archiveResponse=await h.request('/api/blotter/backup',undefined,h.owner);assert.equal(archiveResponse.status,200,await archiveResponse.clone().text());const archive=await archiveResponse.text();assert.ok(!archive.includes(token));
   destination=await harness({bindings:provider.bindings,identityResponse:provider.response});await destination.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},destination.owner);
   const restored=await destination.json('/enterprise',undefined,destination.owner);assert.equal(restored.connection.active,0);assert.equal(restored.identities[0].active,0);assert.equal(restored.mappings.length,1);
   assert.equal((await destination.send('/scim/v2/Users',undefined,'',{authorization:'Bearer '+token})).status,401);
   await scim('/Groups/'+group.id,{schemas:['urn:ietf:params:scim:api:messages:2.0:PatchOp'],Operations:[{op:'Remove',path:'members',value:[{value:identity.id}]}]},200,'PATCH');
-  await h.json('/state',undefined,accepted.cookie,401);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,401);
+  await h.json('/state',undefined,accepted.cookie,401);await h.json('/v1/clients',undefined,accepted.cookie,401);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,401);
   await signinStaff({},403);
   await scim('/Groups/'+group.id,{Operations:[{op:'Add',path:'members',value:[{value:identity.id}]}]},200,'PATCH');
   const resumed=await signinStaff();await h.json('/state',undefined,resumed.cookie);

@@ -1,3 +1,5 @@
+import { createPortability } from '@runeditrun/rer/modules/portability';
+import archivePolicy from './archive-policy.mjs';
 import type { Bindings } from '../auth.server';
 import { enterpriseDirectory, enterpriseConfiguration } from './enterprise-directory';
 import { enterpriseRefresh } from './enterprise-lifecycle';
@@ -53,7 +55,7 @@ export async function disconnectEnterprise(env:Bindings,actor:Actor,body:Data) {
 /** Erasure removes provider associations; the portability epoch fences old copies. */
 export async function eraseEnterprise(env:Bindings,actor:Actor,body:Data) {
   const db=env.DB;await admin(db,actor,true);insist(body.confirm==='ERASE ENTERPRISE','Type ERASE ENTERPRISE to confirm');const reason=text(body.reason,'Reason');
-  const {createPortability}=await import('@runeditrun/rer/modules/portability');const {default:policy}=await import('./archive-policy.mjs');const service=await createPortability({db,policy});
+  const service=await createPortability({db,policy:archivePolicy});
   const connection=await stmt(db,'SELECT tenant FROM b_enterprise_connection WHERE id=1').first<Data>();insist(connection,'No enterprise connection to erase',404);
   await atomic(db,actor,[...enterpriseRefresh(db,actor),
     stmt(db,'UPDATE b_members SET active=0 WHERE email IN(SELECT email FROM b_enterprise_identities)'),

@@ -2,7 +2,7 @@
 // Identity, sessions, second factors and credential step-ups, outboxes, agent keys, client upload links and private
 // configuration stay out of every archive.
 const inactive = (table, row) => {
-  if(table==='b_enterprise_connection')return {...row,active:0,token_digest:null,revision:row.revision+1};
+  if(table==='b_enterprise_connection')return {...row,active:0,token_digest:null};
   if(table==='b_enterprise_identities')return {...row,active:0};
   if(table==='b_integration_hooks')return {...row,status:'inactive',destination_sealed:null,secret_sealed:null};
   if(table==='b_integration_deliveries' && ['pending','dispatching'].includes(row.status))return {...row,status:'held',next_action:'Restored history; never replay; register a fresh endpoint'};

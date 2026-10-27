@@ -1248,7 +1248,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "f3c83cfe70b21cd49347fadb24c83c27e8b333797b5485b427e4e10375f0b79b",
+      "sha256": "6467d28d42c3b3e80b2445418b06e28f3bf9d9bb8687f1984fd6c772a9927c7f",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
@@ -1452,7 +1452,7 @@
       "executable": false
     },
     "src/blotter/enterprise.ts": {
-      "sha256": "75f5c5c2610f25d5199c626b5713da75d7611e72a601c38aafb872d18e2b135f",
+      "sha256": "4319c49f89b00fd572bd4095af3735bc9fc2a72c4f3b0a32c62d16bcc2995251",
       "executable": false
     },
     "src/blotter/erasure-copies.ts": {
@@ -4335,6 +4335,10 @@
       "sha256": "f9846583716d97dfabfea20606f16c4a55392bf5d6bc36a835ec1d9d16e9bff3",
       "executable": false
     },
+    "tests/blotter/enterprise-live.mjs": {
+      "sha256": "e18974073dce93c86d50d4b7b11b6c7d12ade42962117e740f5ff200029579f5",
+      "executable": false
+    },
     "tests/blotter/enterprise-provider.mjs": {
       "sha256": "2d9ee2f90d5340664f06e4a0e108d2a092ac64985c9a9c4e9bc507b20ffdaf06",
       "executable": false
@@ -4344,7 +4348,7 @@
       "executable": false
     },
     "tests/blotter/enterprise.test.mjs": {
-      "sha256": "02b3db7eb1b96ee4dd74215842d1236ff7c68e9b7865b9988cbd76bcbaa9e802",
+      "sha256": "029d2335e6dec645a7c4cbda13d479da688e1550b289ec49a772dc9cc4a74716",
       "executable": false
     },
     "tests/blotter/erasure-fixture.mjs": {
