@@ -43,7 +43,7 @@ export async function decideRevenue(db:D1Database,actor:Actor,proposalId:string,
       // A paid or issued invoice is never voided by the assistant.
       changes.push(...guard(db,"EXISTS(SELECT 1 FROM b_invoices WHERE id=? AND status='draft' AND revision=?) AND NOT EXISTS(SELECT 1 FROM b_provider_payments WHERE invoice_id=?)",finding.invoiceId,finding.invoiceRevision,finding.invoiceId),
         stmt(db,"UPDATE b_invoices SET status='void',voided_by=?,voided_at=?,void_reason=?,revision=? WHERE id=?",actor.email,at,reason,id(),finding.invoiceId),
-        stmt(db,'DELETE FROM b_invoice_sources WHERE invoice_id=?',finding.invoiceId),
+        // The confirmed duplicate keeps its source reservation, so another document cannot bill it again.
         stmt(db,'DELETE FROM b_invoice_credit_uses WHERE invoice_id=?',finding.invoiceId),
         audit(db,actor,'invoice.voided',finding.invoiceId,`Revenue correction ${proposalId}; ${reason}`));
     }

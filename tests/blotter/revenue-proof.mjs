@@ -30,7 +30,7 @@ export async function revenueFixture(h) {
  const amendmentPreview=await h.json(`/invoice-retainers/${retainer.id}/amendment-preview`,change,h.owner);
  await h.json(`/invoice-retainers/${retainer.id}/amend`,{...change,previewHash:amendmentPreview.previewHash},h.owner);
  const credit=await h.json('/invoice-credits',{clientId:s.client.id,kind:'credit',reference:'synthetic-blotter-55',amountCents:2500,reason:'Separately authorized client credit'},h.owner);
- return {...s,plan,letter,extra,time,prep,reviewer,duplicate,budgetJob,retainer,credit};
+ return {...s,plan,letter,extra,time,prep,reviewer,duplicate,duplicateInput:input,budgetJob,retainer,credit};
 }
 
 export async function assertRevenueFlow(h,edge,s,ui) {
@@ -61,8 +61,9 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  const corrected=await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Reviewed both and confirmed duplicate'},h.owner);
  assert.equal(corrected.status,'approved');assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).status,'void');
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).status,'issued');
+ await h.json('/invoices/preview',s.duplicateInput,h.owner,409);
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Replay'},h.owner,409);
- map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,52000);
+ map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,42000);
  assert.equal(h.mails.length,mails);assert.equal(edge.calls.filter(c=>c.path==='payment_intents').length,charges);
  const link=await h.json(`/invoices/${s.invoice.id}/payment-link`,{amountCents:10000},h.owner);
  const pi=[...edge.intents.values()].at(-1);pi.payment_method.type='us_bank_account';pi.payment_method.us_bank_account={last4:'6789'};pi.status='processing';

@@ -70,6 +70,6 @@ An [agent can prepare an export](/docs/agent-access) for a person to approve. Ap
 
 In **Time & billing**, the principal opens **Revenue review** and selects a client and its reviewed signed scope from Intake. Read the source quotes beside unbilled work, suspected duplicate invoices and owned payment exceptions. Each finding links to its evidence. Scope mapping requires human interpretation.
 
-Use **Prepare draft** to retain an amendment or duplicate correction for review. Approving a duplicate correction voids its current draft invoice; an issued invoice keeps its own correction process. Approving an amendment records review and leaves signing, fee authorization and delivery for their explicit steps. A decline keeps its reason. Evidence changes require a fresh draft.
+Use **Prepare draft** to retain an amendment or duplicate correction for review. Approving a duplicate correction voids its current draft invoice and keeps its source reserved against rebilling; an issued invoice keeps its own correction process. Approving an amendment records review and leaves signing, fee authorization and delivery for their explicit steps. A decline keeps its reason. Evidence changes require a fresh draft.
 
 **Reconcile provider** reads current Stripe state. A returned ACH remains open with its invoice owner and next action. This review never retries a charge, schedules a debit or writes off a balance.

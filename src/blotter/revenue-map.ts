@@ -68,7 +68,7 @@ export async function revenueMap(db: D1Database, actor: Actor, clientId: string,
       invoiceId:duplicate.id,invoiceRevision:duplicate.revision,originalId:original.id,originalRevision:original.revision,
       nextAction:duplicate.status==='draft'?'Review both invoices and void the duplicate draft if confirmed':'Review issued invoices; any credit requires its separate explicit financial approval',
       citations:[original,duplicate].map(i=>({label:`${i.status==='issued'?`Invoice ${i.number}`:'Draft'}: ${i.title} (${i.total_cents} ${i.currency} cents)`,href:`/api/blotter/invoices/${i.id}`})),
-      draftText:`Suspected duplicate of ${original.id}: same work item, title, currency and gross amount. Distinct source entitlements do not establish distinct work. Principal review must confirm duplication.${duplicate.status==='draft'?' Approving this correction voids only the identified draft and releases its reservations.':' No issued invoice is changed by this finding.'}`,canPrepare:duplicate.status==='draft' });
+      draftText:`Suspected duplicate of ${original.id}: same work item, title, currency and gross amount. Distinct source entitlements do not establish distinct work. Principal review must confirm duplication.${duplicate.status==='draft'?' Approving this correction voids only the identified draft and retains its billing-source reservations to prevent rebilling.':' No issued invoice is changed by this finding.'}`,canPrepare:duplicate.status==='draft' });
   }
   exceptions.push(...collections.exceptions);
   const retainers=await rows(db,'SELECT id,title,status,start_month,definition,revision FROM b_invoice_retainers WHERE client_id=? ORDER BY id',clientId);

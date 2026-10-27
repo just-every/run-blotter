@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "131f30503dc4b58392ea14ce60123db868491bdeb9ca91d5e0726184845f19e4",
+      "sha256": "bb44cd95c6980be6255f07667f8a55ee4e6923fbb654cf90348cea1afa85adc4",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "28a9699523ba8aa038d38e60a31155be8f23165c5a06a0885e5486288b926033",
+      "sha256": "a649a5023d97a425d1614e278a3e6c6f676a0cb0ae47345a8892715bb26c25b9",
       "executable": false
     },
     "deploy-demo.json": {
@@ -188,7 +188,7 @@
       "executable": false
     },
     "docs/time-and-billing.md": {
-      "sha256": "e13b30496c48a654c99a9f066d0147cf7085ff3e73328439cf1380c4420cae8f",
+      "sha256": "483fb21fd6f7f66b3415aed4d99ee05ba2e6efa37394e6830257a0852eced16a",
       "executable": false
     },
     "edition.json": {
@@ -1820,11 +1820,11 @@
       "executable": false
     },
     "src/blotter/revenue-map.ts": {
-      "sha256": "b3887e8e7920fbc5d73e48a134924e9b088b3978a6cc1e5096b7d79638344deb",
+      "sha256": "02d4d126ad1e67f4bdfe3f7696898a40ee71b07d18d48611218da310b559f01f",
       "executable": false
     },
     "src/blotter/revenue-proposals.ts": {
-      "sha256": "6384a63128141b2b51ef23994a0c127666ef91dd438601910913241af35f535b",
+      "sha256": "ecf985ef8e2b64cd2ee378dcd3d7adb8a8683a5738c15f744716a9c2cd37f58c",
       "executable": false
     },
     "src/blotter/scheduled-agent-gate.ts": {
@@ -4476,7 +4476,7 @@
       "executable": false
     },
     "tests/blotter/revenue-proof.mjs": {
-      "sha256": "345737ddd25d5dc7e22618cd51a94d0731a2923dc74276aa8658efa33efefb20",
+      "sha256": "d6bfc1029a6cf53bf9156548ea37b4c346be3ea4a85e61a025bc6cffd3c35ed0",
       "executable": false
     },
     "tests/blotter/revenue-ui.mjs": {
