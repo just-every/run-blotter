@@ -22,7 +22,7 @@ export const revenueStampSql = `WITH target AS (SELECT ? id) SELECT json_array(
  (SELECT json_group_array(json_array(source_key,export_id)) FROM (SELECT s.* FROM b_export_sources s JOIN b_exports e ON e.id=s.export_id,json_each(e.snapshot,'$.lines') l,target WHERE json_extract(l.value,'$.source_key')=s.source_key AND json_extract(l.value,'$.job_id') IN (SELECT id FROM b_jobs WHERE client_id=target.id) ORDER BY s.source_key)),
  (SELECT json_group_array(json_array(id,charge_cents,status,billable)) FROM (SELECT e.* FROM b_expenses e,target WHERE e.client_id=target.id ORDER BY e.id)),
  (SELECT json_group_array(json_array(id,amount_cents)) FROM (SELECT a.* FROM b_time_adjustments a JOIN b_time t ON t.id=a.entry_id JOIN b_jobs j ON j.id=t.job_id,target WHERE j.client_id=target.id ORDER BY a.id)),
- (SELECT json_group_array(json_array(id,revision,lifecycle,erased_at,merged_into)) FROM b_clients,target WHERE b_clients.id=target.id)
+ (SELECT json_group_array(json_array(b_clients.id,revision,lifecycle,erased_at,merged_into)) FROM b_clients,target WHERE b_clients.id=target.id)
  )`;
 
 export async function revenueOptions(db: D1Database, actor: Actor) {

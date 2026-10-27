@@ -1,4 +1,4 @@
-import { atomic, audit, guard, id, insist, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, guard, id, insist, now, stmt, text, type Actor, type Data } from './model';
 import { principalHuman } from './invoices-sources';
 import { revenueMap, revenueStampSql } from './revenue-map';
 
@@ -6,9 +6,9 @@ function sourceGuards(db:D1Database,map:Data) {
   const source=map.scope.source;
   return [...guard(db,`(${revenueStampSql})=?`,map.clientId,map.stamp),
     ...guard(db,"EXISTS(SELECT 1 FROM b_onboarding_plans WHERE id=? AND status='reviewed')",map.planId),
-    ...source.kind==='engagement'
+    ...(source.kind==='engagement'
       ? guard(db,'EXISTS(SELECT 1 FROM b_engagements WHERE id=? AND client_id=? AND sha256=? AND content_base64 IS NOT NULL AND erased_at IS NULL)',source.id,map.clientId,source.sha256)
-      : guard(db,"EXISTS(SELECT 1 FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=? AND j.client_id=? AND s.signed_sha256=? AND s.status='completed' AND s.signed_base64 IS NOT NULL AND s.erased_at IS NULL)",source.id,map.clientId,source.sha256)];
+      : guard(db,"EXISTS(SELECT 1 FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=? AND j.client_id=? AND s.signed_sha256=? AND s.status='completed' AND s.signed_base64 IS NOT NULL AND s.erased_at IS NULL)",source.id,map.clientId,source.sha256))];
 }
 
 export async function prepareRevenue(db:D1Database,actor:Actor,body:Data) {
