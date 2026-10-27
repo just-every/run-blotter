@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {harness} from './harness.mjs';
-const childEnv={...process.env};for(const name of Object.keys(childEnv))if(name.startsWith('ENTRA_'))delete childEnv[name];
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const evidence=mkdtempSync(join(tmpdir(),'blotter-enterprise-live-'));
+console.log(JSON.stringify({nativeScreens:evidence}));
+const childEnv={...process.env,TZ:'UTC',BLOTTER_ENTERPRISE_EVIDENCE:evidence};for(const name of Object.keys(childEnv))if(name.startsWith('ENTRA_'))delete childEnv[name];
 for(const args of [['run','build'],['exec','rer','queue','test:blotter','--','node','--test','--test-concurrency=1','tests/blotter/enterprise.test.mjs','tests/blotter/flows.test.mjs']]){const run=spawnSync('pnpm',args,{env:childEnv,stdio:'inherit'});assert.equal(run.status,0,'Build and native identity checks on the exact source before the live connection');}
 const bindings=Object.fromEntries(['ENTRA_TENANT_ID','ENTRA_CLIENT_ID','ENTRA_CLIENT_SECRET'].map(name=>{assert.ok(process.env[name],name+' is required');return [name,process.env[name]];}));
 bindings.ENTRA_TRANSACTION_SECRET=randomBytes(32).toString('hex');
