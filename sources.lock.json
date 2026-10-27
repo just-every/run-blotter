@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b35fad8045681bcf9a9a6e4dd6a18a7112b440ea5ec07d7a0bfe6520b4aa304b",
+      "sha256": "ff2c2e60ca7266a26f39316fc289e8f2bd0f9d4886b64e47cf9d23eae1cb044e",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "0c0273941a5cf98d6a5fdc2f90b36e6368654d0413b7d8c4d736cae290b5db89",
+      "sha256": "e7d7b9447f06b788886508f11b052c855f2c0553edc063e8a04aec466c5f3674",
       "executable": false
     },
     "deploy-demo.json": {
@@ -212,7 +212,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "fed7e0b267bb5d182fa8f44ede5ac17ba280dd066ff73159a02f7bcf21449c60",
+      "sha256": "aed69215a71738f6fd4526aa83810f7e7459dde18d12c44c297b367dc3582f41",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {

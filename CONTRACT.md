@@ -311,7 +311,7 @@ The native deterministic planner grants one principal-owned live key, one active
 
 ## Status
 
-Candidate status follows the named evidence and remaining gaps in each clause (27 October 2026).
+Judged from the code and tests at commit `93bca56c5bcb434e655ad0449fb3c9a97db9d181` (27 October 2026).
 
 The current main baseline `6525f96653093a8f3f1d5f8449e121adca3221f3` retains atomic native-deactivation fencing and isolated live-journey proof configuration. The replayed revenue source and tests are at `93bca56c5bcb434e655ad0449fb3c9a97db9d181`; the branch handoff identifies the final exact commit and verification runs. Guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
 
