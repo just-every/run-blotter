@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash, createHmac, generateKeyPairSync, randomBytes, sign as signWith } from 'node:crypto';
 import { harness } from './harness.mjs';
+import { mobileTimeJourney, mobileTaskJourney } from './mobile-ui.mjs';
 
 let h, reviewer, preparer, client, template, job, nextJob, csv, oldArchive, newArchive, erasedFile, keptFile;
 const b64 = text => Buffer.from(text).toString('base64');
@@ -1170,6 +1171,7 @@ test('TIME-001 timers and budgets: a timer survives a new session, stops into sn
   // A preparer cannot time a job they cannot see.
   const hidden = await h.json('/jobs', { ...start, periodStart: '2026-07-01', preparerEmail: 'reviewer@example.test' }, h.owner);
   await h.json(`/jobs/${hidden.id}/timer`, { description: 'x' }, preparer, 404);
+  await mobileTimeJourney();
 });
 
 test('TIME-001 billable status and tasks: non-billable time keeps its amount and budget but never reaches WIP, an export or the margin; corrections carry status and task; a rate change leaves prior amounts; others cannot edit', async () => {
@@ -1419,7 +1421,7 @@ test('PORTAL-003 client progress, secure questions and to-dos: the client asks a
   assert.ok(history.unresolved.some(i => i.kind === 'client_todo' && i.owner === 'preparer@example.test' && i.due === 'client due 2027-08-15'));
   // Completing one to-do records the reply, alerts its owner and completes nothing else.
   const todo = view.todos[0];
-  assert.equal((await h.request(`${link}/todos/${todo.id}`, { response: 'New BSB 062-000' })).status, 200);
+  await mobileTaskJourney(h,{token,work,preparer,reviewer,phase:'complete'});
   assert.equal((await h.request(`${link}/todos/${todo.id}`, {})).status, 409);
   const otherTodo = (await h.json('/jobs/' + other.id, undefined, preparer)).portal.todos[0];
   assert.equal((await h.request(`${link}/todos/${otherTodo.id}`, {})).status, 404);
@@ -1453,6 +1455,7 @@ test('PORTAL-003 client progress, secure questions and to-dos: the client asks a
   assert.deepEqual([view.progress.stage, view.progress.nextAction], ['in_review', 'Nothing needed from you: your accountant is reviewing the work.']);
   assert.deepEqual(view.progress.milestones.map(m => [m.key, m.done, m.detail]), [['documents', true, '2 of 2 received, 2 accepted'], ['preparation', true, '2 of 2 steps complete'], ['review', false, 'in review'], ['completed', false, 'not yet']]);
   assert.ok(!JSON.stringify(view).includes('late fees'));
+  await mobileTaskJourney(h,{token,work,preparer,reviewer,phase:'review'});
 });
 
 test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and a client meeting shows available hours, overloaded staff and affected jobs; adjusting an estimate updates totals and conflict explanations', async () => {

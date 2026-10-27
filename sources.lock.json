@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b35fad8045681bcf9a9a6e4dd6a18a7112b440ea5ec07d7a0bfe6520b4aa304b",
+      "sha256": "7b30158de9ab8ee9e694919707c8df16a3f7409592a224c8213e23132810eeb5",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "0c0273941a5cf98d6a5fdc2f90b36e6368654d0413b7d8c4d736cae290b5db89",
+      "sha256": "2fbe9fca18688c848b282ab22a94b7aca32548f3fe474ad987e986bca5e14bdd",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4368,7 +4368,7 @@
       "executable": false
     },
     "tests/blotter/flows.test.mjs": {
-      "sha256": "3b5040d7b6427b7eb6bb49816a7292b5d77d1ca8354105dd555334d09f085a39",
+      "sha256": "4dc803b429ec443aa4c0446860cdb4fdba85600479924bd65a24ec2fa822c1c5",
       "executable": false
     },
     "tests/blotter/harness.mjs": {
@@ -4425,6 +4425,10 @@
     },
     "tests/blotter/library.test.mjs": {
       "sha256": "ce3ef31abdde210dd6d768f7789b044bf5dd4a0c795a719e33fc30aac204d673",
+      "executable": false
+    },
+    "tests/blotter/mobile-ui.mjs": {
+      "sha256": "7c36457ed0689041147337307aec5d2c280c3eb8ba8dc7b968d5182366441c0e",
       "executable": false
     },
     "tests/blotter/notifications-ui.mjs": {
