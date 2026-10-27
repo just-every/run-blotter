@@ -9,12 +9,12 @@ export async function assertRevenueCustody(h,s,read) {
  const finding=map.exceptions.find(e=>e.kind==='amendment'&&e.jobId===s.extra.id);
  const reviewed=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  const scopeBefore=await(await h.request(map.scope.source.href,undefined,h.owner)).text();
- const entitlementsBefore=(await h.json('/invoices',undefined,h.owner)).entitlements;
+ const financialBefore=await h.json('/invoices',undefined,h.owner),entitlementsBefore=financialBefore.entitlements;
  const before=await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner),mails=h.mails.length;
  await h.json(`/revenue/proposals/${reviewed.id}/decide`,{decision:'approve',reason:'Reviewed amendment draft; client agreement still required'},h.owner);
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).balance_cents,before.balance_cents);assert.equal(h.mails.length,mails);
  assert.equal(await(await h.request(map.scope.source.href,undefined,h.owner)).text(),scopeBefore);
- assert.ok(entitlementsBefore.length>=3);assert.deepEqual((await h.json('/invoices',undefined,h.owner)).entitlements,entitlementsBefore);
+ assert.ok(entitlementsBefore.length>=3);assert.deepEqual(await h.json('/invoices',undefined,h.owner),financialBefore);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-09',minutes:1,description:'Fresh evidence after draft review'},s.prep);map=await read();
  const draft=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  await h.json(`/jobs/${s.extra.id}/time`,{date:'2026-11-09',minutes:1,description:'Additional context changes the evidence snapshot'},s.prep);
@@ -79,8 +79,10 @@ export async function assertRevenueErasure(h) {
  await h.json(`/jobs/${j.id}/review`,{revision:work.job.revision,decision:'signoff',note:'Human signed off the additional cleanup'},await h.login('reviewer@example.test'));
  const map=(await h.json(`/revenue?clientId=${client.id}&planId=${plan.id}`,undefined,h.owner)).map;
  assert.equal(map.exceptions[0].amountCents,5000);
+ const started=Date.now();
  const draft=await h.json('/revenue/proposals',{clientId:client.id,planId:plan.id,fingerprint:map.fingerprint,exceptionId:map.exceptions[0].id},h.owner);
  await h.json(`/revenue/proposals/${draft.id}/decide`,{decision:'decline',reason:'Principal declined amendment'},h.owner);
+ await assertRevenueAudit(h,client.id,'revenue.prepared',{proposalId:draft.id,kind:'amendment',sourceId:letter.id},started);
  const contact=await h.json(`/clients/${client.id}/contacts`,{name:'Synthetic billing contact',email:'synthetic@example.test',roles:['billing'],authorized:true,emailConsent:true,consentNote:'Explicit test invoice authority'},h.owner);
  const entitlement=await h.json('/invoice-entitlements',{jobId:j.id,kind:'milestone',reference:'synthetic-blotter-95',description:'Sourced one-cent correction',amountCents:2,authorization:'Explicit principal authority'},h.owner);
  const credit=await h.json('/invoice-credits',{clientId:client.id,kind:'credit',reference:'synthetic-blotter-97',amountCents:1,reason:'Separately approved applied credit'},h.owner);
@@ -90,6 +92,7 @@ export async function assertRevenueErasure(h) {
  await h.json(`/invoices/${invoice.id}/write-off`,{amountCents:1,reason:'Explicit principal approval for the erasure fixture'},h.owner);
  const facts={invoiceId:invoice.id,currency:'USD',source:'Synthetic erasure ledger',reference:'synthetic-blotter-96',grossCents:2,receiptCents:0,creditCents:1,writeoffCents:1,reason:'Practitioner-recorded ledger match'};
  const observation=await h.json('/revenue/accounting',facts,h.owner);
+ await assertRevenueAudit(h,client.id,'revenue.accounting_recorded',{entry:observation.id,invoiceId:invoice.id,source:'Synthetic erasure ledger',reference:'synthetic-blotter-96',reason:'Practitioner-recorded ledger match'},started);
  const matched=(await h.json(`/revenue?clientId=${client.id}&planId=${plan.id}`,undefined,h.owner)).map.accounting.comparisons;
  assert.deepEqual(matched,[{observationId:observation.id,invoiceId:invoice.id,recorded:{grossCents:2,receiptCents:0,creditCents:1,writeoffCents:1},native:{grossCents:2,receiptCents:0,creditCents:1,writeoffCents:1},differences:[]}]);
  const accountingHold=await h.json(`/clients/${client.id}/retention`,{scope:'class',class:'billing',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve accounting evidence'},h.owner);
