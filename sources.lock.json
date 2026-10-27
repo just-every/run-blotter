@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "ca054073adc5fb8eb81191246180d6f05a08dfa31eec8cd6d56ca31d8f8430cd",
+      "sha256": "4cce37d3bf09d1b3ecbe70bac0c11535d229ad67d56ea5a654d1b80b07e9d21a",
       "executable": false
     },
     "AGENTS.md": {
@@ -124,7 +124,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "5dc37a96f4895b392326343b797074c45ca7a2e4da8a94414e7682ceaae078d0",
+      "sha256": "1127700a51a4d968e5a852a97be0ecba94963b6aa8a50a68e826256103004767",
       "executable": false
     },
     "base-copies.json": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "4e1b786b941fb715a989ab8e5da065e4fde6bc0ee954867f9cb4b6b951b049d1",
+      "sha256": "7e05e30c9b76992d1e5419d78243acc20a977ca9664e8fa547abb13c3e25c907",
       "executable": false
     },
     "deploy-demo.json": {
@@ -168,7 +168,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "8d0ccfaa48045c1fac2c63d61abb881b619521b2024be7b2a866c483c2f01a35",
+      "sha256": "5e8f0c9b9fd745be8daaaaa72a9ec323b9fedff5c567869ae4265e3077800b8c",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -1468,7 +1468,7 @@
       "executable": false
     },
     "src/blotter/erasure-copies.ts": {
-      "sha256": "c767905a4a1d879a5e473037e02beea48ae09928a9720e1b489c5e541c1145f2",
+      "sha256": "818a0ac951775a1712cd38246d31900513221437d8ce37e50cfeb2822a5e51e4",
       "executable": false
     },
     "src/blotter/erasure-expiry.ts": {
@@ -1888,7 +1888,7 @@
       "executable": false
     },
     "src/blotter/security-logs.ts": {
-      "sha256": "170c19ecf9ea972fb22928ddfc4c1d89c58ecd9d6b2cbf27671c4b54d09a4597",
+      "sha256": "8a36dcb9d21aa6038e0cbb57ffaf2d9d120877f42b8ea1ff49c50d62ca0b12e7",
       "executable": false
     },
     "src/blotter/session.ts": {
@@ -4564,7 +4564,7 @@
       "executable": false
     },
     "tests/blotter/security-logs.test.mjs": {
-      "sha256": "16d5e76158b1c766b35b421e7edeca48a3ef873ffa9220ebfab8cae67d863490",
+      "sha256": "fdd655ec5d99726c19626e8ae8e9f3e0ae1c530ed128cb16c1d0bf196da3f3b6",
       "executable": false
     },
     "tests/blotter/service-agents-ui.mjs": {

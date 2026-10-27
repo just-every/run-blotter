@@ -59,7 +59,7 @@ test('Recorded access-log export selects exact UTC instants across DST, preserve
   for(const secret of ['synthetic-blotter-5.txt','synthetic-blotter-6 private document',s.client.contacts[0].id,s.share.token,s.token,'sha256','contentBase64'])assert.ok(!text.includes(secret),secret);
   assert.deepEqual(await audit(h),before,'export never changes a source event');
   const exports=(await h.db.prepare("SELECT * FROM b_audit WHERE action='security.access_log_exported'").all()).results;
-  assert.equal(exports.length,1);assert.equal(exports[0].actor,'owner@example.test');assert.equal(exports[0].object_id,'access-log');assert.deepEqual(JSON.parse(exports[0].detail),{from:'2026-03-08T00:00:00.000Z',endExclusive:'2026-03-09T00:00:00.000Z',rows:4});assert.ok(Number.isFinite(Date.parse(exports[0].at)));
+  assert.equal(exports.length,1);assert.equal(exports[0].actor,'owner@example.test');assert.equal(exports[0].object_id,'access-log');const {eventIds,...detail}=JSON.parse(exports[0].detail);assert.deepEqual(detail,{from:'2026-03-08T00:00:00.000Z',endExclusive:'2026-03-09T00:00:00.000Z',rows:4});assert.deepEqual(eventIds.toSorted(),ids.slice(1,5).toSorted());assert.ok(Number.isFinite(Date.parse(exports[0].at)));
   await h.db.prepare('UPDATE b_audit SET detail=? WHERE id=?').bind('[erased] synthetic-blotter-13',ids[1]).run();
   const redacted=records(await(await h.request(base+range,undefined,h.owner)).text());
   assert.deepEqual(redacted.map(r=>r.event_id),ids.slice(1,5));assert.equal(redacted[0].channel,'not recorded');assert.equal(redacted[0].identity,'not recorded');assert.ok(!JSON.stringify(redacted).includes('synthetic-blotter-13'));
@@ -103,18 +103,30 @@ test('Access-log export requires the live principal and a fresh confirmation in 
  }finally{await h.close();}
 });
 
-test('Current access logs remain portable, omit sealed and erased details, and reject a stale archive with the newer erasure journal',async()=>{
+test('Current access logs remain portable, snapshot external-copy membership, omit sealed and erased details, and reject a stale archive with the newer erasure journal',async()=>{
  const h=await harness();let copy,stale;
  try {
-  const s=await fixture(h);const event=await downloadAt(h,s.doors[0],'2026-03-08T12:00:00Z');
+  const s=await fixture(h);
+  const copies=async source=>(await source.json(`/clients/${s.client.id}/erasure/preview`,undefined,source.owner)).externalCopies.filter(item=>item.source==='access-log-downloads');
+  const empty=await h.request(base+range,undefined,h.owner);assert.equal(empty.status,200);assert.equal(csv(await empty.text()).length,1,'empty export contains only CSV headings');
+  assert.deepEqual(await copies(h),[],'an empty export contains none of this client');
+  const event=await downloadAt(h,s.doors[0],'2026-03-08T12:00:00Z');
+  const afterDownload=await copies(h);
   // Defensive historical data: only selected channel metadata may leave the audit store.
   await h.db.prepare('UPDATE b_audit SET detail=? WHERE id=?').bind(JSON.stringify({channel:'staff',sealed:'synthetic-blotter-9',erased:'synthetic-blotter-10',contactId:s.client.contacts[0].id}),event).run();
   const expected=await(await h.request(base+range,undefined,h.owner)).text();assert.ok(!expected.includes('synthetic-blotter-9')&&!expected.includes('synthetic-blotter-10'));
+  const exports=(await h.db.prepare("SELECT detail FROM b_audit WHERE action='security.access_log_exported' ORDER BY rowid").all()).results.map(row=>JSON.parse(row.detail));
+  assert.deepEqual(exports.map(row=>row.rows),[0,1],'both exports retain their original row counts');
+  assert.deepEqual(exports.map(row=>row.eventIds),[[],[event]],'export audits retain exact membership, including the empty snapshot');
+  const inventory=await copies(h);
+  assert.deepEqual([afterDownload.map(item=>item.count),inventory.map(item=>item.count)],[[],[1]],'a later download cannot enter an earlier CSV; only the second export contains the client');
+  assert.match(inventory[0].holder,/owner@example.test/);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   const items=archive.trim().split('\n').flatMap(line=>JSON.parse(line).items??[]);
   assert.ok(items.some(i=>i.table==='b_audit'&&i.row.id===event));assert.ok(items.some(i=>i.table==='b_audit'&&i.row.action==='security.access_log_exported'));
   assert.ok(!items.some(i=>['b_access_stepups','b_document_shares'].includes(i.table)));
   copy=await harness();await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},copy.owner);
+  assert.deepEqual(await copies(copy),inventory,'archive restore preserves export copy membership');
   assert.equal((await copy.send(base+range,undefined,copy.owner)).status,403,'restored history carries no fresh confirmation');
   assert.equal(await(await copy.request(base+range,undefined,copy.owner)).text(),expected);
   // Complete the source work through its public workflow so client erasure is eligible.

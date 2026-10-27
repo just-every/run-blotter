@@ -506,7 +506,10 @@ details, sealed values, links or tokens are exported. CSV fields are quoted,
 embedded quotes escaped, and spreadsheet formula prefixes neutralized. The
 response is private, uncached and a download. Source events are unchanged;
 `security.access_log_exported` records the principal, time, exact boundaries and
-row count atomically with the read. The CSV is generated from current portable
+row count and the exact exported event IDs atomically with the read. The erasure
+preview attributes a downloaded CSV to a client only when that snapshot contains
+a download of the client's document. Later events within the same date range
+never change an earlier CSV's membership. The CSV is generated from current portable
 audit history, with no new retained copy or credential. Native archives retain
 that history and export attribution, exclude step-ups and bearer tokens, and
 retain the existing newer-erasure-journal fence on stale restore. Downloaded

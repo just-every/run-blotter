@@ -38,8 +38,8 @@ export async function observedCopies(db: D1Database, clientId: string): Promise<
   const reports=await rows(db,`SELECT actor,count(*) n FROM b_audit WHERE action='report.client_downloaded' AND object_id=${c} GROUP BY actor`);
   out.push(...named(reports,who=>`Client data in report CSVs/PDFs downloaded by staff (${who})`,'report-downloads',who=>`${who} (the named downloader)`));
   const logs = await rows(db, `SELECT e.actor,count(*) n FROM b_audit e WHERE e.action='security.access_log_exported'
-    AND json_valid(e.detail) AND EXISTS(SELECT 1 FROM b_audit d WHERE d.action='file.downloaded' AND d.object_id IN ${files}
-      AND julianday(d.at)>=julianday(json_extract(e.detail,'$.from')) AND julianday(d.at)<julianday(json_extract(e.detail,'$.endExclusive')))
+    AND json_valid(e.detail) AND EXISTS(SELECT 1 FROM json_each(e.detail,'$.eventIds') member
+      JOIN b_audit d ON d.id=member.value WHERE d.action='file.downloaded' AND d.object_id IN ${files})
     GROUP BY e.actor`);
   out.push(...named(logs, who => `Access-log CSVs downloaded (${who})`, 'access-log-downloads', who => `${who} (the named downloader; erase external copies independently)`));
   const archives = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='archive.downloaded' AND at>=(SELECT created_at FROM b_clients WHERE id=${c}) GROUP BY actor`);
