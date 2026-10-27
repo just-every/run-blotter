@@ -1,9 +1,9 @@
 import type { Bindings } from '../auth.server';
 import { enterpriseRefresh, enterpriseGuard } from './enterprise-lifecycle';
-import { atomic, audit, digest, Fault, id, insist, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, digest, Fault, guard, id, insist, rows, stmt, text, type Actor, type Data } from './model';
 
 const schema='urn:ietf:params:scim:schemas:core:2.0:';
-const user=(r:Data)=>({schemas:[schema+'User'],id:r.id,userName:r.email,externalId:r.external_id??undefined,displayName:r.display_name,active:!!r.active});
+const user=(r:Data)=>({schemas:[schema+'User'],id:r.id,userName:r.email,externalId:r.external_id??undefined,displayName:r.display_name,active:!!r.active&&!r.blocked});
 async function group(db:D1Database,r:Data){return {schemas:[schema+'Group'],id:r.id,externalId:r.id,displayName:r.display_name,members:(await rows(db,'SELECT identity_id FROM b_enterprise_group_members WHERE group_id=? ORDER BY identity_id',r.id)).map(m=>({value:m.identity_id}))};}
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'content-type':'application/scim+json','cache-control':'no-store'}});
 
@@ -48,12 +48,13 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
       if(request.method==='DELETE')attributes.active=false;
       insist(attributes.userName===undefined||String(attributes.userName).toLowerCase()===target.email,'Provisioning cannot reassign an identity',403);
       const active=attributes.active;insist(typeof active==='boolean','Active must be a boolean');insist(!active||!target.blocked,'The principal disabled this member; only the principal can reactivate them',403);
+      const [allowed,finished]=guard(db,'EXISTS(SELECT 1 FROM b_enterprise_identities WHERE id=? AND (?=0 OR blocked=0))',target.id,Number(active));statements.push(allowed);
       const external=attributes.externalId===undefined?target.external_id:text(attributes.externalId,'External identity reference',255);
       insist(!target.external_id||external===target.external_id,'Provisioning cannot reassign an external identity',403);
       const display=attributes.displayName===undefined?target.display_name:text(attributes.displayName,'Display name',100);
       statements.push(stmt(db,'UPDATE b_enterprise_identities SET external_id=?,display_name=? WHERE id=?',external,display,target.id),stmt(db,'UPDATE b_members SET name=? WHERE email=?',display,target.email),stmt(db,'UPDATE oa_operators SET display_name=? WHERE email=?',display,target.email));
       statements.push(stmt(db,'UPDATE b_enterprise_identities SET active=? WHERE id=?',Number(active),target.id));
-      if(!active)statements.push(stmt(db,'DELETE FROM b_enterprise_group_members WHERE identity_id=?',target.id));
+      if(!active)statements.push(stmt(db,'DELETE FROM b_enterprise_group_members WHERE identity_id=?',target.id));statements.push(finished);
     }else{
       const groupId=item?.id??text(b.externalId??id(),'Group reference',200);resultId=groupId;
       insist(item||request.method==='POST','Choose a group',404);
@@ -73,7 +74,7 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
         }
         const nameValue=text(name,'Group name',200);
         statements.push(stmt(db,'INSERT INTO b_enterprise_groups(id,display_name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name',groupId,nameValue));
-        if(members!==undefined){const ids=memberIds(members);for(const identityId of ids)insist(await stmt(db,"SELECT 1 FROM b_enterprise_identities i WHERE id=? AND active=1 AND NOT EXISTS(SELECT 1 FROM oa_operators p WHERE p.email=i.email AND p.role='owner')",identityId).first(),'Group contains an unknown or deprovisioned identity',403);
+        if(members!==undefined){const ids=memberIds(members);for(const identityId of ids)insist(await stmt(db,"SELECT 1 FROM b_enterprise_identities i WHERE id=? AND active=1 AND blocked=0 AND NOT EXISTS(SELECT 1 FROM oa_operators p WHERE p.email=i.email AND p.role='owner')",identityId).first(),'Group contains an unknown or deprovisioned identity',403);
           statements.push(stmt(db,'DELETE FROM b_enterprise_group_members WHERE group_id=?',groupId),...ids.map(identityId=>stmt(db,'INSERT INTO b_enterprise_group_members(group_id,identity_id) VALUES(?,?)',groupId,identityId)));}
       }
     }

@@ -50,7 +50,7 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   await h.json('/keys',{label:'Scoped staff cannot mint a firm key'},accepted.cookie,403);
   await enterpriseJourney(h);accepted=await signinStaff();await h.json('/v1/clients',undefined,accepted.cookie);
   await h.json('/team',{email:staff,name:'Maya Chen',role:'reviewer',active:false},h.owner);
-  await scim('/Users/'+identity.id,{Operations:[{op:'Replace',path:'active',value:true}]},403,'PATCH');
+  await scim('/Users/'+identity.id,{Operations:[{op:'Replace',path:'active',value:true}]},403,'PATCH');assert.equal((await scim('/Users/'+identity.id)).active,false);
   await scim('/Groups/'+group.id,{Operations:[{op:'Add',path:'members',value:[{value:identity.id}]}]},403,'PATCH');await h.json('/state',undefined,accepted.cookie,401);
   await h.json('/team',{email:staff,name:'Maya Chen',role:'reviewer',active:true},h.owner);
   await scim('/Groups/'+group.id,{Operations:[{op:'Add',path:'members',value:[{value:identity.id}]}]},200,'PATCH');accepted=await signinStaff();await h.json('/v1/clients',undefined,accepted.cookie);
