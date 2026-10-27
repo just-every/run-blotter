@@ -123,3 +123,11 @@ accounting firms; ACCEPTANCE.md is the first release. Product source is in
 owner-account deploy applies declared D1 migrations and checks health.
 
 Pinned reference: https://github.com/runeditrun/base/blob/a06bd065124c2b45fa879e62736fb5e1987efdaa/TANSTACK-START-MIGRATION.md
+
+## Contract status projections
+
+After changing a Status row, regenerate its acceptance status and the claims
+projection with `node scripts/contract-docs.mjs write MOBILE-001` (substitute the
+changed clause ids), then run the same command with `check`. The command preserves
+acceptance prose and derives Evidence and Gap from CONTRACT.md. Regenerate the
+edition source lock last with `node scripts/edition-authoring/cli.mjs lock`.

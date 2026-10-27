@@ -1,7 +1,7 @@
 // Shared ERASURE-002 fixtures: one client with every kind of record the policy classifies,
 // built only through the Worker's public doors. Fakes only the mail provider (the harness).
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
+import { createHmac, createHash } from 'node:crypto';
 
 export const b64 = text => Buffer.from(text).toString('base64');
 export const contact = (name, email) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true });
@@ -54,7 +54,12 @@ export async function build(h) {
   const letter = await h.json(`/clients/${client.id}/engagements`, { title: 'Engagement letter 2026', signers: ['Alex Owner', 'Pat Preparer'], signedDate: '2026-01-05', file: { name: 'engagement-letter.txt', mime: 'text/plain', contentBase64: b64(SENTINEL.engagement) } }, h.owner);
   // Open work: a file, a thread, a request note, billable time and an expense, a stored credential, an organizer answer from the client, readiness preparations.
   let d = await h.json('/jobs/' + open.id, undefined, s.prep);
-  const intakeFile = (await h.json(`/requests/${d.requests[0].id}/files`, { name: 'bank.txt', mime: 'text/plain', contentBase64: b64(SENTINEL.intake) }, s.prep)).id;
+  // Exercise mobile portal originals through the same clocks, holds and receipts.
+  const uploadToken = tokenOf(await h.json(`/jobs/${open.id}/reminders`, { contactId: alex.id }, s.prep));
+  const uploadRoot = `/portal/${uploadToken}`, bytes = Buffer.from(SENTINEL.intake), sha256 = createHash('sha256').update(bytes).digest('hex');
+  const upload = await h.json(`${uploadRoot}/requests/${d.requests[0].id}/packet-uploads`, { name: 'bank.txt', mime: 'text/plain', size: bytes.length, sha256, pageCount: 1 });
+  await h.json(`${uploadRoot}/packet-uploads/${upload.id}/chunks`, { offset: 0, chunkId: 'chunk-0', sha256, contentBase64: b64(SENTINEL.intake) });
+  const intakeFile = (await h.json(`${uploadRoot}/packet-uploads/${upload.id}/complete`, {})).fileId;
   await h.json(`/requests/${d.requests[1].id}/files`, { name: 'payroll-open.txt', mime: 'text/plain', contentBase64: b64('Open job payroll bytes') }, s.prep);
   await h.json(`/jobs/${open.id}/threads`, { anchor: 'request:' + d.requests[0].id, title: 'Statement query', body: SENTINEL.thread, correction: false }, s.prep);
   const time = await h.json(`/jobs/${open.id}/time`, { date: '2026-10-02', minutes: 50, description: 'Reconcile bank' }, s.prep);

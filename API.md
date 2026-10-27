@@ -475,3 +475,27 @@ Retainer comparisons use the rule's first month, recorded work months and accept
 `POST /api/blotter/revenue/accounting` records an explicit principal observation of a firm-accounting event against an issued native `invoiceId`. Supply `currency` (`USD`), `source`, immutable event `reference`, `reason`, and integer `grossCents`, `receiptCents` (net of returns and refunds), `creditCents` (applied), and `writeoffCents`. These are practitioner-recorded observations, never authenticated ledger-provider receipts or a second invoice authority. Exact reference replay returns the original observation; changed evidence under that reference is refused. Record a new event reference for later evidence.
 
 `GET /api/blotter/revenue/accounting?clientId=...` and the revenue map compare the latest recorded observation per source and native invoice with that invoice's gross, confirmed provider net, applied credits and approved write-offs. Mismatches retain the invoice owner and due condition. Both accounting doors require the principal's native session and the selected Blotter invoice authority; no ledger post, invoice change, mail, charge or write-off is performed. Observations travel as billing history in archives, confer no restored execution authority, honor billing and work holds, and retain amounts and attribution with their invoice. Client erasure or confirmed invoice expiry removes source references and reason text through the existing retention engine.
+
+### Recoverable client portal uploads
+
+The existing portal link can start and list uploads at
+`/api/blotter/portal/:token/requests/:request/packet-uploads`. POST supplies
+`name`, `mime`, `size`, `sha256` and a recorded `pageCount`. The selected original
+is limited to 20 MiB, 2,000 pages and 256 KiB chunks. Upload status is GET
+`/api/blotter/portal/:token/packet-uploads/:upload`; POST its `chunks`, `complete`
+or `cancel` child. Chunks supply `offset`, `chunkId`, `sha256` and `contentBase64`.
+Only confirmed bytes count. Exact chunk and completion replays retain one original.
+
+Progress is bound to the issuing link, contact revision, job and visible request.
+Each effect rechecks current link validity, contact authority, request visibility
+and open work inside its transaction. Replaced links cannot recover old staging.
+The browser keeps original bytes only in memory, requires an explicit retry and
+checks the reselected original digest before resuming. There is no automatic
+background sync, camera capture or native-device qualification. Link possession
+remains bearer authority and does not verify personal identity.
+
+Staging expires after seven days, is cancellable while work accepts uploads and
+is excluded from archives with portal links. Completed files use ordinary
+DOC-001 originals and ERASURE-002 classes, clocks, holds, preview, receipts and
+stale-restore fencing. Staff transport cannot resume portal staging. New packet
+originals start internal and grant no new contact download rights.
