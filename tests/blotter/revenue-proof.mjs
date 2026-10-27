@@ -114,7 +114,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  s.accountingWriteStart=Date.now();
  await h.json('/revenue/accounting',accounting,s.reviewer,403);await h.json('/revenue/accounting',accounting,'',401);
  await h.json('/revenue/accounting',{...accounting,invoiceId:s.duplicate.id},h.owner,409);
- const observed=await h.json('/revenue/accounting',accounting,h.owner);assert.equal((await h.json('/revenue/accounting',accounting,h.owner)).id,observed.id);
+ const observed=await h.json('/revenue/accounting',accounting,h.owner);assert.equal(observed.replayed,false);const replayed=await h.json('/revenue/accounting',accounting,h.owner);assert.equal(replayed.id,observed.id);assert.equal(replayed.replayed,true);
  await assertRevenueAudit(h,s.client.id,'revenue.accounting_recorded',{entry:observed.id,invoiceId:s.invoice.id,source:'Synthetic firm ledger',reference:'synthetic-blotter-91',reason:'Principal read the ledger collection event'},s.accountingWriteStart);
  map=await read();
  assert.deepEqual(map.accounting.comparisons,[{observationId:observed.id,invoiceId:s.invoice.id,recorded:{grossCents:10000,receiptCents:10000,creditCents:0,writeoffCents:0},native:{grossCents:10000,receiptCents:10000,creditCents:0,writeoffCents:0},differences:[]}]);
