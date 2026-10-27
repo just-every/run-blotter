@@ -5,7 +5,7 @@ const archivedRevenue=archive=>archive.trim().split('\n').map(line=>JSON.parse(l
 
 export async function assertRevenueCustody(h,s,read) {
  let map=await read();
- const finding=map.exceptions.find(e=>e.kind==='amendment');
+ const finding=map.exceptions.find(e=>e.kind==='amendment'&&e.jobId===s.extra.id);
  const reviewed=await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:finding.id},h.owner);
  const before=await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner),mails=h.mails.length;
  await h.json(`/revenue/proposals/${reviewed.id}/decide`,{decision:'approve',reason:'Reviewed amendment draft; client agreement still required'},h.owner);

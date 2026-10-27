@@ -16,22 +16,32 @@ export async function revenueFixture(h) {
  await h.json('/team/rates',{email:'preparer@example.test',rateCents:12000,effectiveFrom:'2026-01-01'},h.owner);
  for(const address of ['preparer@example.test','reviewer@example.test'])await h.json('/team/invite',{email:address},h.owner);
  const prep=await h.login('preparer@example.test'),reviewer=await h.login('reviewer@example.test');
+ const budgetJob=await h.json('/jobs',{clientId:s.client.id,templateId:preview.services[0].template.id,periodStart:'2026-12-01',dueDate:'2027-01-15',dueNote:'Recorded monthly target',preparerEmail:'preparer@example.test',reviewerEmail:'reviewer@example.test',budgetMinutes:60},h.owner);
+ const within=await h.json(`/jobs/${s.job.id}/time`,{date:'2026-11-02',minutes:30,description:'Ordinary covered monthly review'},prep);
+ const overrun=await h.json(`/jobs/${budgetJob.id}/time`,{date:'2026-11-02',minutes:90,description:'Covered work exceeds its recorded budget'},prep);
  const time=await h.json(`/jobs/${extra.id}/time`,{date:'2026-11-02',minutes:90,description:'Correct payroll outside monthly books'},prep);
  await h.json('/timesheets/submit',{weekStart:'2026-11-02'},prep);
- await h.json(`/time/${time.id}/review`,{decision:'approve'},reviewer);
+ for(const entry of [time,within,overrun])await h.json(`/time/${entry.id}/review`,{decision:'approve'},reviewer);
  const ent=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-42',description:'Monthly books accidentally authorized twice',amountCents:10000,authorization:'Principal recorded duplicate source for correction proof'},h.owner);
  const input={title:'Monthly scope',issueDate:'2026-11-02',jobId:s.job.id,sourceKeys:[ent.sourceKey],contactId:s.billing.id,dueDate:'2026-12-15',terms:'Due on the recorded date',taxCents:0,taxTreatment:'No sales tax under supplied treatment',taxAuthorization:'Principal checked treatment'};
  const invoicePreview=await h.json('/invoices/preview',input,h.owner),duplicate=await h.json('/invoices',{...input,previewHash:invoicePreview.previewHash},h.owner);
- return {...s,plan,letter,extra,time,prep,reviewer,duplicate};
+ const retainer=await h.json('/invoice-retainers',{jobId:s.job.id,title:'Monthly scheduled fee',amountCents:10000,billDay:1,dueDays:14,contactId:s.billing.id,terms:'Monthly agreed payment',taxCents:0,taxTreatment:'Supplied no-tax treatment',taxAuthorization:'Principal checked treatment',authorization:'Accepted monthly signed fee',startMonth:'2026-11'},h.owner);
+ const change={effectiveMonth:'2027-01',action:'price',amountCents:12000,taxCents:0,taxTreatment:'Supplied no-tax treatment',taxAuthorization:'Principal checked amended treatment',authorization:'Recorded accepted amended monthly fee',reason:'Accepted additional monthly review'};
+ const amendmentPreview=await h.json(`/invoice-retainers/${retainer.id}/amendment-preview`,change,h.owner);
+ await h.json(`/invoice-retainers/${retainer.id}/amend`,{...change,previewHash:amendmentPreview.previewHash},h.owner);
+ const credit=await h.json('/invoice-credits',{clientId:s.client.id,kind:'credit',reference:'synthetic-blotter-55',amountCents:2500,reason:'Separately authorized client credit'},h.owner);
+ return {...s,plan,letter,extra,time,prep,reviewer,duplicate,budgetJob,retainer,credit};
 }
 
 export async function assertRevenueFlow(h,edge,s,ui) {
  const mapDoor=`/revenue?${new URLSearchParams({clientId:s.client.id,planId:s.plan.id})}`;
  const read=async()=> (await h.json(mapDoor,undefined,h.owner)).map;
  let map=await read();
- assert.equal(map.totals.unbilledCents,18000);
- assert.deepEqual(map.exceptions.map(e=>e.kind).sort(),['amendment','duplicate']);
- const amendment=map.exceptions.find(e=>e.kind==='amendment'),duplicate=map.exceptions.find(e=>e.kind==='duplicate');
+ assert.equal(map.totals.unbilledCents,42000);
+ assert.deepEqual(map.exceptions.map(e=>e.kind).sort(),['amendment','amendment','duplicate']);
+ assert.equal(map.exceptions.find(e=>e.jobId===s.budgetJob.id).amountCents,18000);assert.match(map.exceptions.find(e=>e.jobId===s.budgetJob.id).summary,/budget/);assert.ok(!map.exceptions.some(e=>e.kind==='amendment'&&e.jobId===s.job.id));
+ assert.equal(JSON.parse(map.retainers[0].definition).amountCents,10000);assert.equal(JSON.parse(map.amendments[0].after_snapshot).amountCents,12000);assert.equal(map.collections.credits[0].id,s.credit.id);
+ const amendment=map.exceptions.find(e=>e.kind==='amendment'&&e.jobId===s.extra.id),duplicate=map.exceptions.find(e=>e.kind==='duplicate');
  assert.equal(amendment.amountCents,18000);assert.match(amendment.draftText,/outside|absent/);assert.match(amendment.draftText,/180.00/);
  assert.deepEqual(map.scope.services.map(s=>s.scope.quote),['Monthly bookkeeping only; payroll services require an amendment.']);
  assert.equal(map.scope.source.id,s.letter.id);assert.match(map.scope.source.label,/practitioner-recorded/);
@@ -52,7 +62,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.equal(corrected.status,'approved');assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).status,'void');
  assert.equal((await h.json(`/invoices/${s.invoice.id}`,undefined,h.owner)).status,'issued');
  await h.json(`/revenue/proposals/${fix.id}/decide`,{decision:'approve',reason:'Replay'},h.owner,409);
- map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,28000);
+ map=await read();assert.deepEqual(map.proposals.map(p=>p.status).sort(),['approved','declined']);assert.equal(map.totals.unbilledCents,52000);
  assert.equal(h.mails.length,mails);assert.equal(edge.calls.filter(c=>c.path==='payment_intents').length,charges);
  const link=await h.json(`/invoices/${s.invoice.id}/payment-link`,{amountCents:10000},h.owner);
  const pi=[...edge.intents.values()].at(-1);pi.payment_method.type='us_bank_account';pi.payment_method.us_bank_account={last4:'6789'};pi.status='processing';
@@ -66,7 +76,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  const chargeCount=edge.calls.filter(c=>c.body).length;
  await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);await h.restart();await h.json(`/payments/${link.paymentId}/reconcile`,{},h.owner);
  map=await read();const returned=map.exceptions.find(e=>e.kind==='collection');
- assert.deepEqual([map.totals.providerNetCents,map.totals.openCents,map.totals.creditCents,map.totals.writtenOffCents],[0,10000,0,0]);
+ assert.deepEqual([map.totals.providerNetCents,map.totals.openCents,map.totals.creditCents,map.totals.writtenOffCents],[0,10000,2500,0]);
  assert.match(returned.summary,/Returned ACH/);assert.equal(returned.ownerEmail,'owner@example.test');assert.match(returned.nextAction,/no automatic retry/);assert.match(returned.nextAction,/2026-12-15/);
  assert.ok(returned.citations.some(c=>c.label.includes('synthetic-blotter-80')));
  assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
