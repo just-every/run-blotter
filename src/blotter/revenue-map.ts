@@ -62,15 +62,15 @@ export async function revenueMap(db: D1Database, actor: Actor, clientId: string,
   }
   const groups = new Map<string, Data[]>();
   for (const i of invoices) {
-    const key = JSON.stringify([i.job_id,i.title.trim().toLowerCase(),i.currency,i.total_cents]);
+    const key = JSON.stringify([i.job_id,i.title.trim().toLowerCase(),i.currency,i.subtotal_cents+i.tax_cents]);
     groups.set(key,[...(groups.get(key)??[]),i]);
   }
   for (const group of groups.values()) for (const duplicate of group.slice(1)) {
     const original=group[0];
-    exceptions.push({ id:`duplicate:${duplicate.id}`,kind:'duplicate',jobId:duplicate.job_id,summary:`Suspected duplicate invoice: ${duplicate.title}`,amountCents:duplicate.total_cents,currency:duplicate.currency,ownerEmail:duplicate.owner_email,
+    exceptions.push({ id:`duplicate:${duplicate.id}`,kind:'duplicate',jobId:duplicate.job_id,summary:`Suspected duplicate invoice: ${duplicate.title}`,amountCents:duplicate.subtotal_cents+duplicate.tax_cents,currency:duplicate.currency,ownerEmail:duplicate.owner_email,
       invoiceId:duplicate.id,invoiceRevision:duplicate.revision,originalId:original.id,originalRevision:original.revision,
       nextAction:duplicate.status==='draft'?'Review both invoices and void the duplicate draft if confirmed':'Review issued invoices; any credit requires its separate explicit financial approval',
-      citations:[original,duplicate].map(i=>({label:`${i.status==='issued'?`Invoice ${i.number}`:'Draft'}: ${i.title} (${i.total_cents} ${i.currency} cents)`,href:`/api/blotter/invoices/${i.id}`})),
+      citations:[original,duplicate].map(i=>({label:`${i.status==='issued'?`Invoice ${i.number}`:'Draft'}: ${i.title} (${i.subtotal_cents+i.tax_cents} ${i.currency} gross cents)`,href:`/api/blotter/invoices/${i.id}`})),
       draftText:`Suspected duplicate of ${original.id}: same work item, title, currency and gross amount. Distinct source entitlements do not establish distinct work. Principal review must confirm duplication.${duplicate.status==='draft'?' Approving this correction voids only the identified draft and retains its billing-source reservations to prevent rebilling.':' No issued invoice is changed by this finding.'}`,canPrepare:duplicate.status==='draft' });
   }
   exceptions.push(...collections.exceptions);
@@ -81,8 +81,8 @@ export async function revenueMap(db: D1Database, actor: Actor, clientId: string,
     for(const period of [...periods].sort()) {
       if(r.status!=='active'||period<r.start_month||(r.cancelled_from&&period>=r.cancelled_from))continue;
       const expected=await retainerDefinition(db,r,period);
-      const generated=await rows(db,"SELECT id,total_cents FROM b_invoices WHERE retainer_id=? AND period=? AND status<>'void' AND erased_at IS NULL",r.id,period);
-      const actual=generated.reduce((n,i)=>n+i.total_cents,0),expectedCents=expected.amountCents+expected.taxCents;
+      const generated=await rows(db,"SELECT id,subtotal_cents+tax_cents gross_cents FROM b_invoices WHERE retainer_id=? AND period=? AND status<>'void' AND erased_at IS NULL",r.id,period);
+      const actual=generated.reduce((n,i)=>n+i.gross_cents,0),expectedCents=expected.amountCents+expected.taxCents;
       if(actual!==expectedCents)exceptions.push({id:`retainer:${r.id}:${period}`,kind:'retainer',jobId:r.job_id,period,retainerId:r.id,expectedCents,actualCents:actual,amountCents:expectedCents-actual,currency:'USD',ownerEmail:r.owner_email,
         summary:`Retainer schedule discrepancy: ${r.title} (${period})`,nextAction:'Review the accepted fee and billing calendar; generate a draft only through the separately authorized retainer door',
         citations:[{label:`Retainer ${r.title}: ${period}; expected ${expectedCents} USD cents; recorded ${actual}`,href:'/api/blotter/invoices'},...amendments.filter(a=>a.retainer_id===r.id&&a.effective_month<=period).map(a=>({label:`Accepted amendment ${a.id}: ${a.reason}`,href:'/api/blotter/invoices'}))],canPrepare:false,draftText:''});

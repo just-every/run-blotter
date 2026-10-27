@@ -22,18 +22,18 @@ export async function revenueFixture(h) {
  const time=await h.json(`/jobs/${extra.id}/time`,{date:'2026-11-02',minutes:90,description:'Correct payroll outside monthly books'},prep);
  await h.json('/timesheets/submit',{weekStart:'2026-11-02'},prep);
  for(const entry of [time,within,overrun])await h.json(`/time/${entry.id}/review`,{decision:'approve'},reviewer);
+ const credit=await h.json('/invoice-credits',{clientId:s.client.id,kind:'credit',reference:'synthetic-blotter-55',amountCents:2500,reason:'Separately authorized client credit'},h.owner);
  const ent=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-42',description:'Monthly books accidentally authorized twice',amountCents:9000,authorization:'Principal recorded duplicate source for correction proof'},h.owner);
- const input={title:'Monthly scope',issueDate:'2026-11-02',jobId:s.job.id,sourceKeys:[ent.sourceKey],contactId:s.billing.id,dueDate:'2026-12-15',terms:'Due on the recorded date',taxCents:1000,taxTreatment:'No sales tax under supplied treatment',taxAuthorization:'Principal checked treatment'};
+ const input={credits:[{creditId:credit.id,amountCents:2500}],title:'Monthly scope',issueDate:'2026-11-02',jobId:s.job.id,sourceKeys:[ent.sourceKey],contactId:s.billing.id,dueDate:'2026-12-15',terms:'Due on the recorded date',taxCents:1000,taxTreatment:'No sales tax under supplied treatment',taxAuthorization:'Principal checked treatment'};
  const invoicePreview=await h.json('/invoices/preview',input,h.owner),duplicate=await h.json('/invoices',{...input,previewHash:invoicePreview.previewHash},h.owner);
  const distinct=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-43',description:'Different agreed work amount',amountCents:12000,authorization:'Separately authorized work'},h.owner);
- const differentInput={...input,title:'MONTHLY SCOPE',sourceKeys:[distinct.sourceKey],taxCents:0};
+ const differentInput={...input,credits:[],title:'MONTHLY SCOPE',sourceKeys:[distinct.sourceKey],taxCents:0};
  const differentPreview=await h.json('/invoices/preview',differentInput,h.owner);
  const different=await h.json('/invoices',{...differentInput,previewHash:differentPreview.previewHash},h.owner);
  const retainer=await h.json('/invoice-retainers',{jobId:s.job.id,title:'Monthly scheduled fee',amountCents:10000,billDay:1,dueDays:14,contactId:s.billing.id,terms:'Monthly agreed payment',taxCents:0,taxTreatment:'Supplied no-tax treatment',taxAuthorization:'Principal checked treatment',authorization:'Accepted monthly signed fee',startMonth:'2026-11'},h.owner);
  const change={effectiveMonth:'2027-01',action:'price',amountCents:12000,taxCents:0,taxTreatment:'Supplied no-tax treatment',taxAuthorization:'Principal checked amended treatment',authorization:'Recorded accepted amended monthly fee',reason:'Accepted additional monthly review'};
  const amendmentPreview=await h.json(`/invoice-retainers/${retainer.id}/amendment-preview`,change,h.owner);
  await h.json(`/invoice-retainers/${retainer.id}/amend`,{...change,previewHash:amendmentPreview.previewHash},h.owner);
- const credit=await h.json('/invoice-credits',{clientId:s.client.id,kind:'credit',reference:'synthetic-blotter-55',amountCents:2500,reason:'Separately authorized client credit'},h.owner);
  return {...s,plan,letter,extra,time,prep,reviewer,duplicate,different,duplicateInput:input,budgetJob,retainer,credit};
 }
 
@@ -72,7 +72,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.ok(amendment.citations.some(c=>c.label.includes('time:'+s.time.id)));
  assert.deepEqual(duplicate.citations.map(c=>c.href).sort(),[s.invoice.id,s.duplicate.id].map(id=>`/api/blotter/invoices/${id}`).sort());
  for(const c of [...amendment.citations,...duplicate.citations])assert.equal((await h.request(c.href,undefined,h.owner)).status,200);
- assert.equal(duplicate.invoiceId,s.duplicate.id);assert.ok(!map.exceptions.some(e=>e.kind==='duplicate'&&e.invoiceId===s.different.id));
+ assert.equal(duplicate.invoiceId,s.duplicate.id);assert.equal(duplicate.amountCents,10000);assert.equal((await h.json(`/invoices/${s.duplicate.id}`,undefined,h.owner)).total_cents,7500);assert.ok(!map.exceptions.some(e=>e.kind==='duplicate'&&e.invoiceId===s.different.id));
  const prepare=async(e,who=h.owner,status=200,extra={})=>h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:e.id},who,status,extra);
  await h.json('/revenue',undefined,s.reviewer,403);await h.json(mapDoor,undefined,s.prep,403);await h.json(mapDoor,undefined,'',401);
  await prepare(duplicate,s.reviewer,403);
