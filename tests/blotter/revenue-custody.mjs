@@ -14,7 +14,7 @@ export async function assertRevenueCustody(h,s,read) {
  assert.ok(archive.includes('b_revenue_proposals'));assert.ok(archive.includes(pending.id));assert.ok(archive.includes('Reviewed both and confirmed duplicate'));
  const copy=await harness();
  try {
-  await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'History unverified: supply your latest erasure journal'},copy.owner);
+  await copy.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},copy.owner);
   await copy.json(`/revenue/proposals/${pending.id}/decide`,{decision:'approve',reason:'Restored drafts cannot execute'},copy.owner,409);
   await copy.json(`/revenue?clientId=${s.client.id}&planId=${s.plan.id}`,undefined,copy.owner,409);
   const restored=await(await copy.request('/api/blotter/backup',undefined,copy.owner)).text();
