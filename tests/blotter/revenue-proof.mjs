@@ -4,6 +4,7 @@ import {paymentFixture} from './payment-fixture.mjs';
 
 export async function revenueFixture(h) {
  const s=await paymentFixture(h,10000);
+ const confirmation=new FormData();confirmation.set('confirm','yes');confirmation.set('displayName','Principal');assert.equal((await h.request('/setup',confirmation,h.owner)).status,303);
  const quote='Monthly bookkeeping only; payroll services require an amendment.';
  const letter=await h.json(`/clients/${s.client.id}/engagements`,{title:'Accepted monthly scope',signers:['Alex Owner'],signedDate:'2026-10-01',file:{name:'scope.txt',mime:'text/plain',contentBase64:Buffer.from(quote).toString('base64')}},h.owner);
  const mapped={source:{kind:'engagement',id:letter.id},services:[{kind:'bookkeeping',quote,templateId:(await h.json(`/jobs/${s.job.id}`,undefined,h.owner)).job.template_id,ledger:'qbo'}]};
