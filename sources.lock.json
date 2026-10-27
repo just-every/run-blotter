@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "dbc3aececfb948c694617711e5b34db3543faed700740b93fb447f78ef4cd008",
+      "sha256": "0f257f36120a11947bb0f29d484c01e856b57f83c3a8c8114f37133c2d4dca1a",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "1fe02528f9374d023186c911891b6d70aaa9e990c8e9014007155cd4dee21161",
+      "sha256": "018da7d25e4c43390b1915f5d3bd56d689b71f1f714fded501a69b34aed33a90",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1244,7 +1244,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "5bd1ce532705cebd2f5e5eb361daf3e49550685c6106e5476e0163029e198c14",
+      "sha256": "c35cbffdace0c1789d501d77e456041493c7809337aa587b085ef97e12a4adae",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1708,7 +1708,7 @@
       "executable": false
     },
     "src/blotter/onboarding.ts": {
-      "sha256": "9da4702d266b36b804d8707a2c97e919988a27301d1230e57af2e7a84b07d4c2",
+      "sha256": "11ccf41403eeb10a02ce8e1e21051d4c4ef6711474a317dfe26351bfbe85bc52",
       "executable": false
     },
     "src/blotter/organizers-client.ts": {
@@ -3980,7 +3980,7 @@
       "executable": false
     },
     "src/ui/client-details.tsx": {
-      "sha256": "6f00167475e39c8b9d66c7c13fcfb060a0d16feb92d025c8aaad791b3b6ee2a8",
+      "sha256": "30af5718102f2fad578a2d9b83cd52b510a10e86ec1d0e5bee5bfcbf0e029980",
       "executable": false
     },
     "src/ui/client-erasure.tsx": {
@@ -4117,6 +4117,10 @@
     },
     "src/ui/offboarding.tsx": {
       "sha256": "f28a480b9e696f00437dd7723da586bfd0c1c3206908924964ba4e50c384650a",
+      "executable": false
+    },
+    "src/ui/onboarding.tsx": {
+      "sha256": "1468cb2dbb144d23f24e8ed79994be767dac9f4906fc12c928565419ef9824f8",
       "executable": false
     },
     "src/ui/organizers.tsx": {
@@ -4384,7 +4388,7 @@
       "executable": false
     },
     "tests/blotter/intake.test.mjs": {
-      "sha256": "8ae268e664ac84013ead1b2b953f9e4a04e440084dc30e206997d081e6c43437",
+      "sha256": "1c3b918bac6a1d4986f3eae522ff89133b6f82c85a60be467249d6e2bee3bf1b",
       "executable": false
     },
     "tests/blotter/integration-keys.test.mjs": {
@@ -4437,6 +4441,10 @@
     },
     "tests/blotter/notifications.test.mjs": {
       "sha256": "4bf2f954da46fcc8fafed690bcdc0bfa5a89cc1403f910ecc92b6fb8cf448ef3",
+      "executable": false
+    },
+    "tests/blotter/onboarding-ui.mjs": {
+      "sha256": "2fa2cc9eb6258a7d5b075b254dc01b30d93b9fa6df806b09b21bed749c0ee979",
       "executable": false
     },
     "tests/blotter/organizers.test.mjs": {

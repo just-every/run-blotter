@@ -1,3 +1,4 @@
+import { Onboarding } from './onboarding';
 import { SignatureRequests } from './signatures';
 import { Authorizations } from './authorizations';
 import { ClientErasure } from './client-erasure';
@@ -28,6 +29,7 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
   useEffect(() => { if (opened) api(`/clients/${clientId}/detail`).then(setDetail).catch(e => run(async () => { throw e; })); }, [clientId,tick,opened]);
   return <details onToggle={e => setOpened(e.currentTarget.open)}><summary>Client details and contacts</summary>
     {detail && <div className="stack" key={detail.revision}>
+      {state.actor.role === 'owner' && detail.lifecycle === 'active' && <Onboarding clientId={clientId} state={state} />}
       <CreditHold clientId={clientId} hold={detail.creditHold} partner={state.actor.role === 'owner' || Boolean(state.actor.financial)} run={run} />
       <details><summary>Client document folders</summary><SignatureRequests clientId={clientId} run={run} tick={tick}/><DocumentPackets clientId={clientId} run={run} tick={tick} /></details>
       {state.actor.role === 'owner' && <details open={detail.erased_at ? true : undefined}><summary>Retention, holds and erasure</summary><ClientErasure clientId={clientId} client={detail} jobs={state.jobs.filter((j: Row) => j.client_id === clientId)} run={run} tick={tick} /></details>}
