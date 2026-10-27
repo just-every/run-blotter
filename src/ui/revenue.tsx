@@ -24,7 +24,7 @@ type RevenueMap = {
 };
 type RevenueState = {
   clients: { id: string; name: string }[];
-  plans: { id: string; client_id: string; source_id: string; status: string; decided_at: string }[];
+  plans: { id: string; client_id: string; source_id: string; source_title: string; status: string; decided_at: string }[];
   map?: RevenueMap;
 };
 
@@ -57,7 +57,7 @@ function RevenueProposal({ proposal, run }: { proposal: Proposal; run: Run }) {
     <EvidenceLinks citations={proposal.payload.citations} />
     {proposal.decided_by && <p className="muted">{proposal.decided_by} · {when(proposal.decided_at)}{proposal.decision_note && <> · {proposal.decision_note}</>}</p>}
     {proposal.status === 'pending' && <>
-      <p className="notice">{duplicate ? 'Approving voids the duplicate draft only.' : 'Approving records the reviewed amendment draft. Signed scope and billing stay as recorded.'}</p>
+      <p className="muted">{duplicate ? 'Approving voids the duplicate draft only.' : 'Approving records the reviewed amendment draft. Signed scope and billing stay as recorded.'}</p>
       <div className="row">
         <details><summary>Approve draft</summary><Form label={duplicate ? 'Approve and void duplicate draft' : 'Approve reviewed draft'} submit={data => run(() => api(`/revenue/proposals/${encodeURIComponent(proposal.id)}/decide`, { decision: 'approve', reason: data.reason }), duplicate ? 'Duplicate draft voided' : 'Amendment draft review recorded')}>
           <Field label="Approval reason" name="reason" />
@@ -89,13 +89,13 @@ export function RevenueReview({ actor, run, tick }: { actor: Row; run: Run; tick
   const map = !loading && !failed && data?.map?.clientId === clientId && data.map.planId === planId ? data.map : undefined;
   return <Blotter><section className="panel" aria-label="Revenue review" aria-busy={loading}>
     <div className="split"><div><h2>Revenue review</h2><p className="muted">Review signed scope, unbilled work and payment exceptions with their source evidence.</p></div><span className="status">Principal only</span></div>
-    <p className="notice">Approval records review; signing, sending and collection require their own explicit authority.</p>
+    <p className="muted">Approval records review; signing, sending and collection require their own explicit authority.</p>
     <div className="row">
       <Field label="Revenue client" name="revenueClient"><select name="revenueClient" value={clientId} disabled={loading || !data?.clients.length} onChange={event => { setClientId(event.target.value); setPlanId(''); }}>
         <option value="">Choose a client</option>{data?.clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
       </select></Field>
       <Field label="Signed scope review" name="revenuePlan"><select name="revenuePlan" value={planId} disabled={loading || !clientId || !plans.length} onChange={event => setPlanId(event.target.value)}>
-        <option value="">Choose a signed scope review</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{when(plan.decided_at)} · {plan.source_id} · {plan.status}</option>)}
+        <option value="">Choose a signed scope review</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.source_title} · {when(plan.decided_at)}</option>)}
       </select></Field>
     </div>
     {loading ? <p role="status">Opening revenue review…</p> : failed ? <div className="error"><p>Revenue review could not be loaded.</p><button className="quiet" onClick={() => setRefresh(value => value + 1)}>Reload revenue review</button></div>

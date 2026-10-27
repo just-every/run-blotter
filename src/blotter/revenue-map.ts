@@ -28,7 +28,7 @@ export const revenueStampSql = `WITH target AS (SELECT ? id) SELECT json_array(
 export async function revenueOptions(db: D1Database, actor: Actor) {
   principalHuman(actor);
   return { clients: await rows(db, "SELECT id,name FROM b_clients WHERE lifecycle='active' AND erased_at IS NULL AND merged_into IS NULL ORDER BY name,id"),
-    plans: await rows(db, "SELECT p.id,p.client_id,p.source_id,p.status,p.decided_at FROM b_onboarding_plans p JOIN b_clients c ON c.id=p.client_id WHERE c.lifecycle='active' AND c.erased_at IS NULL AND c.merged_into IS NULL ORDER BY p.decided_at DESC,p.id") };
+    plans: await rows(db, "SELECT p.id,p.client_id,p.source_id,p.status,p.decided_at,CASE p.source_kind WHEN 'engagement' THEN (SELECT title FROM b_engagements e WHERE e.id=p.source_id) ELSE (SELECT title FROM b_signatures s WHERE s.id=p.source_id) END source_title FROM b_onboarding_plans p JOIN b_clients c ON c.id=p.client_id WHERE c.lifecycle='active' AND c.erased_at IS NULL AND c.merged_into IS NULL ORDER BY p.decided_at DESC,p.id") };
 }
 
 export async function revenueMap(db: D1Database, actor: Actor, clientId: string, planId: string) {

@@ -26,7 +26,7 @@ export async function assertRevenueCustody(h,s,read) {
  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(preview.blockers.some(b=>/Open balance/.test(b)));
  assert.ok(preview.erase.some(step=>step.table==='b_revenue_proposals'&&step.count===4));
- const hold=await h.json('/retention',{scope:'class',clientId:s.client.id,class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2027-01-01',reason:'Preserve revenue review drafts'},h.owner);
+ const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2027-01-01',reason:'Preserve revenue review drafts'},h.owner);
  const held=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(!held.erase.some(step=>step.table==='b_revenue_proposals'&&step.count>0));
  await h.json(`/retention/${hold.id}/release`,{reason:'Revenue custody proof complete'},h.owner);
