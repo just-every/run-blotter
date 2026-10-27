@@ -1,7 +1,7 @@
 import { integrationWebhooks, registerWebhook, revokeWebhook, replayWebhook, reconcileWebhook, runIntegrationWebhooks } from './integration-webhooks';
 import { integrationKeys, mintIntegrationKey, revokeIntegrationKey } from './integration-keys';
 import { integrationRequest } from './integration-api';
-import { previewOnboarding, reviewOnboarding, onboardingPlan, recordOnboardingProgress } from './onboarding';
+import { onboardingContext, previewOnboarding, reviewOnboarding, onboardingPlan, recordOnboardingProgress } from './onboarding';
 import { aiSettings, saveAiSettings } from './ai-settings';
 import { aiState, requestAi, saveAiDraft, readAiDraft } from './ai-assistance';
 import { decideAiDraft } from './ai-decisions';
@@ -457,6 +457,7 @@ api.get(`${P}/retention/holds`, as((a, c) => firmHolds(db(c), a)));
 api.get(`${P}/retention/ready`, as((a, c) => readyToErase(db(c), a)));
 api.post(`${P}/retention/ready/confirm`, as(async (a, c) => confirmExpiry(db(c), a, await body(c))));
 api.post(`${P}/clients/:id/deletion-requests`, as(async (a, c) => recordRequest(db(c), a, param(c), await body(c))));
+api.get(`${P}/clients/:id/onboarding/plans`, as((a, c) => onboardingContext(db(c), a, param(c))));
 api.post(`${P}/clients/:id/onboarding/preview`, as(async (a, c) => previewOnboarding(db(c), a, param(c), await body(c))));
 api.post(`${P}/clients/:id/onboarding/plans`, as(async (a, c) => reviewOnboarding(db(c), a, param(c), await body(c))));
 api.get(`${P}/clients/:id/onboarding/plans/:plan`, as(async (a, c) => onboardingPlan(db(c), a, param(c), param(c, 'plan'))));

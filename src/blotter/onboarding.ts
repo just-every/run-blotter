@@ -22,6 +22,19 @@ export async function signedSource(db: D1Database, clientId: string, body: Data)
   return { kind, record, words, href: kind === 'engagement' ? `/api/blotter/engagements/${sourceId}/file` : `/api/blotter/signatures/${sourceId}/files/signed` };
 }
 
+/** Principal-only discovery of current signed sources and retained review records. */
+export async function onboardingContext(db: D1Database, actor: Actor, clientId: string) {
+  human(actor); insist(actor.role === 'owner' && !actor.automation, 'Only the principal can read onboarding scope reviews', 403);
+  insist(await stmt(db, "SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL AND erased_at IS NULL", clientId).first(), 'Active client not found', 404);
+  const sources = await rows(db, `SELECT id,'engagement' kind,title,label FROM b_engagements
+    WHERE client_id=? AND erased_at IS NULL AND content_base64 IS NOT NULL
+    UNION ALL SELECT s.id,'signature' kind,s.title,'Signed through Blotter; identity not verified; scope mapping declared by the principal' label
+    FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id
+    WHERE j.client_id=? AND s.status='completed' AND s.erased_at IS NULL AND s.signed_base64 IS NOT NULL`, clientId, clientId);
+  const plans = await rows(db, 'SELECT id,status,source_kind,source_id,decided_by,decided_at FROM b_onboarding_plans WHERE client_id=? ORDER BY decided_at,id', clientId);
+  return { sources, plans };
+}
+
 /** A deterministic, write-free setup proposal apart from its content-free audit event. */
 export async function previewOnboarding(db: D1Database, actor: Actor, clientId: string, body: Data) {
   human(actor);

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID, randomBytes } from 'node:crypto';
 import { harness } from './harness.mjs';
+import { onboardingJourney, onboardingAccessJourney } from './onboarding-ui.mjs';
 import { createServer } from 'node:http';
 
 test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
@@ -94,7 +95,7 @@ test('CRM-005 embedded native browser intake submits with consent and an attachm
   const { chromium }=await import('@playwright/test');
   const h=await harness();let browser, host;
   try {
-    browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+    browser=await chromium.launch({headless:true,...(process.env.BLOTTER_CHROMIUM?{executablePath:process.env.BLOTTER_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']});
     const ctx=await browser.newContext({ignoreHTTPSErrors:true,extraHTTPHeaders:{'CF-Connecting-IP':'192.0.2.71'}});
     host=createServer((_q,r)=>{r.setHeader('content-type','text/html');r.end(`<!doctype html><title>Practice website</title><iframe title="Inquiry" src="${h.origin}/intake" width="600" height="1200"></iframe>`);});
     await new Promise(r=>host.listen(0,'127.0.0.1',r));
@@ -117,7 +118,7 @@ test('CRM-005 embedded native browser intake submits with consent and an attachm
 });
 
 test('ONBOARD-001 native signed-scope setup preview: exact source links, no effects, principal authority and unavailable-source refusal', async () => {
-  const h = await harness(); let copy;
+  const h = await harness(); let copy, ui;
   try {
     const { PDFDocument, StandardFonts } = await import('pdf-lib');
     const taxQuote = '1120-S annual tax services', booksQuote = 'Monthly bookkeeping with QBO';
@@ -142,6 +143,8 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     const before = await h.json('/state',undefined,h.owner), signatureBefore = await h.json(`/signatures/${signature.id}`,undefined,h.owner), mailCount=h.mails.length;
     const result = await preview();
     assert.equal(result.status,'preview');
+    assert.equal(result.source.href,`/api/blotter/signatures/${signature.id}/files/signed`);
+    assert.equal(result.source.sha256,signatureBefore.signed_sha256);
     assert.match(result.coverage,/Principal-declared/);
     assert.match(result.execution,/cannot approve/);
     assert.equal(result.items.length,13);
@@ -164,6 +167,7 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     await preview({...body,services:[{...body.services[0],templateId:'synthetic-blotter-missing'}]},h.owner,404);
     const other = await h.json('/clients',{name:'synthetic-blotter-204'},h.owner);
     await h.json(`/clients/${other.id}/onboarding/preview`,body,h.owner,404);
+    assert.deepEqual(await h.json(`/clients/${other.id}/onboarding/plans`,undefined,h.owner),{sources:[],plans:[]});
     const address='synthetic-blotter-205@example.test';
     await h.json('/team',{email:address,name:'Synthetic reviewer',role:'reviewer'},h.owner);
     await h.json('/team/invite',{email:address},h.owner);
@@ -182,7 +186,14 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     await h.json(planDoor,{...review,selectedItemIds:[...review.selectedItemIds,'synthetic-blotter-outside']},h.owner,400);
     await h.json(planDoor,{...review,fingerprint:'synthetic-blotter-stale'},h.owner,409);
     await h.json(planDoor,review,reviewer,403);
-    let plan=await h.json(planDoor,review,h.owner);
+    const context=await h.json(planDoor,undefined,h.owner);
+    assert.deepEqual(context.sources.map(source=>source.id).sort(),[signature.id,recorded.id].sort());
+    assert.deepEqual(context.plans,[]);
+    await h.json(planDoor,undefined,reviewer,403);
+    await h.json(planDoor,undefined,'',401);
+    await onboardingAccessJourney(h,{client},'',reviewer);
+    ui=await onboardingJourney(h,{client,body,sourceHref:`/api/blotter/signatures/${signature.id}/files/signed`,sourceDigest:signatureBefore.signed_sha256,review});
+    let plan=ui.plan;
     assert.equal(plan.decidedBy,'owner@example.test');assert.ok(Number.isFinite(Date.parse(plan.decidedAt)));
     assert.equal(plan.items.filter(item=>item.selected).length,12);
     assert.equal(plan.items.find(item=>item.id===removed).selected,false);
@@ -193,7 +204,7 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     const observation={revision:plan.revision,itemId:result.items.find(item=>item.type==='ledger').id,state:'blocked',ownerEmail:'owner@example.test',note:'QBO connection still missing',nextAction:'Principal to arrange authorized connection before the first monthly close'};
     await h.json(progressDoor,{...observation,itemId:removed},h.owner,409);
     await h.json(progressDoor,{...observation,ownerEmail:address},h.owner,403);
-    plan=await h.json(progressDoor,observation,h.owner);
+    plan=await ui.observe(observation);
     const blocked=plan.items.find(item=>item.type==='ledger').progress;
     assert.equal(blocked.ownerEmail,'owner@example.test');
     assert.equal(blocked.recordedBy,'owner@example.test');assert.ok(Number.isFinite(Date.parse(blocked.recordedAt)));
@@ -201,7 +212,8 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     assert.match(blocked.verification,/no provider connection/);
     assert.match(blocked.chaseDraft,/connect QBO/);
     await h.json(progressDoor,observation,h.owner,409);
-    plan=await h.json(progressDoor,{...observation,revision:plan.revision,state:'received',note:'Practitioner observed connection evidence; not provider verified',nextAction:'Principal to review before setup proceeds'},h.owner);
+    plan=await ui.observe({...observation,state:'received',note:'Practitioner observed connection evidence; not provider verified',nextAction:'Principal to review before setup proceeds'});
+    await ui.inspect();
     const received=plan.items.find(item=>item.type==='ledger').progress;
     assert.equal(received.recordedBy,'owner@example.test');assert.ok(Number.isFinite(Date.parse(received.recordedAt)));
     assert.deepEqual(received.history,[Object.fromEntries(Object.entries(blocked).filter(([key])=>key!=='history'))]);
@@ -225,15 +237,19 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     assert.equal((await copy.json(`/clients/${client.id}/onboarding/preview`,body,copy.owner)).fingerprint,result.fingerprint);
     const restored=await copy.json(planDoor+'/'+plan.id,undefined,copy.owner);
     assert.equal(restored.status,'held');
+    await onboardingAccessJourney(copy,{client},plan.id,copy.owner,true);
     assert.ok((await copy.json(`/clients/${client.id}/retention`,undefined,copy.owner)).marks.some(mark=>mark.kind==='hold'&&!mark.released_at));
     assert.deepEqual(restored.items,plan.items);
     await copy.json(progressDoor,{...observation,revision:restored.revision},copy.owner,409);
     await copy.json(planDoor,review,copy.owner,409);
     await h.json(`/retention/${hold.id}/release`,{reason:'Restore proof complete; allow source erasure'},h.owner);
+    const refused=await ui.unavailable(mapped.source);
     await h.json(`/files/${recorded.id}/erase`,{confirm:file.name,reason:'Synthetic source removal'},h.owner);
     await preview(mapped,h.owner,404);
+    await refused();
     await h.json(`/clients/${client.id}/lifecycle`,{lifecycle:'archived',revision:(await h.json(`/clients/${client.id}/detail`,undefined,h.owner)).revision},h.owner);
     await preview(body,h.owner,404);
+    await h.json(planDoor,undefined,h.owner,404);
     const erasable=await h.json('/clients',{name:'synthetic-blotter-207'},h.owner);
     const letter=await h.json(`/clients/${erasable.id}/engagements`,{title:'Recorded signed scope',signers:['synthetic-blotter-208'],signedDate:'2026-10-20',file},h.owner);
     const eraseBody={...body,source:{kind:'engagement',id:letter.id}};
@@ -248,5 +264,5 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     await h.json(`/clients/${erasable.id}/onboarding/plans/${erasePlan.id}`,undefined,h.owner,404);
     const erasedArchive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
     assert.ok(!erasedArchive.includes('Reviewed before synthetic erasure'));
-  } finally {await h.close();if(copy)await copy.close();}
+  } finally {await ui?.close();await h.close();if(copy)await copy.close();}
 });
