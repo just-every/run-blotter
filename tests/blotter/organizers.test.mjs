@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
 
@@ -60,7 +61,15 @@ test('NOTIFY-001 / PORTAL-004 / WORK-003 / MSG-001 conditional organizers: expli
   assert.ok(request && request.label === 'Ownership change evidence');
   assert.ok(!(await h.json(`/portal/${tb}`)).requests.some(r=>r.id===request.id),'another contact does not receive the assigned evidence request');
   await h.json(`/portal/${tb}/requests/${request.id}`, {name:'Wrong.pdf',mime:'application/pdf',contentBase64:Buffer.from('other contact').toString('base64')},undefined,404);
-  await h.json(`/portal/${ta}/requests/${request.id}`, { name: 'Ownership.pdf', mime: 'application/pdf', contentBase64: Buffer.from('Signed ownership evidence').toString('base64') });
+  const supportingBytes=Buffer.from('Signed ownership evidence'),supportingHash=createHash('sha256').update(supportingBytes).digest('hex');
+  const packetBody={name:'Ownership.pdf',mime:'application/pdf',size:supportingBytes.length,sha256:supportingHash,pageCount:1};
+  const packetChunk={offset:0,chunkId:'chunk-0',sha256:supportingHash,contentBase64:supportingBytes.toString('base64')};
+  await h.json(`/portal/${tb}/requests/${request.id}/packet-uploads`,packetBody,undefined,404);
+  const packet=await h.json(`/portal/${ta}/requests/${request.id}/packet-uploads`,packetBody);
+  for(const suffix of ['', '/chunks','/complete','/cancel'])await h.json(`/portal/${tb}/packet-uploads/${packet.id}${suffix}`,suffix?suffix==='/chunks'?packetChunk:{}:undefined,undefined,404);
+  await h.json(`/portal/${ta}/packet-uploads/${packet.id}/chunks`,packetChunk);
+  await h.json(`/portal/${ta}/packet-uploads/${packet.id}/complete`,{});
+  const inactivePacket=await h.json(`/portal/${ta}/requests/${request.id}/packet-uploads`,packetBody);
   oa = (await h.json(portal(ta))).organizers[0];
   oa = await save(h, ta, oa, {}, true);
   assert.equal((await h.json('/notifications',undefined,s.prep)).filter(n=>n.kind==='organizer_submitted'&&n.job_id===job.id).length,1,'NOTIFY-001 projects a submitted organizer once');
@@ -90,6 +99,8 @@ test('NOTIFY-001 / PORTAL-004 / WORK-003 / MSG-001 conditional organizers: expli
   assert.equal(detail.steps.find(t => t.label === 'Inspect changed ownership').state, 'not_applicable');
   assert.equal(staff.requests.find(r => r.id === request.id).organizer_active, 0);
   assert.ok(!staff.applicable.includes('owners'),'staff identifies retained answers outside the current submitted branch');
+  await h.json(`/portal/${ta}/requests/${request.id}/packet-uploads`,packetBody,undefined,404);
+  for(const suffix of ['', '/chunks','/complete','/cancel'])await h.json(`/portal/${ta}/packet-uploads/${inactivePacket.id}${suffix}`,suffix?suffix==='/chunks'?packetChunk:{}:undefined,undefined,404);
   assert.ok(!(await h.json(`/portal/${ta}`)).requests.some(r=>r.id===request.id));
   await h.json(`/portal/${ta}/requests/${request.id}`,{name:'Inactive.pdf',mime:'application/pdf',contentBase64:Buffer.from('inactive').toString('base64')},undefined,404);
   assert.ok(detail.requests.find(r => r.id === request.id).files.some(f => f.name === 'Ownership.pdf'), 'deactivating the request retains its evidence');
