@@ -475,3 +475,45 @@ Retainer comparisons use the rule's first month, recorded work months and accept
 `POST /api/blotter/revenue/accounting` records an explicit principal observation of a firm-accounting event against an issued native `invoiceId`. Supply `currency` (`USD`), `source`, immutable event `reference`, `reason`, and integer `grossCents`, `receiptCents` (net of returns and refunds), `creditCents` (applied), and `writeoffCents`. These are practitioner-recorded observations, never authenticated ledger-provider receipts or a second invoice authority. Exact reference replay returns the original observation; changed evidence under that reference is refused. Record a new event reference for later evidence.
 
 `GET /api/blotter/revenue/accounting?clientId=...` and the revenue map compare the latest recorded observation per source and native invoice with that invoice's gross, confirmed provider net, applied credits and approved write-offs. Mismatches retain the invoice owner and due condition. Both accounting doors require the principal's native session and the selected Blotter invoice authority; no ledger post, invoice change, mail, charge or write-off is performed. Observations travel as billing history in archives, confer no restored execution authority, honor billing and work holds, and retain amounts and attribution with their invoice. Client erasure or confirmed invoice expiry removes source references and reason text through the existing retention engine.
+
+## Native staff time creation (API-002 partial)
+
+`POST /api/blotter/v1/time` uses the existing writable native staff session,
+its current membership, client scope, job authority and per-session MFA. It
+accepts `jobId`, `date` (YYYY-MM-DD), `minutes` (1–1440), `description`
+(1–500 characters), optional boolean `billable` (default true), and optional
+`taskOrdinal` identifying a task on that job. Named-task read access alone
+does not grant the native job permission to record time. No other fields
+are accepted. The caller records their own unsubmitted entry; the server
+resolves and snapshots the native rate, amount and job currency. Missing
+rates, currency mismatches and closed billing periods refuse creation.
+
+An `Idempotency-Key` is required: 1–128 ASCII letters, digits, dots,
+underscores, colons or hyphens. Keys are scoped to the staff email and are
+independent of client-creation keys. Object field order is immaterial;
+array order and scalar values are exact intent. Successful creation commits
+the entry, one attributed `time.added` event and a digest-only receipt in
+one atomic batch, with current session, MFA, access, job, task, rate and
+period checks. Concurrent identical requests return one entry. Changed
+intent returns 409, while validation failures consume no receipt.
+
+The response has `entryId`, `id`, `replayed`, `date`, `minutes`,
+`description`, `rateCents`, `rateSource`, `rateCardId`, `currency`,
+`amountCents`, `billable` and `taskOrdinal`. Read the entry through the
+existing paginated `GET /api/blotter/v1/time`. An identical replay returns
+its referenced entry under current staff and job authority; it does not
+submit time, recalculate rates, create another audit or unlock a period.
+Deleted entries return 404 and their consumed keys cannot recreate them.
+An erased or merged-away client refuses replay and new creation alike.
+
+Receipts retain only staff email, key and request digests, opaque entry and
+client references, and creation time. They travel with native archives;
+sessions do not. Whole-client erasure removes these receipts under the
+existing erasure policy, and the erasure journal fences older restores.
+Integration bearers and agent keys gain no time-write action. This door
+creates no person API token or session type. API-002 stays PARTIAL: the
+live mapped Zapier workflow requires an authorized workspace; broader work
+mutations, non-person integration time recording, document-byte integration
+doors and remaining integration activation evidence are held. Billing
+integration remains metadata-only with no financial execution. Future
+person-created API credentials still owe ACCESS-004 before activation.

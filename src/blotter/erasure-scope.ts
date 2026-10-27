@@ -144,6 +144,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     { cls: 'vault', table: 'b_vault_reveals', action: 'redact', label: 'Credential reveal labels (the log stays under opaque labels)', where: `client_id=${s.c}`, set: `label=${opaque('Credential ')}` },
     { cls: 'structure', table: 'b_client_group_members', action: 'delete', label: 'Group memberships', where: `client_id=${s.c}` },
     { cls: 'structure', table: 'b_client_import_bindings', action: 'delete', label: 'Import source bindings', where: `client_id=${s.c}` },
+    { cls: 'api', table: 'b_api_time_writes', action: 'delete', label: 'Native time API replay receipts', where: `client_id IN ${integrationFamily}` },
     { cls: 'api', table: 'b_api_client_writes', action: 'delete', label: 'API idempotency receipts', where: `client_id IN ${integrationFamily}` },
     // Erasure covers the survivor and every record merged into it; the merge journal keeps ids and times with the personal values replaced.
     { cls: 'structure', table: 'b_client_merges', action: 'redact', label: 'Merge history: chosen and prior values replaced (ids, authors and times stay)', where: `survivor_id=${s.c} AND (choices<>'{}' OR survivor_before<>'{}' OR survivor_seen<>'{}' OR authority<>'')`, set: `choices='{}',authority='',survivor_before='{}',survivor_seen='{}'` },

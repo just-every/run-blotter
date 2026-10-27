@@ -16,6 +16,7 @@ import { permissions, saveDelegations, saveTeamAccess, savePersonAccess, saveSen
 import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
 import { billingExportPage } from './billing-read';
 import { createClientOnce } from './client-writes';
+import { createTimeOnce } from './time-writes';
 import { readiness, prepareReadiness, decideReadiness } from './readiness';
 import { approveBatch, batchDetail, batches, markMisclassified, previewBatch, reviewList, runBatch, scheduleBatch } from './bulk-messages';
 import { providerEvent } from './bulk-events';
@@ -355,6 +356,7 @@ api.use(`${P}/v1/*`,async(c,next)=>{
  await next();
 });
 api.get(`${P}/v1/work`, as((a,c)=>workPage(db(c),a,c.req.query())));
+api.post(`${P}/v1/time`, as(async(a,c)=>createTimeOnce(db(c),a,await body(c,5000),c.req.header('idempotency-key'))));
 api.get(`${P}/v1/time`, as((a,c)=>timePage(db(c),a,c.req.query())));
 api.post(`${P}/v1/clients`, as(async(a,c)=>createClientOnce(db(c),a,await body(c),c.req.header('idempotency-key'))));
 api.get(`${P}/v1/billing/exports`, as((a,c)=>billingExportPage(db(c),a,c.req.query())));
