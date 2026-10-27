@@ -1,5 +1,6 @@
 import { Permissions } from './permissions';
 import { AiSettings } from './ai-settings';
+import { Enterprise } from './enterprise';
 import { ArchiveTransfers } from './archive-transfers';
 import { Retention } from './retention';
 import { useEffect, useState } from 'react';
@@ -20,6 +21,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
     {(owner || state.actor.manageAccess) && <Permissions state={state} run={run} tick={tick} />}
     {owner && <FirmSettings run={run} tick={tick} />}
     {owner && <AiSettings run={run} tick={tick} />}
+    {owner && <Enterprise run={run} tick={tick} />}
     {owner && <DeadlineRules run={run} tick={tick} />}
     {owner && <Blotter className="wide"><section className="panel">
       <h2>People and rates</h2>

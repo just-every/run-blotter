@@ -3,11 +3,13 @@ import { createDependencies } from './modules/dependencies/index.mjs'
 import { createIdpOwnerClaimHandler, createOwnerClaimHandler } from './modules/owner-claim/index.mjs'
 import { firstRunResponse } from './base/setup'
 import { fontDocumentResponse } from './base/font-response'
-import { createOperatorAuth, createAuthHandler, createSignInHandler, type AuthConfig } from './modules/operator-auth/index.mjs'
+import { createOperatorAuth, createAuthHandler, createSignInHandler, AuthError, type AuthConfig } from './modules/operator-auth/index.mjs'
 import { operatorMail } from './mail.server.mjs'
 import { mfaGate } from './blotter/mfa'
 import { Fault } from './blotter/model'
 import branding from './branding.json'
+import { enterpriseAuth, enterpriseProviders } from './blotter/enterprise-oidc'
+import { enterpriseSessionGate } from './blotter/enterprise-policy'
 
 // The edition's declared theme (public/rer-theme.css), as Base frames link it.
 const theme = { href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor }
@@ -19,6 +21,10 @@ export interface Bindings {
  AI_MODEL?: string
  AI_BASE_URL?: string
  AI_ENABLED?: string
+ ENTRA_TENANT_ID?: string
+ ENTRA_CLIENT_ID?: string
+ ENTRA_CLIENT_SECRET?: string
+ ENTRA_TRANSACTION_SECRET?: string
  DB: D1Database
  /** Built browser files; hosted deploys run the Worker first (staticAssetResponse). */
  ASSETS?: Fetcher
@@ -60,7 +66,8 @@ export interface Bindings {
 export const runtimeBindings = (env: Bindings): Bindings => env.RER_DEV_ORIGIN && env.AUTH_LOCAL === 'true' ? { ...env, AUTH_ORIGIN: env.RER_DEV_ORIGIN } : env
 export const authConfig = (env: Bindings): AuthConfig => ({ dependencies: true, origin: env.AUTH_ORIGIN, local: env.AUTH_LOCAL === 'true', OWNER_EMAIL: env.OWNER_EMAIL, SESSION_SECRET: env.SESSION_SECRET, SETUP_TOKEN: env.SETUP_TOKEN, MAIL_FROM: env.MAIL_FROM, branding: { productName: branding.name, accentColor: branding.primaryColor, signInPath: '/signin', theme: theme.href } })
 export function operatorAuth(env: Bindings) {
- return createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
+ const auth = createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '', hooks: { beforeMagicLink: async ({operator}) => operator.role === 'owner' || !(await env.DB.prepare('SELECT required FROM b_enterprise_connection WHERE id=1').first<{required:number}>())?.required, afterConfirm: async ({operator,method}) => {if(method==='email'&&operator.role!=='owner'&&(await env.DB.prepare('SELECT required FROM b_enterprise_connection WHERE id=1').first<{required:number}>())?.required)throw new AuthError('provider_required',403);} } })
+ return {...auth, getSession: async (request:Request) => {const session=await auth.getSession(request);if(session)await enterpriseSessionGate(env.DB,session);return session;}}
 }
 
 // Signing in, signing out and asking for a sign-in proof stay open. Every other
@@ -78,6 +85,8 @@ async function accountChangeRefusal(request: Request, env: Bindings, path: strin
 
 async function handleAuthResponse(request: Request, original: Bindings): Promise<Response | null> {
  const env = runtimeBindings(original), url = new URL(request.url)
+ const enterprise = await enterpriseAuth(request,env)
+ if(enterprise)return enterprise
  const refused = await accountChangeRefusal(request, env, url.pathname)
  if (refused) return refused
  if (url.pathname.startsWith('/.well-known/rer-') || url.pathname.startsWith('/auth/dependencies/')) {
@@ -92,7 +101,9 @@ async function handleAuthResponse(request: Request, original: Bindings): Promise
  if (url.pathname === '/auth/owner-claim') return createIdpOwnerClaimHandler({db:env.DB,authConfig:authConfig(env),clientIp:req=>req.headers.get('CF-Connecting-IP')??''})(request)
  // The shared server-rendered sign-in page: plain forms that work before any script.
  if (url.pathname === '/signin') {
-  const page = await createSignInHandler(operatorAuth(env), {
+  const auth=operatorAuth(env),connection=await env.DB.prepare('SELECT active FROM b_enterprise_connection WHERE id=1').first<{active:number}>()
+  if(connection?.active){try{const providers=enterpriseProviders(env);auth.providers={...providers,list:async()=>[{id:'enterprise',preset:'microsoft',label:'Firm Microsoft Entra',startPath:'/auth/oidc/enterprise/start',visible:true,linked:true,pendingRelink:false,authorizationOrigins:['https://login.microsoftonline.com']}]};}catch{}}
+  const page = await createSignInHandler(auth, {
    defaultReturnTo: '/setup',
   })(request)
   if (page) return fontDocumentResponse(page)
@@ -106,6 +117,7 @@ async function handleAuthResponse(request: Request, original: Bindings): Promise
 }
 
 export async function authResponse(request: Request, original: Bindings): Promise<Response | null> {
- const response = await handleAuthResponse(request, original)
- return response ? rejectedResponse(request, response) : null
+ try {const response = await handleAuthResponse(request, original)
+ return response ? rejectedResponse(request, response) : null}
+ catch(error){if(error instanceof Fault)return Response.json({error:error.message},{status:error.status,headers:{'cache-control':'no-store'}});throw error;}
 }

@@ -1,3 +1,4 @@
+import { enterpriseScim } from './blotter/enterprise-scim'
 import { runAgentRules } from './blotter/scheduled-agents'
 import { runInvoiceSchedules } from './blotter/invoices-retainers'
 import { runInvoiceReminders } from './blotter/invoices-collections'
@@ -42,6 +43,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (intake) return rejectedResponse(request, intake)
     const unsubscribe = await unsubscribeResponse(request, env)
     if (unsubscribe) return rejectedResponse(request, unsubscribe)
+    const scim = await enterpriseScim(request,runtimeBindings(env))
+    if(scim)return scim
     const auth = await authResponse(request, env)
     if (auth) return auth
     // The installed variant: the Lobby at / and the public claim state it reads.

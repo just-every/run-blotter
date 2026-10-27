@@ -2,6 +2,8 @@
 // Identity, sessions, second factors and credential step-ups, outboxes, agent keys, client upload links and private
 // configuration stay out of every archive.
 const inactive = (table, row) => {
+  if(table==='b_enterprise_connection')return {...row,active:0,token_digest:null,revision:row.revision+1};
+  if(table==='b_enterprise_identities')return {...row,active:0};
   if(table==='b_integration_hooks')return {...row,status:'inactive',destination_sealed:null,secret_sealed:null};
   if(table==='b_integration_deliveries' && ['pending','dispatching'].includes(row.status))return {...row,status:'held',next_action:'Restored history; never replay; register a fresh endpoint'};
   if(table==='b_integration_keys')return {...row,digest:null,status:row.status==='revoked'?'revoked':'suspended'};
@@ -41,10 +43,10 @@ const inactive = (table, row) => {
 };
 export default {
   product: 'accounting/blotter',
-  excludeTables: ['b_integration_limits', 'b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
+  excludeTables: ['b_enterprise_sessions', 'b_integration_limits', 'b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
   // Retained rules and unsent staff alerts are history until explicitly reviewed.
   exportRow: inactive,
-  importSafety: { b_revenue_proposals: { status: ['held','approved','declined'] }, b_integration_hooks: { status: ['inactive'], destination_sealed: [null], secret_sealed: [null] }, b_integration_keys: { digest: [null], status: ['revoked','suspended'] }, b_provider_payments: { restored: [1], session_id: [null], customer_id: [null] }, b_payment_mandates: { status: ['held'], method_id: [null], customer_id: [null] }, b_onboarding_plans: { status: ['held'] }, b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },
+  importSafety: { b_enterprise_connection:{active:[0],token_digest:[null]}, b_enterprise_identities:{active:[0]}, b_revenue_proposals: { status: ['held','approved','declined'] }, b_integration_hooks: { status: ['inactive'], destination_sealed: [null], secret_sealed: [null] }, b_integration_keys: { digest: [null], status: ['revoked','suspended'] }, b_provider_payments: { restored: [1], session_id: [null], customer_id: [null] }, b_payment_mandates: { status: ['held'], method_id: [null], customer_id: [null] }, b_onboarding_plans: { status: ['held'] }, b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },
   importRow: inactive,
   replaceableTables: ['b_meta'],
   requiredConfiguration: ['OWNER_EMAIL', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],

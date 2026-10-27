@@ -19,7 +19,7 @@ export async function harness(settings={}){
   catch(e){if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=3)throw e;}
  }
 }
-async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhookResponse}={}){
+async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhookResponse,identityResponse}={}){
  const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
  const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[],aiCalls=[];
  const config=JSON.parse(await readFile('dist/server/wrangler.json','utf8'));
@@ -29,12 +29,12 @@ async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhook
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
   assets:{directory:resolve('dist/client'),routerConfig:{has_user_worker:true}},d1Databases:{DB:'blotter-test'},bindings:vars,
   // Paid provider boundaries only; the built application stays unchanged.
-  outboundService:async request=>{if(request.url.startsWith('https://hooks.zapier.com/')&&webhookResponse)return webhookResponse(request);if(request.url.startsWith('https://api.stripe.com/v1/') && stripeResponse)return stripeResponse(request);if(request.url==='https://api.openai.com/v1/chat/completions' && aiResponse){const payload=await request.clone().json();aiCalls.push(payload);return aiResponse(payload,request);}if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails,request) : Response.json({id:'test-mail-'+mails.length});},
+  outboundService:async request=>{if(identityResponse&&['login.microsoftonline.com','graph.microsoft.com'].includes(new URL(request.url).hostname))return identityResponse(request);if(request.url.startsWith('https://hooks.zapier.com/')&&webhookResponse)return webhookResponse(request);if(request.url.startsWith('https://api.stripe.com/v1/') && stripeResponse)return stripeResponse(request);if(request.url==='https://api.openai.com/v1/chat/completions' && aiResponse){const payload=await request.clone().json();aiCalls.push(payload);return aiResponse(payload,request);}if(request.url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'){const data=await request.formData();return Response.json({success:data.get('response')==='test-accepted-challenge'});}assert.equal(request.url,'https://api.resend.com/emails');mails.push(await request.json());return mailResponse ? mailResponse(mails.at(-1),mails,request) : Response.json({id:'test-mail-'+mails.length});},
  }),resourcePersistencePath:join(directory,'state')};
  let mf=new Miniflare(options);
- const send=async(path,body,cookie='',extra={})=>{
+ const send=async(path,body,cookie='',extra={},method=body===undefined?'GET':'POST')=>{
   const multipart=body instanceof FormData ? new Request(origin+path,{method:'POST',body}) : null;
-  return mf.dispatchFetch(origin+path,{redirect:'manual',method:body===undefined?'GET':'POST',headers:{origin,host:new URL(origin).host,'CF-Connecting-IP':'192.0.2.1',...(multipart?{'content-type':multipart.headers.get('content-type')}:body===undefined?{}:{'content-type':'application/json'}),...(cookie?{cookie}:{}),...extra},...(body===undefined?{}:{body:multipart?await multipart.arrayBuffer():JSON.stringify(body)})});
+  return mf.dispatchFetch(origin+path,{redirect:'manual',method,headers:{origin,host:new URL(origin).host,'CF-Connecting-IP':'192.0.2.1',...(multipart?{'content-type':multipart.headers.get('content-type')}:body===undefined?{}:{'content-type':'application/json'}),...(cookie?{cookie}:{}),...extra},...(body===undefined?{}:{body:multipart?await multipart.arrayBuffer():JSON.stringify(body)})});
  };
 
  // Sensitive administration and exports need a fresh step-up from installation (ACCESS-002). Tests that are not about the factor

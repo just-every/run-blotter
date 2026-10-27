@@ -66,6 +66,7 @@ export type SessionHolder = Pick<Actor, 'email' | 'sessionId' | 'sessionStartedA
 export async function mfaGate(db: D1Database, actor: SessionHolder, open: boolean) {
   const rules = await policy(db);
   if (rules) await sessionLimits(db, actor, rules);
+  if(await stmt(db,'SELECT 1 FROM b_enterprise_sessions s JOIN b_enterprise_connection c ON c.id=1 AND c.active=1 AND c.revision=s.revision JOIN b_enterprise_identities i ON i.id=s.identity_id AND i.active=1 WHERE s.session_id=? AND i.email=? AND s.mfa=1',actor.sessionId??'',actor.email).first())return;
   const factors = await factorCount(db, actor.email);
   if (!factors && !rules?.required) return;
   if (open) return;

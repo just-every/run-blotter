@@ -1,0 +1,61 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {harness} from './harness.mjs';
+import {enterpriseProvider,tenant} from './enterprise-provider.mjs';
+import {enroll} from './erasure-fixture.mjs';
+import {enterpriseJourney} from './enterprise-ui.mjs';
+
+const cookies=r=>r.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ');
+test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes live access and restores inactive',async()=>{
+ const provider=enterpriseProvider(),h=await harness({bindings:provider.bindings,identityResponse:provider.response});let destination,stale;
+ try{
+  const staff='preparer@example.com';
+  await h.json('/team',{email:staff,name:'Maya Chen',role:'preparer'},h.owner);
+  await h.json('/team/invite',{email:staff},h.owner);const native=await h.login(staff);
+  const before=await h.send('/api/blotter/enterprise',{required:true,requireMfa:true,reason:'Firm SSO'},h.owner);assert.equal(before.status,403);assert.equal((await before.json()).mfa,'step-up');
+  await h.json('/enterprise',{required:true,requireMfa:true,reason:'Firm SSO'},h.owner);
+  await h.json('/enterprise',undefined,native,403);await h.json('/state',undefined,native,403);
+  const signin=await(await h.request('/signin')).text();assert.ok(signin.includes('/auth/oidc/enterprise/start'));
+  await h.json('/enterprise/identities',{email:'unknown@example.com',subject:'unknown',reason:'No invitation'},h.owner,404);
+  await h.json('/enterprise/identities',{email:'owner@example.test',subject:'owner-subject',reason:'Owner protected'},h.owner,403);
+  await h.json('/enterprise/identities',{email:staff,subject:'synthetic-blotter-staff',reason:'Verified association'},h.owner);
+  const identity=(await h.json('/enterprise',undefined,h.owner)).identities[0];assert.equal(identity.email,staff);
+  const client=await h.json('/clients',{name:'Cedar Accounting',email:'client@example.test',yearEnd:'12-31'},h.owner);
+  const team=await h.json('/access/teams',{name:'Tax team',emails:[],clientIds:[client.id]},h.owner);
+  await h.json('/enterprise/mappings',{groupId:'synthetic-blotter-tax',role:'reviewer',teamId:team.id,reason:'Tax reviewers'},h.owner);
+  let token=(await h.json('/enterprise/token',{reason:'Authorize provisioning'},h.owner)).token;
+  const scim=async(path,body,expected=200,method=body===undefined?'GET':'POST',credential=token)=>{const r=await h.send('/scim/v2'+path,body,'',{authorization:'Bearer '+credential},method);assert.equal(r.status,expected,await r.clone().text());return r.status===204?null:r.json();};
+  await scim('/Users',undefined,401,'GET','synthetic-blotter-invalid-provisioning-token');
+  const listed=await scim('/Users?filter='+encodeURIComponent('userName eq "'+staff+'"'));assert.deepEqual(listed.Resources.map(x=>x.id),[identity.id]);
+  await scim('/Users',{userName:'unknown@example.com',active:true},403);
+  const group=await scim('/Groups',{externalId:'synthetic-blotter-tax',displayName:'Tax reviewers',members:[{value:identity.id}]},201);
+  assert.deepEqual(group.members,[{value:identity.id}]);
+  const signinStaff=async(claims={},expected=303)=>{
+   provider.setClaims(claims);const start=await h.request('/auth/oidc/enterprise/start',{});assert.equal(start.status,303,await start.clone().text());const location=new URL(start.headers.get('location'));provider.setNonce(location.searchParams.get('nonce'));
+   const callback='/auth/oidc/enterprise/callback?code=synthetic-blotter-code&state='+location.searchParams.get('state');const correlation=cookies(start),r=await h.request(callback,undefined,correlation);assert.equal(r.status,expected,await r.clone().text());return {cookie:cookies(r),callback,correlation};
+  };
+  await signinStaff({iss:'https://login.microsoftonline.com/22222222-2222-4222-8222-222222222222/v2.0'},400);
+  await signinStaff({amr:['pwd']},403);await signinStaff({sub:'unknown'},403);
+  const accepted=await signinStaff();const state=await h.json('/state',undefined,accepted.cookie);assert.equal(state.actor.role,'reviewer');assert.deepEqual(state.clients.map(c=>c.id),[client.id]);
+  const replay=await h.request(accepted.callback,undefined,accepted.correlation);assert.equal(replay.status,400);
+  const factor=await enroll(h,accepted.cookie);await h.json('/access/step-up',{recoveryCode:factor.recovery[0]},accepted.cookie);
+  const oldKey=await h.json('/keys',{label:'Tax assistant'},accepted.cookie);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,200);
+  await enterpriseJourney(h);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(!archive.includes(token));
+  destination=await harness({bindings:provider.bindings,identityResponse:provider.response});await destination.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},destination.owner);
+  const restored=await destination.json('/enterprise',undefined,destination.owner);assert.equal(restored.connection.active,0);assert.equal(restored.identities[0].active,0);assert.equal(restored.mappings.length,1);
+  assert.equal((await destination.send('/scim/v2/Users',undefined,'',{authorization:'Bearer '+token})).status,401);
+  await scim('/Groups/'+group.id,{schemas:['urn:ietf:params:scim:api:messages:2.0:PatchOp'],Operations:[{op:'Remove',path:'members',value:[{value:identity.id}]}]},200,'PATCH');
+  await h.json('/state',undefined,accepted.cookie,401);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,401);
+  await signinStaff({},403);
+  await scim('/Groups/'+group.id,{Operations:[{op:'Add',path:'members',value:[{value:identity.id}]}]},200,'PATCH');
+  const resumed=await signinStaff();await h.json('/state',undefined,resumed.cookie);
+  await scim('/Users/'+identity.id,{Operations:[{op:'Replace',path:'active',value:false}]},200,'PATCH');
+  await h.json('/state',undefined,resumed.cookie,401);await signinStaff({},403);
+  const status=await h.json('/team',undefined,h.owner);assert.ok(status.audit.some(a=>a.action==='enterprise.scim_patch'&&a.actor==='owner@example.test (Entra provisioning)'));assert.ok(status.audit.some(a=>a.action==='enterprise.signed_in'&&a.actor===staff));
+  provider.setFailure(true);await h.json('/enterprise',{required:false,requireMfa:false,reason:'Must fail closed'},h.owner,503);assert.equal((await h.json('/enterprise',undefined,h.owner)).connection.required,1);provider.setFailure(false);
+  const ownerRecovery=await h.login('owner@example.test');await h.json('/enterprise/disconnect',{reason:'Owner recovery'},ownerRecovery);await h.json('/state',undefined,ownerRecovery);await signinStaff({},403);
+  const erased=await h.json('/enterprise/erase',{confirm:'ERASE ENTERPRISE',reason:'Remove connection'},ownerRecovery);assert.equal(erased.erased,true);assert.deepEqual((await h.json('/enterprise',undefined,ownerRecovery)).identities,[]);
+  const newer=await(await h.request('/api/blotter/backup',undefined,ownerRecovery)).text();stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
+ }finally{await stale?.close();await destination?.close();await h.close();}
+});
