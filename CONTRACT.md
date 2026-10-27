@@ -315,6 +315,8 @@ Judged from the code and tests at commit `7bc2dbcb01872282b30dd4bb9093cd281460d5
 
 That reachable proof snapshot contains the production source and all cited revenue assertions, including first-write and replay acknowledgments. The REVENUE-001 proof includes the fresh ct fix-round assertions for taxable and voided retainers, nonzero native receipts and attributed preparation and accounting writes. The branch handoff identifies the final exact commit and recorded verification; guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
 
+The replay onto current main `6525f96653093a8f3f1d5f8449e121adca3221f3` also preserves atomic native-deactivation fencing and isolated live-journey proof configuration from the identity candidate.
+
 BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgements are retained.
 
 | Clauses | Done | Partial | Missing | Total |
