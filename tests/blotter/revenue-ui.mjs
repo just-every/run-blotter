@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {chromium} from '@playwright/test';
-import {paymentTooltips} from './payment-tooltips.mjs';
 
 // The push journey always exercises this public screen; screenshots are optional output.
 export async function revenueJourney(h,s) {
@@ -30,7 +29,14 @@ export async function revenueJourney(h,s) {
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Revenue screen overflows at ${width}`);
    if(directory)await panel.screenshot({path:`${directory}/revenue-${width}.png`});
   }
-  if(directory)await paymentTooltips(page,directory);
+  for(const width of [1440,390]) {
+   await page.setViewportSize({width,height:1000});
+   const search=page.getByRole('button',{name:'Search',exact:true});await search.focus();await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();
+   if(directory)await page.screenshot({path:`${directory}/revenue-search-tooltip-${width}.png`});
+   await search.blur();await page.mouse.move(1,999);await search.hover();await page.waitForTimeout(150);assert.equal(await page.getByRole('tooltip').count(),0);await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();await page.mouse.move(1,999);
+   const account=page.locator('summary[aria-label]').first();await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor();
+   if(directory)await page.screenshot({path:`${directory}/revenue-account-tooltip-${width}.png`});await account.blur();
+  }
   await context.close();
  }finally{await browser.close();}
 }
