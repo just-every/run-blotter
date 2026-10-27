@@ -18,7 +18,7 @@ export async function connectEnterprise(env:Bindings,actor:Actor,body:Data) {
   insist(typeof body.required==='boolean'&&typeof body.requireMfa==='boolean','Choose the required sign-in and MFA policies');
   const c=await enterpriseDirectory(env),old=await stmt(db,'SELECT tenant FROM b_enterprise_connection WHERE id=1').first<Data>();
   insist(!old||old.tenant===c.tenant,'Disconnect and erase the existing enterprise associations before changing tenant',409);
-  await atomic(db,actor,[stmt(db,`INSERT INTO b_enterprise_connection(id,tenant,required,require_mfa,active) VALUES(1,?,?,?,1) ON CONFLICT(id) DO UPDATE SET required=excluded.required,require_mfa=excluded.require_mfa,active=1,revision=revision+1,token_digest=NULL`,c.tenant,Number(body.required),Number(body.requireMfa)),
+  await atomic(db,actor,[stmt(db,`INSERT INTO b_enterprise_connection(id,tenant,required,require_mfa,active,principal_id) VALUES(1,?,?,?,1,?) ON CONFLICT(id) DO UPDATE SET required=excluded.required,require_mfa=excluded.require_mfa,active=1,principal_id=excluded.principal_id,revision=revision+1,token_digest=NULL`,c.tenant,Number(body.required),Number(body.requireMfa),actor.id),
     stmt(db,'UPDATE oa_auth_settings SET idp_sign_in=1,generation=generation+1 WHERE singleton=1'),...enterpriseRefresh(db,actor),audit(db,actor,'enterprise.connected','enterprise',reason)]);
   return enterpriseState(env,actor);
 }
@@ -43,7 +43,7 @@ export async function enterpriseToken(env:Bindings,actor:Actor,body:Data) {
   const db=env.DB;await admin(db,actor,true);const reason=text(body.reason,'Reason'),token=secret('');
   enterpriseConfiguration(env);
   insist(await stmt(db,'SELECT 1 FROM b_enterprise_connection WHERE id=1 AND active=1').first(),'Connect the enterprise tenant first',409);
-  await atomic(db,actor,[stmt(db,'UPDATE b_enterprise_connection SET token_digest=?,revision=revision+1 WHERE id=1',await digest(token)),...enterpriseRefresh(db,actor),audit(db,actor,'enterprise.scim_token_rotated','enterprise',reason)]);
+  await atomic(db,actor,[stmt(db,'UPDATE b_enterprise_connection SET token_digest=?,principal_id=?,revision=revision+1 WHERE id=1',await digest(token),actor.id),...enterpriseRefresh(db,actor),audit(db,actor,'enterprise.scim_token_rotated','enterprise',reason)]);
   return {token};
 }
 export async function disconnectEnterprise(env:Bindings,actor:Actor,body:Data) {

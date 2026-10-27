@@ -14,7 +14,7 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
     insist(url.origin===env.AUTH_ORIGIN,'Invalid origin',403);
     const raw=request.headers.get('authorization')?.match(/^Bearer ([^\s]{32,256})$/)?.[1];insist(raw,'Provisioning authorization is required',401);
     const db=env.DB,c=await stmt(db,'SELECT * FROM b_enterprise_connection WHERE id=1 AND active=1 AND token_digest=?',await digest(raw)).first<Data>();insist(c&&c.tenant===env.ENTRA_TENANT_ID,'Invalid or revoked provisioning token',401);
-    const o=await stmt(db,"SELECT * FROM oa_operators WHERE role='owner' AND status='active'").first<Data>();insist(o,'Principal authority is unavailable',403);
+    const o=await stmt(db,"SELECT * FROM oa_operators WHERE id=? AND role='owner' AND status='active'",c.principal_id).first<Data>();insist(o,'Principal authority is unavailable',403);
     const actor:Actor={id:o.id,email:o.email,name:o.display_name,role:'owner',channel:'person'};
     const parts=url.pathname.slice('/scim/v2'.length).split('/').filter(Boolean);insist(parts.length<=2,'Unknown provisioning resource',404);
     const [kind,key]=parts;

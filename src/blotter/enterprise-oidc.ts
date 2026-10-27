@@ -6,7 +6,7 @@ import { audit, insist, stmt, type Data, type Actor } from './model';
 
 export function enterpriseProviders(env:Bindings) {
     const c=enterpriseConfiguration(env),db=env.DB;
-    const policy=async()=>await stmt(db,'SELECT * FROM b_enterprise_connection WHERE id=1').first<Data>();
+    const policy=async()=>await stmt(db,"SELECT c.* FROM b_enterprise_connection c JOIN oa_operators p ON p.id=c.principal_id AND p.role='owner' AND p.status='active' WHERE c.id=1").first<Data>();
     const providers=createOidcProviders({db,config:{origin:env.AUTH_ORIGIN,local:env.AUTH_LOCAL==='true',transactionSecret:c.transactionSecret,providers:[{id:'enterprise',preset:'microsoft',tenant:c.tenant,clientId:c.clientId,clientSecret:c.clientSecret,tokenAuthMethod:'client_secret_post',label:'Firm Microsoft Entra'}]},
       clientIp:r=>r.headers.get('CF-Connecting-IP')??'',enabled:async()=>{const p=await policy();return !!(p?.active&&p.tenant===c.tenant);},
       policyVersion:async()=>Number((await stmt(db,'SELECT generation FROM oa_auth_settings WHERE singleton=1').first<Data>())?.generation??0),

@@ -21,6 +21,6 @@ export function enterpriseRefresh(db:D1Database,actor:Actor) {
   ];
 }
 export function enterpriseGuard(db:D1Database,revision:number) {
-  const [check,release]=guard(db,'EXISTS(SELECT 1 FROM b_enterprise_connection WHERE id=1 AND active=1 AND revision=?)',revision);
+  const [check,release]=guard(db,"EXISTS(SELECT 1 FROM b_enterprise_connection c JOIN oa_operators p ON p.id=c.principal_id AND p.role='owner' AND p.status='active' WHERE c.id=1 AND c.active=1 AND c.revision=?)",revision);
   return {check,release};
 }
