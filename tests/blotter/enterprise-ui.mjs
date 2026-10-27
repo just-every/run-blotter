@@ -17,13 +17,13 @@ export async function enterpriseJourney(h,phase='mapped'){
    await panel.getByLabel('Microsoft Entra group ID',{exact:true}).fill('synthetic-blotter-tax');
    await panel.getByLabel('Work role',{exact:true}).selectOption('reviewer');
    await panel.getByLabel('Access team (optional)',{exact:true}).selectOption({label:'Tax team'});
-   const form=panel.locator('form').filter({has:panel.getByRole('button',{name:'Map group',exact:true})});
+   const form=panel.getByRole('button',{name:'Map group',exact:true}).locator('..');
    await form.getByLabel('Reason recorded in audit',{exact:true}).fill('Reviewed tax team mapping');
    await panel.getByRole('button',{name:'Map group',exact:true}).click();await page.getByRole('status').getByText('Group mapping recorded').waitFor();
   }else{
    const erase=phase==='erased',label=erase?'Erase enterprise identity data':'Disconnect enterprise sign-in';
    await panel.locator('summary',{hasText:label}).click();
-   const form=panel.locator('form').filter({has:panel.getByRole('button',{name:label,exact:true})});
+   const form=panel.getByRole('button',{name:label,exact:true}).locator('..');
    await form.getByLabel('Reason recorded in audit',{exact:true}).fill('Owner recovery and cleanup');
    if(erase)await form.locator('input[name="confirm"]').fill('ERASE ENTERPRISE');
    const response=page.waitForResponse(r=>r.url().endsWith(erase?'/enterprise/erase':'/enterprise/disconnect')&&r.request().method()==='POST');

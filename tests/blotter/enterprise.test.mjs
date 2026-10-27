@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {harness} from './harness.mjs';
 import {enterpriseProvider,tenant} from './enterprise-provider.mjs';
@@ -46,9 +47,9 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   const replay=await h.request(accepted.callback,undefined,accepted.correlation);assert.equal(replay.status,400);
   await h.json('/keys',{label:'Scoped staff cannot mint a firm key'},accepted.cookie,403);
   await enterpriseJourney(h);accepted=await signinStaff();await h.json('/v1/clients',undefined,accepted.cookie);
-  const archiveResponse=await h.request('/api/blotter/backup',undefined,h.owner);assert.equal(archiveResponse.status,200,await archiveResponse.clone().text());const archive=await archiveResponse.text();assert.ok(!archive.includes(token));
+  const archiveResponse=await h.request('/api/blotter/backup',undefined,h.owner);assert.equal(archiveResponse.status,200,await archiveResponse.clone().text());const archive=await archiveResponse.text();assert.ok(!archive.includes(token));assert.ok(!archive.includes(createHash('sha256').update(token).digest('hex')));
   destination=await harness({bindings:provider.bindings,identityResponse:provider.response});await destination.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},destination.owner);
-  const restored=await destination.json('/enterprise',undefined,destination.owner);assert.equal(restored.connection.active,0);assert.equal(restored.identities[0].active,0);assert.deepEqual(restored.mappings.map(m=>m.group_id),['synthetic-blotter-limited','synthetic-blotter-tax']);
+  const restored=await destination.json('/enterprise',undefined,destination.owner);assert.equal(restored.connection.active,0);assert.equal(restored.identities[0].active,0);assert.equal(restored.identities[0].subject,'synthetic-blotter-staff');assert.equal(restored.identities[0].external_id,'synthetic-blotter-directory-person');assert.equal(restored.connection.required,1);assert.equal(restored.connection.require_mfa,1);assert.deepEqual(restored.mappings.map(m=>m.group_id),['synthetic-blotter-limited','synthetic-blotter-tax']);
   assert.equal((await destination.send('/scim/v2/Users',undefined,'',{authorization:'Bearer '+token})).status,401);
   await scim('/Groups/'+group.id,{schemas:['urn:ietf:params:scim:api:messages:2.0:PatchOp'],Operations:[{op:'Remove',path:'members',value:[{value:identity.id}]}]},200,'PATCH');
   await h.json('/state',undefined,accepted.cookie,401);await h.json('/v1/clients',undefined,accepted.cookie,401);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,401);
@@ -60,7 +61,7 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   const status=await h.json('/team',undefined,h.owner);assert.ok(status.audit.some(a=>a.action==='enterprise.scim_patch'&&a.actor==='owner@example.test (Entra provisioning)'));assert.ok(status.audit.some(a=>a.action==='enterprise.signed_in'&&a.actor===staff));
   provider.setFailure(true);await h.json('/enterprise',{required:false,requireMfa:false,reason:'Must fail closed'},h.owner,503);assert.equal((await h.json('/enterprise',undefined,h.owner)).connection.required,1);provider.setFailure(false);
   const ownerRecovery=await h.login('owner@example.test');await enterpriseJourney(h,'disconnected');await h.json('/state',undefined,ownerRecovery);await signinStaff({},403);
-  await enterpriseJourney(h,'erased');assert.deepEqual((await h.json('/enterprise',undefined,ownerRecovery)).identities,[]);
+  await enterpriseJourney(h,'erased');const removed=await h.json('/enterprise',undefined,ownerRecovery);assert.equal(removed.connection,null);assert.deepEqual(removed.identities,[]);assert.deepEqual(removed.mappings,[]);assert.ok((await h.json('/team',undefined,ownerRecovery)).audit.some(a=>a.actor==='owner@example.test'&&a.action==='enterprise.erased'));
   const newer=await(await h.request('/api/blotter/backup',undefined,ownerRecovery)).text();stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
  }finally{await stale?.close();await destination?.close();await h.close();}
 });

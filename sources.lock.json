@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9d05fbf3d9df827c5fcdd4ef9bd222ac7809be7daf5af99fb999dbca477868db",
+      "sha256": "a87ec11360123ee9473c58d6c7876c4766114408a8ee440542d8231046a5bd4f",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "5fc4cb944f921c5dd4aad94d99f4e14545d5e83b57f10c1cb32fe27f1f1b63c6",
+      "sha256": "992ef1a871a8dac51b1fa92be272bb8b7c428ebf9bc217138568d3b354d03ab3",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4348,11 +4348,11 @@
       "executable": false
     },
     "tests/blotter/enterprise-ui.mjs": {
-      "sha256": "7d25a1b1495ba85630053a67241229172390581e8e3e378be70797fa8fd2eeae",
+      "sha256": "9a95a0e5f1d2acf2e1495839dbb93ced11b7c1efe6a05ff7c6c5e3909bb3be92",
       "executable": false
     },
     "tests/blotter/enterprise.test.mjs": {
-      "sha256": "4228569acedbcec47775b73c797455a27ede76599a15a6146818cd1e9f51ba41",
+      "sha256": "1601ee3524328209f2f8badc902ed74bc905bc4181f5e797b504005ebc6c37b0",
       "executable": false
     },
     "tests/blotter/erasure-fixture.mjs": {
