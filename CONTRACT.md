@@ -310,9 +310,9 @@ The native deterministic planner grants one principal-owned live key, one active
 
 ## Status
 
-Judged from the code and tests at commit `dfc0569ced76b03a5cbbf0158002cf41c3ab5bf5` (27 October 2026).
+Judged from the code and tagged tests at commit `7bc2dbcb01872282b30dd4bb9093cd281460d563` (27 October 2026).
 
-That reachable proof snapshot contains the production source and core revenue assertions; this candidate additionally asserts first-write and replay acknowledgments. The REVENUE-001 proof includes the fresh ct fix-round assertions for taxable and voided retainers, nonzero native receipts and attributed preparation and accounting writes. The branch handoff identifies the final exact commit and recorded verification; guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
+That reachable proof snapshot contains the production source and all cited revenue assertions, including first-write and replay acknowledgments. The REVENUE-001 proof includes the fresh ct fix-round assertions for taxable and voided retainers, nonzero native receipts and attributed preparation and accounting writes. The branch handoff identifies the final exact commit and recorded verification; guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
 
 BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgements are retained.
 
