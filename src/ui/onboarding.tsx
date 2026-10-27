@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, Field, Form, Status, when, type Row } from './common';
 
 /** Review and observations only; all authority stays at the existing server doors. */
 export function Onboarding({ clientId, state }: { clientId: string; state: Row }) {
   const [opened, setOpened] = useState(false), [context, setContext] = useState<Row>();
   const [draft, setDraft] = useState<Row>(), [preview, setPreview] = useState<Row>(), [plan, setPlan] = useState<Row>();
-  const [selected, setSelected] = useState<string[]>([]), [services, setServices] = useState(['tax', 'bookkeeping']);
+  const [selected, setSelected] = useState<string[]>([]), [services, setServices] = useState([{ id: 0, kind: 'tax' }, { id: 1, kind: 'bookkeeping' }]);
+  const nextServiceId = useRef(2);
   const [failure, setFailure] = useState(''), [busy, setBusy] = useState(false);
   const path = `/clients/${clientId}/onboarding`;
   const load = async () => setContext(await api(path + '/plans'));
@@ -29,18 +30,18 @@ export function Onboarding({ clientId, state }: { clientId: string; state: Row }
           {context.sources.length === 0 ? <p>No available signed source. Complete a document signature or record a signed letter first.</p> : <div onChange={() => { setPreview(undefined); setPlan(undefined); }}>
             <Form label="Preview setup items" disabled={busy} submit={data => act(async () => {
               const source = context.sources.find((value: Row) => value.kind + ':' + value.id === data.source);
-              const body = { source: { kind: source.kind, id: source.id }, services: services.map((kind, index) => ({ kind, quote: data['quote' + index], templateId: data['template' + index], authorization: data['authorization' + index], ledger: data['ledger' + index] })) };
+              const body = { source: { kind: source.kind, id: source.id }, services: services.map(({ kind }, index) => ({ kind, quote: data['quote' + index], templateId: data['template' + index], authorization: data['authorization' + index], ledger: data['ledger' + index] })) };
               const result = await api(path + '/preview', body); setDraft(body); setPreview(result); setSelected(result.items.map((item: Row) => item.id));
             })}>
               <Field label="Signed scope source" name="source"><select name="source" required><option value="">Choose a signed document</option>{context.sources.map((source: Row) => <option key={source.kind + source.id} value={source.kind + ':' + source.id}>{source.title} — {source.label}</option>)}</select></Field>
-              {services.map((kind, index) => <fieldset key={index}><legend>Service {index + 1}</legend>
-                <Field label={`Service ${index + 1} kind`} name={'kind' + index}><select value={kind} onChange={event => setServices(services.map((value, at) => at === index ? event.target.value : value))}><option value="tax">Tax</option><option value="bookkeeping">Bookkeeping</option></select></Field>
+              {services.map(({ id, kind }, index) => <fieldset key={id}><legend>Service {index + 1}</legend>
+                <Field label={`Service ${index + 1} kind`} name={'kind' + index}><select value={kind} onChange={event => setServices(services.map((value, at) => at === index ? { ...value, kind: event.target.value } : value))}><option value="tax">Tax</option><option value="bookkeeping">Bookkeeping</option></select></Field>
                 <Field label={`Service ${index + 1} exact signed quote`} name={'quote' + index} />
                 <Field label={`Service ${index + 1} work template`} name={'template' + index}><select name={'template' + index} required><option value="">Choose a template</option>{state.templates.map((template: Row) => <option key={template.id} value={template.id}>{template.name} · {template.recurrence}</option>)}</select></Field>
                 {kind === 'tax' ? <Field label={`Service ${index + 1} authorization`} name={'authorization' + index}><select name={'authorization' + index}><option value="8821">Form 8821</option><option value="2848">Form 2848</option></select></Field> : <Field label={`Service ${index + 1} ledger`} name={'ledger' + index}><select name={'ledger' + index}><option value="qbo">QBO</option><option value="xero">Xero</option></select></Field>}
                 {services.length > 1 && <button type="button" className="quiet" onClick={() => { setServices(services.filter((_, at) => at !== index)); setPreview(undefined); }}>Remove service {index + 1}</button>}
               </fieldset>)}
-              {services.length < 20 && <button type="button" className="quiet" onClick={() => { setServices([...services, 'tax']); setPreview(undefined); }}>Add another service</button>}
+              {services.length < 20 && <button type="button" className="quiet" onClick={() => { setServices([...services, { id: nextServiceId.current++, kind: 'tax' }]); setPreview(undefined); }}>Add another service</button>}
             </Form>
           </div>}
         </details>

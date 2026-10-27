@@ -40,6 +40,21 @@ async function map(panel, fixture, source) {
 export async function onboardingJourney(h, fixture) {
   const browser = await launch();
   try {
+    const editing = await openClient(h, browser, fixture);
+    await editing.entry.getByText('Onboarding scope review', { exact: true }).click();
+    await map(editing.panel, fixture, fixture.body.source);
+    await editing.panel.getByRole('button', { name: 'Remove service 1', exact: true }).click();
+    assert.equal(await editing.panel.getByLabel('Service 1 exact signed quote', { exact: true }).inputValue(), fixture.body.services[1].quote, 'Removing a service preserves the remaining signed quote');
+    assert.equal(await editing.panel.getByLabel('Service 1 work template', { exact: true }).inputValue(), fixture.body.services[1].templateId, 'Removing a service preserves the remaining work template');
+    const remapped = editing.page.waitForResponse(response => response.url().endsWith('/onboarding/preview') && response.request().method() === 'POST');
+    await editing.panel.getByRole('button', { name: 'Preview setup items', exact: true }).click();
+    const remaining = await (await remapped).json();
+    assert.equal(remaining.services.length, 1);
+    assert.equal(remaining.services[0].kind, 'bookkeeping');
+    assert.equal(remaining.services[0].scope.quote, fixture.body.services[1].quote);
+    assert.equal(remaining.services[0].template.id, fixture.body.services[1].templateId);
+    assert.deepEqual(remaining.items.map(item => item.type), ['client', 'contacts', 'schedule', 'opening-balances', 'ledger', 'bank', 'portal']);
+    await editing.context.close();
     const ui = await openClient(h, browser, fixture), { page, panel, entry } = ui;
     await entry.getByText('Onboarding scope review', { exact: true }).click();
     await map(panel, fixture, fixture.body.source);

@@ -202,6 +202,9 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     assert.match(plan.execution,/No invitation/);
     const progressDoor=planDoor+'/'+plan.id+'/progress';
     const observation={revision:plan.revision,itemId:result.items.find(item=>item.type==='ledger').id,state:'blocked',ownerEmail:'owner@example.test',note:'QBO connection still missing',nextAction:'Principal to arrange authorized connection before the first monthly close'};
+    await h.json(progressDoor,observation,reviewer,403);
+    await h.json(planDoor+'/'+plan.id,undefined,h.owner,200);
+    await h.json(`/clients/${other.id}/onboarding/plans/${plan.id}`,undefined,h.owner,404);
     await h.json(progressDoor,{...observation,itemId:removed},h.owner,409);
     await h.json(progressDoor,{...observation,ownerEmail:address},h.owner,403);
     plan=await ui.observe(observation);
@@ -254,7 +257,13 @@ test('ONBOARD-001 native signed-scope setup preview: exact source links, no effe
     const letter=await h.json(`/clients/${erasable.id}/engagements`,{title:'Recorded signed scope',signers:['synthetic-blotter-208'],signedDate:'2026-10-20',file},h.owner);
     const eraseBody={...body,source:{kind:'engagement',id:letter.id}};
     const erasePreview=await h.json(`/clients/${erasable.id}/onboarding/preview`,eraseBody,h.owner);
-    const erasePlan=await h.json(`/clients/${erasable.id}/onboarding/plans`,{...eraseBody,fingerprint:erasePreview.fingerprint,selectedItemIds:erasePreview.items.map(item=>item.id),reason:'Reviewed before synthetic erasure'},h.owner);
+    const eraseReview={...eraseBody,fingerprint:erasePreview.fingerprint,selectedItemIds:erasePreview.items.map(item=>item.id),reason:'Reviewed before synthetic erasure'};
+    await h.json(`/clients/${erasable.id}/contacts`,{name:'synthetic-blotter-209',roles:['primary']},h.owner);
+    await h.json(`/clients/${erasable.id}/onboarding/plans`,eraseReview,h.owner,409);
+    assert.deepEqual((await h.json(`/clients/${erasable.id}/onboarding/plans`,undefined,h.owner)).plans,[], 'A changed contact invalidates the preview without recording a review');
+    const refreshed=await h.json(`/clients/${erasable.id}/onboarding/preview`,eraseBody,h.owner);
+    assert.notEqual(refreshed.fingerprint,erasePreview.fingerprint);
+    const erasePlan=await h.json(`/clients/${erasable.id}/onboarding/plans`,{...eraseReview,fingerprint:refreshed.fingerprint},h.owner);
     await h.json(`/clients/${erasable.id}/lifecycle`,{lifecycle:'archived',revision:(await h.json(`/clients/${erasable.id}/detail`,undefined,h.owner)).revision},h.owner);
     const deletion=await h.json(`/clients/${erasable.id}/erasure/preview`,undefined,h.owner);
     assert.deepEqual(deletion.blockers,[]);
