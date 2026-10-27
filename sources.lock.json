@@ -116,15 +116,15 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "bb44cd95c6980be6255f07667f8a55ee4e6923fbb654cf90348cea1afa85adc4",
+      "sha256": "5916163905a1b5c39616b4e6db0db5f3c7b856d088124d52d69b6ca9f3bed7bf",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "eddd90807322022d8c5ec6f1417fccd35c5c860ede10bfe9773eede7288de344",
+      "sha256": "b562c8d532b4bfab206497133f00777dc2f3e5437f1eaab3a163492c6cc5d86c",
       "executable": false
     },
     "API.md": {
-      "sha256": "d271dac287b9bf9cadd6ddf10ac7f71a8816418f0b5993ea8f3ba941d6cdd342",
+      "sha256": "dea1b243fae6bf764cd53f0a522c1f17d28f1973daca672dc240f40fac00273f",
       "executable": false
     },
     "base-copies.json": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a649a5023d97a425d1614e278a3e6c6f676a0cb0ae47345a8892715bb26c25b9",
+      "sha256": "b35949f9984898792e50d5c41c320b7fd5667ef477e8f126e3975abf9b67a4b0",
       "executable": false
     },
     "deploy-demo.json": {
@@ -593,6 +593,10 @@
     },
     "migrations/core/0105_revenue_proposals.sql": {
       "sha256": "8280b65d5189628551f5c096f40aea05921d7ad2955f76678f1bae24d5ca976b",
+      "executable": false
+    },
+    "migrations/core/0106_revenue_accounting.sql": {
+      "sha256": "d65de24456ba2c426ea297fdaa76420af35e9857efb6f8f1ffb8775004694a06",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1232,7 +1236,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "31236e353902217139129d1e39e11ddf6ce6a027ce06aff063beba09264bc388",
+      "sha256": "de6175abc461129f32e13a321b43f08e20eb05733ab56bd6a5684c82804a5cca",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1580,7 +1584,7 @@
       "executable": false
     },
     "src/blotter/invoices-erasure.ts": {
-      "sha256": "ab90456316ba4647d77a248c397834ca5086d8405b8e32a4dbe1fa7e0670c5d1",
+      "sha256": "0f64d654636b34d958c7232e5a93766d4df8786353b4bb6b75d29b4160c6b3b7",
       "executable": false
     },
     "src/blotter/invoices-pdf.ts": {
@@ -1588,7 +1592,7 @@
       "executable": false
     },
     "src/blotter/invoices-registry.ts": {
-      "sha256": "260b4ab5b38fc7484547312cf7cc2ceb23a64725808e15ad438b616660f4bff7",
+      "sha256": "40d0d917bc65fd2f07cdfaf87d62ea062fa4b3ec1d05442aeec7c1e758f7a32c",
       "executable": false
     },
     "src/blotter/invoices-retainers.ts": {
@@ -1819,8 +1823,12 @@
       "sha256": "364fcd77f89061d628e6d96e3adeed57de88443b82117c8abf2f106f7b3730be",
       "executable": false
     },
+    "src/blotter/revenue-accounting.ts": {
+      "sha256": "a361a5743333186133b6478c21661c2f8ff9019a737094e6c94bc7c4402b06fe",
+      "executable": false
+    },
     "src/blotter/revenue-map.ts": {
-      "sha256": "02d4d126ad1e67f4bdfe3f7696898a40ee71b07d18d48611218da310b559f01f",
+      "sha256": "61e823d40ac429c2a72af39c83a6de4927de2f965466e5618c0762b9b441ab04",
       "executable": false
     },
     "src/blotter/revenue-proposals.ts": {
@@ -4140,7 +4148,7 @@
       "executable": false
     },
     "src/ui/revenue.tsx": {
-      "sha256": "8075deaddfd56f3826fdeb25c3e5c0a7bfec971c49efc1bc971215155b399dc2",
+      "sha256": "86cb1dbadc84be3617c2ae3ff018911b8662993bc4f4e51fc1d3e7b34e07d9b8",
       "executable": false
     },
     "src/ui/scheduled-agents.tsx": {
@@ -4472,15 +4480,15 @@
       "executable": false
     },
     "tests/blotter/revenue-custody.mjs": {
-      "sha256": "5863e769539ef76e7ac50f7fe1f86f7e1173bb4e154e9a93fa99284a0d3df5be",
+      "sha256": "128996d042998039456d2114c6f75a802f5ada5a2e48c4da44454e6a2d9c3431",
       "executable": false
     },
     "tests/blotter/revenue-proof.mjs": {
-      "sha256": "d6bfc1029a6cf53bf9156548ea37b4c346be3ea4a85e61a025bc6cffd3c35ed0",
+      "sha256": "b64b14af4b832e4a7cb6e5e3f82e57ade621b1ed25978d393ab1bea9dc52e694",
       "executable": false
     },
     "tests/blotter/revenue-ui.mjs": {
-      "sha256": "773cbc3f2018c3aac7d59eb088afab57ad68524c2bfb3380c2c6d50941c4a7f2",
+      "sha256": "39288f593d2b6133045554559bea4abeb62c1118bdc31af0b77a0248e835cf94",
       "executable": false
     },
     "tests/blotter/service-agents-ui.mjs": {

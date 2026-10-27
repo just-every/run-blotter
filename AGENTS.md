@@ -98,8 +98,8 @@ flags, private state, deployment inputs and remote limitations.
 
 ## Work on Blotter
 
-Blotter is the practice workflow for small Australian bookkeeping and
-accounting practices; ACCEPTANCE.md is the first release. Product source is in
+Blotter is the practice workflow for small US bookkeeping and
+accounting firms; ACCEPTANCE.md is the first release. Product source is in
 `src/blotter/` (server: one module per job, `api.ts` lists every HTTP door) and
 `src/ui/` (screens); the schema is `migrations/core/0016_blotter.sql`.
 
