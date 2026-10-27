@@ -4268,7 +4268,7 @@
       "executable": false
     },
     "tests/blotter/billing-analysis.test.mjs": {
-      "sha256": "e0e87a3060c2e429d5c30b0ba530ed963d5ba408ae537a1aee508dade1013973",
+      "sha256": "d45bbbd9bb1e9054791c883660ea5a92fc01dafb0f03e4a624f9b06b3dfe5be2",
       "executable": false
     },
     "tests/blotter/bulk-failure-ui.mjs": {
@@ -4480,11 +4480,11 @@
       "executable": false
     },
     "tests/blotter/revenue-custody.mjs": {
-      "sha256": "6c0342345239950ce461a14763cb887c00a801ba1d0d84b6f0e85f7ba9bf520a",
+      "sha256": "c6ac29b91ca226c3c1564e140b0f44f9f8425288b9a4f70484299c64adeab19f",
       "executable": false
     },
     "tests/blotter/revenue-proof.mjs": {
-      "sha256": "a17613a6e16a76b2b4daa4472d09ddc59ae76f04728fe428e2d6633bf893ed2e",
+      "sha256": "8f7d276053a74c7a7d333a3828b6fa43b0913784fadae57c868b8766234a9e89",
       "executable": false
     },
     "tests/blotter/revenue-ui.mjs": {
