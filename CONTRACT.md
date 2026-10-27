@@ -317,8 +317,8 @@ BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgement
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 3 | 0 | 0 | 3 |
-| Target and push further | 59 | 15 | 31 | 105 |
-| All | 62 | 15 | 31 | 108 |
+| Target and push further | 60 | 14 | 31 | 105 |
+| All | 63 | 14 | 31 | 108 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
