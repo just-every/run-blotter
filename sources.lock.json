@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "5916163905a1b5c39616b4e6db0db5f3c7b856d088124d52d69b6ca9f3bed7bf",
+      "sha256": "9d05fbf3d9df827c5fcdd4ef9bd222ac7809be7daf5af99fb999dbca477868db",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "b35949f9984898792e50d5c41c320b7fd5667ef477e8f126e3975abf9b67a4b0",
+      "sha256": "5fc4cb944f921c5dd4aad94d99f4e14545d5e83b57f10c1cb32fe27f1f1b63c6",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1828,7 +1828,7 @@
       "executable": false
     },
     "src/blotter/revenue-map.ts": {
-      "sha256": "61e823d40ac429c2a72af39c83a6de4927de2f965466e5618c0762b9b441ab04",
+      "sha256": "d365d1ca1df9f028fcf6dd0a6c02f1ef343e9e6f73a44e07d1a39df479ff71a1",
       "executable": false
     },
     "src/blotter/revenue-proposals.ts": {
@@ -4484,7 +4484,7 @@
       "executable": false
     },
     "tests/blotter/revenue-proof.mjs": {
-      "sha256": "b64b14af4b832e4a7cb6e5e3f82e57ade621b1ed25978d393ab1bea9dc52e694",
+      "sha256": "1ea9256358cc62265af9219436e49cd3694b0b099ea7890fe1443f8c6a3b33cc",
       "executable": false
     },
     "tests/blotter/revenue-ui.mjs": {
