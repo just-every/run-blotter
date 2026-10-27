@@ -153,6 +153,14 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.ok(observedHistory.observations.every(o=>o.recorded_by==='owner@example.test'&&o.client_id===s.client.id&&o.invoice_id===s.invoice.id));
  assert.equal(map.accounting.observations.length,3);assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  if(ui)await ui(h,s);
+ const issuedSource=await h.json('/invoice-entitlements',{jobId:s.job.id,kind:'milestone',reference:'synthetic-blotter-98',description:'Separate issued duplicate review',amountCents:10000,authorization:'Principal recorded the separate issued invoice source'},h.owner);
+ const issuedInput={...s.duplicateInput,credits:[],sourceKeys:[issuedSource.sourceKey],taxCents:0};
+ const issuedPreview=await h.json('/invoices/preview',issuedInput,h.owner),issued=await h.json('/invoices',{...issuedInput,previewHash:issuedPreview.previewHash},h.owner);
+ await h.json(`/invoices/${issued.id}/issue`,{revision:issued.revision,snapshotHash:issued.snapshotHash,reviewNote:'Principal issued the second invoice explicitly'},h.owner);
+ map=await read();const issuedFinding=map.exceptions.find(e=>e.kind==='duplicate'&&e.invoiceId===issued.id);
+ assert.ok(issuedFinding);assert.equal(issuedFinding.canPrepare,false);assert.equal(issuedFinding.amountCents,10000);
+ await h.json('/revenue/proposals',{clientId:s.client.id,planId:s.plan.id,fingerprint:map.fingerprint,exceptionId:issuedFinding.id},h.owner,409);
+ assert.equal((await h.json(`/invoices/${issued.id}`,undefined,h.owner)).status,'issued');
  return {read,map};
 }
 
