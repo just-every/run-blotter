@@ -38,7 +38,7 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
     const statements:D1PreparedStatement[]=[];let resultId=key;
     if(kind==='Users'){
       const target=item??(request.method==='POST'?await stmt(db,'SELECT * FROM b_enterprise_identities WHERE email=?',String(b.userName??'').toLowerCase()).first<Data>():null);
-      insist(target,'The principal must associate an invited member before provisioning',403);resultId=target.id;
+      insist(target,'The principal must associate an invited member before provisioning',403);insist(!await stmt(db,"SELECT 1 FROM oa_operators WHERE email=? AND role='owner'",target.email).first(),'Provisioning cannot manage the principal',403);resultId=target.id;
       if(b.userName!==undefined)insist(String(b.userName).toLowerCase()===target.email,'Provisioning cannot reassign an identity',403);
       let attributes:Data={active:!!target.active,...b};
       if(request.method==='PATCH'){
@@ -73,7 +73,7 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
         }
         const nameValue=text(name,'Group name',200);
         statements.push(stmt(db,'INSERT INTO b_enterprise_groups(id,display_name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name',groupId,nameValue));
-        if(members!==undefined){const ids=memberIds(members);for(const identityId of ids)insist(await stmt(db,'SELECT 1 FROM b_enterprise_identities WHERE id=? AND active=1',identityId).first(),'Group contains an unknown or deprovisioned identity',403);
+        if(members!==undefined){const ids=memberIds(members);for(const identityId of ids)insist(await stmt(db,"SELECT 1 FROM b_enterprise_identities i WHERE id=? AND active=1 AND NOT EXISTS(SELECT 1 FROM oa_operators p WHERE p.email=i.email AND p.role='owner')",identityId).first(),'Group contains an unknown or deprovisioned identity',403);
           statements.push(stmt(db,'DELETE FROM b_enterprise_group_members WHERE group_id=?',groupId),...ids.map(identityId=>stmt(db,'INSERT INTO b_enterprise_group_members(group_id,identity_id) VALUES(?,?)',groupId,identityId)));}
       }
     }

@@ -60,7 +60,7 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   await h.json('/state',undefined,resumed.cookie,401);await signinStaff({},403);
   const status=await h.json('/team',undefined,h.owner);assert.ok(status.audit.some(a=>a.action==='enterprise.scim_patch'&&a.actor==='owner@example.test (Entra provisioning)'));assert.ok(status.audit.some(a=>a.action==='enterprise.signed_in'&&a.actor===staff));
   provider.setFailure(true);await h.json('/enterprise',{required:false,requireMfa:false,reason:'Must fail closed'},h.owner,503);assert.equal((await h.json('/enterprise',undefined,h.owner)).connection.required,1);provider.setFailure(false);
-  const ownerRecovery=await h.login('owner@example.test');await enterpriseJourney(h,'disconnected');await h.json('/state',undefined,ownerRecovery);await signinStaff({},403);
+  const ownerRecovery=await h.login('owner@example.test');await enterpriseJourney(h,'disconnected');await h.json('/state',undefined,ownerRecovery);assert.equal((await h.request('/auth/oidc/enterprise/start',{})).status,403);
   await enterpriseJourney(h,'erased');const removed=await h.json('/enterprise',undefined,ownerRecovery);assert.equal(removed.connection,null);assert.deepEqual(removed.identities,[]);assert.deepEqual(removed.mappings,[]);assert.ok((await h.json('/team',undefined,ownerRecovery)).audit.some(a=>a.actor==='owner@example.test'&&a.action==='enterprise.erased'));
   const newer=await(await h.request('/api/blotter/backup',undefined,ownerRecovery)).text();stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
  }finally{await stale?.close();await destination?.close();await h.close();}
