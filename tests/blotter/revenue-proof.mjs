@@ -71,7 +71,7 @@ export async function assertRevenueFlow(h,edge,s,ui) {
  assert.ok(returned.citations.some(c=>c.label.includes('synthetic-blotter-80')));
  assert.equal(edge.calls.filter(c=>c.body).length,chargeCount);
  const history=await h.json(`/clients/${s.client.id}/history?kind=billing`,undefined,h.owner);assert.ok(history.unresolved.some(i=>i.owner==='owner@example.test'&&/returned/.test(i.nextAction)));
- const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2030-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,10000);
+ const statement=await h.json(`/clients/${s.client.id}/statement?asOf=2999-01-01`,undefined,h.owner);assert.equal(statement.totals.openCents,10000);
  if(ui)await ui(h,s);
  return {read,map};
 }

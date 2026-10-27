@@ -26,7 +26,7 @@ export async function assertRevenueCustody(h,s,read) {
  const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(preview.blockers.some(b=>/Open balance/.test(b)));
  assert.ok(preview.erase.some(step=>step.table==='b_revenue_proposals'&&step.count===4));
- const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2027-01-01',reason:'Preserve revenue review drafts'},h.owner);
+ const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve revenue review drafts'},h.owner);
  const held=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
  assert.ok(!held.erase.some(step=>step.table==='b_revenue_proposals'&&step.count>0));
  await h.json(`/retention/${hold.id}/release`,{reason:'Revenue custody proof complete'},h.owner);
@@ -41,12 +41,12 @@ export async function assertRevenueErasure(h) {
  const letter=await h.json(`/clients/${client.id}/engagements`,{title:'Accepted scope',signers:['Synthetic principal'],signedDate:'2026-10-01',file:{name:'accepted.txt',mime:'text/plain',contentBase64:Buffer.from('Annual service only').toString('base64')}},h.owner);
  const mapped={source:{kind:'engagement',id:letter.id},services:[{kind:'tax',quote:'Annual service only',templateId:mappedTemplate.id,authorization:'8821'}]};
  const p=await h.json(`/clients/${client.id}/onboarding/preview`,mapped,h.owner),plan=await h.json(`/clients/${client.id}/onboarding/plans`,{...mapped,fingerprint:p.fingerprint,selectedItemIds:p.items.map(i=>i.id),reason:'Principal mapped signed annual scope'},h.owner);
- const j=await h.json('/jobs',{clientId:client.id,templateId:extraTemplate.id,periodStart:'2026-01-01',dueDate:'2026-12-15',dueNote:'Client supplied target',preparerEmail:'owner@example.test',reviewerEmail:'owner@example.test'},h.owner);
+ const j=await h.json('/jobs',{clientId:client.id,templateId:extraTemplate.id,periodStart:'2026-01-01',dueDate:'2026-12-15',dueNote:'Client supplied target',preparerEmail:'owner@example.test',reviewerEmail:'reviewer@example.test'},h.owner);
  let work=await h.json(`/jobs/${j.id}`,undefined,h.owner);
  for(const r of work.requests){await h.json(`/requests/${r.id}/files`,{name:'source.txt',mime:'text/plain',contentBase64:Buffer.from('Synthetic source').toString('base64')},h.owner);await h.json(`/requests/${r.id}/decide`,{decision:'accept'},h.owner);}
  for(const step of work.steps)await h.json(`/jobs/${j.id}/steps`,{ordinal:step.ordinal,done:true},h.owner);
  work=await h.json(`/jobs/${j.id}`,undefined,h.owner);work=await h.json(`/jobs/${j.id}/submit`,{revision:work.job.revision},h.owner);
- await h.json(`/jobs/${j.id}/review`,{revision:work.job.revision,decision:'signoff',note:'Human signed off the additional cleanup'},h.owner);
+ await h.json(`/jobs/${j.id}/review`,{revision:work.job.revision,decision:'signoff',note:'Human signed off the additional cleanup'},await h.login('reviewer@example.test'));
  const map=(await h.json(`/revenue?clientId=${client.id}&planId=${plan.id}`,undefined,h.owner)).map;
  assert.equal(map.exceptions[0].amountCents,5000);
  const draft=await h.json('/revenue/proposals',{clientId:client.id,planId:plan.id,fingerprint:map.fingerprint,exceptionId:map.exceptions[0].id},h.owner);
