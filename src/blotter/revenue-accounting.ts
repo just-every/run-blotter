@@ -7,6 +7,8 @@ export async function recordRevenueAccounting(db:D1Database,actor:Actor,body:Dat
   const authority=await invoiceAuthority(db),invoiceId=text(body.invoiceId,'Native invoice',100);
   const invoice=await stmt(db,"SELECT * FROM b_invoices WHERE id=? AND status='issued' AND erased_at IS NULL",invoiceId).first<Data>();
   insist(invoice,'Select an issued native invoice',409);
+  // Replays retain their identity but never restore authority for an archived client.
+  insist(await stmt(db,`SELECT 1 WHERE ${activeInvoiceClientSql}`,invoice.client_id).first(),'This client is archived or unavailable',409);
   insist(body.currency==='USD','Accounting observations require USD');
   const source=text(body.source,'Firm accounting source',200),reference=text(body.reference,'Accounting event reference',200);
   const facts={grossCents:integer(body.grossCents,'Recorded gross cents'),receiptCents:integer(body.receiptCents,'Recorded net receipt cents',-1_000_000_000),creditCents:integer(body.creditCents,'Recorded applied credit cents'),writeoffCents:integer(body.writeoffCents,'Recorded write-off cents')};
