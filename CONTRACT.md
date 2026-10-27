@@ -315,6 +315,8 @@ Judged from the code and tests at commit `254d43d34f4352a40a64c7189e0a58ec6a8a1d
 
 The identity candidate adds atomic native-deactivation fencing and isolated live-journey proof configuration to that source baseline; its exact commit and recorded runs are in the branch handoff. Guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
 
+The replayed REVENUE-001 proof at `5ca31d5` adds taxable and voided retainers, nonzero native receipts, attributed preparation and accounting writes, and first-write and replay acknowledgments to the current main baseline. Guarded landing and a fresh CT judgment remain required before counting REVENUE-001.
+
 BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgements are retained.
 
 | Clauses | Done | Partial | Missing | Total |
