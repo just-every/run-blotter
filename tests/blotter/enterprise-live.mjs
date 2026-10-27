@@ -5,7 +5,7 @@ import {harness} from './harness.mjs';
 const bindings=Object.fromEntries(['ENTRA_TENANT_ID','ENTRA_CLIENT_ID','ENTRA_CLIENT_SECRET'].map(name=>{assert.ok(process.env[name],name+' is required');return [name,process.env[name]];}));
 bindings.ENTRA_TRANSACTION_SECRET=randomBytes(32).toString('hex');
 const operations=[];
-const h=await harness({bindings,identityResponse:async request=>{const response=await fetch(request);operations.push({operation:new URL(request.url).hostname==='graph.microsoft.com'?'tenant-directory':'client-credentials',status:response.status});return response;}});
+const h=await harness({bindings,identityResponse:async request=>{const response=await fetch(request.url,{method:request.method,headers:request.headers,...(request.method==='POST'?{body:await request.text()}:{}),redirect:'manual',signal:AbortSignal.timeout(10000)});operations.push({operation:new URL(request.url).hostname==='graph.microsoft.com'?'tenant-directory':'client-credentials',status:response.status});return response;}});
 try{
  const connected=await h.json('/enterprise',{required:true,requireMfa:true,reason:'Authorized sandbox connection proof'},h.owner);
  assert.equal(connected.connection.active,1);assert.equal(connected.connection.tenant,bindings.ENTRA_TENANT_ID);

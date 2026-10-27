@@ -28,6 +28,8 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   await scim('/Users',undefined,401,'GET','synthetic-blotter-invalid-provisioning-token');
   const listed=await scim('/Users?filter='+encodeURIComponent('userName eq "'+staff+'"'));assert.deepEqual(listed.Resources.map(x=>x.id),[identity.id]);
   await scim('/Users',{userName:'unknown@example.com',active:true},403);
+  const provisioned=await scim('/Users/'+identity.id,{userName:staff,displayName:'Maya Chen',externalId:'synthetic-blotter-directory-person',active:true},200,'PUT');assert.equal(provisioned.externalId,'synthetic-blotter-directory-person');assert.equal(provisioned.displayName,'Maya Chen');
+  await scim('/Users/'+identity.id,{Operations:[{op:'Replace',path:'userName',value:'other@example.com'}]},403,'PATCH');
   const group=await scim('/Groups',{externalId:'synthetic-blotter-tax',displayName:'Tax reviewers',members:[{value:identity.id}]},201);
   assert.deepEqual(group.members,[{value:identity.id}]);
   const signinStaff=async(claims={},expected=303)=>{
@@ -36,13 +38,17 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   };
   await signinStaff({iss:'https://login.microsoftonline.com/22222222-2222-4222-8222-222222222222/v2.0'},400);
   await signinStaff({amr:['pwd']},403);await signinStaff({sub:'unknown'},403);
-  const accepted=await signinStaff();const state=await h.json('/state',undefined,accepted.cookie);await h.json('/v1/clients',undefined,accepted.cookie);assert.equal(state.actor.role,'reviewer');assert.deepEqual(state.clients.map(c=>c.id),[client.id]);
+  let accepted=await signinStaff();const state=await h.json('/state',undefined,accepted.cookie);await h.json('/v1/clients',undefined,accepted.cookie);assert.equal(state.actor.role,'reviewer');assert.deepEqual(state.clients.map(c=>c.id),[client.id]);
+  await h.json('/enterprise/mappings',{groupId:'synthetic-blotter-limited',role:'preparer',reason:'Lower privilege group'},h.owner);
+  const limited=await scim('/Groups',{externalId:'synthetic-blotter-limited',displayName:'Limited staff',members:[{value:identity.id}]},201);const restricted=await signinStaff();const restrictedState=await h.json('/state',undefined,restricted.cookie);assert.equal(restrictedState.actor.role,'preparer');assert.deepEqual(restrictedState.clients,[]);
+  await scim('/Groups/'+limited.id,undefined,204,'DELETE');accepted=await signinStaff();
+  for(const [path,body] of [['/enterprise/mappings',{groupId:'another',role:'reviewer',reason:'Denied'}],['/enterprise/token',{reason:'Denied'}],['/enterprise/disconnect',{reason:'Denied'}],['/enterprise/erase',{confirm:'ERASE ENTERPRISE',reason:'Denied'}]])await h.json(path,body,accepted.cookie,403);
   const replay=await h.request(accepted.callback,undefined,accepted.correlation);assert.equal(replay.status,400);
   await h.json('/keys',{label:'Scoped staff cannot mint a firm key'},accepted.cookie,403);
-  await enterpriseJourney(h);
+  await enterpriseJourney(h);accepted=await signinStaff();await h.json('/v1/clients',undefined,accepted.cookie);
   const archiveResponse=await h.request('/api/blotter/backup',undefined,h.owner);assert.equal(archiveResponse.status,200,await archiveResponse.clone().text());const archive=await archiveResponse.text();assert.ok(!archive.includes(token));
   destination=await harness({bindings:provider.bindings,identityResponse:provider.response});await destination.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},destination.owner);
-  const restored=await destination.json('/enterprise',undefined,destination.owner);assert.equal(restored.connection.active,0);assert.equal(restored.identities[0].active,0);assert.equal(restored.mappings.length,1);
+  const restored=await destination.json('/enterprise',undefined,destination.owner);assert.equal(restored.connection.active,0);assert.equal(restored.identities[0].active,0);assert.deepEqual(restored.mappings.map(m=>m.group_id),['synthetic-blotter-limited','synthetic-blotter-tax']);
   assert.equal((await destination.send('/scim/v2/Users',undefined,'',{authorization:'Bearer '+token})).status,401);
   await scim('/Groups/'+group.id,{schemas:['urn:ietf:params:scim:api:messages:2.0:PatchOp'],Operations:[{op:'Remove',path:'members',value:[{value:identity.id}]}]},200,'PATCH');
   await h.json('/state',undefined,accepted.cookie,401);await h.json('/v1/clients',undefined,accepted.cookie,401);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,401);
@@ -53,8 +59,8 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   await h.json('/state',undefined,resumed.cookie,401);await signinStaff({},403);
   const status=await h.json('/team',undefined,h.owner);assert.ok(status.audit.some(a=>a.action==='enterprise.scim_patch'&&a.actor==='owner@example.test (Entra provisioning)'));assert.ok(status.audit.some(a=>a.action==='enterprise.signed_in'&&a.actor===staff));
   provider.setFailure(true);await h.json('/enterprise',{required:false,requireMfa:false,reason:'Must fail closed'},h.owner,503);assert.equal((await h.json('/enterprise',undefined,h.owner)).connection.required,1);provider.setFailure(false);
-  const ownerRecovery=await h.login('owner@example.test');await h.json('/enterprise/disconnect',{reason:'Owner recovery'},ownerRecovery);await h.json('/state',undefined,ownerRecovery);await signinStaff({},403);
-  const erased=await h.json('/enterprise/erase',{confirm:'ERASE ENTERPRISE',reason:'Remove connection'},ownerRecovery);assert.equal(erased.erased,true);assert.deepEqual((await h.json('/enterprise',undefined,ownerRecovery)).identities,[]);
+  const ownerRecovery=await h.login('owner@example.test');await enterpriseJourney(h,'disconnected');await h.json('/state',undefined,ownerRecovery);await signinStaff({},403);
+  await enterpriseJourney(h,'erased');assert.deepEqual((await h.json('/enterprise',undefined,ownerRecovery)).identities,[]);
   const newer=await(await h.request('/api/blotter/backup',undefined,ownerRecovery)).text();stale=await harness();await stale.json('/restore',{archive,journal:newer,confirm:'RESTORE'},stale.owner,409);
  }finally{await stale?.close();await destination?.close();await h.close();}
 });

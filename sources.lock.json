@@ -171,6 +171,10 @@
       "sha256": "eb4a44d7a7fa5a8c8b3ff3590e27fe7b8a4f75d8e157623cd57525a4f0b585e6",
       "executable": false
     },
+    "docs/enterprise-identity.md": {
+      "sha256": "4191656c6ddbeb67a9fea6213548f3ed60d79ea4e214fa21bbdfb61dba83d770",
+      "executable": false
+    },
     "docs/getting-started.md": {
       "sha256": "def1752b4eab0a6ede47c7f70f761f00ef1a20760fd8ea212b68e6405f254b04",
       "executable": false
@@ -600,7 +604,7 @@
       "executable": false
     },
     "migrations/core/0107_enterprise_identity.sql": {
-      "sha256": "0c69470c3b0b4f52ccdfe6a13fc2c5a69827ad96ede67d3326c1d76205ece813",
+      "sha256": "62f386aeaff027f254c3c813f069d18472af9caf14ea8761a5a05246a436fc81",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1448,11 +1452,11 @@
       "executable": false
     },
     "src/blotter/enterprise-scim.ts": {
-      "sha256": "29dade57f990f8a1a7c35adc73459e7fccce4df047126c66cdcd1262bdd35d6d",
+      "sha256": "508767e36e46d921605689980b99d27123c84aa17827b07274e074cde39a0639",
       "executable": false
     },
     "src/blotter/enterprise.ts": {
-      "sha256": "4319c49f89b00fd572bd4095af3735bc9fc2a72c4f3b0a32c62d16bcc2995251",
+      "sha256": "68f8859fb88f51cbbe3a8664d588b41ec351c0cbf0dc1bb776208e8aea1cc4ba",
       "executable": false
     },
     "src/blotter/erasure-copies.ts": {
@@ -4028,7 +4032,7 @@
       "executable": false
     },
     "src/ui/enterprise.tsx": {
-      "sha256": "e5fed6303a8f30cb39a76057e42c87ccd445414eb991178d73e835d76b01d84c",
+      "sha256": "b14d738c9fad2b0de4ee29f8f8bec44f36128790e0d24691bc9adb353cef055b",
       "executable": false
     },
     "src/ui/expenses.tsx": {
@@ -4336,7 +4340,7 @@
       "executable": false
     },
     "tests/blotter/enterprise-live.mjs": {
-      "sha256": "e18974073dce93c86d50d4b7b11b6c7d12ade42962117e740f5ff200029579f5",
+      "sha256": "dad596d0dedd8041164e0324eb10a019b65a3e56885dbdedab5094bf096b45fd",
       "executable": false
     },
     "tests/blotter/enterprise-provider.mjs": {
@@ -4344,11 +4348,11 @@
       "executable": false
     },
     "tests/blotter/enterprise-ui.mjs": {
-      "sha256": "b2b9ae09bbb1140c2092fb6382fca2ff636e5c24c1aa47cc85b73bdf2c6b3191",
+      "sha256": "7d25a1b1495ba85630053a67241229172390581e8e3e378be70797fa8fd2eeae",
       "executable": false
     },
     "tests/blotter/enterprise.test.mjs": {
-      "sha256": "029d2335e6dec645a7c4cbda13d479da688e1550b289ec49a772dc9cc4a74716",
+      "sha256": "4228569acedbcec47775b73c797455a27ede76599a15a6146818cd1e9f51ba41",
       "executable": false
     },
     "tests/blotter/erasure-fixture.mjs": {

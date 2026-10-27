@@ -3,8 +3,8 @@ import { enterpriseRefresh, enterpriseGuard } from './enterprise-lifecycle';
 import { atomic, audit, digest, Fault, id, insist, rows, stmt, text, type Actor, type Data } from './model';
 
 const schema='urn:ietf:params:scim:schemas:core:2.0:';
-const user=(r:Data)=>({schemas:[schema+'User'],id:r.id,userName:r.email,active:!!r.active});
-async function group(db:D1Database,r:Data){return {schemas:[schema+'Group'],id:r.id,displayName:r.display_name,members:(await rows(db,'SELECT identity_id FROM b_enterprise_group_members WHERE group_id=? ORDER BY identity_id',r.id)).map(m=>({value:m.identity_id}))};}
+const user=(r:Data)=>({schemas:[schema+'User'],id:r.id,userName:r.email,externalId:r.external_id??undefined,displayName:r.display_name,active:!!r.active});
+async function group(db:D1Database,r:Data){return {schemas:[schema+'Group'],id:r.id,externalId:r.id,displayName:r.display_name,members:(await rows(db,'SELECT identity_id FROM b_enterprise_group_members WHERE group_id=? ORDER BY identity_id',r.id)).map(m=>({value:m.identity_id}))};}
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'content-type':'application/scim+json','cache-control':'no-store'}});
 
 /** This bearer may change only explicitly associated staff and provisioned groups. */
@@ -17,7 +17,9 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
     const o=await stmt(db,"SELECT * FROM oa_operators WHERE role='owner' AND status='active'").first<Data>();insist(o,'Principal authority is unavailable',403);
     const actor:Actor={id:o.id,email:o.email,name:o.display_name,role:'owner',channel:'person'};
     const parts=url.pathname.slice('/scim/v2'.length).split('/').filter(Boolean);insist(parts.length<=2,'Unknown provisioning resource',404);
-    const [kind,key]=parts;insist(kind==='Users'||kind==='Groups','Unknown provisioning resource',404);
+    const [kind,key]=parts;
+    if(kind==='ServiceProviderConfig'&&request.method==='GET')return json({schemas:[schema+'ServiceProviderConfig'],patch:{supported:true},bulk:{supported:false,maxOperations:0,maxPayloadSize:0},filter:{supported:true,maxResults:1000},changePassword:{supported:false},sort:{supported:false},etag:{supported:false},authenticationSchemes:[{type:'oauthbearertoken',name:'Principal-issued provisioning token',description:'Bearer credential scoped to this tenant',primary:true}]});
+    insist(kind==='Users'||kind==='Groups','Unknown provisioning resource',404);
     const table=kind==='Users'?'b_enterprise_identities':'b_enterprise_groups';
     const item=key?await stmt(db,`SELECT * FROM ${table} WHERE id=?`,key).first<Data>():null;
     if(key)insist(item,'Provisioning resource not found',404);
@@ -38,13 +40,18 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
       const target=item??(request.method==='POST'?await stmt(db,'SELECT * FROM b_enterprise_identities WHERE email=?',String(b.userName??'').toLowerCase()).first<Data>():null);
       insist(target,'The principal must associate an invited member before provisioning',403);resultId=target.id;
       if(b.userName!==undefined)insist(String(b.userName).toLowerCase()===target.email,'Provisioning cannot reassign an identity',403);
-      let active=b.active??!!target.active;
+      let attributes:Data={active:!!target.active,...b};
       if(request.method==='PATCH'){
         insist(Array.isArray(b.Operations)&&b.Operations.length>0&&b.Operations.length<=20,'Supply patch operations');
-        for(const op of b.Operations){insist(String(op.op).toLowerCase()==='replace','Unsupported user patch');if(!op.path){insist(op.value&&Object.keys(op.value).length===1&&'active' in op.value,'Only active may change');active=op.value.active;}else{insist(String(op.path).toLowerCase()==='active','Only active may change');active=op.value;}}
+        for(const op of b.Operations){insist(String(op.op).toLowerCase()==='replace','Unsupported user patch');if(!op.path){insist(op.value&&typeof op.value==='object'&&!Array.isArray(op.value),'Supply patch attributes');Object.assign(attributes,op.value);}else{const path=String(op.path).toLowerCase();insist(['active','username','displayname','externalid'].includes(path),'Unsupported user attribute');attributes[({username:'userName',displayname:'displayName',externalid:'externalId'} as Record<string,string>)[path]??path]=op.value;}}
       }
-      if(request.method==='DELETE')active=false;
-      insist(typeof active==='boolean','Active must be a boolean');
+      if(request.method==='DELETE')attributes.active=false;
+      insist(attributes.userName===undefined||String(attributes.userName).toLowerCase()===target.email,'Provisioning cannot reassign an identity',403);
+      const active=attributes.active;insist(typeof active==='boolean','Active must be a boolean');
+      const external=attributes.externalId===undefined?target.external_id:text(attributes.externalId,'External identity reference',255);
+      insist(!target.external_id||external===target.external_id,'Provisioning cannot reassign an external identity',403);
+      const display=attributes.displayName===undefined?target.display_name:text(attributes.displayName,'Display name',100);
+      statements.push(stmt(db,'UPDATE b_enterprise_identities SET external_id=?,display_name=? WHERE id=?',external,display,target.id),stmt(db,'UPDATE b_members SET name=? WHERE email=?',display,target.email),stmt(db,'UPDATE oa_operators SET display_name=? WHERE email=?',display,target.email));
       statements.push(stmt(db,'UPDATE b_enterprise_identities SET active=? WHERE id=?',Number(active),target.id));
       if(!active)statements.push(stmt(db,'DELETE FROM b_enterprise_group_members WHERE identity_id=?',target.id));
     }else{
@@ -59,7 +66,7 @@ export async function enterpriseScim(request:Request,env:Bindings):Promise<Respo
           for(const op of b.Operations){const verb=String(op.op).toLowerCase(),path=String(op.path??'');insist(['add','remove','replace'].includes(verb),'Unsupported group patch');
             if(path==='displayName'&&verb==='replace')name=op.value;
             else if(path==='members') {const ids=memberIds(op.value);current=verb==='replace'?ids:verb==='remove'?current.filter(x=>!ids.includes(x)):[...new Set([...current,...ids])];}
-            else if(/^members\[value eq "[^"\\]+"\]$/.test(path)&&verb==='remove')current=current.filter(x=>x!==path.slice(18,-2));
+            else if(/^members\[value eq "[^"\\]+"\]$/.test(path)&&verb==='remove')current=current.filter(x=>x!==path.match(/^members\[value eq "([^"]+)"\]$/)![1]);
             else insist(false,'Unsupported group patch');
           }
           members=current.map(value=>({value}));

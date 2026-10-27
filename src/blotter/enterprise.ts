@@ -36,7 +36,7 @@ export async function bindEnterprise(env:Bindings,actor:Actor,body:Data) {
   insist(address!==env.OWNER_EMAIL.toLowerCase()&&!await stmt(db,"SELECT 1 FROM oa_operators WHERE email=? AND role='owner'",address).first(),'Enterprise provisioning cannot manage the principal',403);
   insist(await stmt(db,"SELECT 1 FROM b_members m JOIN oa_operators o ON o.email=m.email WHERE m.email=? AND m.active=1 AND o.status IN('active','invited')",address).first(),'Save and invite the practice member first',404);
   insist(await stmt(db,'SELECT 1 FROM b_enterprise_connection WHERE id=1 AND active=1').first(),'Connect the enterprise tenant first',409);
-  await atomic(db,actor,[stmt(db,'INSERT INTO b_enterprise_identities(id,email,subject,active) VALUES(?,?,?,1)',id(),address,subject),...enterpriseRefresh(db,actor),audit(db,actor,'enterprise.identity_associated',address,reason)]);
+  await atomic(db,actor,[stmt(db,'INSERT INTO b_enterprise_identities(id,email,subject,display_name,active) SELECT ?,?,?,name,1 FROM b_members WHERE email=?',id(),address,subject,address),...enterpriseRefresh(db,actor),audit(db,actor,'enterprise.identity_associated',address,reason)]);
   return {ok:true};
 }
 export async function enterpriseToken(env:Bindings,actor:Actor,body:Data) {

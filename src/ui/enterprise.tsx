@@ -28,7 +28,7 @@ export function Enterprise({ run, tick }: { run: Run; tick: number }) {
     <p>The principal can always use native sign-in and recovery, including when enterprise sign-in is required for staff.</p>
     <details><summary>Connect Microsoft Entra</summary>
       <p>Ask your installation administrator to configure these server bindings: <code>ENTRA_TENANT_ID</code>, <code>ENTRA_CLIENT_ID</code>, <code>ENTRA_CLIENT_SECRET</code> and <code>ENTRA_TRANSACTION_SECRET</code>. Keep their values on the server.</p>
-      <p>Register this installation’s origin followed by <code>/auth/oidc/enterprise/callback</code> as the application’s redirect URI. Activation verifies the server bindings.</p>
+      <p>Register this installation’s origin followed by <code>/auth/oidc/enterprise/callback</code> as the application’s redirect URI. Activation verifies the server bindings. Request the optional amr ID-token claim in Entra before requiring provider MFA.</p>
       {!active && <Form label="Activate enterprise sign-in" disabled={!view.configured} submit={async data => run(async () => {
         await api('/enterprise', { required: data.required === 'on', requireMfa: data.requireMfa === 'on', reason: data.reason });
         await reload();
@@ -106,7 +106,7 @@ export function Enterprise({ run, tick }: { run: Run; tick: number }) {
         </Form>
       </details>
     </>}
-    <details><summary>Erase enterprise identity data</summary>
+    {view.connection && <details><summary>Erase enterprise identity data</summary>
       <p>Permanently remove stored enterprise identity associations, group mappings and provisioning authority. Managed staff access is revoked. The principal’s native sign-in and recovery are kept.</p>
       <Form danger label="Erase enterprise identity data" submit={async data => run(async () => {
         await api('/enterprise/erase', { confirm: data.confirm, reason: data.reason });
@@ -116,7 +116,7 @@ export function Enterprise({ run, tick }: { run: Run; tick: number }) {
         <Field label="Type ERASE ENTERPRISE to confirm" name="confirm"><input name="confirm" required pattern="ERASE ENTERPRISE" autoComplete="off" /></Field>
         <Field label="Reason recorded in audit" name="reason" />
       </Form>
-    </details>
+    </details>}
   </section>;
 }
 
