@@ -14,7 +14,9 @@ test('Enterprise lifecycle maps invited staff, enforces tenant and MFA, revokes 
   await h.json('/team',{email:staff,name:'Maya Chen',role:'reviewer'},h.owner);
   await h.json('/team/invite',{email:staff},h.owner);const native=await h.login(staff);
   const oldKey=await h.json('/keys',{label:'Tax assistant'},native);assert.equal((await h.send('/api/blotter/agent/context',undefined,'',{authorization:'Bearer '+oldKey.key})).status,200);
+  await h.json('/enterprise',{required:false,requireMfa:true,reason:'Optional firm SSO'},h.owner);await h.json('/state',undefined,native);
   await h.json('/enterprise',{required:true,requireMfa:true,reason:'Firm SSO'},h.owner);
+  const sentBefore=h.mails.length;assert.equal((await h.request('/auth/magic-link',{email:staff})).status,202);assert.equal(h.mails.length,sentBefore,'Required SSO never sends a native staff sign-in link');
   await h.json('/enterprise',undefined,native,403);await h.json('/state',undefined,native,403);
   const signin=await(await h.request('/signin')).text();assert.ok(signin.includes('/auth/oidc/enterprise/start'));
   await h.json('/enterprise/identities',{email:'unknown@example.com',subject:'unknown',reason:'No invitation'},h.owner,404);
