@@ -651,8 +651,9 @@ The write accepts `requestId`, `contactRevision`, `phone`, `language`,
 It retains the exact presented wording and immutable original entity, contact,
 account actor id, phone, revision, choice and time. Request ids are digest-only,
 scoped to the account; identical concurrent requests create one event and audit.
-Changed intent and stale choices are refused. A contact edit invalidates earlier
-choices except for a language-only edit. Merging either entity invalidates choices
+Changed intent and stale choices are refused. A database fence invalidates earlier choices on contact edits, including imported
+edits and their undo, except for a language-only edit. Native evidence preserves its client and contact during import undo.
+Merging either entity invalidates choices
 on both; undo never revives them. Matching phones, imports and email, request or
 marketing consent create no SMS choice. No default is changed.
 

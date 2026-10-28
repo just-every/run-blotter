@@ -49,6 +49,38 @@ test('A current contact declines, opts in explicitly, withdraws and safely repla
     assert.deepEqual([view.phone, view.optedIn, view.sendingAvailable, view.carrierVerified, view.history], ['+12025550147', false, false, false, []]);
     assert.equal((await read(h, samePerson, mine)).optedIn, false);
     await read(h, other, mine, 404); await read(h, s, foreign, 404);
+    await h.json('/marketing-consents', { contactId: s.billing.id, kind: 'grant', source: 'staff_evidence', actedAt: '2026-01-01T12:00:00Z',
+      wording: 'Send optional practice email updates', wordingVersion: 'synthetic-blotter-625', evidence: 'Synthetic contact requested email updates' }, h.owner);
+    assert.equal((await read(h, s, mine)).history.length, 0, 'Marketing email consent creates no SMS consent');
+    const fields = ['client_id','client_name','contact_name','contact_email','contact_phone','authorized','portal','email_consent','request_consent'];
+    const mappedInput = { csv: [fields.join(','), ['synthetic-blotter-626','Imported synthetic entity','Imported contact',address(626),'+12025550147','true','true','true','true'].join(',')].join('\n'),
+      filename: 'synthetic-blotter-626.csv', mapping: Object.fromEntries(fields.map(key => [key,key])) };
+    const preview = await h.json('/import/preview', mappedInput, h.owner);
+    let imported = await h.json('/import/commit', { ...mappedInput, fingerprint: preview.fingerprint }, h.owner);
+    while (imported.job.state !== 'completed') imported = await h.json('/import/resume', { id: imported.job.id }, h.owner);
+    const importedClient = (await h.json('/state', undefined, h.owner)).clients.find(client => client.name === 'Imported synthetic entity');
+    const importedContact = (await h.json(`/clients/${importedClient.id}/contacts`, undefined, h.owner))[0];
+    assert.equal(importedContact.phone, '+12025550147');
+    const importedScope = { client: importedClient, billing: importedContact }, importedCookie = await enroll(h, importedScope);
+    let importedChoice = await read(h, importedScope, importedCookie);
+    assert.equal(importedChoice.history.length, 0, 'Imported consent flags and a matching phone never create an SMS choice');
+    importedChoice = await save(h, importedScope, importedCookie, importedChoice, 'opt_in', 'synthetic-blotter-628');
+    const changedInput = { ...mappedInput, csv: mappedInput.csv.replace('+12025550147', '+12025550148') };
+    const changedPreview = await h.json('/import/preview', changedInput, h.owner);
+    await h.json('/import/commit', { ...changedInput, fingerprint: changedPreview.fingerprint }, h.owner, 409);
+    assert.equal((await read(h, importedScope, importedCookie)).optedIn, true, 'A refused reimport does not alter the recorded client choice');
+    await edit(h, importedScope, { phone: '+12025550148' });
+    const currentImportedCookie = await reopen(h, importedScope);
+    const changedChoice = await read(h, importedScope, currentImportedCookie);
+    assert.deepEqual([changedChoice.phone, changedChoice.optedIn], ['+12025550148', false]);
+    let undo = await h.json('/import/undo', { id: imported.job.id }, h.owner);
+    while (undo.job.state === 'undoing') undo = await h.json('/import/undo', { id: imported.job.id }, h.owner);
+    const undoneChoice = await read(h, importedScope, currentImportedCookie);
+    assert.deepEqual([undoneChoice.phone, undoneChoice.optedIn, undoneChoice.history.length], ['+12025550148', false, 1], 'Import undo preserves native contact changes and consent history');
+    await edit(h, importedScope, { phone: '+12025550147' });
+    const revertedCookie = await reopen(h, importedScope), reverted = await read(h, importedScope, revertedCookie);
+    assert.equal(reverted.optedIn, false, 'Returning an imported contact to its original phone never revives consent');
+    await save(h, importedScope, revertedCookie, { ...importedChoice, lastId: null }, 'opt_in', 'synthetic-blotter-628', 409);
     const flags = await h.json(`/clients/${s.client.id}/contacts`, undefined, h.owner), mails = h.mails.length;
     const tables = ['b_thread_messages','b_reminders','b_bulk_recipients','b_invoice_reminders','b_automation_attempts','b_provider_payments','b_marketing_consents'];
     const effects = async () => Promise.all(tables.map(table => h.db.prepare(`SELECT count(*) n FROM ${table}`).first().then(row => row.n)));
@@ -56,6 +88,7 @@ test('A current contact declines, opts in explicitly, withdraws and safely repla
     await h.json(door(s), { ...input(view, 'opt_in', 'synthetic-blotter-603'), actor: 'staff' }, mine, 400);
     view = await save(h, s, mine, view, 'decline', 'synthetic-blotter-604');
     assert.equal(view.optedIn, false); assert.equal(view.history[0].choice, 'decline');
+    await h.json(door(s), { ...input(view, 'opt_in', 'synthetic-blotter-605'), wordingVersion: 'synthetic-blotter-627' }, mine, 409);
     const shown = view, request = input(view, 'opt_in', 'synthetic-blotter-605');
     const responses = await Promise.all([h.json(door(s), request, mine), h.json(door(s), request, mine)]);
     assert.equal(responses[0].lastId, responses[1].lastId);
@@ -66,7 +99,7 @@ test('A current contact declines, opts in explicitly, withdraws and safely repla
       [s.client.id, s.billing.id, grant.accountId, shown.contactRevision, '+12025550147', shown.wordingVersion, shown.wording, 'en', 'opt_in']);
     assert.equal(receipt.actor, `client portal account ${grant.accountId}`); assert.ok(Number.isFinite(Date.parse(receipt.at)));
     assert.match(receipt.wording, /not carrier-verified/); assert.match(receipt.wording, /marketing texts/); assert.match(receipt.wording, /unavailable/);
-    assert.equal((await audits(h)).length, 2, 'Concurrent identical requests record exactly one attributed audit');
+    assert.equal((await audits(h)).filter(a => a.object_id === s.client.id).length, 2, 'Concurrent identical requests record exactly one attributed audit');
     await h.json(door(s), { ...request, choice: 'withdraw' }, mine, 409);
     await save(h, s, mine, shown, 'decline', 'synthetic-blotter-606', 409);
     assert.deepEqual((await staff(h, s)).events, view.history);
@@ -80,7 +113,7 @@ test('A current contact declines, opts in explicitly, withdraws and safely repla
     assert.deepEqual(await h.json(`/clients/${s.client.id}/contacts`, undefined, h.owner), flags, 'SMS choices leave every other contact flag and revision unchanged');
     assert.deepEqual(await effects(), before, 'No message, scheduled send, payment, marketing choice or provider work is created');
     assert.equal(h.mails.length, mails, 'The provider edge sees no request from consent capture');
-    assert.ok((await audits(h)).every(a => a.actor === receipt.actor && a.object_id === s.client.id && a.detail.includes('no sending authority')));
+    assert.ok((await audits(h)).filter(a => a.object_id === s.client.id).every(a => a.actor === receipt.actor && a.object_id === s.client.id && a.detail.includes('no sending authority')));
     assert.equal((await read(h, s, mine)).sendingAvailable, false);
     assert.equal((await h.request(`/api/blotter/clients/${s.client.id}/sms-consent`, request, h.owner)).status, 404, 'Staff have no choice write door');
     assert.equal((await h.request('/api/blotter'+door(s), request, h.owner)).status, 401, 'A staff session cannot impersonate a portal choice');

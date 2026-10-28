@@ -1,8 +1,8 @@
 -- Contact choices are evidence only. No sender, message or dispatch authority is stored.
 CREATE TABLE b_sms_consents (
   id TEXT PRIMARY KEY,
-  client_id TEXT NOT NULL,
-  contact_id TEXT NOT NULL,
+  client_id TEXT NOT NULL REFERENCES b_clients(id),
+  contact_id TEXT NOT NULL REFERENCES b_client_contacts(id),
   account_id TEXT NOT NULL,
   contact_revision TEXT NOT NULL,
   phone TEXT NOT NULL,
@@ -34,3 +34,12 @@ WHEN NEW.id<>OLD.id OR NEW.client_id<>OLD.client_id OR NEW.contact_id<>OLD.conta
   OR (NEW.erased_at IS NULL AND (NEW.phone<>OLD.phone OR NEW.wording<>OLD.wording
     OR NEW.actor<>OLD.actor OR NEW.contact_revision<>OLD.contact_revision))
 BEGIN SELECT RAISE(ABORT,'immutable SMS consent evidence'); END;
+-- Imports and their undo use contact writes too: returning to old values never revives evidence.
+CREATE TRIGGER b_sms_consents_contact_changed AFTER UPDATE ON b_client_contacts
+WHEN NEW.revision<>OLD.revision OR NEW.phone<>OLD.phone OR NEW.client_id<>OLD.client_id
+  OR NEW.email<>OLD.email OR NEW.active<>OLD.active OR NEW.authorized<>OLD.authorized OR NEW.portal<>OLD.portal
+BEGIN
+  UPDATE b_sms_consents SET invalidated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+    invalidation_reason='Contact changed; a fresh client choice is required'
+    WHERE contact_id=OLD.id AND invalidated_at IS NULL;
+END;

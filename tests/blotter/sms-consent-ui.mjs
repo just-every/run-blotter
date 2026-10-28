@@ -13,7 +13,10 @@ async function proof(page, panel, name) {
   const directory = process.env.BLOTTER_SMS_EVIDENCE;
   if (directory) {
     await mkdir(directory, { recursive: true });
-    for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await page.screenshot({ path: `${directory}/${name}-${width}.png`, fullPage: true }); }
+    for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await panel.scrollIntoViewIfNeeded();
+      if (name === 'sms-staff-history') await panel.screenshot({ path: `${directory}/${name}-${width}.png` });
+      else await page.screenshot({ path: `${directory}/${name}-${width}.png`, fullPage: true });
+    }
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Consent screen has no overflow');
@@ -45,7 +48,17 @@ export async function smsConsentJourney(h, s, cookie, language = 'en') {
     await expect(panel.getByRole('status')).toBeVisible();
     let current = await h.json(`/client/entities/${s.client.id}/sms-consent`, undefined, cookie);
     assert.equal(current.history[0].choice, 'decline'); assert.equal(current.optedIn, false);
-    await checkbox.focus(); await page.keyboard.press('Space'); await expect(opt).toBeEnabled(); await opt.focus(); await page.keyboard.press('Enter');
+    const target = await checkbox.elementHandle();
+    let reached = false;
+    for (let attempt = 0; attempt < 120; attempt++) {
+      await page.keyboard.press('Tab');
+      if (await target.evaluate(element => document.activeElement === element)) { reached = true; break; }
+    }
+    assert.equal(reached, true, 'The consent checkbox is reachable by Tab');
+    assert.ok(await checkbox.evaluate(element => { const css = getComputedStyle(element); return (css.outlineStyle !== 'none' && parseFloat(css.outlineWidth) > 0) || css.boxShadow !== 'none'; }), 'Keyboard focus is visible');
+    await page.keyboard.press('Space'); await expect(opt).toBeEnabled(); await page.keyboard.press('Tab');
+    assert.equal(await opt.evaluate(element => document.activeElement === element), true);
+    await page.keyboard.press('Enter');
     await expect(checkbox).not.toBeChecked();
     current = await h.json(`/client/entities/${s.client.id}/sms-consent`, undefined, cookie);
     assert.equal(current.optedIn, true); assert.equal(current.history[0].wording, presented.wording); assert.equal(current.history[0].language, language);

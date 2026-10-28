@@ -29,7 +29,7 @@ export function SmsConsent({ clientId }: { clientId: string }) {
     <h3 id="sms-title">{t('sms.title')}</h3>
     <p>{t('sms.unavailable')}</p>
     {failed && <p role="alert" className="error">{t('sms.failed')}</p>}
-    {notice && <p role="status" className="notice">{notice}</p>}
+    {notice && <p role="status" className="panel">{notice}</p>}
     {state && <>
       <p><strong>{state.contactName}</strong>{state.phone && <> · {state.phone}</>}</p>
       <p>{state.optedIn ? t('sms.on') : t('sms.off')}</p>
