@@ -173,7 +173,7 @@ export const unheld = (x: Context, audited: { where: string; set: string } | nul
 export function retained(x: Context): { key: string; cls: ClientClass; label: string; reason: string; owner: string; sql: string }[] {
   const s = selectors(x), keep = x.held.client ? '0' : '1';
   const principal = 'Principal';
-  return [signatureRetained(x),...invoiceRetainedRows(x.client,principal),
+  return [...signatureRetained(x),...invoiceRetainedRows(x.client,principal),
     { key: 'signed_off_jobs', cls: 'signed_work', label: 'Signed-off jobs (status history, checklist outcomes, reviewer and partner notes, sign-off)', reason: 'Signed-off work is kept whole until its clock expires.', owner: principal, sql: `SELECT count(*) n FROM b_jobs WHERE client_id=${s.c} AND status='signed_off' AND ${keep} AND id IN ${s.JE}` },
     { key: 'filing_sources', cls: 'signed_work', label: 'Practitioner filing source mappings and acknowledgment references', reason: 'Part of signed-off work; shares its clock, job and file holds.', owner: principal, sql: `SELECT count(*) n FROM b_filing_status WHERE job_id IN ${s.JE} AND erased_at IS NULL AND ${keep}` },
     { key: 'accepted_documents', cls: 'signed_work', label: 'Accepted documents on signed-off jobs', reason: 'Accepted documents are part of signed-off work.', owner: principal, sql: `SELECT count(*) n FROM b_files WHERE id IN ${s.FR} AND job_id IN ${s.JE} AND ${keep}` },

@@ -619,6 +619,10 @@
       "sha256": "03a3842b1d62e75310169464df9b01ebeb80a6e48c6ed521f029d5915fda3b4f",
       "executable": false
     },
+    "migrations/core/0109_engagement_proposals.sql": {
+      "sha256": "b5a5029298b58c5277b9fdab841c93bae56e09293bb0111d9c7090a0416956a3",
+      "executable": false
+    },
     "migrations/core/0109_filing_status.sql": {
       "sha256": "5aa134adb02aa4daa433a436218377595260bbdd6e2a62d7465a3f332bf5cd67",
       "executable": false
@@ -1232,7 +1236,7 @@
       "executable": false
     },
     "src/blotter/access-gate.ts": {
-      "sha256": "16469c09c76afed1a5562902152b21e67a063cdc34964e18bdfc745af6082c3c",
+      "sha256": "dc6ed4c665ca6ba96c6e9b45089084818c54872c1be30464160a937cb6f6d083",
       "executable": false
     },
     "src/blotter/access-sql.ts": {
@@ -1264,7 +1268,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "ac8b6edf0e709f1e56e762e57c72c35283f1a03d9e7143049c6a9e23ab22c1d4",
+      "sha256": "766d6e0ae8322e0cbcb84bbadde18a0d61afd4a0cc8945c2260bc5f079bb15fa",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1451,6 +1455,14 @@
       "sha256": "944a5bb1550f17f15b06766ba6734b67d66229a06541db2a888afed3bc437680",
       "executable": false
     },
+    "src/blotter/engagement-proposal-pdf.ts": {
+      "sha256": "2268cc204776c01d88b28c7682387ea977380c2ec5f914bfd8103dd9f075c0e3",
+      "executable": false
+    },
+    "src/blotter/engagement-proposals.ts": {
+      "sha256": "ed9467c3c44404337da0c3a03d10779270dac745acddfd87cef21752f4f15e65",
+      "executable": false
+    },
     "src/blotter/engagements.ts": {
       "sha256": "e8caf4b1b6d185d4508082fdc7bbda05d11110f45f22c8b569690a60d978333d",
       "executable": false
@@ -1492,7 +1504,7 @@
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "aa7ccc5ca065c1f23da84c457243bc7a287aea0f333e51cef8ae1d038e4854a1",
+      "sha256": "91c5009aacff08bf585c4ff1612e82356628f7e5c74f997578665b605f973252",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -1500,7 +1512,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "b44991acd4431d7e510867f4048e3881a6be179f46439d611361d7f12aa26beb",
+      "sha256": "0e7b6690d6dfb45226fd901d9f53581819e38174f5f703007b21bf56c9c3328c",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -1552,7 +1564,7 @@
       "executable": false
     },
     "src/blotter/history.ts": {
-      "sha256": "6e05e15e1c719a9ea4efaed6a1a852da064f508b3a6a9a8b5236e9d881e29ed5",
+      "sha256": "19f42de25afe68750978cc9c8c82fe67ead357cf0261ce0ce2610a13af883eb5",
       "executable": false
     },
     "src/blotter/imports.ts": {
@@ -1880,7 +1892,7 @@
       "executable": false
     },
     "src/blotter/retention-clock.ts": {
-      "sha256": "364fcd77f89061d628e6d96e3adeed57de88443b82117c8abf2f106f7b3730be",
+      "sha256": "7cf9f14647beef808a02f4e2a2482ff671f6f1f9b408a07320bfecf0894b83ae",
       "executable": false
     },
     "src/blotter/revenue-accounting.ts": {
@@ -1924,15 +1936,15 @@
       "executable": false
     },
     "src/blotter/signatures-pdf.ts": {
-      "sha256": "319fced1b5fa2ae348e0f964b356439387b8316782f3bb510a6d43fba29afc5f",
+      "sha256": "13a8111481295827a69c52a917042ed852dc7c8a43eb0739b4c1a7e6ca12a832",
       "executable": false
     },
     "src/blotter/signatures-portal.ts": {
-      "sha256": "8f1c5f599d83fe53ec4a8512f416d7173785c81e0c97af0ea9836db898b51f2a",
+      "sha256": "0e80854559bbba0c10b50ebcd5662d9845a69cd8bedb95b5cc0f353efd04598c",
       "executable": false
     },
     "src/blotter/signatures-retention.ts": {
-      "sha256": "730a0eae52a4841c4ddbf8c1ccf4916a9654f987ab3846f628d61dd81bad8d16",
+      "sha256": "f3f5dc5b78d3ec7392c08b8cfdf12c4d4f64e14f60175f0dcc1f8e46ef0c3df3",
       "executable": false
     },
     "src/blotter/signatures-staff.ts": {
@@ -1944,7 +1956,7 @@
       "executable": false
     },
     "src/blotter/signatures.ts": {
-      "sha256": "cb060f26079d16d4b0e32e4814a81aee472182f04456e408eee23c60381818e5",
+      "sha256": "2fdc39aa269005caab3c27d235389be25d51c64714b94ac7db53101843d00472",
       "executable": false
     },
     "src/blotter/staff-costs.ts": {
@@ -4016,7 +4028,7 @@
       "executable": false
     },
     "src/ui/client-details.tsx": {
-      "sha256": "30af5718102f2fad578a2d9b83cd52b510a10e86ec1d0e5bee5bfcbf0e029980",
+      "sha256": "4a62c1d0c038143cc8803fc5551be6cd34e1a4df0fa1c5b8e4ffaef08ea643ba",
       "executable": false
     },
     "src/ui/client-erasure.tsx": {
@@ -4065,6 +4077,10 @@
     },
     "src/ui/duplicates.tsx": {
       "sha256": "cf4673ff10617f4ba200588bd0e3883548b1479138c77d0d8adc74bb03a67768",
+      "executable": false
+    },
+    "src/ui/engagement-proposals.tsx": {
+      "sha256": "dee1c3a5e42e641b7e0e6869275eb28aee4aa6ae743f6c97751b5af6e32eb09e",
       "executable": false
     },
     "src/ui/enterprise.tsx": {
@@ -4385,6 +4401,14 @@
     },
     "tests/blotter/document-sharing.test.mjs": {
       "sha256": "f9846583716d97dfabfea20606f16c4a55392bf5d6bc36a835ec1d9d16e9bff3",
+      "executable": false
+    },
+    "tests/blotter/engagement-proposals-ui.mjs": {
+      "sha256": "4736e9394188d4a39be8326d873e2b2aa9c2b066efff0cbab782a58ac625b19c",
+      "executable": false
+    },
+    "tests/blotter/engagement-proposals.test.mjs": {
+      "sha256": "0e3d60dd780a6014d0466a54483a76a3a22ebf98aecc1faa03d55721554fa758",
       "executable": false
     },
     "tests/blotter/enterprise-live.mjs": {

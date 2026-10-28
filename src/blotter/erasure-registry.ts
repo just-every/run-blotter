@@ -35,7 +35,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('billing',...INVOICE_BILLING_TABLES),...by('link',...INVOICE_LINK_TABLES),...by('firm',...INVOICE_FIRM_TABLES),
   ...by('signed_work', 'b_filing_status', 'b_files', 'b_document_chunks', 'b_document_packets', 'b_document_annotations', 'b_deliverables', 'b_deliverable_versions', 'b_job_answers', 'b_job_steps'),
   ...by('signed_documents','b_signatures','b_signature_signers','b_signature_attestations','b_signature_events','b_signature_deliveries','b_authorizations'),
-  ...by('engagement', 'b_engagements'),
+  ...by('engagement', 'b_engagements','b_engagement_proposals'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),
   ...by('contact', 'b_client_contacts', 'b_portal_accounts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
   ...by('link', 'b_portal_grants', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_access_grants','b_access_team_clients','b_sensitive_documents','b_sensitive_grants', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
