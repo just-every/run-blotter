@@ -21,7 +21,24 @@ test('COST-001 / BASE-001: sourced USD seasonal estimates, included quantities, 
   const s=await automationFixture(h);await h.json('/costs',undefined,s.prep,403);await h.json('/costs/prices',{},s.reviewer,403);
   const empty=await h.json('/costs/estimate',{items:[{service:'ai',quantity:4}]},h.owner);assert.equal(empty.totalCents,null);await h.json('/costs/estimate',{items:[{service:'ai',quantity:2},{service:'ai',quantity:2}]},h.owner,400);
   const services=['subscription','seats','storage','ai','signatures','kba','email','sms','ach','card'];
-  for(const service of services)await h.json('/costs/prices',{service,included:2,unitCents:15,basisPoints:['ach','card'].includes(service)?125:0,source:'synthetic-blotter-3: dated vendor quote, USD'},h.owner);
+  for(const service of services){
+   const response=await h.request('/api/blotter/costs/prices',{service,included:2,unitCents:15,basisPoints:['ach','card'].includes(service)?125:0,source:'synthetic-blotter-3: dated vendor quote, USD'},h.owner);
+   assert.equal(response.status,200,'A registered service still works');
+   assert.ok((await response.json()).service===service,'The registered service is saved');
+  }
+  // Public-door regression: inherited services have exactly the unknown-name
+  // answer. Assert only status/booleans so failures never print response bodies.
+  const unknown=await h.request('/api/blotter/costs/prices',{service:'not-a-service'},h.owner);
+  assert.equal(unknown.status,400);
+  const unknownBody=await unknown.text();
+  assert.ok(unknownBody===JSON.stringify({error:'Unknown service'}),'Unknown service has only the public validation error');
+  const inherited=[];
+  for(const service of ['constructor','__proto__']){
+   const response=await h.request('/api/blotter/costs/prices',{service,included:0,unitCents:15,source:'Synthetic inherited-name rejection'},h.owner);
+   inherited.push({status:response.status,sameBody:(await response.text())===unknownBody});
+  }
+  assert.deepEqual(inherited.map(r=>r.status),[400,400],'Inherited services match the unknown-name status');
+  assert.ok(inherited.every(r=>r.sameBody),'Inherited services return only the unknown-name error, without binding or environment content');
   const estimate=await h.json('/costs/estimate',{items:services.map(service=>({service,quantity:5,amountCents:['ach','card'].includes(service)?101:0}))},h.owner);
   assert.equal(estimate.totalCents,454);for(const i of estimate.items){assert.equal(i.included,2);assert.equal(i.unitCents,15);assert.equal(i.enabled,false);assert.equal(i.estimatedCents,['ach','card'].includes(i.service)?47:45);assert.match(i.source,/dated vendor quote/);}
   await h.json('/costs/services/card',{revision:estimate.items.at(-1).revision,enabled:true,reason:'Cannot enable missing payment capability'},h.owner,409);

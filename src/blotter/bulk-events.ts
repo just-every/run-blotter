@@ -22,7 +22,7 @@ export async function providerEvent(env: Bindings, request: Request) {
   const eventId = request.headers.get('svix-id')!;
   let event: Data;
   try { event = JSON.parse(new TextDecoder().decode(raw)); } catch { throw new Fault('Supply valid JSON'); }
-  const type = TYPES[String(event?.type)];
+  const name = String(event?.type), type = Object.hasOwn(TYPES, name) ? TYPES[name] : undefined;
   if (!type) return { eventId, tracked: false };
   const messageId = String(event.data?.email_id ?? ''), to: string[] = (Array.isArray(event.data?.to) ? event.data.to : []).map((a: unknown) => String(a).toLowerCase());
   const r = messageId ? await stmt(db, 'SELECT r.*,b.class,b.owner_email FROM b_bulk_recipients r JOIN b_bulk_batches b ON b.id=r.batch_id WHERE r.provider_message_id=?', messageId).first<Data>() : null;

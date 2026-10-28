@@ -16,7 +16,7 @@ export async function costState(db:D1Database,a:Actor) {
   notice:'Prices are firm-recorded estimates, not provider verification. Reservations include uncertain outcomes. Blocked actions remain owned exceptions; deadlines and evidence are unchanged. Increase the budget to retry the same action ID once, or export the usage history. Unbuilt providers cannot be enabled here.'};
 }
 export async function savePrice(db:D1Database,a:Actor,b:Data) {
- owner(a);const service=text(b.service,'Service');insist(SERVICES[service],'Unknown service');
+ owner(a);const service=text(b.service,'Service');insist(Object.hasOwn(SERVICES,service),'Unknown service');
  const revision=id(),source=text(b.source,'Source of USD price and included quantities',1000);
  await atomic(db,a,[stmt(db,`INSERT INTO b_service_prices VALUES(?,?,?,?,?,?,?,?,?,0)
  ON CONFLICT(service) DO UPDATE SET revision=excluded.revision,unit=excluded.unit,included=excluded.included,unit_cents=excluded.unit_cents,basis_points=excluded.basis_points,source=excluded.source,updated_by=excluded.updated_by,updated_at=excluded.updated_at,enabled=0`,service,revision,SERVICES[service],integer(b.included,'Included quantity'),integer(b.unitCents,'USD cents per unit'),integer(b.basisPoints??0,'Basis points',0,10000),source,a.email,now()),stmt(db,'INSERT INTO b_service_price_versions SELECT revision,service,unit,included,unit_cents,basis_points,source,updated_by,updated_at FROM b_service_prices WHERE service=?',service),audit(db,a,'cost.price',service,source)]);
@@ -44,7 +44,7 @@ export async function estimateCosts(db:D1Database,a:Actor,b:Data) {
  owner(a);insist(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=30,'List 1 to 30 services');
  insist(new Set(b.items.map((item:Data)=>item.service)).size===b.items.length,'List each service once so included quantities are shared correctly');
  const prices=await rows(db,'SELECT * FROM b_service_prices'),items=b.items.map((item:Data)=>{
-  const service=text(item.service,'Service'),p=prices.find(p=>p.service===service);insist(SERVICES[service],'Unknown service');
+  const service=text(item.service,'Service'),p=prices.find(p=>p.service===service);insist(Object.hasOwn(SERVICES,service),'Unknown service');
   const quantity=integer(item.quantity,'Quantity'),amountCents=integer(item.amountCents??0,'Payment amount in USD cents');
   return {service,unit:SERVICES[service],quantity,amountCents,source:p?.source??'Price not supplied',included:p?.included??null,unitCents:p?.unit_cents??null,basisPoints:p?.basis_points??null,estimatedCents:p?charge(p,quantity,amountCents,0):null,enabled:!!p?.enabled,revision:p?.revision??null};
  });

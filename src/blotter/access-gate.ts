@@ -73,7 +73,7 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   }
   // Bulk resend names its invoices in the body; the door rechecks each one's client for the holder.
   if(actor.financial && write && (path==='/invoices/resend-preview'||path==='/invoices/resend'))return;
-  if(resources[kind] && key && !(write && actor.financial && financialCreates.includes(path))) {
+  if(Object.hasOwn(resources,kind) && key && !(write && actor.financial && financialCreates.includes(path))) {
     const value=await stmt(db,resources[kind],decodeURIComponent(key)).first<Data>();
     insist(value,'Not found',404);await requireClient(db,actor,value.client_id);return;
   }
