@@ -1,3 +1,4 @@
+import { agentCustodyBlockers } from './agent-door/custody'
 import {signatureOpenWork} from './signatures-retention';
 import { invoiceOpenBalances } from './invoices-sources';
 // ERASURE-002 dry run (ct 22 Oct 2026): every record class with its action (removed; payload
@@ -82,7 +83,7 @@ export async function plan(db: D1Database, actor: Actor, clientId: string) {
   const auditRows = rowsOf(await stmt(db, `SELECT count(*) n FROM b_audit WHERE object_id=${s.c} OR object_id IN ${s.JALL} OR object_id IN ${s.K} OR object_id IN (SELECT id FROM b_files WHERE job_id IN ${s.JALL})`).first<Data>());
   const copies = await rows(db, 'SELECT id,kind,system,holder,note,recorded_by,closed_at FROM b_external_copies WHERE client_id=? ORDER BY recorded_at,id', clientId);
   const observed = await observedCopies(db, clientId);
-  const blockers: string[] = [];
+  const blockers: string[] = await agentCustodyBlockers(db);
   const missing = await unclassified(db);
   if (missing.length) blockers.push(`Unclassified stores hold or may hold client data: ${missing.join(', ')}. The record class registry fails closed (ERASURE-002).`);
   if (client.erased_at) blockers.push('This client was already erased');

@@ -1,3 +1,5 @@
+import { blotterAgentDoor } from './blotter/agent-door/index.ts'
+import { businessSettings } from './blotter/business'
 import { enterpriseScim } from './blotter/enterprise-scim'
 import { runAgentRules } from './blotter/scheduled-agents'
 import { runInvoiceSchedules } from './blotter/invoices-retainers'
@@ -45,6 +47,10 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (unsubscribe) return rejectedResponse(request, unsubscribe)
     const scim = await enterpriseScim(request,runtimeBindings(env))
     if(scim)return scim
+    const door = await blotterAgentDoor(env).handle(request)
+    if (door) return rejectedResponse(request, door)
+    const business = await businessSettings(runtimeBindings(env)).handle(request)
+    if (business) return rejectedResponse(request, business)
     const auth = await authResponse(request, env)
     if (auth) return auth
     // The installed variant: the Lobby at / and the public claim state it reads.

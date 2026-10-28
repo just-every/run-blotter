@@ -107,7 +107,8 @@ accounting firms; ACCEPTANCE.md is the first release. Product source is in
   visibility) and write through `atomic()`, which re-checks the actor's role in
   the same D1 batch. Route guards alone are insufficient.
 - Agents prepare; people approve. Agent doors only read context or create
-  proposals (`src/blotter/proposals.ts`).
+  proposals (`src/blotter/proposals.ts`). The incomplete shared-door adoption,
+  supported registry and remaining Base hooks are documented in `docs/agent-door.md`.
 - Money is integer cents with explicit USD/AUD currency; new inputs default USD and historical AUD is never relabelled. Due dates are recorded by people, set by an
   approved recurrence rule as the period's last day plus its days (WORK-002), or
   calculated from a client obligation on a firm-approved sourced deadline rule

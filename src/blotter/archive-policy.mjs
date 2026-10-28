@@ -43,7 +43,9 @@ const inactive = (table, row) => {
 };
 export default {
   product: 'accounting/blotter',
-  excludeTables: ['b_enterprise_sessions', 'b_integration_limits', 'b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
+  excludeTables: ['bs_settings', 'bs_overrides', 'bs_logo', 'bs_team', 'bs_assert', 'agent_door_state', 'agent_door_agents', 'agent_door_calls', 'agent_door_approvals', 'agent_door_reviews', 'b_enterprise_sessions', 'b_integration_limits', 'b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
+  // Business bindings, live policy and pending/cached agent authority stay installation-local.
+  // Door audit, events, usage and native UUID revision handles remain portable history.
   // Practitioner filing sources travel as evidence with the deadline acknowledgment; no connection authority exists.
   // Native client and time replay receipts travel by table discovery; they contain no session authority.
   // Retained rules and unsent staff alerts are history until explicitly reviewed.

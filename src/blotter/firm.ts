@@ -1,4 +1,5 @@
 // US-001: firm configuration and the local clock used by work and staff alerts.
+import { createBusinessSettings } from '../modules/business-settings/index.ts';
 import { currency } from './currency';
 import { atomic, audit, date, human, insist, lines, need, now, stmt, text, type Actor, type Data } from './model';
 
@@ -9,7 +10,8 @@ export const DEFAULT_FIRM = {
 };
 export async function firmSettings(db: D1Database) {
   const f = await stmt(db, 'SELECT name,settings FROM b_firm WHERE id=1').first<Data>();
-  return { ...DEFAULT_FIRM, ...JSON.parse(f?.settings ?? '{}'), name: f?.name ?? '' };
+  const settings = createBusinessSettings({ db, business: { settings: 1, values: ['display_name'] } });
+  return { ...DEFAULT_FIRM, ...JSON.parse(f?.settings ?? '{}'), name: await settings.resolve('display_name', f?.name ?? '') };
 }
 export async function readFirm(db: D1Database, actor: Actor) { need(actor, 'owner'); return firmSettings(db); }
 export const firmCurrency = async (db: D1Database, value: unknown) => currency(value ?? (await firmSettings(db)).currency);

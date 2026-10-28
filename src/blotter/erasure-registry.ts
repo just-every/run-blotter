@@ -29,6 +29,14 @@ type TableClass = ClientClass | typeof OTHER[number];
 
 const by = (cls: TableClass, ...tables: string[]) => tables.map(t => [t, cls] as const);
 const REGISTRY = new Map<string, TableClass>([
+  // Shared-door snapshots carry private native output. agentCustodyBlockers keeps
+  // erasure fail-closed whenever shared history exists until custody is integrated.
+  ...by('derived_ai', 'agent_door_calls', 'agent_door_approvals', 'agent_door_reviews'),
+  ...by('policy', 'agent_door_state'),
+  ...by('staff', 'agent_door_agents', 'bs_team'),
+  ...by('audit', 'agent_door_audit', 'agent_door_events', 'bs_audit'),
+  ...by('structure', 'agent_door_usage', 'b_door_revisions', '_rer_deploy_migrations', '_rer_portability_migrations'),
+  ...by('firm', 'bs_settings', 'bs_overrides', 'bs_logo', 'bs_assert'),
   ...by('derived_ai', 'b_revenue_proposals', 'b_ai_drafts', 'b_ai_decisions'),
   ...by('structure', 'b_ai_requests'),
   ...by('firm', 'b_ai_settings'),
@@ -60,7 +68,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('policy', 'b_retention_marks', 'b_retention_periods', 'b_external_copies', 'b_deletion_requests', 'b_client_erasures', 'b_client_erasure_steps', 'b_retained_identity', 'b_retained_reads', 'b_expiry_erasures'),
 ]);
 /** Columns that hold bytes or ciphertext, per table. A column of that kind not named here stops the preview. */
-const BYTES: Record<string, string[]> = {b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
+const BYTES: Record<string, string[]> = {bs_logo:['bytes'],b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
   b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_portal_branding: ['logo_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],
