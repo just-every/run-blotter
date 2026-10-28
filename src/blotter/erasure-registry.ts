@@ -33,7 +33,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('structure', 'b_ai_requests'),
   ...by('firm', 'b_ai_settings'),
   ...by('billing',...INVOICE_BILLING_TABLES),...by('link',...INVOICE_LINK_TABLES),...by('firm',...INVOICE_FIRM_TABLES),
-  ...by('signed_work', 'b_files', 'b_document_chunks', 'b_document_packets', 'b_document_annotations', 'b_deliverables', 'b_deliverable_versions', 'b_job_answers', 'b_job_steps'),
+  ...by('signed_work', 'b_filing_status', 'b_files', 'b_document_chunks', 'b_document_packets', 'b_document_annotations', 'b_deliverables', 'b_deliverable_versions', 'b_job_answers', 'b_job_steps'),
   ...by('signed_documents','b_signatures','b_signature_signers','b_signature_attestations','b_signature_events','b_signature_deliveries','b_authorizations'),
   ...by('engagement', 'b_engagements','b_engagement_proposals'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),

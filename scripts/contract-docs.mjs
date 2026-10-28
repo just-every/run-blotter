@@ -3,7 +3,7 @@ import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {parseContract} from '../src/base/seed-contract.mjs';
 const mode=process.argv[2];
 if(!['write','check'].includes(mode))throw Error('Use node scripts/contract-docs.mjs write or check');
-const migrated=['SECURE-001','MOBILE-001','ENGAGE-001'];
+const migrated=['SECURE-001','MOBILE-001','ENGAGE-001','INTEGRATE-008'];
 let contract=readFileSync('CONTRACT.md','utf8');
 const table=contract.split('\n').filter(line=>line.startsWith('| `')).map(line=>['',...line.trim().slice(1,-1).split(/(?<!\\)\|/).map(cell=>cell.trim())]).map(row=>{row[1]=row[1].replace(/`/g,'');return row;});
 const count=rows=>['done','partial','missing'].map(status=>rows.filter(row=>row[4]===status).length).concat(rows.length);

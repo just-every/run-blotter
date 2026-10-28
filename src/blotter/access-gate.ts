@@ -55,6 +55,10 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   if(parts[1]==='jobs' && parts[3]==='steps' && parts[5]==='attachment')fileKey='task:'+parts[2]+':'+parts[4];
   if(parts[1]==='notices' && parts[3]==='events' && parts[5]==='file')fileKey='notice:'+parts[4];
   if(fileKey)await requireDocument(db,actor,fileKey);
+  if (write && parts[1] === 'jobs' && parts[3] === 'filing-status') {
+    const body = await request.clone().json() as Data;
+    if (body.fileId) await requireDocument(db, actor, String(body.fileId));
+  }
   if(!actor.accessScoped || factor)return;
   if(/^\/access($|\/)/.test(path)) {
     insist(actor.manageAccess && !path.startsWith('/access/delegations'),'Only the principal or a manage-access holder manages access',403);

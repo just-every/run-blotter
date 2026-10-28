@@ -30,7 +30,7 @@ async function staffSigner(db:D1Database,actor:Actor,clientId:string,address:str
   insist(member&&await canAccessClient(db,email,clientId)&&!await stmt(db,'SELECT 1 FROM b_access_members WHERE email=? AND read_only=1',email).first(),'A staff signer must be an active member with working access to this client',409);
   return {email,name:String(member!.name||email)};
 }
-export async function prepareSignatureDraft(db:D1Database,actor:Actor,jobId:string,body:Data) {
+export async function prepareSignatureDraft(db:D1Database,actor:Actor,jobId:string,body:Data,documentKind:'uploaded'|'engagement-proposal'='uploaded') {
   human(actor);need(actor,'owner','reviewer','preparer');insist(!actor.automation,'A person must approve signature requests',403);
   const j=await job(db,actor,jobId),title=text(body.title,'Document title',200),formKind=text(body.formKind??'general','Form kind',100);
   insist(body.requiresKba===undefined||typeof body.requiresKba==='boolean','Requires KBA must be true or false');
@@ -44,8 +44,10 @@ export async function prepareSignatureDraft(db:D1Database,actor:Actor,jobId:stri
   }));
   insist(people.every((c:Data)=>c.staff||(c.portal&&c.request_consent)),'Every contact signer must have portal permission and request consent',409);
   const file=decodeFile(body.file??{});insist(file.mime==='application/pdf','Choose a PDF');
-  // The document's own text decides, not only its labels: an IRS e-file authorization is never signed here.
-  const kind=await classifyForm([formKind,title,file.name],file.bytes);
+  // Uploaded forms are classified from their own text, regardless of caller labels.
+  // Only the server's proposal renderer supplies this internal kind: its terms can
+  // reference separate IRS forms without becoming an IRS authorization themselves.
+  const kind=documentKind==='engagement-proposal'?{eFile:false,attestation:false}:await classifyForm([formKind,title,file.name],file.bytes);
   insist(!kind.eFile,'This form requires the SIGN-001 KBA provider. Electronic signing is unavailable until it is configured.',409);
   const prepared=await preparePdf(file.bytes,body.fields,people.map((c:Data)=>c.id)),requestId=id(),at=now(),revision=id();
   const contacts=people.filter((c:Data)=>!c.staff),guards=contacts.map((c:Data)=>contactGuard(db,j.client_id,c.id,'signature',c.revision)),[open,done]=openSignatureJob(db,j.id,actor);

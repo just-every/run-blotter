@@ -23,6 +23,7 @@ function effects(record: Clocked, at: string): Effect[] {
   if(record.kind==='invoice')return invoiceExpiryEffects(record.id,at);
   const r = lit(record.id);
   if (record.kind === 'job') return [
+    { table: 'b_filing_status', label: 'Practitioner no-status declaration and replay intent (source references and attribution stay)', where: `job_id=${r} AND erased_at IS NULL`, set: `no_status_declaration=NULL,intent_sha256=NULL,erased_at=${lit(at)}`, action: 'redact' },
     { table: 'b_files', label: 'Accepted document bytes (name, size and SHA-256 stay)', where: `job_id=${r} AND erased_at IS NULL`, set: `content_base64=NULL,erased_at=${lit(at)},erased_by='retention expiry',erase_reason='retention period ended'`, action: 'redact' },
     { table: 'b_file_text', label: 'Extracted text', where: `file_id IN (SELECT id FROM b_files WHERE job_id=${r})`, action: 'delete' },
     { table: 'b_organizer_submissions', label: 'Consumed organizer originals', where: `organizer_id IN (SELECT id FROM b_job_organizers WHERE job_id=${r}) AND erased_at IS NULL`, set: `answers=NULL,review_note=NULL,erased_at=${lit(at)}`, action: 'redact' },

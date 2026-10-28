@@ -18,7 +18,7 @@ const KINDS: Record<string, string> = {
   documents: "a.action LIKE 'request.%' OR a.action LIKE 'file.%' OR a.action LIKE 'deliverable.%' OR a.action LIKE 'signature.%' OR a.action LIKE 'proposal.%'",
   assignments: "a.action IN ('job.started','job.rolled_forward','job.reassigned','job.task_access','client.merged','client.merge_undone') OR a.action LIKE 'step.%' OR a.action LIKE 'coverage.%'",
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
-  deadlines: "a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
+  deadlines: "a.action LIKE 'deadline.%' OR a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
   messages: "a.action LIKE 'thread.%' OR a.action LIKE 'portal.%' OR a.action='reminder.sent' OR a.action LIKE 'bulk.%' OR a.action LIKE 'consent.%'",
   billing: "a.action LIKE 'time.%' OR a.action LIKE 'expense.%' OR a.action LIKE 'timer.%' OR a.action LIKE 'export.%' OR a.action LIKE 'invoice.%' OR a.action LIKE 'payment.%'",
 };
