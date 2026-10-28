@@ -15656,18 +15656,24 @@
       "file": "CONTRACT.md",
       "line": 250,
       "text": "Native sign-in and MFA, staff/contact authority, mail-backed upload links, legacy and mapped imports, document sharing, intake files, human decisions and native archives retain these foundations.",
-      "to": "clause",
+      "to": "base",
       "ids": [
-        "BASE-001"
+        "BASE-ROLE-001",
+        "BASE-AUDIT-001",
+        "BASE-DATA-001",
+        "BASE-DATA-003"
       ]
     },
     {
       "file": "CONTRACT.md",
       "line": 250,
       "text": "**Inherited activation gate (BASE-001):** every new identity, provider grant, storage path or scheduled/event action preserves current authority, revocation, attribution, erasure and portability guarantees.",
-      "to": "clause",
+      "to": "base",
       "ids": [
-        "BASE-001"
+        "BASE-ROLE-001",
+        "BASE-AUDIT-001",
+        "BASE-DATA-001",
+        "BASE-DATA-003"
       ]
     },
     {
@@ -15681,9 +15687,12 @@
       "file": "CONTRACT.md",
       "line": 250,
       "text": "Replacing a foundation carries the same gate.",
-      "to": "clause",
+      "to": "base",
       "ids": [
-        "BASE-001"
+        "BASE-ROLE-001",
+        "BASE-AUDIT-001",
+        "BASE-DATA-001",
+        "BASE-DATA-003"
       ]
     },
     {

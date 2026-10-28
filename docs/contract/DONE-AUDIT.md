@@ -1210,8 +1210,6 @@ Old reference: `ca2596bae4c081a2df169d327b23c0030428b918`.
 | BASE-001 | 2 | contact/share revocation, attributed decisions, retained file/import bytes. | none | none |
 | BASE-001 | 2 | approved CSVs, denied stale restores. | none | none |
 | BASE-001 | 2 | excluded document-share tokens. | none | none |
-| BASE-001 | 3 | Future carriers repeat the inherited activation gate on their own paths before shipping. | none | none |
-| BASE-001 | 3 | their unbuilt capabilities remain open under their own clauses. | none | none |
 | AI-002 | 1 | Upload a wrong-period statement, illegible scan. | none | none |
 | AI-002 | 1 | correct invoice with misleading embedded instructions. | none | none |
 | AI-002 | 2 | Inspect sourced validation/naming/routing proposals, approve one. | none | none |
@@ -1339,3 +1337,4 @@ Old reference: `ca2596bae4c081a2df169d327b23c0030428b918`.
 | CAPACITY-001 | 3 | Unset hours and weekday-only leave rules are asserted for their boundary cases. | none | none |
 | CAPACITY-001 | 4 | Availability clamps at zero after leave and commitments exceed the weekly hours. | none | none |
 | CAPACITY-001 | 5 | Every demand source including the task-to-job due-date fallback is independently reconciled. | none | none |
+| BASE-001 | moved | Future-carrier activation is a shared conformance proof boundary, retained in the foundation integration documentation. | docs/contract/base-001.md | moved |

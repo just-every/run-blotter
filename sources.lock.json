@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "db23501896ffc9a376f9792741b7904e50ef374e9f50199a61277e4ff15ca384",
+      "sha256": "5f0f3ef5b9ad01f5e1d61a2e496a83f460556bce299b0c378645bdc461e46e6e",
       "executable": false
     },
     "AGENTS.md": {
@@ -144,7 +144,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "837b72c05de99fe739cc80ca4d0882c4691521c14d1c87ed57fb1fac948e724c",
+      "sha256": "3db70d18c152f7cf257ab914423d1bc3223854089ffef944f1407a699a4edbe6",
       "executable": false
     },
     "deploy-demo.json": {
@@ -244,7 +244,7 @@
       "executable": false
     },
     "docs/contract/base-001.md": {
-      "sha256": "881d55eb6cfb9863f9dfe8e8c49915ff095cd1312b63f334dc73c8a8c802768b",
+      "sha256": "88f90292d8a3ab3cdbb683209b9ab1c83f695cfbc953feec1d23bb85ffa3c7b0",
       "executable": false
     },
     "docs/contract/bill-001.md": {
@@ -288,7 +288,7 @@
       "executable": false
     },
     "docs/contract/COVERAGE.json": {
-      "sha256": "d0986c3ea74035dd007ceed0661652fedb60f5e1f8400ebb8119c50106ffd483",
+      "sha256": "9537b7982a31d93de4f6504cd31190324c81b9952505282c88b337222d644401",
       "executable": false
     },
     "docs/contract/crm-001.md": {
@@ -324,7 +324,7 @@
       "executable": false
     },
     "docs/contract/DONE-AUDIT.md": {
-      "sha256": "d6fc5a29a43095e57e9917f72232303e8096436739b28878178ce8d31006e862",
+      "sha256": "3f49149bd2a1d18502d62278153de48ec3d7f7a87bd35b9e63a69dd265f0bc33",
       "executable": false
     },
     "docs/contract/due-001.md": {
