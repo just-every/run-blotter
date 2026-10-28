@@ -13,6 +13,7 @@ import { costState, exportCosts, savePrice, setService, saveBudget, estimateCost
 import { signatureRoutes } from './signature-routes';
 import { invoiceRoutes } from './invoice-routes';
 import { portalAccountRoutes } from './portal-account-routes';
+import { filingStatus, recordFallback } from './filing-status';
 import { accessGate, redactAccess } from './access-gate';
 import { permissions, saveDelegations, saveTeamAccess, savePersonAccess, saveSensitiveAccess, stepUp } from './permissions';
 import { recurrenceImports, previewRecurrenceImport, commitRecurrenceImport } from './recurrence-imports';
@@ -412,6 +413,8 @@ api.get(`${P}/clients/:id/obligations`, as((a, c) => obligations(db(c), a, param
 api.post(`${P}/clients/:id/obligations`, as(async (a, c) => addObligation(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/deadline/extension`, as((a, c) => recordExtension(db(c), a, param(c))));
 api.post(`${P}/jobs/:id/deadline/override`, as(async (a, c) => overrideDeadline(db(c), a, param(c), await body(c))));
+api.get(`${P}/jobs/:id/filing-status`, as((a, c) => filingStatus(db(c), a, param(c))));
+api.post(`${P}/jobs/:id/filing-status`, as(async (a, c) => recordFallback(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/deadline/filing`, as(async (a, c) => recordFiling(db(c), a, param(c), await body(c))));
 api.get(`${P}/clients/:id/authorizations`, as((a, c) => clientAuthorizations(db(c), a, param(c))));
 api.post(`${P}/clients/:id/authorizations`, as(async (a, c) => createAuthorization(db(c), a, param(c), await body(c))));

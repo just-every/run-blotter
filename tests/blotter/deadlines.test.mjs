@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
+import { filingStatusJourney } from './filing-status-ui.mjs';
 
 const b64 = s => Buffer.from(s).toString('base64');
 const people = { preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' };
@@ -225,4 +226,130 @@ test('DUE-003 wider catalog and firm rules: 1040-ES installments with a weekend 
     const generated = (await h.json('/state', undefined, h.owner)).jobs.filter(j => j.client_name === 'Acme Corp' && j.period_start >= '2026-11-01').map(j => [j.period_start, j.due_date]).sort();
     assert.deepEqual(generated, [['2026-11-01', '2026-12-15'], ['2026-12-01', '2027-01-15'], ['2027-01-01', '2027-02-16']], '15 February 2027 is Washington\'s Birthday');
   } finally { await h.close(); }
+});
+
+// One sanity journey covers the native no-status fallback and its data lifecycle.
+const filingDoor = job => `/jobs/${job.id}/filing-status`;
+async function fallbackFile(h, job, bytes = 'synthetic-blotter-20 agency acceptance') {
+  const detail = await h.json('/jobs/' + job.id, undefined, h.owner);
+  const name = 'synthetic-blotter-20.txt';
+  return { ...await h.json(`/requests/${detail.requests[0].id}/files`, { name, mime: 'text/plain', contentBase64: b64(bytes) }, h.owner), name };
+}
+async function finishFallbackJob(h, job, prep, reviewer) {
+  let d = await h.json('/jobs/' + job.id, undefined, prep);
+  for (const request of d.requests) await h.json(`/requests/${request.id}/decide`, { decision: 'accept' }, prep);
+  for (const step of d.steps) await h.json(`/jobs/${job.id}/steps`, { ordinal: step.ordinal, done: true }, prep);
+  d = await h.json(`/jobs/${job.id}/submit`, { revision: (await h.json('/jobs/' + job.id, undefined, prep)).job.revision }, prep);
+  await h.json(`/jobs/${job.id}/review`, { revision: d.job.revision, decision: 'signoff', note: 'Reviewed the original' }, reviewer);
+}
+
+test('Practitioner fallback binds the exact return once, preserves source provenance and refuses unsafe authority, erasure and restore paths', async () => {
+  const h = await harness(), copies = [];
+  try {
+    const { prep, reviewer, outside } = await setup(h);
+    await h.json('/deadlines/rules/us-1040/approve', {}, h.owner);
+    const client = await h.json('/clients', { name: 'Synthetic Blotter taxpayer', entityType: 'individual', contacts: [{ name: 'Synthetic signer', email: people.preparerEmail, roles: ['primary'], authorized: true, signer: true, portal: true, requestConsent: true, emailConsent: true }] }, h.owner);
+    const foreign = await h.json('/clients', { name: 'Synthetic other taxpayer', entityType: 'individual' }, h.owner);
+    const annual = await template(h, 'Annual return', 'annual');
+    const o = await obligation(h, client.id, 'us-1040', 'CA'), otherO = await obligation(h, foreign.id, 'us-1040', 'CA');
+    const current = await start(h, client.id, annual, o, '2025-01-01'), prior = await start(h, client.id, annual, o, '2024-01-01'), other = await start(h, foreign.id, annual, otherO, '2025-01-01');
+    const file = await fallbackFile(h, current), priorFile = await fallbackFile(h, prior), foreignFile = await fallbackFile(h, other);
+    const identity = { jobId: current.id, clientId: client.id, form: '1040', jurisdiction: 'US', taxYear: 2025 };
+    const body = { ...identity, stack: 'Lacerte', noStatus: true, noStatusDeclaration: 'This stack exposes no status for this specific return; the attached agency acknowledgment is the source.', fileId: file.id, submissionId: 'synthetic-blotter-21', acceptedOn: '2026-04-10' };
+    const read = (job = current, actor = h.owner) => h.json(filingDoor(job), undefined, actor);
+    assert.deepEqual((await read()).return, identity);
+    assert.equal((await read()).source, null);
+    await h.json(filingDoor(current), body, outside, 404);
+    await h.json(filingDoor(current), body, '', 401);
+    const key = await h.json('/keys', { label: 'synthetic-blotter-22' }, h.owner);
+    await h.json(filingDoor(current), body, '', 401, { authorization: 'Bearer ' + key.key });
+    for (const patch of [{ jobId: other.id }, { clientId: foreign.id }, { taxYear: 2024 }, { form: '1120' }, { jurisdiction: 'CA' }]) await h.json(filingDoor(current), { ...body, ...patch }, prep, 409);
+    for (const fileId of [foreignFile.id, priorFile.id]) await h.json(filingDoor(current), { ...body, fileId }, prep, 404);
+    await h.json(filingDoor(current), { ...body, noStatus: false }, prep, 400);
+    assert.equal((await read()).source, null, 'Refusals consume no mapping or acknowledgment');
+    assert.equal((await deadline(h, current.id)).filing_recorded_at, null);
+    // Completing a real contact-bound signature and the entire job still provides no filing evidence.
+    const { PDFDocument } = await import('pdf-lib');
+    const pdf = await PDFDocument.create(); pdf.addPage([612, 792]);
+    const signer = client.contacts[0];
+    const draft = await h.json(`/jobs/${current.id}/signatures`, { title: 'Synthetic approval', formKind: 'general', requiresKba: false, mode: 'parallel', contactIds: [signer.id], fields: [{ type: 'signature', contactId: signer.id, page: 1, x: 40, y: 80, width: 240, height: 28, label: 'Signature' }], file: { name: 'synthetic-blotter-23.pdf', mime: 'application/pdf', contentBase64: Buffer.from(await pdf.save()).toString('base64') } }, prep);
+    const sent = await h.json(`/signatures/${draft.id}/send`, { revision: draft.revision }, prep), token = new URL(sent.invitations[0].portalUrl).pathname.split('/').at(-1);
+    const signing = await h.json(`/portal/${token}/signatures/${sent.id}`);
+    await h.json(`/portal/${token}/signatures/${sent.id}/sign`, { revision: signing.revision, attempt: signing.attempt, consent: true, intent: true, consentVersion: signing.consentVersion, values: { [signing.fields[0].id]: signing.signerName } }, '', 200, { 'user-agent': 'synthetic-blotter-24' });
+    assert.equal((await h.json(`/signatures/${sent.id}`, undefined, prep)).status, 'completed');
+    await finishFallbackJob(h, current, prep, reviewer);
+    assert.equal((await read()).source, null, 'Signature, checklist and sign-off never infer filing');
+    assert.equal((await deadline(h, current.id)).filing_recorded_at, null);
+    const [first, second] = await Promise.all([h.json(filingDoor(current), body, prep), h.json(filingDoor(current), body, prep)]);
+    assert.deepEqual(first, second);
+    assert.deepEqual(first.return, identity); assert.equal(first.status, 'accepted');
+    assert.deepEqual([first.source.kind, first.source.stack, first.source.noStatusDeclaration, first.source.fileId, first.source.submissionId, first.source.acceptedOn, first.source.recordedBy, first.source.acknowledgmentRecordedBy], ['practitioner-recorded', body.stack, body.noStatusDeclaration, file.id, body.submissionId, body.acceptedOn, people.preparerEmail, people.preparerEmail]);
+    assert.ok(first.source.fileSha256 && first.source.recordedAt && first.source.acknowledgmentRecordedAt && first.source.evidenceAvailable);
+    const history = (await h.json(`/clients/${client.id}/history?kind=deadlines`, undefined, h.owner)).history;
+    for (const action of ['deadline.filing_recorded', 'deadline.filing_source_recorded']) assert.equal(history.filter(event => event.action === action && event.object_id === current.id && event.actor === people.preparerEmail).length, 1);
+    for (const patch of [{ stack: 'Drake' }, { noStatusDeclaration: 'Changed intent' }, { submissionId: 'synthetic-blotter-25' }, { acceptedOn: '2026-04-11' }]) await h.json(filingDoor(current), { ...body, ...patch }, prep, 409);
+    assert.deepEqual(await read(), first, 'Changed intent leaves the accepted source untouched');
+    const priorBody = { ...body, jobId: prior.id, taxYear: 2024, stack: 'Drake', fileId: priorFile.id, submissionId: 'synthetic-blotter-26', acceptedOn: '2025-04-10' };
+    await filingStatusJourney(h, { client, body: priorBody, file: priorFile, bytes: 'synthetic-blotter-20 agency acceptance' });
+    assert.equal((await read(prior)).source.stack, 'Drake');
+    // Bind an existing native acknowledgment without writing a second one.
+    await h.json(`/jobs/${other.id}/deadline/filing`, { fileId: foreignFile.id, submissionId: 'synthetic-blotter-27', acceptedOn: '2026-04-10' }, h.owner);
+    await h.json(filingDoor(other), { ...body, clientId: foreign.id, jobId: other.id, fileId: foreignFile.id, submissionId: 'synthetic-blotter-27' }, h.owner);
+    assert.equal((await read(other)).source.acknowledgmentRecordedBy, (await h.json('/state', undefined, h.owner)).actor.email);
+    // Live document grants and member status govern both new writes and replay.
+    await h.json('/access/people', { email: people.preparerEmail, clientIds: [client.id], readOnly: true }, h.owner);
+    await h.json(filingDoor(current), body, prep, 403);
+    assert.deepEqual(await read(), first);
+    await h.json('/access/people', { email: people.preparerEmail, clientIds: [client.id], readOnly: false }, h.owner);
+    await h.json(`/access/documents/${file.id}`, { classification: 'Tax acknowledgment', reason: 'Restricted acknowledgment', emails: [] }, h.owner);
+    await h.json(filingDoor(current), body, prep, 404);
+    await h.json(filingDoor(current), undefined, prep, 404);
+    await h.json(`/access/documents/${file.id}`, { classification: 'Tax acknowledgment', reason: 'Reviewed', emails: [people.preparerEmail] }, h.owner);
+    await h.json('/team', { email: people.preparerEmail, name: 'Preparer', role: 'preparer', active: false }, h.owner);
+    await h.json(filingDoor(current), body, prep, 401);
+    const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    const copy = await harness(); copies.push(copy);
+    await copy.json('/restore', { archive, confirm: 'RESTORE', acknowledge: 'erasure history unverified: supply your latest erasure journal' }, copy.owner);
+    assert.deepEqual(await copy.json(filingDoor(current), undefined, copy.owner), first);
+    assert.equal(await (await copy.request('/api/blotter/files/' + file.id, undefined, copy.owner)).text(), 'synthetic-blotter-20 agency acceptance');
+    const hold = await h.json(`/clients/${client.id}/retention`, { scope: 'file', targetId: file.id, kind: 'hold', reason: 'Agency inquiry', owner: people.reviewerEmail, reviewDate: '2999-01-01' }, h.owner);
+    await h.json(`/files/${file.id}/erase`, { confirm: file.name, reason: 'Refused under hold' }, h.owner, 409);
+    assert.deepEqual(await read(), first);
+    await h.json(`/retention/${hold.id}/release`, { reason: 'Inquiry resolved' }, h.owner);
+    await h.json(`/files/${file.id}/erase`, { confirm: file.name, reason: 'Explicit file erasure' }, h.owner);
+    assert.equal((await read()).status, 'acknowledgment unavailable');
+    await h.json(filingDoor(current), body, h.owner, 404);
+    assert.equal((await h.request('/api/blotter/files/' + file.id, undefined, h.owner)).status, 404);
+    // Finish the other period before whole-client erasure; retained work keeps the source, under its native clock.
+    await h.json('/team', { email: people.preparerEmail, name: 'Preparer', role: 'preparer', active: true }, h.owner);
+    const freshPrep = await h.login(people.preparerEmail);
+    await h.json('/access/people', { email: people.reviewerEmail, clientIds: [client.id], readOnly: false }, h.owner);
+    await h.json(filingDoor(other), undefined, freshPrep, 404);
+    await finishFallbackJob(h, prior, freshPrep, reviewer);
+    await h.json(`/clients/${client.id}/lifecycle`, { lifecycle: 'archived', revision: (await h.json(`/clients/${client.id}/detail`, undefined, h.owner)).revision }, h.owner);
+    const preview = await h.json(`/clients/${client.id}/erasure/preview`, undefined, h.owner);
+    assert.deepEqual(preview.blockers, []); assert.equal(preview.retained.find(item => item.key === 'filing_sources').count, 2);
+    const receipt = await h.json(`/clients/${client.id}/erasure`, { planHash: preview.planHash, confirm: client.name, reason: 'Synthetic client erasure' }, h.owner);
+    assert.equal(receipt.retained.exceptions.find(item => item.key === 'filing_sources').count, 2);
+    await h.json(filingDoor(prior), undefined, h.owner, 404); await h.json(filingDoor(prior), priorBody, h.owner, 404);
+    const latest = await (await h.request('/api/blotter/backup', undefined, h.owner)).text(), stale = await harness(); copies.push(stale);
+    await stale.json('/restore', { archive, journal: latest, confirm: 'RESTORE' }, stale.owner, 409);
+    // Seed only historical clock metadata in the restored copy; expiry itself uses the public preview and approval doors.
+    const triggers = (await copy.db.prepare("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name='b_jobs_signed_off'").all()).results;
+    for (const trigger of triggers) await copy.db.prepare(`DROP TRIGGER ${trigger.name}`).run();
+    await copy.db.prepare("UPDATE b_jobs SET signed_off_at='2010-04-10T00:00:00Z',due_date='2010-04-10' WHERE id=?").bind(current.id).run();
+    await copy.db.prepare("UPDATE b_job_deadlines SET filing_accepted_on='2010-04-10' WHERE job_id=?").bind(current.id).run();
+    for (const trigger of triggers) await copy.db.prepare(trigger.sql).run();
+    const expiryHold = await copy.json(`/clients/${client.id}/retention`, { scope: 'job', targetId: current.id, kind: 'hold', reason: 'Keep the source', owner: people.reviewerEmail, reviewDate: '2999-01-01' }, copy.owner);
+    const held = await copy.json('/retention/ready', undefined, copy.owner); assert.ok(held.held.some(item => item.id === current.id));
+    await copy.json('/retention/ready/confirm', { kind: 'job', id: current.id, reason: 'Still held' }, copy.owner, 409);
+    await copy.json(`/retention/${expiryHold.id}/release`, { reason: 'Clock applies' }, copy.owner);
+    const ready = await copy.json('/retention/ready', undefined, copy.owner); assert.ok(ready.ready.some(item => item.id === current.id));
+    const expired = await copy.json('/retention/ready/confirm', { kind: 'job', id: current.id, reason: 'Retention ended' }, copy.owner);
+    assert.ok(JSON.stringify(expired).includes('b_filing_status'));
+    const expiredRead = await copy.json(filingDoor(current), undefined, copy.owner); assert.equal(expiredRead.source.noStatusDeclaration, null); assert.equal(expiredRead.source.evidenceAvailable, false);
+    await copy.json(filingDoor(current), body, copy.owner, 404);
+    const postExpiry = await (await copy.request('/api/blotter/backup', undefined, copy.owner)).text(), fenced = await harness(); copies.push(fenced);
+    await fenced.json('/restore', { archive, journal: postExpiry, confirm: 'RESTORE' }, fenced.owner, 409);
+  } finally { await h.close(); for (const copy of copies) await copy.close(); }
 });

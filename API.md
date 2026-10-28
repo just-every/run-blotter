@@ -579,3 +579,15 @@ is excluded from archives with portal links. Completed files use ordinary
 DOC-001 originals and ERASURE-002 classes, clocks, holds, preview, receipts and
 stale-restore fencing. Staff transport cannot resume portal staging. New packet
 originals start internal and grant no new contact download rights.
+
+## Practitioner filing source fallback
+
+`GET /jobs/:id/filing-status` returns the native agency return identity (job, client, form, jurisdiction and tax year), the named stack choices and its recorded source, or an explicit absence of stack status. The tax year is the year the obligation period ends, including a fiscal year. Source provenance is always `practitioner-recorded`; this door does not contact a tax provider.
+
+`POST /jobs/:id/filing-status` records only the accepted-acknowledgment fallback. Supply `jobId`, `clientId`, `form`, `jurisdiction`, `taxYear`, `stack` (Lacerte, ProSeries, Drake, UltraTax CS or CCH Axcess), `noStatus: true`, `noStatusDeclaration`, `fileId`, `submissionId` and `acceptedOn` (a calendar date). The declaration records that the chosen stack exposes no status for this exact return. The file must be an unerased original on this job, readable under current document grants. The server checks the identity against the agency obligation rather than trusting a client or year supplied by the caller.
+
+The writable staff session needs full current job access. Agents, integration bearers, read-only staff, revoked sessions, foreign files and mismatched return identities are refused. One mapping exists per job: identical concurrent requests return the same source and commit one acknowledgment and source audit; changed intent is refused. If the native deadline acknowledgment already exists, its file, submission and accepted date must match exactly; its original attribution is preserved. Checklist completion, signatures and sign-off never create a filing source.
+
+The source mapping and acknowledgment share an atomic write through the deadline authority. Readback includes the declaration, exact file reference and digest, submission, accepted date, original acknowledgment attribution and mapping attribution. Erased files are shown as unavailable evidence and cannot authorize replay. Mappings travel in native archives as historical evidence without connector credentials or outbound authority. They join signed-off work under its existing retention clock and holds; whole-client erasure names the retained mappings in the receipt, refuses ordinary source reads and replay, and fences older archives. Approved retention expiry removes the declaration and replay intent while preserving source references and attribution.
+
+This is a native fallback only. Licensed five-stack ingestion, transmitted and rejected outcomes, reject codes, rejection-driven rework, paper-filed proof and disconnect journeys remain unbuilt. No provider verification is implied by practitioner-recorded acceptance.

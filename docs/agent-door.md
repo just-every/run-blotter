@@ -88,9 +88,9 @@ Three Base interfaces block complete adoption at the runtime pin recorded in
 
 - The door has no client-custody/erasure hook for private cached outcomes,
   pending approvals, review summaries and trace data. The native registry classifies
-  these stores explicitly. Existing client erasure remains available with empty
-  shared history; once shared history exists, erasure fails closed with an owned
-  custody exception. A complete client-scoped redaction and replay fence is
+  these stores explicitly. Existing client erasure remains available before shared policy/admission/history
+  is established; afterward, erasure fails closed with an owned custody exception.
+  The same check fences the native effect batch against concurrent activation. A complete client-scoped redaction and replay fence is
   required before that exception can be resolved.
 
 A Base resource context carrying authenticated attribution, embedded

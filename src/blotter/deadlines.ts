@@ -8,7 +8,8 @@
 import { addDays, businessDayOnOrBefore, nextBusinessDay, statutoryDate, type DueSpec } from './deadline-calendar';
 import { CATALOG, type Entity, type Frequency, type Rule } from './deadline-catalog';
 import { readableClient } from './client-contacts';
-import { atomic, audit, date, digest, Fault, human, id, insist, integer, need, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
+import { documentAuthority, requireDocument } from './permissions';
+import { atomic, audit, date, digest, Fault, guard, human, id, insist, integer, need, now, optional, readableJob, rows, stmt, text, type Actor, type Data } from './model';
 
 const FREQUENCIES: Frequency[] = ['monthly', 'quarterly', 'annual'];
 const MONTHS: Record<Frequency, number> = { monthly: 1, quarterly: 3, annual: 12 };
@@ -207,15 +208,27 @@ export async function overrideDeadline(db: D1Database, actor: Actor, jobId: stri
   return deadlineFor(db, jobId);
 }
 /** The agency's acknowledgment, with its file on this job, is the only filing evidence. */
-export async function recordFiling(db: D1Database, actor: Actor, jobId: string, body: Data) {
+export async function prepareFiling(db: D1Database, actor: Actor, jobId: string, body: Data, reuse = false) {
   human(actor);
-  const { d } = await deadlineJob(db, actor, jobId);
-  insist(!d.filing_recorded_at, 'Filing evidence is already recorded', 409);
-  const file = await stmt(db, 'SELECT id,name FROM b_files WHERE id=? AND job_id=? AND erased_at IS NULL', text(body.fileId, 'Acknowledgment file'), jobId).first<Data>();
+  const { j, d } = await deadlineJob(db, actor, jobId);
+  await requireDocument(db, actor, text(body.fileId, 'Acknowledgment file'));
+  const file = await stmt(db, 'SELECT id,name,sha256 FROM b_files WHERE id=? AND job_id=? AND erased_at IS NULL', body.fileId, jobId).first<Data>();
   insist(file, 'Attach the acknowledgment file to this job first', 404);
   const submission = text(body.submissionId, 'Submission ID', 60), accepted = date(body.acceptedOn, 'Accepted on');
-  await atomic(db, actor, [stmt(db, 'UPDATE b_job_deadlines SET filing_submission_id=?,filing_file_id=?,filing_accepted_on=?,filing_recorded_by=?,filing_recorded_at=? WHERE job_id=? AND filing_recorded_at IS NULL',
-    submission, file.id, accepted, actor.email, now(), jobId), audit(db, actor, 'deadline.filing_recorded', jobId, `${submission} accepted ${accepted} (${file.name})`)]);
+  insist(!d.filing_recorded_at || (reuse && d.filing_file_id === file.id && d.filing_submission_id === submission && d.filing_accepted_on === accepted), 'Filing evidence is already recorded', 409);
+  const [check, release] = guard(db, `EXISTS(SELECT 1 FROM b_files WHERE id=? AND job_id=? AND erased_at IS NULL AND sha256=?)
+    AND ${documentAuthority(actor, '?')}
+    AND EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?)
+    AND EXISTS(SELECT 1 FROM b_job_deadlines WHERE job_id=? AND COALESCE(filing_recorded_at,'')=?)`,
+    file.id, jobId, file.sha256, file.id, file.id, jobId, j.revision, jobId, d.filing_recorded_at ?? '');
+  const at = now();
+  return { j, d, file, submission, accepted, statements: [check,
+    ...(!d.filing_recorded_at ? [stmt(db, 'UPDATE b_job_deadlines SET filing_submission_id=?,filing_file_id=?,filing_accepted_on=?,filing_recorded_by=?,filing_recorded_at=? WHERE job_id=? AND filing_recorded_at IS NULL',
+      submission, file.id, accepted, actor.email, at, jobId), audit(db, actor, 'deadline.filing_recorded', jobId, `${submission} accepted ${accepted} (${file.name})`)] : []), release] };
+}
+export async function recordFiling(db: D1Database, actor: Actor, jobId: string, body: Data) {
+  const prepared = await prepareFiling(db, actor, jobId, body);
+  await atomic(db, actor, prepared.statements);
   return deadlineFor(db, jobId);
 }
 

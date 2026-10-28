@@ -615,6 +615,12 @@
     },
     {
       "binding": "DB",
+      "name": "0109_filing_status.sql",
+      "sha256": "5aa134adb02aa4daa433a436218377595260bbdd6e2a62d7465a3f332bf5cd67",
+      "sql": "-- Practitioner source mapping; the acknowledgment itself belongs to b_job_deadlines.\nCREATE TABLE b_filing_status (\n  job_id TEXT PRIMARY KEY REFERENCES b_jobs(id),\n  client_id TEXT NOT NULL REFERENCES b_clients(id),\n  form TEXT NOT NULL,\n  jurisdiction TEXT NOT NULL,\n  tax_year INTEGER NOT NULL,\n  stack TEXT NOT NULL CHECK(stack IN ('Lacerte','ProSeries','Drake','UltraTax CS','CCH Axcess')),\n  no_status_declaration TEXT,\n  file_id TEXT NOT NULL REFERENCES b_files(id),\n  file_sha256 TEXT NOT NULL,\n  intent_sha256 TEXT,\n  recorded_by TEXT NOT NULL,\n  recorded_at TEXT NOT NULL,\n  erased_at TEXT\n);\n"
+    },
+    {
+      "binding": "DB",
       "name": "0110_business_people.sql",
       "sha256": "51aa39622d866b987d71b6e37c9a8300e7f24c54a55611edaab669ed051b01cd",
       "sql": "ALTER TABLE bs_settings ADD COLUMN owner_id TEXT CHECK(owner_id IS NULL OR owner_id <> '');\nALTER TABLE bs_team ADD COLUMN business_id TEXT CHECK(business_id IS NULL OR business_id <> '');\nALTER TABLE bs_team ADD COLUMN business_role TEXT CHECK(business_role IS NULL OR business_role IN('admin','member'));\nCREATE UNIQUE INDEX bs_team_business_id ON bs_team(business_id) WHERE business_id IS NOT NULL;\n"

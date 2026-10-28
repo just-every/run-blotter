@@ -61,8 +61,13 @@ export function ClientObligations({ clientId, lead, run, tick }: { clientId: str
 /** A job's calculated dates, kept apart: original, extended, relief, internal and any override; filing only from an acknowledgment. */
 export function JobDeadline({ detail, actor, run }: { detail: Row; actor: Row; run: Run }) {
   const d = detail.deadline, job = detail.job, base = `/jobs/${job.id}/deadline`;
+  const [filing, setFiling] = useState<Row>();
+  useEffect(() => {
+    setFiling(undefined);
+    if (d && d.kind !== 'firm' && job.access === 'full') api(`/jobs/${job.id}/filing-status`).then(setFiling).catch(() => setFiling(undefined));
+  }, [job.id, detail]);
   if (!d) return null;
-  const files = (detail.files as Row[]).filter(f => !f.erased_at), open = job.status !== 'signed_off';
+  const files = (detail.requests as Row[]).flatMap(r => r.files ?? []).filter(f => !f.erased_at), open = job.status !== 'signed_off';
   return <div className="stack">
     <h3>Deadline</h3>
     <p className="muted">{d.kind === 'firm' ? `Firm-defined deadline (${d.source_title}), not an agency deadline` : <><a href={d.source_url} rel="noreferrer" target="_blank">{d.source_title}</a> · rule {d.rule_key} v{d.rule_version}</>} · period ends {day(d.period_end)}</p>
@@ -78,7 +83,32 @@ export function JobDeadline({ detail, actor, run }: { detail: Row; actor: Row; r
     {open && actor.role !== 'preparer' && <details><summary>Override the working due date</summary>
       <Form label="Override" submit={async data => run(() => api(base + '/override', data), 'Override recorded')}><div className="row"><Field label="Working due date" name="date" type="date" /><Field label="Reason" name="reason" /></div></Form>
     </details>}
-    {!d.filing_recorded_at && files.length > 0 && <details><summary>Record the agency's filing acknowledgment</summary>
+    {filing && <section aria-label="Practitioner filing source" className="stack">
+      <h3>Return filing source</h3>
+      <p>Form {filing.return.form} · {filing.return.jurisdiction} · tax year {filing.return.taxYear}</p>
+      {filing.source ? <>
+        <p><strong>{filing.status} · practitioner-recorded</strong> · {filing.source.stack}</p>
+        <p>{filing.source.noStatusDeclaration}</p>
+        <p>Submission {filing.source.submissionId} · accepted {day(filing.source.acceptedOn)}</p>
+        <p>{filing.source.evidenceAvailable ? <a href={`/api/blotter/files/${filing.source.fileId}`}>{filing.source.fileName}</a> : 'Acknowledgment file erased or unavailable'}</p>
+        <p className="muted">Acknowledgment recorded by {filing.source.acknowledgmentRecordedBy} {when(filing.source.acknowledgmentRecordedAt)}. Source mapped by {filing.source.recordedBy} {when(filing.source.recordedAt)}.</p>
+      </> : <>
+        <p>No stack status recorded. Checklist completion, signatures and job sign-off do not establish filing.</p>
+        {!actor.readOnly && files.length > 0 && <details><summary>Record a no-status fallback</summary>
+          <p>Use only when the named stack exposes no status for this return. This records an accepted agency acknowledgment, with practitioner provenance.</p>
+          <Form label="Save practitioner source" submit={async data => run(async () => {
+            await api(`/jobs/${job.id}/filing-status`, { ...data, ...filing.return, noStatus: data.noStatus === 'on' });
+          }, 'Practitioner filing source recorded')}>
+            <Field label="Tax stack" name="stack"><select name="stack">{filing.stacks.map((stack: string) => <option key={stack}>{stack}</option>)}</select></Field>
+            <Field label="This stack exposes no status for this return" name="noStatus" type="checkbox" />
+            <Field label="No-status declaration" name="noStatusDeclaration"><textarea name="noStatusDeclaration" required maxLength={500} /></Field>
+            <div className="row"><Field label="Fallback acknowledgment file" name="fileId"><select name="fileId" defaultValue={d.filing_file_id ?? files[0]?.id}>{files.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></Field>
+              <Field label="Fallback submission ID" name="submissionId" value={d.filing_submission_id ?? ''} /><Field label="Fallback accepted on" name="acceptedOn" type="date" value={d.filing_accepted_on ?? ''} /></div>
+          </Form>
+        </details>}
+      </>}
+    </section>}
+    {!actor.readOnly && !d.filing_recorded_at && files.length > 0 && <details><summary>Record the agency's filing acknowledgment</summary>
       <Form label="Record acknowledgment" submit={async data => run(() => api(base + '/filing', data), 'Filing acknowledgment recorded')}>
         <div className="row"><Field label="Acknowledgment file" name="fileId"><select name="fileId">{files.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></Field>
           <Field label="Submission ID" name="submissionId" /><Field label="Accepted on" name="acceptedOn" type="date" /></div>
