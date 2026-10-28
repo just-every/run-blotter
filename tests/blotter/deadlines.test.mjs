@@ -232,7 +232,8 @@ test('DUE-003 wider catalog and firm rules: 1040-ES installments with a weekend 
 const filingDoor = job => `/jobs/${job.id}/filing-status`;
 async function fallbackFile(h, job, bytes = 'synthetic-blotter-20 agency acceptance') {
   const detail = await h.json('/jobs/' + job.id, undefined, h.owner);
-  return h.json(`/requests/${detail.requests[0].id}/files`, { name: 'synthetic-blotter-20.txt', mime: 'text/plain', contentBase64: b64(bytes) }, h.owner);
+  const name = 'synthetic-blotter-20.txt';
+  return { ...await h.json(`/requests/${detail.requests[0].id}/files`, { name, mime: 'text/plain', contentBase64: b64(bytes) }, h.owner), name };
 }
 async function finishFallbackJob(h, job, prep, reviewer) {
   let d = await h.json('/jobs/' + job.id, undefined, prep);
@@ -296,10 +297,14 @@ test('Practitioner fallback binds the exact return once, preserves source proven
     await h.json(filingDoor(other), { ...body, clientId: foreign.id, jobId: other.id, fileId: foreignFile.id, submissionId: 'synthetic-blotter-27' }, h.owner);
     assert.equal((await read(other)).source.acknowledgmentRecordedBy, (await h.json('/state', undefined, h.owner)).actor.email);
     // Live document grants and member status govern both new writes and replay.
-    await h.json(`/access/documents/${file.id}`, { sensitive: true, reason: 'Restricted acknowledgment', emails: [] }, h.owner);
+    await h.json('/access/people', { email: people.preparerEmail, clientIds: [client.id], readOnly: true }, h.owner);
+    await h.json(filingDoor(current), body, prep, 403);
+    assert.deepEqual(await read(), first);
+    await h.json('/access/people', { email: people.preparerEmail, clientIds: [client.id], readOnly: false }, h.owner);
+    await h.json(`/access/documents/${file.id}`, { classification: 'Tax acknowledgment', reason: 'Restricted acknowledgment', emails: [] }, h.owner);
     await h.json(filingDoor(current), body, prep, 404);
     await h.json(filingDoor(current), undefined, prep, 404);
-    await h.json(`/access/documents/${file.id}`, { sensitive: false, reason: 'Reviewed', emails: [] }, h.owner);
+    await h.json(`/access/documents/${file.id}`, { classification: 'Tax acknowledgment', reason: 'Reviewed', emails: [people.preparerEmail] }, h.owner);
     await h.json('/team', { email: people.preparerEmail, name: 'Preparer', role: 'preparer', active: false }, h.owner);
     await h.json(filingDoor(current), body, prep, 401);
     const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
@@ -314,10 +319,12 @@ test('Practitioner fallback binds the exact return once, preserves source proven
     await h.json(`/files/${file.id}/erase`, { confirm: file.name, reason: 'Explicit file erasure' }, h.owner);
     assert.equal((await read()).status, 'acknowledgment unavailable');
     await h.json(filingDoor(current), body, h.owner, 404);
-    assert.equal((await h.request('/api/blotter/files/' + file.id, undefined, h.owner)).status, 410);
+    assert.equal((await h.request('/api/blotter/files/' + file.id, undefined, h.owner)).status, 404);
     // Finish the other period before whole-client erasure; retained work keeps the source, under its native clock.
     await h.json('/team', { email: people.preparerEmail, name: 'Preparer', role: 'preparer', active: true }, h.owner);
     const freshPrep = await h.login(people.preparerEmail);
+    await h.json('/access/people', { email: people.reviewerEmail, clientIds: [client.id], readOnly: false }, h.owner);
+    await h.json(filingDoor(other), undefined, freshPrep, 404);
     await finishFallbackJob(h, prior, freshPrep, reviewer);
     await h.json(`/clients/${client.id}/lifecycle`, { lifecycle: 'archived', revision: (await h.json(`/clients/${client.id}/detail`, undefined, h.owner)).revision }, h.owner);
     const preview = await h.json(`/clients/${client.id}/erasure/preview`, undefined, h.owner);
@@ -334,7 +341,7 @@ test('Practitioner fallback binds the exact return once, preserves source proven
     await copy.db.prepare("UPDATE b_job_deadlines SET filing_accepted_on='2010-04-10' WHERE job_id=?").bind(current.id).run();
     for (const trigger of triggers) await copy.db.prepare(trigger.sql).run();
     const expiryHold = await copy.json(`/clients/${client.id}/retention`, { scope: 'job', targetId: current.id, kind: 'hold', reason: 'Keep the source', owner: people.reviewerEmail, reviewDate: '2999-01-01' }, copy.owner);
-    const held = await copy.json('/retention/ready', undefined, copy.owner); assert.ok(held.skipped.some(item => item.id === current.id));
+    const held = await copy.json('/retention/ready', undefined, copy.owner); assert.ok(held.held.some(item => item.id === current.id));
     await copy.json('/retention/ready/confirm', { kind: 'job', id: current.id, reason: 'Still held' }, copy.owner, 409);
     await copy.json(`/retention/${expiryHold.id}/release`, { reason: 'Clock applies' }, copy.owner);
     const ready = await copy.json('/retention/ready', undefined, copy.owner); assert.ok(ready.ready.some(item => item.id === current.id));

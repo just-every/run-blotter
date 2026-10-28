@@ -220,7 +220,7 @@ export async function prepareFiling(db: D1Database, actor: Actor, jobId: string,
     AND ${documentAuthority(actor, '?')}
     AND EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND revision=?)
     AND EXISTS(SELECT 1 FROM b_job_deadlines WHERE job_id=? AND COALESCE(filing_recorded_at,'')=?)`,
-    file.id, jobId, file.sha256, file.id, jobId, j.revision, jobId, d.filing_recorded_at ?? '');
+    file.id, jobId, file.sha256, file.id, file.id, jobId, j.revision, jobId, d.filing_recorded_at ?? '');
   const at = now();
   return { j, d, file, submission, accepted, statements: [check,
     ...(!d.filing_recorded_at ? [stmt(db, 'UPDATE b_job_deadlines SET filing_submission_id=?,filing_file_id=?,filing_accepted_on=?,filing_recorded_by=?,filing_recorded_at=? WHERE job_id=? AND filing_recorded_at IS NULL',

@@ -52,7 +52,7 @@ export async function recordFallback(db: D1Database, actor: Actor, jobId: string
     AND EXISTS(SELECT 1 FROM b_clients WHERE id=? AND erased_at IS NULL AND merged_into IS NULL)
     AND EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND s.operator_id=? AND s.revoked_at IS NULL AND s.expires_at>? AND s.operator_version=o.version)
     AND EXISTS(SELECT 1 FROM b_job_deadlines WHERE job_id=? AND rule_key=? AND period_end=?)
-    AND ${documentAuthority(actor, '?')}`, j.id, j.revision, ...visibleJobParams(actor), j.client_id, actor.sessionId, actor.id, Date.now(), jobId, d.rule_key, d.period_end, prepared.file.id);
+    AND ${documentAuthority(actor, '?')}`, j.id, j.revision, ...visibleJobParams(actor), j.client_id, actor.sessionId, actor.id, Date.now(), jobId, d.rule_key, d.period_end, prepared.file.id, prepared.file.id);
   try {
     await atomic(db, actor, [check, ...prepared.statements,
       stmt(db, `INSERT INTO b_filing_status(job_id,client_id,form,jurisdiction,tax_year,stack,no_status_declaration,file_id,file_sha256,intent_sha256,recorded_by,recorded_at)
