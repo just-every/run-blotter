@@ -39,7 +39,8 @@ async function createTask(db:D1Database,actor:Actor,body:Data,request:Request) {
 }
 export async function integrationRequest(db:D1Database,request:Request) {
  const url=new URL(request.url),route=url.pathname.replace('/api/blotter/v1/','');
- const action=request.method==='GET'?({'clients':'clients:read','work':'work:read','time':'time:read','documents':'documents:metadata',['billing'+'/'+'invoices']:'billing:metadata'} as Record<string,string>)[route]:request.method==='POST'?({'tasks':'tasks:create','clients':'clients:create'} as Record<string,string>)[route]:undefined;
+ const actions:Record<string,string>=request.method==='GET'?{'clients':'clients:read','work':'work:read','time':'time:read','documents':'documents:metadata',['billing'+'/'+'invoices']:'billing:metadata'}:request.method==='POST'?{'tasks':'tasks:create','clients':'clients:create'}:{};
+ const action=Object.hasOwn(actions,route)?actions[route]:undefined;
  const actor=await integrationActor(db,request,action??'unavailable');
  insist(action,'This door is unavailable to integration keys',403);
  if(action==='tasks:create'||action==='clients:create') {

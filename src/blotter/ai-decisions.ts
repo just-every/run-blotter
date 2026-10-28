@@ -4,11 +4,13 @@ import { readAiDraft } from './ai-assistance';
 import { aiScope } from './ai-sources';
 import { atomic, audit, digest, guard, id, insist, job, now, stmt, text, type Actor, type Data } from './model';
 
+const KINDS: Record<string, string> = { question: 'questions', validation: 'validation', extraction: 'extraction', plan: 'plan' };
+
 function proposal(output: Data, field: string): string {
   if (field === 'name') return output.suggestedName;
   if (['summary','reply','routing'].includes(field)) return output[field];
   const [kind, index] = field.split(':');
-  const key = ({ question: 'questions', validation: 'validation', extraction: 'extraction', plan: 'plan' } as Data)[kind];
+  const key = Object.hasOwn(KINDS, kind) ? KINDS[kind] : undefined;
   insist(key && /^\d+$/.test(index) && Number(index) < output[key].length, 'Choose a proposal in this draft');
   const value = output[key][Number(index)];
   return typeof value === 'string' ? value : value.value;
