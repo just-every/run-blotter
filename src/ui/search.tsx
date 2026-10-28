@@ -7,7 +7,7 @@ import { ClientHistory } from './history';
 const TYPES = ['client', 'contact', 'job', 'task', 'portal message', 'note', 'document','invoice'];
 
 /**
- * Firm-wide search (SEARCH-001): "/" focuses the box, arrow keys move through
+ * Firm-wide search (SEARCH-003): "/" focuses the box, arrow keys move through
  * the results and Enter opens the chosen one; filter by type. Only what the
  * signed-in person may read is returned, and tax ids show masked. The box sits in
  * the top bar; its results open at the head of the screen, above the page.

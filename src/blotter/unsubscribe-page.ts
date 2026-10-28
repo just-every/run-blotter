@@ -1,4 +1,4 @@
-// The public one-page marketing unsubscribe (MSG-002): no sign-in, fee or extra
+// The public one-page marketing unsubscribe (MSG-016): no sign-in, fee or extra
 // fields. A link token (stored hashed) or a typed address withdraws marketing
 // for that address across the whole firm, immediately; engagement notices keep
 // arriving. Mailbox providers' one-click POST (RFC 8058) uses the same URL.

@@ -6,7 +6,7 @@ import { harness } from './harness.mjs';
 import { onboardingJourney, onboardingAccessJourney } from './onboarding-ui.mjs';
 import { createServer } from 'node:http';
 
-test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
+test('BASE-001 / CRM-005 public intake / CRM-010 history / DOC-007 custody: embed, consent, answers/uploads, spam checks, private staff read, one-client win and file erasure', async () => {
   const secret = randomBytes(32).toString('hex'), h = await harness({bindings:{SESSION_SECRET:secret}});let restored;
   try {
     const page = await h.request('/intake'), html = await page.text();
@@ -75,7 +75,7 @@ test('BASE-001 / CRM-005 public intake / CRM-003 history / DOC-002 custody: embe
 });
 
 
-test('CRM-005 Turnstile is absent without owner keys and checks the provider only when both keys exist', async () => {
+test('CRM-021 Turnstile is absent without owner keys and checks the provider only when both keys exist', async () => {
   const h=await harness({bindings:{TURNSTILE_SITE_KEY:'test-site-key',TURNSTILE_SECRET_KEY:'test-provider-secret'}});
   try {
     const page=await h.request('/intake'), html=await page.text();assert.match(html,/challenges.cloudflare.com/);
@@ -117,7 +117,7 @@ test('CRM-005 embedded native browser intake submits with consent and an attachm
   } finally { await browser?.close();if(host)await new Promise(r=>host.close(r));await h.close(); }
 });
 
-test('ONBOARD-001 native signed-scope setup preview: exact source links, no effects, principal authority and unavailable-source refusal', async () => {
+test('ONBOARD-002 native signed-scope setup preview: exact source links, no effects, principal authority and unavailable-source refusal', async () => {
   const h = await harness(); let copy, ui;
   try {
     const { PDFDocument, StandardFonts } = await import('pdf-lib');

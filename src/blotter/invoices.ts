@@ -1,4 +1,4 @@
-// BILL-002 native invoice preparation and approval. Every issued PDF is a fixed
+// BILL-010 native invoice preparation and approval. Every issued PDF is a fixed
 // snapshot; no tax, payment settlement or conversion is inferred by this path.
 import { recipientFor } from './client-recipients';
 import { firmSettings } from './firm';

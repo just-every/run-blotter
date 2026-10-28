@@ -1,4 +1,4 @@
-// Merging duplicate clients and undoing a merge (CRM-004). The person chooses
+// Merging duplicate clients and undoing a merge (CRM-015). The person chooses
 // which client keeps its id (the survivor) and, for every field where the two
 // differ, which value survives. The other client becomes a read-only record
 // pointing at the survivor, so its source IDs and import identity stay attached.
@@ -10,7 +10,7 @@
 // Undo: for 30 days (until the merge time plus 30 x 24 hours) while the survivor
 // is unchanged: no edit to it, no later merge, and no record added to or moved
 // off it since. Changes inside the moved records travel back with them.
-// Consent (MSG-002): when two contacts merge, the most restrictive consent wins
+// Consent (MSG-015): when two contacts merge, the most restrictive consent wins
 // on the surviving contact, and undo restores both sides exactly.
 import { client, fieldRows, linked } from './duplicates';
 import { grantedContacts } from './marketing-consent';

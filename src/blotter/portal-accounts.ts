@@ -1,4 +1,4 @@
-// PORTAL-002 staff doors for the signed-in client portal. A grant is explicit per
+// PORTAL-009 staff doors for the signed-in client portal. A grant is explicit per
 // contact, so per entity: staff who may edit contacts invite one active, authorized,
 // portal-enabled contact, and the invitation opens that entity for the account at the
 // contact's address. Revoking the grant, the contact or the entity ends access on the

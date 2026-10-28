@@ -9,7 +9,7 @@ const group = (id, name, currency, jobIds, money = {}) => ({ id, name, currency,
   approvedTimeCents: 0, fixedFeeCents: 0, expenseChargeCents: 0, expenseCostCents: 0,
   marginBeforeStaffCostCents: 0, unbilledCents: 0, approvedExportCents: 0, ...money });
 
-test('BILL-003: native client and service financial groups retain sources, currencies and live export reservations', async () => {
+test('BILL-016: native client and service financial groups retain sources, currencies and live export reservations', async () => {
   const h = await harness();
   try {
     const s = await reportFixture(h);

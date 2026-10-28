@@ -1,4 +1,4 @@
-// ERASURE-002 signed engagements (ct 22 Oct 2026). Until ENGAGE-001 signs letters natively, the
+// ERASURE-017 signed engagements (ct 22 Oct 2026). Until ENGAGE-003 signs letters natively, the
 // principal files a signed letter to the client with its signers and signed date. The record says
 // so on its face ("practitioner-recorded, not signed through Blotter") and carries its SHA-256.
 // It belongs to the signed-engagement class: kept through client erasure, with its own clock.

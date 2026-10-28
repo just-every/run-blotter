@@ -1,4 +1,4 @@
-// Live ACCESS-002 grants. Keeping these predicates independent lets jobs,
+// Live ACCESS-009 grants. Keeping these predicates independent lets jobs,
 // notifications and background dispatch use the same authority without sessions.
 export function clientGrantSql(client: string, address: string, principal: string) {
   return `(${principal} OR (NOT EXISTS(SELECT 1 FROM b_access_members am WHERE am.email=${address} AND am.scoped=1)

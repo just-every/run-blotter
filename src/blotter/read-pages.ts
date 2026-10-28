@@ -1,4 +1,4 @@
-// API-002's native-session read pages. Cursors carry position, never authority.
+// API-004's native-session read pages. Cursors carry position, never authority.
 import { clientScopeSql, clientScopeParams } from './access-sql';
 import { listJobs, parseFilters } from './filters';
 import { readClients, type ClientPosition } from './client-read';

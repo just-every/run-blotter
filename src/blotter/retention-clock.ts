@@ -1,7 +1,7 @@
 import {signatureClocks} from './signatures-retention';
 import { invoiceClocks } from './invoices-erasure';
-// ERASURE-002 retention clocks (ct 22 Oct 2026). Each retained record class has a period in
-// whole years (default 7, minimum 1; SIGN-001's IRS e-file authorizations at least 3) and a
+// ERASURE-008 retention clocks (ct 22 Oct 2026). Each retained record class has a period in
+// whole years (default 7, minimum 1; SIGN-003's IRS e-file authorizations at least 3) and a
 // clock computed from the dates its own records carry, as a calendar date in the firm's time
 // zone. A changed period recomputes every unerased record on the next read and never revives
 // an erased one. Nothing here expires, deletes or sends anything.

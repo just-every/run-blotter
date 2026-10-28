@@ -67,7 +67,7 @@ export async function decideProposal(env: Bindings, actor: Actor, proposalId: st
 export async function agentContext(db: D1Database, actor: Actor) {
   const limited=actor.agentKeyId && await stmt(db,'SELECT 1 FROM b_agent_rules WHERE key_id=?',actor.agentKeyId).first();
   const visible = `((?='owner' OR ?='reviewer' OR j.preparer_email=?) AND ${clientAuthority(actor,'j.client_id')} ${limited?`AND j.client_id IN (SELECT client_id FROM b_agent_rules WHERE key_id='${String(actor.agentKeyId).replaceAll("'","''")}' AND status='active')`:''})`, params = [actor.role, actor.role, actor.email];
-  // ERASURE-002 names what a key read as an outside copy: the clients in the jobs it was shown.
+  // ERASURE-013 names what a key read as an outside copy: the clients in the jobs it was shown.
   await audit(db, actor, 'agent.read', 'agent-context', JSON.stringify((await db.prepare(`SELECT DISTINCT j.client_id FROM b_jobs j WHERE ${visible}`).bind(...params).all<Data>()).results.map(r => r.client_id))).run();
   return {
     jobs: (await db.prepare(`SELECT j.id,j.title,j.period_start,j.period_label,j.due_date,j.status,c.name client,c.contact_email IS NOT '' has_contact,

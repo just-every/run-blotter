@@ -907,7 +907,7 @@ const passkey = origin => {
 const wrongCode = secret => String((Number(totp(secret)) + 500000) % 1e6).padStart(6, '0');
 
 // Runs last: once the policy is on, every later request needs a verified second factor.
-test('WORK-003 dependencies: a close feeds a tax engagement, an organizer answer picks the branch, completions advance only eligible tasks, cycles are refused and an exception is recorded without faking evidence', async () => {
+test('WORK-013 dependencies: a close feeds a tax engagement, an organizer answer picks the branch, completions advance only eligible tasks, cycles are refused and an exception is recorded without faking evidence', async () => {
   const close = await h.json('/templates', { name: 'Monthly close', recurrence: 'monthly', steps: 'Reconcile bank\nClose the books', requests: 'Bank statements' }, h.owner);
   const questions = [{ key: 'itemized', label: 'Itemizing deductions this year?', options: ['yes', 'no'] }];
   const base = { name: '1040 with close', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms\nCharity receipts', questions };
@@ -1078,7 +1078,7 @@ test('CRM-004 duplicate proposals: an imported client that duplicates a native o
   assert.ok(!(await h.json('/clients/duplicates', undefined, h.owner)).some(p => [p.a.id, p.b.id].includes(native.id) && [p.a.id, p.b.id].includes(copy.id)));
 });
 
-test('CRM-004 merge and undo: an imported duplicate keeps its source ID, takes signed-off jobs, resolved discussions, closed notices and expenses, undoes exactly, and a re-import matches the survivor; differing EINs need the principal\'s authority', async () => {
+test('CRM-015 merge and undo: an imported duplicate keeps its source ID, takes signed-off jobs, resolved discussions, closed notices and expenses, undoes exactly, and a re-import matches the survivor; differing EINs need the principal\'s authority', async () => {
   const importAll = async csv => {
     const preview = await h.json('/import/preview', { csv }, h.owner);
     let run = await h.json('/import/commit', { csv, fingerprint: preview.fingerprint }, h.owner);
@@ -1141,7 +1141,7 @@ test('CRM-004 merge and undo: an imported duplicate keeps its source ID, takes s
   assert.equal((await h.json('/clients/merge', { ...join, authority: 'One company; the second EIN was a typo on the old engagement letter' }, h.owner)).authority, 'One company; the second EIN was a typo on the old engagement letter');
 });
 
-test('TIME-001 timers and budgets: a timer survives a new session, stops into snapshotted time, restarts once at a time, and the job shows actual against its approved budget', async () => {
+test('TIME-005 timers and budgets: a timer survives a new session, stops into snapshotted time, restarts once at a time, and the job shows actual against its approved budget', async () => {
   const shop = await h.json('/clients', { name: 'Timber Yard Supplies', fields: { service_tier: 'Plus' } }, h.owner);
   const start = { clientId: shop.id, templateId: template.id, periodStart: '2026-10-01', dueDate: '2026-11-20', dueNote: 'Client calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
   await h.json('/jobs', { ...start, budgetMinutes: 0 }, reviewer, 400);
@@ -1174,7 +1174,7 @@ test('TIME-001 timers and budgets: a timer survives a new session, stops into sn
   await mobileTimeJourney();
 });
 
-test('TIME-001 billable status and tasks: non-billable time keeps its amount and budget but never reaches WIP, an export or the margin; corrections carry status and task; a rate change leaves prior amounts; others cannot edit', async () => {
+test('TIME-006 billable status and tasks: non-billable time keeps its amount and budget but never reaches WIP, an export or the margin; corrections carry status and task; a rate change leaves prior amounts; others cannot edit', async () => {
   const yard = await h.json('/clients', { name: 'Kestrel Freight Co', fields: { service_tier: 'Plus' } }, h.owner);
   const work = await h.json('/jobs', { clientId: yard.id, templateId: template.id, periodStart: '2027-02-01', dueDate: '2027-03-20', dueNote: 'Client calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test', budgetMinutes: 120 }, reviewer);
   await h.json('/team/rates', { scope: 'client', clientId: yard.id, rateCents: 12000, effectiveFrom: '2027-01-01' }, h.owner);
@@ -1220,7 +1220,7 @@ test('TIME-001 billable status and tasks: non-billable time keeps its amount and
   assert.equal(detail.budget.actualMinutes, 45 + 20 + 10 + 60 + timed.minutes);
 });
 
-test('TIME-001 activity suggestions: only consented actions suggest time with their sources; reject one, approve another, and only approved minutes reach WIP; nobody else sees or decides them', async () => {
+test('TIME-008 activity suggestions: only consented actions suggest time with their sources; reject one, approve another, and only approved minutes reach WIP; nobody else sees or decides them', async () => {
   const mill = await h.json('/clients', { name: 'Granite Mill Bakery', fields: { service_tier: 'Plus' } }, h.owner);
   await h.json('/team/rates', { scope: 'client', clientId: mill.id, rateCents: 12000, effectiveFrom: '2026-01-01' }, h.owner);
   const start = periodStart => h.json('/jobs', { clientId: mill.id, templateId: template.id, periodStart, dueDate: '2027-06-30', dueNote: 'Client calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
@@ -1334,7 +1334,7 @@ test('BASE-001 / ACCESS-006 offboarding: preview what a preparer owns, refuse a 
   await h.json('/state', undefined, again, 401);
 });
 
-test('CRM-003 client history and unresolved items: a newest-first timeline with authors and job links, searchable by kind and text; open items name an owner, next action and due condition and change hands; a preparer sees only jobs they may read', async () => {
+test('CRM-010 client history and unresolved items: a newest-first timeline with authors and job links, searchable by kind and text; open items name an owner, next action and due condition and change hands; a preparer sees only jobs they may read', async () => {
   const shop = await h.json('/clients', { name: 'Larkspur Books', contactName: 'Iris Lark', contactEmail: 'iris@larkspur.example', fields: { service_tier: 'Plus' } }, h.owner);
   const start = { clientId: shop.id, templateId: template.id, dueNote: 'Firm close' };
   const mine = await h.json('/jobs', { ...start, periodStart: '2027-01-01', dueDate: '2027-02-28', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
@@ -1388,7 +1388,7 @@ test('CRM-003 client history and unresolved items: a newest-first timeline with 
   assert.deepEqual(handed, [['reviewer@example.test', 'discussion Resolve “Inventory count”: reviewer@example.test to owner@example.test'], ['reviewer@example.test', 'task Complete “Draft BAS”: preparer@example.test to reviewer@example.test']]);
 });
 
-test('PORTAL-003 client progress, secure questions and to-dos: the client asks and completes one to-do; the preparer is alerted, answers, and sees the same progress after review; internal notes and another client\'s to-dos stay hidden; the question is in CRM-003 history with its owner', async () => {
+test('PORTAL-016 client progress, secure questions and to-dos: the client asks and completes one to-do; the preparer is alerted, answers, and sees the same progress after review; internal notes and another client\'s to-dos stay hidden; the question is in CRM-010 history with its owner', async () => {
   const home = await h.json('/clients', { name: 'Okafor household', contactName: 'Ada Okafor', contactEmail: 'ada@okafor.example', fields: { service_tier: 'Plus' } }, h.owner);
   const elsewhere = await h.json('/clients', { name: 'Brightwater Dental', contactName: 'Sam Bright', contactEmail: 'sam@brightwater.example', fields: { service_tier: 'Plus' } }, h.owner);
   const start = { templateId: template.id, periodStart: '2027-07-01', dueDate: '2027-10-28', dueNote: 'Lodgement', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
@@ -1500,7 +1500,7 @@ test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and 
   assert.deepEqual((await h.json('/capacity?week=2029-03-05', undefined, preparer)).people.map(p => p.email), ['preparer@example.test']);
 });
 
-test('NOTIFY-001 / CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
+test('NOTIFY-002 / CAPACITY-007 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
   for (const [address, name] of [['leaver@example.test', 'Lee Leaver'], ['cover@example.test', 'Cam Cover']]) await h.json('/team', { email: address, name, role: 'preparer' }, h.owner);
   const close = await h.json('/templates', { name: 'Coverage close', recurrence: 'monthly', steps: 'unused', requests: 'Bank statements', tasks: [{ label: 'Close the month', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 120 }] }, h.owner);
   const ret = await h.json('/templates', { name: 'Coverage return', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms', tasks: [{ label: 'Prepare return', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 240, afterJob: { templateId: close.id, gate: 'signed_off' } }] }, h.owner);

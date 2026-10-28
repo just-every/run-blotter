@@ -24,7 +24,7 @@ function MoveDue({ job, run }: { job: Row; run: Run }) {
   </details>;
 }
 
-/** Firm or client calendar (WORK-006): jobs and open tasks on their due dates, with the person's kept filters. */
+/** Firm or client calendar (WORK-017): jobs and open tasks on their due dates, with the person's kept filters. */
 export function Calendar({ state, open, run, tick }: { state: Row; open: (id: string) => void; run: Run; tick: number }) {
   const [from, setFrom] = useState(today()), [filter, setFilter] = useState<Row>(), [view, setView] = useState<Row>();
   const to = shift(from, 34), lead = state.actor.role !== 'preparer', model = state.statusModel;

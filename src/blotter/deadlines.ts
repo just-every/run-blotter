@@ -1,4 +1,4 @@
-// Sourced US deadlines (DUE-001) and the wider catalog with firm-defined rules
+// Sourced US deadlines (DUE-004) and the wider catalog with firm-defined rules
 // (DUE-003). The principal approves catalog rules, defines firm rules and
 // approves imported source revisions after previewing the jobs they move; a
 // client obligation names one approved rule, and a job started from it carries
@@ -153,7 +153,7 @@ export async function jobDeadline(db: D1Database, clientId: string, obligationId
   };
 }
 
-/** Each period's calculated working due date for a recurrence rule that names an obligation (WORK-002). */
+/** Each period's calculated working due date for a recurrence rule that names an obligation (WORK-010). */
 export async function obligationDue(db: D1Database, obligationId: string) {
   const { obligation, rule } = await obligationRule(db, obligationId), all = await reliefs(db);
   return (periodStart: string) => calculate(rule, obligation, periodStart, all, false).external;

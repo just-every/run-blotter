@@ -1,4 +1,4 @@
-// Provider delivery events for bulk messages (MSG-002): delivery, bounce and
+// Provider delivery events for bulk messages (MSG-008): delivery, bounce and
 // complaint only, never opens or clicks. Each event is authenticated by the
 // provider's webhook signature and applied at most once. A hard bounce marks
 // the address invalid for both classes; a complaint withdraws marketing for

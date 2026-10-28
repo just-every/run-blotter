@@ -114,7 +114,7 @@ test('READY-001 / BASE-001: live native evidence map, prior answers, human-appro
   } finally { await h.close(); for (const copy of copies) await copy.close(); }
 });
 
-test('READY-001 / BASE-001: changed evidence refuses stale approval, no foreign sources or hidden prior-period records, revoked staff lose access', async () => {
+test('READY-002 / BASE-001: changed evidence refuses stale approval, no foreign sources or hidden prior-period records, revoked staff lose access', async () => {
   const h = await harness();
   try {
     const s = await setup(h);

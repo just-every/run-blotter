@@ -1,4 +1,4 @@
-// BILL-002 / REPORT-001: current native billing evidence for the report's job
+// BILL-011 / REPORT-004: current native billing evidence for the report's job
 // cohort. Immutable issue amounts and today's credit allocations stay distinct.
 import { firmSettings, localClock } from './firm';
 import { invoiceNumber } from './invoices-pdf';

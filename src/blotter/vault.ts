@@ -1,4 +1,4 @@
-// Client credential vault (VAULT-001). Client-provided usernames, passwords and
+// Client credential vault (VAULT-002). Client-provided usernames, passwords and
 // notes are stored only as AES-GCM ciphertext under the firm's vault key: HKDF of the installation's own
 // VAULT_KEY (never the session secret) with the firm's random salt; one
 // installation is one firm.
@@ -43,7 +43,7 @@ async function unseal<T = Secret>(site: VaultSite, salt: string, credentialId: s
   } catch { throw new Fault("This credential was sealed under another installation's vault key and cannot be opened here. Ask the client to enter it again.", 409); }
 }
 
-/** ERASURE-002's retained remainder is sealed under the same firm key, bound to its own id, and opened only through the audited retained-records door. */
+/** ERASURE-015's retained remainder is sealed under the same firm key, bound to its own id, and opened only through the audited retained-records door. */
 export async function sealRemainder(db: D1Database, site: VaultSite, aad: string, value: unknown) { return seal(site, (await firmKey(db)).salt, aad, value); }
 export async function openRemainder<T>(db: D1Database, site: VaultSite, aad: string, sealed: string) { return unseal<T>(site, (await firmKey(db)).salt, aad, sealed); }
 

@@ -1,4 +1,4 @@
-// CAPACITY-003's common estimate chain for work without client actuals.
+// CAPACITY-012's common estimate chain for work without client actuals.
 import { type Data } from './model';
 export function budgetEstimate(ruleBudget: unknown, typeBudget: unknown, steps: string | Data[] | null) {
   const tasks = typeof steps === 'string' ? JSON.parse(steps) as Data[] : steps ?? [];

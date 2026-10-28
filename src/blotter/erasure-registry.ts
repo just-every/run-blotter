@@ -1,5 +1,5 @@
 import { INVOICE_BILLING_TABLES, INVOICE_LINK_TABLES, INVOICE_FIRM_TABLES, INVOICE_BYTE_COLUMNS } from './invoices-registry';
-// ERASURE-002 typed class registry (ct 22 Oct 2026). Every table in this installation belongs
+// ERASURE-008 typed class registry (ct 22 Oct 2026). Every table in this installation belongs
 // to exactly one record class; preview, erasure, export and restore share it. A table or a byte
 // column holding client data without a class stops the preview: the registry fails closed.
 import { rows, type Data } from './model';

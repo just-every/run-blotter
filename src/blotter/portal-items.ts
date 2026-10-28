@@ -4,7 +4,7 @@ import { contactRequestSql } from './organizers-requests';
 // review/completion progress, the job's portal messages and the to-dos staff
 // set for the client. A client question is owned by the job's preparer when it
 // is asked and alerts them; answering it closes only that question. Staff may
-// compose a message from a template (MSG-001): previewed for the chosen contact,
+// compose a message from a template (MSG-004): previewed for the chosen contact,
 // refused while a placeholder is unresolved, and sent with that version's files,
 // which the client downloads from the link. Completing
 // a to-do records the client's response, alerts the person who set it and

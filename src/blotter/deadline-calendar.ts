@@ -1,4 +1,4 @@
-// Deadline date arithmetic (DUE-001, DUE-003): due-date specs, US legal
+// Deadline date arithmetic (DUE-005, DUE-009): due-date specs, US legal
 // holidays and the next-business-day rule. Dates are plain YYYY-MM-DD civil
 // dates; no time zone applies.
 import { Fault } from './model';

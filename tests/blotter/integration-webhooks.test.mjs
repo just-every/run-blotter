@@ -17,7 +17,7 @@ async function setup(h) {
  return {client,other,key,start,finish,prep,reviewer};
 }
 
-test('API-002 / BASE-001 thin signed completion webhooks: no backfill, scoped events, once-only delivery, uncertain recovery, revocation, erasure and inactive restore',async()=>{
+test('API-009 / BASE-003 thin signed completion webhooks: no backfill, scoped events, once-only delivery, uncertain recovery, revocation, erasure and inactive restore',async()=>{
  const received=[];let reply=200;
  const h=await harness({webhookResponse:async request=>{received.push({body:await request.text(),signature:request.headers.get('blotter-signature'),event:request.headers.get('blotter-event-id')});if(reply==='lost')throw new Error('Synthetic network interruption');return new Response('',{status:reply});}});let restored;
  try{

@@ -1,4 +1,4 @@
-// Sourced deadlines (DUE-001, DUE-003): the principal's rule catalog, firm rules and
+// Sourced deadlines (DUE-004, DUE-003): the principal's rule catalog, firm rules and
 // source revisions; a client's obligations; a job's calculated dates.
 import { useEffect, useState } from 'react';
 import { api, day, Empty, Field, Form, when, type Row, type Run } from './common';

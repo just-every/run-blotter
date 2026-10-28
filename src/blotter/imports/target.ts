@@ -1,5 +1,5 @@
 // Import targets are the real b_clients rows, never shadow copies. Reads go
-// through b_client_import_rows: a client a merge kept (CRM-004) shows the row
+// through b_client_import_rows: a client a merge kept (CRM-015) shows the row
 // its import recorded until it changes again, so its source still matches it.
 // Adapted from just-every/run-satchel src/satchel/imports/target.ts (MIT).
 import type { D1TargetAdapter, D1Sql, D1UndoDependency, TargetRow } from '../../modules/import-kit/src/d1/index';

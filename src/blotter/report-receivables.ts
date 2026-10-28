@@ -1,4 +1,4 @@
-// BILL-003: receivables, realization and profitability projected from the report's native
+// BILL-017: receivables, realization and profitability projected from the report's native
 // invoice cohort. Pure arithmetic over issued, non-void invoices: no rewrite of any invoice.
 import { AGING_BUCKETS, agingBucket } from './invoice-aging';
 import type { Data } from './model';

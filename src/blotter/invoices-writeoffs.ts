@@ -1,4 +1,4 @@
-// BILL-003 write-offs: the principal or a financial-authority holder, in a native session,
+// BILL-018 write-offs: the principal or a financial-authority holder, in a native session,
 // approves a stated USD amount of an issued invoice's open balance with a reason. The record
 // is immutable; the issued invoice, its PDF and its totals are never rewritten, only the
 // balance and the reports computed from it change.

@@ -1,6 +1,6 @@
 import {signatureOpenWork} from './signatures-retention';
 import { invoiceOpenBalances } from './invoices-sources';
-// ERASURE-002 dry run (ct 22 Oct 2026): every record class with its action (removed; payload
+// ERASURE-013 dry run (ct 22 Oct 2026): every record class with its action (removed; payload
 // replaced by the erasure marker; retained with class, clock and expiry; held with the hold; or
 // an outside copy with its owner) and its count, the refusals while work is open, and the digest
 // that execution must present. The same predicates later apply the erasure inside one batch.

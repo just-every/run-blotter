@@ -1,4 +1,4 @@
-// ERASURE-002 (owner only): retention periods per class with the warning below seven years,
+// ERASURE-012 (owner only): retention periods per class with the warning below seven years,
 // holds due for review, and the Ready to erase list. Nothing here expires or deletes by itself.
 import { useEffect, useState } from 'react';
 import { api, day, Empty, Field, Form, when, type Row, type Run } from './common';

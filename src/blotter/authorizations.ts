@@ -58,7 +58,7 @@ export async function createAuthorization(db: D1Database, actor: Actor, clientId
   return (await clientAuthorizations(db, actor, clientId)).authorizations.find(a => a.id === authorizationId);
 }
 
-/** The completed SIGN-002 request that holds the signed form; for 2848/8821 it carries the remote-authentication attestation. */
+/** The completed SIGN-009 request that holds the signed form; for 2848/8821 it carries the remote-authentication attestation. */
 export async function linkAuthorizationSignature(db: D1Database, actor: Actor, authorizationId: string, body: Data) {
   lead(actor); const a = await record(db, authorizationId); changed(a, body);
   insist(a.status === 'draft', 'Only a draft authorization takes its signed form', 409);

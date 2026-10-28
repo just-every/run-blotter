@@ -94,7 +94,7 @@ export async function addNoticeEvent(db: D1Database, actor: Actor, noticeId: str
   const n = await visible(db, actor, noticeId); open(n);
   const kind = body.kind;
   insist(KINDS.includes(kind), 'Choose what happened');
-  // AUTHZ-001: the recorded authorization must cover the form and the notice year.
+  // AUTHZ-004: the recorded authorization must cover the form and the notice year.
   const authorization = kind === 'agency_contact' ? await agencyContactAuthority(db, n, body.taxForm) : null;
   const live = authorization ? guard(db, "EXISTS(SELECT 1 FROM b_authorizations WHERE id=? AND revision=? AND status='recorded')", authorization.id, authorization.revision) : [];
   const note = `${kind === 'agency_contact' ? `Form ${body.taxForm}: ` : ''}${text(body.note, 'Note', 4000)}`;

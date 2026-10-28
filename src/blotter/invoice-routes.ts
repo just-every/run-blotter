@@ -1,5 +1,5 @@
 // Native invoicing's HTTP surface. The parent adapter supplies current session,
-// origin checks and ACCESS-002's export/administration gates to every staff door.
+// origin checks and ACCESS-009's export/administration gates to every staff door.
 import type {Hono} from 'hono';
 import type {Bindings} from '../auth.server';
 import {invoiceState,selectInvoiceAuthority,previewInvoice,prepareInvoice,invoiceDetail,issueInvoice,voidInvoice,downloadInvoice} from './invoices';

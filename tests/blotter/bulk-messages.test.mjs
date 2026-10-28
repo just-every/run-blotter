@@ -13,7 +13,7 @@ const signed = (event, id) => {
 };
 const firm = { name: 'Cardinal Tax & Books', ein: '12-3456789', entity: 'LLC', address: '100 Main Street', city: 'Raleigh', state: 'NC', zip: '27601', fiscalYearEnd: '12-31', services: 'Individual tax', currency: 'USD', timeZone: 'America/New_York', notificationStart: '08:00', notificationEnd: '18:00', calendars: [] };
 
-test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: segment preview, exclusions, approval, throttled rechecked dispatch, provider events, unsubscribe, corrections and restore hold', async () => {
+test('MSG-008 / NOTIFY-002 / BASE-003 bulk engagement and marketing messages: segment preview, exclusions, approval, throttled rechecked dispatch, provider events, unsubscribe, corrections and restore hold', async () => {
   let refusedAddress = '';
   const h = await harness({ bindings: { MAIL_WEBHOOK_SECRET: 'whsec_' + key.toString('base64') }, mailResponse: (mail, mails) => mail.to.includes(refusedAddress) ? Response.json({ message: 'Provider refused recipient' }, { status: 422 }) : Response.json({ id: 'test-mail-' + mails.length }) }); let restored;
   try {
@@ -240,7 +240,7 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
   } finally { await h.close(); if (restored) await restored.close(); }
 });
 
-test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers and attached requests: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, each recipient gets its own request link, and a contact merge keeps the most restrictive consent with exact undo', async () => {
+test('MSG-009 / CRM-021 / ACCESS-006 / CRM-004 consent carriers and attached requests: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, each recipient gets its own request link, and a contact merge keeps the most restrictive consent with exact undo', async () => {
   const secret = randomBytes(32).toString('hex'), h = await harness({ bindings: { SESSION_SECRET: secret } });
   try {
     for (const [email, role] of [['leaver@example.test', 'reviewer'], ['successor@example.test', 'reviewer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }

@@ -1,4 +1,4 @@
-// ERASURE-002 restricted retained remainder (ct 22 Oct 2026). When a client is erased while a
+// ERASURE-015 restricted retained remainder (ct 22 Oct 2026). When a client is erased while a
 // retained record still needs them, the legal name, taxpayer identifier and address stay sealed
 // under the firm's vault key, never in plain rows. Ordinary surfaces show `Erased client <8 hex>`.
 // The principal reads and exports the remainder only through this audited door.

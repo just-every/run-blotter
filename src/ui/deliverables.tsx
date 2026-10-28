@@ -82,7 +82,7 @@ export function PortalDeliverables({ path, busy, act }: { path: string; busy: bo
   </>;
 }
 
-/** BILL-005 staff side: require payment of an issued invoice before the client can open this firm-prepared file. */
+/** BILL-025 staff side: require payment of an issued invoice before the client can open this firm-prepared file. */
 function PaymentGate({ deliverable, job, run }: { deliverable: Row; job: Row; run: Run }) {
   const [invoices, setInvoices] = useState<Row[]>([]), gate = deliverable.paymentGate;
   useEffect(() => { api('/invoices').then(r => setInvoices(r.invoices.filter((i: Row) => i.client_id === job.client_id && i.status === 'issued' && !i.erased_at))).catch(() => setInvoices([])); }, [job.client_id, deliverable.id]);

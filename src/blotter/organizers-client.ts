@@ -66,7 +66,7 @@ export async function clientOrganizer(db: D1Database, token: string, organizerId
   const { job: j, contact, organizer, answers } = await contactOrganizer(db, token, organizerId);
   const visible = visibleQuestions(organizer.definition, answers), requests = await rows(db, `SELECT m.key,r.id,r.label,r.status,r.organizer_active FROM b_organizer_requests m JOIN b_requests r ON r.id=m.request_id WHERE m.organizer_id=?`, organizerId);
   const submissions = await rows(db, 'SELECT version,answers,submitted_at,reviewed_at FROM b_organizer_submissions WHERE organizer_id=? AND contact_id=? AND erased_at IS NULL ORDER BY version', organizerId, contact.id);
-  // PORTAL-005: the contact's language picks the Spanish wording; recorded answers and every rule stay on the English choice values.
+  // PORTAL-026: the contact's language picks the Spanish wording; recorded answers and every rule stay on the English choice values.
   const es = contact.language === 'es', definition = organizer.definition;
   const history = submissions.map(s => ({ ...s, answers: JSON.parse(s.answers ?? '{}') }));
   // Labels serve visible questions and this contact's submitted originals only. Translation

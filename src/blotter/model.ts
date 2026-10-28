@@ -48,7 +48,7 @@ export function lines(value: unknown, label: string, max = 30) {
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export function need(actor: Actor, ...roles: Role[]) { insist(roles.includes(actor.role), 'Your role cannot perform this action', 403); }
-/** The principal, or a member the principal granted financial authority (ACCESS-002). */
+/** The principal, or a member the principal granted financial authority (ACCESS-010). */
 export const canBill = (actor: Actor) => actor.role === 'owner' || !!actor.financial;
 export const canReadBilling = (actor: Actor) => actor.role !== 'preparer' || !!actor.financial;
 export function human(actor: Actor) { insist(actor.channel === 'person' || !!actor.automation, 'A person must approve this action', 403); }

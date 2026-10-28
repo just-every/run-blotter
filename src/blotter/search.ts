@@ -1,6 +1,6 @@
 import { clientAuthority, documentAuthority } from './permissions';
 import { documentBytes } from './document-packets';
-// Firm-wide search (SEARCH-001). One query covers the clients, contacts, jobs,
+// Firm-wide search (SEARCH-002). One query covers the clients, contacts, jobs,
 // tasks, client portal messages, discussion notes and documents (by name and
 // extracted text) the searcher may read: the principal and reviewers read the
 // whole firm; anyone else reads the jobs they may read (ACCESS-001, WORK-009),

@@ -1,9 +1,9 @@
-// Personal plans, boards and calendars (WORK-006). A person's week lists their
+// Personal plans, boards and calendars (WORK-017). A person's week lists their
 // open tasks and jobs (WORK-009) and the ones they placed on its days. Boards
 // put the filtered jobs in columns by stage, or by a work type's sub-statuses;
 // a card moves only through WORK-007's moves. Calendars place jobs and open
 // tasks on their due dates, for the firm or one client; moving a job's due date
-// previews the task dates it shifts and the capacity it changes (CAPACITY-001)
+// previews the task dates it shifts and the capacity it changes (CAPACITY-004)
 // before the WORK-004 reschedule commits it. Each person's last board and
 // calendar filters are kept for them.
 import { capacity } from './capacity';

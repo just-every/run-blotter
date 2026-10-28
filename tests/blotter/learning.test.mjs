@@ -51,7 +51,7 @@ async function complete(h, s, id, { returned = false, question = false } = {}) {
   return files;
 }
 
-test('LEARN-001 / BASE-001: source-linked repeated review learning, selected-client versions, next-period outcomes, rejection, authority, erasure and portable history', async () => {
+test('LEARN-002 / BASE-001: source-linked repeated review learning, selected-client versions, next-period outcomes, rejection, authority, erasure and portable history', async () => {
   const h = await harness(), copies = [];
   try {
     const s = await setup(h);

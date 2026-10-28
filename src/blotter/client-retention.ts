@@ -1,4 +1,4 @@
-// ERASURE-002 retention (ct 22 Oct 2026): the principal's holds, extend-only retain-until
+// ERASURE-009 retention (ct 22 Oct 2026): the principal's holds, extend-only retain-until
 // dates, deletion requests and recorded outside copies. Owner only, person only, every change
 // audited. A hold names its scope, reason, hold owner and review date; the review date shows as
 // due on the retention page and no reminder is sent. Nothing here expires, deletes or sends.
@@ -33,7 +33,7 @@ export async function marksCovering(db: D1Database, target: Target, kinds: ('hol
     || (m.scope === 'class' && m.class === target.cls && (!m.client_id || target.clientIds.includes(m.client_id)))));
 }
 const holdName = (m: Data) => `${m.kind === 'hold' ? 'hold' : 'retention'} ${String(m.id).slice(0, 8)} (${m.reason}; owner ${m.owner ?? m.placed_by})`;
-/** The single-item doors (ERASURE-001 files, PORTAL-004 answers, VAULT-001 credentials) refuse inside a hold, naming it. Only access revocation runs under a hold. */
+/** The single-item doors (ERASURE-003 files, PORTAL-022 answers, VAULT-002 credentials) refuse inside a hold, naming it. Only access revocation runs under a hold. */
 export async function refuseHeld(db: D1Database, target: Target, what: string) {
   const holds = await marksCovering(db, target, ['hold']);
   insist(!holds.length, `${what} is refused: inside ERASURE-002 ${holds.map(holdName).join('; ')}. Release the hold first.`, 409);

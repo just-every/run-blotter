@@ -26,7 +26,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
   if (!detail) return <p>Opening job…</p>;
   const { job, client } = detail, isOpen = job.status === 'open';
   const lead = actor.role !== 'preparer';
-  // After the reviewer's sign-off, work that needs a partner waits for the partner (WORK-007).
+  // After the reviewer's sign-off, work that needs a partner waits for the partner (WORK-023).
   const canReview = job.status === 'review' && (actor.role === 'owner' || actor.email === (job.reviewed_at ? job.partner_email : job.reviewer_email));
   const selfReview = actor.email === job.preparer_email || actor.email === job.submitted_by;
   return <div className="stack">

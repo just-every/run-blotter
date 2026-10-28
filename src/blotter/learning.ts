@@ -1,4 +1,4 @@
-// LEARN-001: agents prepare operational copies; the preparing principal
+// LEARN-002: agents prepare operational copies; the preparing principal
 // approves a new immutable version and its explicitly selected client uses.
 import { organizerTemplate, validateOrganizerWorkflow } from './organizers-definition';
 import { templateWork } from './tasks';

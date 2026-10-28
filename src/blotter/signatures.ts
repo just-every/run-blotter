@@ -75,7 +75,7 @@ export async function sendSignature(env:Bindings,actor:Actor,requestId:string,bo
     ...signatureEvent(db,next,resend?'resent':'sent',actor.email,resend?'Fresh attempt; previous signatures and decline remain in timeline':'Signer invitations issued'),...guards.map(g=>g[1]),closed,done]);
   const result=[];
   for(const d of deliveries){
-    // The invitation reads in the signer's language (PORTAL-005).
+    // The invitation reads in the signer's language (PORTAL-026).
     const T=(key:Key,vars:Record<string,string|number>={})=>tr(isLanguage(d.contact.language)?d.contact.language:'en',key,vars);
     const delivery=await sendMail(bindings,d.id,d.contact.email,T('mail.signature.subject'),[T('mail.signature.review',{title:r.title}),d.url,r.mode==='sequential'?T('mail.signature.sequential',{n:d.ordinal,total:people.length}):T('mail.signature.parallel'),T('mail.signature.optional')].join('\n'));
     await stmt(db,'UPDATE b_signature_deliveries SET delivery=? WHERE id=?',delivery,d.id).run();result.push({contactId:d.contact.id,portalUrl:d.url,delivery});

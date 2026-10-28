@@ -1,4 +1,4 @@
-// BILL-005 payment gates: the firm's own work product (a deliverable) is withheld from the client
+// BILL-025 payment gates: the firm's own work product (a deliverable) is withheld from the client
 // portal until the invoice it names is paid. Only deliverables can be gated: a record the client
 // supplied is never withheld (Circular 230 §10.28). Paid means the issued invoice's gross is covered
 // by credits and deposits that count under the firm's ACH policy; a write-off does not release a gate,

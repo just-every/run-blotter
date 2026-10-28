@@ -2,13 +2,13 @@
 
 | Required destination | Named clauses |
 | --- | --- |
-| Client CRM and recurring engagements | US-001, CRM-001–005, ENGAGE-001, SIGN-001–002, WORK-001–009, MIGRATE-006 |
-| Federal/state 1040, 1120-S, 1065, 941 and sales-tax deadlines with roll-forward | DUE-001–003, WORK-002, WORK-008 |
-| Gmail/Microsoft shared client inbox and job triage | MAIL-001–003, MSG-001–002, SMS-001, CRM-003, COLLAB-001, NOTIFY-001, SEARCH-001 |
-| Login portal, document chasing, organizers and signed letters | PORTAL-001–005, FOLLOWUP-001, ENGAGE-001, SIGN-001–002, DOC-003, MOBILE-001 |
-| Invoices, card/ACH, recurring retainers, WIP and realization | TIME-001–004, BILL-001–005, PAY-001–002, INTEGRATE-001, MIGRATE-007 |
-| Capacity, workload, calendars and firm dependencies | WORK-003, WORK-006–007, WORK-009, CAPACITY-001–003, INTEGRATE-005 |
-| QBO/Xero, tax software and document storage connections | LEDGER-001–003, INTEGRATE-001–003, INTEGRATE-008 |
-| Engagement agent, precise questions, variance review and deadline balancing | READY-001, RESCUE-001, LEARN-001, REVENUE-001, ONBOARD-001, SWITCH-001, NOTICE-001 |
-| Staff sign-in, MFA, offboarding and firm security evidence | ACCESS-001–006, SECURE-001, VAULT-001 |
-| Taxpayer authorizations, notices and resolution | AUTHZ-001, DUE-002, RESOLVE-001, INTEGRATE-006, NOTICE-001 |
+| Client CRM and recurring engagements | US-001, US-002, US-003, US-004, US-005, CRM-001, CRM-006, CRM-007, CRM-008, CRM-009–005, ENGAGE-001, ENGAGE-002, ENGAGE-003, ENGAGE-004, ENGAGE-005, ENGAGE-006, SIGN-001, SIGN-003–002, WORK-001–009, MIGRATE-006, MIGRATE-020, MIGRATE-021 |
+| Federal/state 1040, 1120-S, 1065, 941 and sales-tax deadlines with roll-forward | DUE-001, DUE-004, DUE-005, DUE-006, DUE-007–003, WORK-002, WORK-010, WORK-011, WORK-008, WORK-024, WORK-025, WORK-026 |
+| Gmail/Microsoft shared client inbox and job triage | MAIL-001, MAIL-004, MAIL-005, MAIL-006, MAIL-007, MAIL-008, MAIL-009, MAIL-010, MAIL-011, MAIL-012–003, MSG-001, MSG-003, MSG-004, MSG-005–002, SMS-001, SMS-002, SMS-003, CRM-003, CRM-010, CRM-011, CRM-012, COLLAB-001, NOTIFY-001, NOTIFY-002, NOTIFY-003, NOTIFY-004, NOTIFY-005, SEARCH-001, SEARCH-002, SEARCH-003, SEARCH-004 |
+| Login portal, document chasing, organizers and signed letters | PORTAL-001, PORTAL-007–005, FOLLOWUP-001, FOLLOWUP-002, FOLLOWUP-003, FOLLOWUP-004, FOLLOWUP-005, FOLLOWUP-006, ENGAGE-001, ENGAGE-002, ENGAGE-003, ENGAGE-004, ENGAGE-005, ENGAGE-006, SIGN-001, SIGN-003–002, DOC-003, MOBILE-001, MOBILE-002, MOBILE-003 |
+| Invoices, card/ACH, recurring retainers, WIP and realization | TIME-001, TIME-005, TIME-006, TIME-007, TIME-008, TIME-009–004, BILL-001, BILL-006–005, PAY-001, PAY-003, PAY-004, PAY-005, PAY-006–002, INTEGRATE-001, INTEGRATE-009, MIGRATE-007, MIGRATE-022 |
+| Capacity, workload, calendars and firm dependencies | WORK-003, WORK-012, WORK-013, WORK-006, WORK-014, WORK-015, WORK-016, WORK-017–007, WORK-009, CAPACITY-001, CAPACITY-004, CAPACITY-005–003, INTEGRATE-005, INTEGRATE-014, INTEGRATE-015, INTEGRATE-016, INTEGRATE-017 |
+| QBO/Xero, tax software and document storage connections | LEDGER-001–003, INTEGRATE-001, INTEGRATE-009–003, INTEGRATE-008, INTEGRATE-020 |
+| Engagement agent, precise questions, variance review and deadline balancing | READY-001, READY-002, READY-003, RESCUE-001, LEARN-001, LEARN-002, REVENUE-001, ONBOARD-001, ONBOARD-002, SWITCH-001, NOTICE-001, NOTICE-003, NOTICE-004 |
+| Staff sign-in, MFA, offboarding and firm security evidence | ACCESS-001–006, SECURE-001, VAULT-001, VAULT-002, VAULT-003, VAULT-004 |
+| Taxpayer authorizations, notices and resolution | AUTHZ-001, AUTHZ-002, AUTHZ-003, AUTHZ-004, AUTHZ-005, DUE-002, RESOLVE-001, RESOLVE-002, INTEGRATE-006, INTEGRATE-018, NOTICE-001, NOTICE-003, NOTICE-004 |

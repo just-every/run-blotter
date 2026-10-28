@@ -16,7 +16,7 @@ export async function price(h,cents=25,limit=1000){
 export async function rule(h,s,key,extra={}) {return h.json('/agent-rules',{name:'Cedar supervised plans',clientId:s.client.id,keyId:key.id,trigger:'file',tool:'reminder',budget:20,...extra},h.owner);}
 export async function upload(h,s,job,label='source.txt') {const d=await s.detail(job.id);return h.json(`/requests/${d.requests[0].id}/files`,{name:label,mime:'text/plain',contentBase64:Buffer.from('synthetic-blotter-2').toString('base64')},s.prep);}
 
-test('COST-001 / BASE-001: sourced USD seasonal estimates, included quantities, payment rounding and unavailable-provider activation',async()=>{
+test('COST-001 / BASE-003: sourced USD seasonal estimates, included quantities, payment rounding and unavailable-provider activation',async()=>{
  const h=await harness();try{
   const s=await automationFixture(h);await h.json('/costs',undefined,s.prep,403);await h.json('/costs/prices',{},s.reviewer,403);
   const empty=await h.json('/costs/estimate',{items:[{service:'ai',quantity:4}]},h.owner);assert.equal(empty.totalCents,null);await h.json('/costs/estimate',{items:[{service:'ai',quantity:2},{service:'ai',quantity:2}]},h.owner,400);

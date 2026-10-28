@@ -1,4 +1,4 @@
-// READY-001 native evidence and deterministic question drafts. External agents
+// READY-002 native evidence and deterministic question drafts. External agents
 // may prepare; existing job authority and human review govern every effect.
 import { atomic, audit, digest, guard, human, id, insist, job, need, now, rows, stmt, text, visibleJobParams, visibleJobSql, type Actor, type Data } from './model';
 import { flowSteps, jobAnswers } from './flow';

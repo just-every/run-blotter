@@ -1,5 +1,5 @@
 import { relatedDocuments } from './document-related';
-// DOC-001: client/period folders, internal page review and exact version grants.
+// DOC-004: client/period folders, internal page review and exact version grants.
 // Legacy inline originals remain first versions; unknown authors/pages stay unknown.
 import { atomic, audit, guard, human, id, insist, integer, job, need, now, optional, readableJob, readableJobParams, readableJobSql, rows, stmt, text, visibleJobParams, visibleJobSql, type Actor, type Data } from './model';
 import { accessRow, liveAccess, revisionParams, revisionSql, scopeGuard, staffFile } from './document-source';

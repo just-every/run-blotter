@@ -1,7 +1,7 @@
 import { budgetEstimate } from './forecast-estimate';
 import { forecastPipeline, pipelineChoices } from './forecast-pipeline';
 // Capacity forecasts and hiring plans (CAPACITY-003). Future demand comes from
-// the periods of active, approved recurring rules (WORK-002) that fall due in
+// the periods of active, approved recurring rules (WORK-010) that fall due in
 // the forecast weeks. Each period's time is traced to its source: the client's
 // prior actuals for that work (recorded time on signed-off jobs of the same
 // client and template, preferring periods in the same calendar month, which is

@@ -36,7 +36,7 @@ export async function sendInvoice(env: Bindings, actor: Actor, invoiceId: string
   insist(invoice?.pdf_base64, 'Invoice PDF was erased or is unavailable', 409);
   const deliveryId = id(), token = secret('iv_'), at = now(), expiresAt = new Date(Date.now() + 30 * 86_400_000).toISOString(), portalUrl = `${bindings.AUTH_ORIGIN}/invoice/${token}`;
   // A billing contact without portal access receives the PDF by email alone: the stored link is revoked at claim time and never shared.
-  // The mail reads in the billing contact's language (PORTAL-005); the PDF stays as issued.
+  // The mail reads in the billing contact's language (PORTAL-026); the PDF stays as issued.
   const T = (key: Key, vars: Record<string, string | number> = {}) => tr(isLanguage(preview.recipient.language) ? preview.recipient.language : 'en', key, vars);
   const message = `${T('mail.hello', { name: preview.recipient.name })}\n\n${T('mail.invoice.body', { number: invoiceNumber(invoice.number), amount: `USD ${(preview.amountCents / 100).toFixed(2)}`, due: preview.dueDate })}`
     + (preview.recipient.portal ? `\n\n${T('mail.invoice.portal', { url: portalUrl })}\n${T('mail.invoice.expires', { date: expiresAt.slice(0, 10) })}` : '');

@@ -67,7 +67,7 @@ function CreditHold({ clientId, hold, partner, run }: { clientId: string; hold: 
   </section>;
 }
 
-/** PORTAL-002: invite a contact to the signed-in client portal for this entity, revoke that access, or (principal) reset a lost second factor. */
+/** PORTAL-009: invite a contact to the signed-in client portal for this entity, revoke that access, or (principal) reset a lost second factor. */
 function PortalAccess({ clientId, contacts, owner, run, tick }: { clientId: string; contacts: Row[]; owner: boolean; run: Run; tick: number }) {
   const [access, setAccess] = useState<Row>();
   const reload = async () => setAccess(await api(`/clients/${clientId}/portal-access`));

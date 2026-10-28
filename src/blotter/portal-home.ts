@@ -1,4 +1,4 @@
-// PORTAL-002 signed-in views. A client opens one entity at a time, and only one its
+// PORTAL-010 signed-in views. A client opens one entity at a time, and only one its
 // account holds a live grant for: an entity it never held and one revoked a moment ago
 // answer the same "not found". Within it the client sees the work the firm already sent
 // this contact, the documents shared with this contact, the contact's signature requests
@@ -76,7 +76,7 @@ export async function clientBillPdf(db: D1Database, client: Client, clientId: st
   return pdf(i.pdf_base64, `${invoiceNumber(i.number)}.pdf`);
 }
 
-/** Preferences: the client can stop marketing email for this address at once (MSG-002); engagement notices about their work continue. */
+/** Preferences: the client can stop marketing email for this address at once (MSG-015); engagement notices about their work continue. */
 export async function savePreferences(env: Bindings, client: Client, clientId: string, body: Data) {
   const db = runtimeBindings(env).DB, g = await entityGrant(db, client, clientId);
   insist(body.marketingEmail === false, 'Marketing email can be stopped here; ask the practice to record a new opt-in');

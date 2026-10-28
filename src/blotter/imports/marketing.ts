@@ -1,4 +1,4 @@
-// MSG-002 / IMPORT-001: explicit source consent, never inferred from email permission.
+// MSG-002 / IMPORT-002: explicit source consent, never inferred from email permission.
 import { canonicalJson, sha256, type D1Sql } from '../../modules/import-kit/src/d1/index';
 import { insist, type Data } from '../model';
 import { guard } from '../../modules/import-kit/src/d1/database';

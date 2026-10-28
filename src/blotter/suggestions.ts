@@ -1,10 +1,10 @@
-// Activity suggestions (TIME-001). A person who consents sees one suggestion
+// Activity suggestions (TIME-008). A person who consents sees one suggestion
 // per job and UTC day on which they took audited work actions while consent
 // was on and recorded no time of their own on that job. Each suggestion links
 // its source actions. Only that person approves it, entering the minutes and
 // choosing billable or not, which records time through the manual-entry path,
 // or rejects it; nothing is ever recorded without that approval. Email and
-// calendar activity (MAIL-001, INTEGRATE-005) are not sources yet.
+// calendar activity (MAIL-004, INTEGRATE-014) are not sources yet.
 import { newEntry } from './billing';
 import { atomic, audit, date, human, insist, job, now, optional, rows, stmt, text, visibleJobParams, visibleJobSql, type Actor, type Data } from './model';
 

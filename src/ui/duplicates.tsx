@@ -1,4 +1,4 @@
-// Possible duplicate clients (CRM-004): why each pair was proposed, the two
+// Possible duplicate clients (CRM-018): why each pair was proposed, the two
 // records side by side, merging with a choice for every differing field, recording
 // that a pair is not a duplicate, and the merge history with undo.
 import { useEffect, useState } from 'react';

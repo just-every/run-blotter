@@ -1,4 +1,4 @@
-// Running timers and time budgets (TIME-001 slice). A person runs at most one
+// Running timers and time budgets (TIME-005 slice). A person runs at most one
 // timer; it lives in D1, so it keeps running across restarts and devices.
 // Stopping records one time entry through the same path as manual time: the
 // rate in force snapshotted, closed periods refused. Minutes are the elapsed

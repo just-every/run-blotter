@@ -4,7 +4,7 @@ import { api, day, Empty, ExportLink, Field, Form, money, today, when, type Row,
 const stepsOf = (value: string) => value.split(',').map(v => v.trim()).filter(Boolean).map(Number);
 const stepText = (steps: number[]) => steps.map(n => n < 0 ? `${-n} days before` : n === 0 ? 'on the due date' : `${n} days after`).join(', ');
 
-/** BILL-004: the consented reminder schedule, client overrides, bulk resend and client statements. */
+/** BILL-024: the consented reminder schedule, client overrides, bulk resend and client statements. */
 export function InvoiceCollections({ state, clients, billing, run, tick }: { state: Row; clients: Row[]; billing: boolean; run: Run; tick: number }) {
   const [reminders, setReminders] = useState<Row>(), [templates, setTemplates] = useState<Row[]>([]), [resend, setResend] = useState<Row>(), [chosen, setChosen] = useState<string[]>([]), [statement, setStatement] = useState<Row>(), [query, setQuery] = useState<Row>();
   useEffect(() => { api('/invoices/reminders').then(setReminders).catch(e => run(async () => { throw e; })); if (billing) api('/messages/templates').then(r => setTemplates(r.templates.filter((t: Row) => t.scope === 'firm' && t.message_class !== 'marketing'))).catch(e => run(async () => { throw e; })); }, [tick]);

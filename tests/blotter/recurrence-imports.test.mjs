@@ -21,7 +21,7 @@ async function fixture(h) {
 const preview = (h, body, cookie = h.owner) => h.json('/recurrence-imports/preview', body, cookie);
 const commit = async (h, body) => h.json('/recurrence-imports/commit', { ...body, previewToken: (await preview(h,body)).previewToken }, h.owner);
 
-test('MIGRATE-006 / BASE-001: reviewed source series claim existing future work, preserve edits, hold unsupported mappings and resume once across cutover', async () => {
+test('MIGRATE-006 / BASE-003: reviewed source series claim existing future work, preserve edits, hold unsupported mappings and resume once across cutover', async () => {
   const h = await harness();
   try {
     const s = await fixture(h), original = await Promise.all(s.jobs.map(j => h.json('/jobs/'+j.id,undefined,h.owner)));
@@ -71,7 +71,7 @@ test('MIGRATE-006 / BASE-001: reviewed source series claim existing future work,
   }finally{await h.close();}
 });
 
-test('MIGRATE-006 / BASE-001: stale mappings, denied authority, revoked staff and archive restoration retain provenance without replay or erased bytes', async () => {
+test('MIGRATE-020 / BASE-001: stale mappings, denied authority, revoked staff and archive restoration retain provenance without replay or erased bytes', async () => {
   const h=await harness(), copies=[];
   try {
     const s=await fixture(h);

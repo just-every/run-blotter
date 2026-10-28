@@ -1,4 +1,4 @@
-// DOC-001 upload transport. Staging is temporary; completion atomically files an
+// DOC-005 upload transport. Staging is temporary; completion atomically files an
 // immutable manifest and original chunks behind the existing b_files custody door.
 import { atomic, audit, digest, guard, human, id, insist, integer, job, need, now, optional, rows, stmt, text, visibleJobParams, visibleJobSql, type Actor, type Data } from './model';
 import { legacyPacketMetadata, packetInheritance } from './document-catalog';

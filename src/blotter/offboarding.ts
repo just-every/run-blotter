@@ -6,7 +6,7 @@ import {pendingSignatures,transferSignatures} from './signatures';
 // match the preview. Past messages, decisions and recorded time keep their
 // authors; only open work changes hands. Deactivation revokes the member's
 // sessions and agent keys. Unsent bulk-message batches move to the review
-// successor (MSG-002); a moved marketing batch needs the principal's fresh approval.
+// successor (MSG-010); a moved marketing batch needs the principal's fresh approval.
 import { atomic, audit, digest, email, guard, human, id, insist, need, now, rows, stmt, type Actor, type Data } from './model';
 import { eligible } from './jobs';
 import { weekStart } from './timesheets';

@@ -1,4 +1,4 @@
-// PORTAL-002 firm branding for the client portal: the principal sets a PNG or JPEG logo
+// PORTAL-012 firm branding for the client portal: the principal sets a PNG or JPEG logo
 // (up to 256 KiB, checked by its bytes) and an accent colour. Both are meant for clients,
 // so the sign-in page shows them; no other firm record is exposed with them.
 import { decodeFile } from './documents';

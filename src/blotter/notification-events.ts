@@ -1,4 +1,4 @@
-// NOTIFY-001: native events project safe summaries, never client names, file
+// NOTIFY-004: native events project safe summaries, never client names, file
 // names, audit detail, provider errors or identifiers from client content.
 import { firmSettings, localClock } from './firm';
 import { id, rows, stmt } from './model';

@@ -43,7 +43,7 @@ const fields = (body: Data) => {
   checked(subject, message);
   return { subject, body: message };
 };
-/** Marketing versions use only these placeholders (MSG-002 refusal d); every version's class is immutable. */
+/** Marketing versions use only these placeholders (MSG-006 refusal d); every version's class is immutable. */
 export const MARKETING_PLACEHOLDERS = ['firm_name', 'sender_name', 'contact_first_name', 'client_name'];
 function messageClass(value: unknown, subject: string, body: string, fallback = 'engagement') {
   const cls = value === undefined ? fallback : value;
@@ -52,7 +52,7 @@ function messageClass(value: unknown, subject: string, body: string, fallback = 
   insist(cls === 'engagement' || !engagement.length, `A marketing template uses only the firm, sender, first-name and client-name placeholders; remove ${[...new Set(engagement)].map(k => `{{${k}}}`).join(', ')}`, 409);
   return cls as 'engagement' | 'marketing';
 }
-/** Reminders, organizer invitations and automation send engagement class only (MSG-002). */
+/** Reminders, organizer invitations and automation send engagement class only (MSG-008). */
 export function engagementOnly(t: Data | null) {
   insist(!t || t.message_class !== 'marketing', 'This sends engagement messages only; a marketing template goes only in a principal-approved marketing batch', 409);
 }

@@ -36,7 +36,7 @@ const draft = async (h, input) => {
 const issue = (h, invoice) => h.json(`/invoices/${invoice.id}/issue`, { revision: invoice.revision, snapshotHash: invoice.snapshotHash, reviewNote: 'Compared entitlement, hourly approvals, supplied tax treatment and client recipient' }, h.owner);
 const pdf = async (h, id, actor = h.owner) => Buffer.from(await (await h.request(`/api/blotter/invoices/${id}/pdf`, undefined, actor)).arrayBuffer());
 
-test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and approved extras, supplied tax, deposit, numbered immutable PDF, explicit portal delivery and source locks', async () => {
+test('BILL-010 / TIME-002 / TIME-004 / CRM-007 / CRM-010: independent scope and approved extras, supplied tax, deposit, numbered immutable PDF, explicit portal delivery and source locks', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-1' } });
   try {
     const s = await fixture(h);
@@ -114,7 +114,7 @@ test('BILL-002 / TIME-002 / TIME-004 / CRM-001 / CRM-003: independent scope and 
   } finally { await h.close(); }
 });
 
-test('BILL-002 / BASE-001: monthly events generate one draft per entitlement and, without a recorded consent, only drafts; price and cancellation previews, explicit prorations and portable paused rules', async () => {
+test('BILL-010 / BASE-001: monthly events generate one draft per entitlement and, without a recorded consent, only drafts; price and cancellation previews, explicit prorations and portable paused rules', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-2' } }); let restored;
   try {
     const s = await fixture(h);
@@ -168,7 +168,7 @@ async function historicalArchive(source) {
   return [manifest, ...parts, { kind: 'closing', partCount: parts.length, contentHash: content.digest(), archiveHash: archive.digest() }].map(JSON.stringify).join('\n') + '\n';
 }
 
-test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits refuse erasure; retained invoice holds, preview, receipt, expiry and newer-journal restore fence', async () => {
+test('BILL-011 / ERASURE-009 / BASE-001: unpaid balances and unapplied deposits refuse erasure; retained invoice holds, preview, receipt, expiry and newer-journal restore fence', async () => {
   const source = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-4' } }); let h, target;
   try {
     const s = await fixture(source);
@@ -235,7 +235,7 @@ test('BILL-002 / ERASURE-002 / BASE-001: unpaid balances and unapplied deposits 
   } finally { await target?.close(); await h?.close(); await source.close(); }
 });
 
-test('BILL-002 / ACCESS-002: a financial-authority holder bills and sends by email alone; a consented rule revision auto-issues and sends within its cap once per month, otherwise leaves a draft with a named exception, and a restore returns it without consent', async () => {
+test('BILL-015 / ACCESS-011: a financial-authority holder bills and sends by email alone; a consented rule revision auto-issues and sends within its cap once per month, otherwise leaves a draft with a named exception, and a restore returns it without consent', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-7' } }); let restored;
   try {
     const s = await fixture(h);
@@ -297,7 +297,7 @@ test('BILL-002 / ACCESS-002: a financial-authority holder bills and sends by ema
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile to approved sources and recorded receipts; a partner-approved write-off changes the period report and statement while the issued invoice stays byte-identical', async () => {
+test('BILL-018 / BASE-001: WIP, aging, realization and profitability reconcile to approved sources and recorded receipts; a partner-approved write-off changes the period report and statement while the issued invoice stays byte-identical', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-11' } }); let restored;
   let calendarDay;
   const day = n => new Date(Date.parse(calendarDay + 'T12:00:00.000Z') + n * 86_400_000).toISOString().slice(0, 10);
@@ -411,7 +411,7 @@ test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile t
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until its invoice is paid (a card receipt at once, ACH by the firm policy), the client\'s own records stay open, partner overrides are recorded and an overdue client shows the credit hold', async () => {
+test('BILL-025 / ERASURE-009 / BASE-001: a gated final copy stays locked until its invoice is paid (a card receipt at once, ACH by the firm policy), the client\'s own records stay open, partner overrides are recorded and an overdue client shows the credit hold', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-13' } }); let restored;
   const day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10), b64 = x => Buffer.from(x).toString('base64');
   try {
@@ -566,7 +566,7 @@ test('BILL-005 / ERASURE-002 / BASE-001: a gated final copy stays locked until i
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for unpaid, undisputed, deliverable invoices; clients opt out; two invoices resend in bulk; the statement reconciles to open balances; quick collect refuses without saved-method authorization; a restore pauses the schedule', async () => {
+test('BILL-004 / MSG-008 / CRM-010: consented reminders run on schedule only for unpaid, undisputed, deliverable invoices; clients opt out; two invoices resend in bulk; the statement reconciles to open balances; quick collect refuses without saved-method authorization; a restore pauses the schedule', async () => {
   const edge=stripeEdge();
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-9',STRIPE_SECRET_KEY:'synthetic-blotter-10' },stripeResponse:edge.respond }); let restored;
   try {

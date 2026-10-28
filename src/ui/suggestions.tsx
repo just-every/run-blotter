@@ -1,4 +1,4 @@
-// Suggested time (TIME-001): with the person's consent, their own work actions
+// Suggested time (TIME-008): with the person's consent, their own work actions
 // on a job suggest a time entry for that day; they approve it with minutes and
 // a billable choice, or reject it. Nothing is recorded without approval.
 import { useEffect, useState } from 'react';

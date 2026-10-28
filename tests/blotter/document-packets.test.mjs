@@ -24,7 +24,7 @@ async function finish(h, f, state, bytes) {
   return h.json(`/packet-uploads/${state.id}/complete`, {}, f.prep);
 }
 
-test('DOC-001 / BASE-001 realistic multi-page packets resume exactly; corrected originals, internal page annotations and review, client/period folders and metadata search preserve permissions and exact DOC-002 grants', async () => {
+test('DOC-005 / BASE-001 realistic multi-page packets resume exactly; corrected originals, internal page annotations and review, client/period folders and metadata search preserve permissions and exact DOC-002 grants', async () => {
   const h = await harness(); let restored;
   try {
     const f = await fixture(h), bytes = accountingPacket(), corrected = accountingPacket(true);
@@ -136,7 +136,7 @@ test('DOC-001 / BASE-001 published packet limits, offset/hash failures, cancella
   } finally { await h.close(); }
 });
 
-test('DOC-001 / BASE-001 legacy originals join client folders and corrected version grants without invented metadata; named-task readers cannot annotate or review', async () => {
+test('DOC-004 / BASE-001 legacy originals join client folders and corrected version grants without invented metadata; named-task readers cannot annotate or review', async () => {
   const h = await harness();
   try {
     const f = await fixture(h), original = accountingPacket(false, 3), corrected = accountingPacket(true, 3);

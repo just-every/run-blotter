@@ -21,7 +21,7 @@ export async function prepareMapped(db:D1Database,body:Data,defs:FieldDef[], mar
     if(candidates.length&&!decision)parsed.diagnostics.push({severity:'error',code:'DUPLICATE_DECISION',message:`${g.name}: choose keep separate or match an existing entity`});
     let matchRevision='';
     const marketing = (g.marketing ?? []).filter((e:Data) => e.kind !== 'not_granted').map((e:Data) => ({ ...e, contactId: contacts.find((c:Data) => c.sourceId === e.sourceId)?.id }));
-    // ERASURE-002: an address that withdrew consent before a client erasure takes only a later opt-in.
+    // ERASURE-007: an address that withdrew consent before a client erasure takes only a later opt-in.
     for (const e of marketing) if (e.kind === 'grant' && await erasedAddress(db, e.address, e.actedAt)) parsed.diagnostics.push({ severity: 'error', code: 'ERASED_WITHDRAWAL', message: `${g.name}: a marketing grant is for an address that withdrew consent before a client erasure. Map only an opt-in captured after that erasure.` });
     const mode=decision?.action??'create',clientId=mode==='match'?text(decision.clientId,'Matching client ID',100):importTargetId(g.sourceId);
     if(mode==='create'&&!previous&&native.some(n=>n.id===clientId))parsed.diagnostics.push({severity:'error',code:'SOURCE_ID_IN_USE',message:`${g.name}: this source client ID already belongs to an earlier client import; choose a provenance-only match or reconcile it in Clients.`});

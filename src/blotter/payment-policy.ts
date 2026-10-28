@@ -1,4 +1,4 @@
-// BILL-005 firm payment policy and credit hold. The principal alone sets the policy: whether a
+// BILL-025 firm payment policy and credit hold. The principal alone sets the policy: whether a
 // pending ACH payment releases a gated file (default: settlement required) and the overdue-balance
 // threshold that puts a client on credit hold (default: none). A hold never blocks work: it warns
 // staff, and a partner (principal or financial-authority holder) can override it with a reason.

@@ -1,4 +1,4 @@
-// NOTIFY-001: native channels and explicit user/firm choices.
+// NOTIFY-002: native channels and explicit user/firm choices.
 import { firmSettings } from './firm';
 import { notificationAuthority } from './notification-authority';
 import { atomic, audit, human, insist, integer, need, now, stmt, text, type Actor, type Data } from './model';

@@ -1,4 +1,4 @@
-// Automatic recurring work (WORK-002). A principal or reviewer approves a rule
+// Automatic recurring work (WORK-010). A principal or reviewer approves a rule
 // for one client and template. Its periods start on the first period's day in
 // the chosen months (the template's own cadence, or fewer months for a custom
 // schedule; a fiscal year is an annual first period in its first month), from
@@ -67,7 +67,7 @@ export async function ruleBody(db: D1Database, body: Data) {
   return {
     client_id: client.id, template_id: template.id, months: JSON.stringify(months), first_period: first, end_period: end,
     lead_months: integer(body.leadMonths ?? 0, 'Lead time in months', 0, 24),
-    // An obligation (DUE-001, DUE-003) calculates each period's due date; otherwise the firm's days after period end apply.
+    // An obligation (DUE-005, DUE-003) calculates each period's due date; otherwise the firm's days after period end apply.
     ...(obligation ? { due_days: 0, due_note: 'Calculated from the client obligation', obligation_id: obligation }
       : { due_days: integer(body.dueDays, 'Due days after the period ends', 0, 366), due_note: text(body.dueNote, 'Where the due-date rule comes from', 300), obligation_id: null }),
     preparer_email: await person(body.preparerEmail, 'Preparer', ['preparer', 'reviewer']), reviewer_email: await person(body.reviewerEmail, 'Reviewer', ['reviewer']),

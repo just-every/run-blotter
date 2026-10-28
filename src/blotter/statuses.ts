@@ -1,5 +1,5 @@
 import { tr, type Key, type Language } from '../i18n/catalog';
-// Firm work types and the status model (WORK-007). Every job has one work type
+// Firm work types and the status model (WORK-020). Every job has one work type
 // (its template's own, or one the firm chose) and one of six stages: Planned,
 // Ready to start, In progress and Waiting are set by the job's people while it
 // is open; In review and Completed follow its status, so only submission and
@@ -15,7 +15,7 @@ export const STAGE_LABELS: Record<string, string> = { planned: 'Planned', ready:
 const OPEN_STAGES = ['planned', 'ready', 'in_progress', 'waiting'];
 /** A job row's stage in SQL. */
 export const stageSql = (j: string) => `CASE ${j}.status WHEN 'review' THEN 'in_review' WHEN 'signed_off' THEN 'completed' ELSE COALESCE(${j}.open_stage,'in_progress') END`;
-/** The built-in step after a reviewer's sign-off on work that needs a partner (WORK-007 job roles); recorded in history under this key. */
+/** The built-in step after a reviewer's sign-off on work that needs a partner (WORK-023 job roles); recorded in history under this key. */
 export const PARTNER_SIGN_OFF = 'partner_sign_off';
 export const subOf = (j: Data) => j.status === 'review' && j.reviewed_at ? PARTNER_SIGN_OFF : j.sub_status_id ?? null;
 const subName = (alias: string, key: string) => `COALESCE(${alias}.name,CASE WHEN ${key}='${PARTNER_SIGN_OFF}' THEN 'partner sign-off' END)`;

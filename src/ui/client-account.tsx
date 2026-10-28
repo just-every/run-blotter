@@ -12,7 +12,7 @@ async function call(path: string, body?: Row) {
   return result;
 }
 
-/** PORTAL-002: the signed-in client portal. An emailed link proves the address; a second factor follows; one entity shows at a time. */
+/** PORTAL-009: the signed-in client portal. An emailed link proves the address; a second factor follows; one entity shows at a time. */
 export function ClientAccount() {
   const [me, setMe] = useState<Row | null>(), [entity, setEntity] = useState<Row>(), [chosen, setChosen] = useState(''), [link, setLink] = useState<{ kind: 'invite' | 'signin'; token: string }>();
   const [publicLanguage, setPublicLanguage] = useState<Language>('en');

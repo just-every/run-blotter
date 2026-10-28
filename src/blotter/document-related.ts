@@ -1,4 +1,4 @@
-// DOC-001 shared catalog entries link purpose-specific evidence to its own workflow.
+// DOC-004 shared catalog entries link purpose-specific evidence to its own workflow.
 // Staff permissions are exactly the existing document download scope, including
 // the named notice assignee; no client grant or underlying approval is changed.
 import { readableJobParams, readableJobSql, rows, type Actor, type Data } from './model';

@@ -121,7 +121,7 @@ async function reminderContext(db: D1Database, actor: Actor, jobId: string, cont
   return { j, client: client!, contact, outstanding };
 }
 
-/** A message template (MSG-001) rendered for this job: the template's current version, or the sender's edited text. */
+/** A message template (MSG-003) rendered for this job: the template's current version, or the sender's edited text. */
 async function templated(db: D1Database, actor: Actor, ctx: Awaited<ReturnType<typeof reminderContext>>, body: Data, link: string) {
   const t = body.templateId ? await usable(db, actor, text(body.templateId, 'Template')) : null;
   engagementOnly(t);

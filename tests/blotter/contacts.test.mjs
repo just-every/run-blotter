@@ -4,7 +4,7 @@ import { harness } from './harness.mjs';
 const contact = (name,email,extra={}) => ({name,email,roles:['primary'],authorized:true,portal:true,requestConsent:true,emailConsent:true,...extra});
 const token = r => new URL(r.portalUrl).pathname.split('/').at(-1);
 
-test('BASE-001 / CRM-001 entities, contact-specific authority, routing, editing, archive/reactivation, phone/SSN matches, merge/undo, prospect conversion and portable history', async () => {
+test('BASE-001 / CRM-007 entities, contact-specific authority, routing, editing, archive/reactivation, phone/SSN matches, merge/undo, prospect conversion and portable history', async () => {
  const h=await harness(); let restored;
  try {
   for(const [email,role] of [['reviewer@example.test','reviewer'],['prep@example.test','preparer'],['other@example.test','preparer']]) { await h.json('/team',{email,name:email.split('@')[0],role},h.owner); await h.json('/team/invite',{email},h.owner); }

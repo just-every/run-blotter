@@ -34,7 +34,7 @@ export function organizerTemplate(value: unknown): OrganizerDefinition | null {
     }
     const workflowQuestion = optional(raw.workflowQuestion, 'Workflow question key', 40);
     insist(!workflowQuestion || (raw.type === 'choice' && !questions.some(q => q.workflowQuestion === workflowQuestion)), 'A workflow question binds to one choice question');
-    // PORTAL-005: an optional Spanish rendering of the question; stored answers always use the recorded (English) choice values.
+    // PORTAL-026: an optional Spanish rendering of the question; stored answers always use the recorded (English) choice values.
     let es: OrganizerQuestion['es'];
     if (raw.es !== undefined && raw.es !== null) {
       insist(typeof raw.es === 'object' && !Array.isArray(raw.es), 'The Spanish question is an object');

@@ -13,7 +13,7 @@ function PlanOn({ plan, item, label, run }: { plan: Row; item: Row; label: strin
 }
 
 /**
- * The personal weekly plan (WORK-006): the jobs and tasks placed on each day,
+ * The personal weekly plan (WORK-016): the jobs and tasks placed on each day,
  * with each planned job's status and move control, and the open tasks and jobs
  * due in or before the week (overdue ones flagged) to plan from.
  */

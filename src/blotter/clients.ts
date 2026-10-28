@@ -90,7 +90,7 @@ export async function saveTemplate(db: D1Database, actor: Actor, body: Data) {
     stmt(db, 'INSERT INTO b_templates(id,name,recurrence,steps,requests,questions,fee_cents,created_by,created_at,currency) VALUES(?,?,?,?,?,?,?,?,?,?)', template.id, template.name, recurrence, JSON.stringify(template.steps), JSON.stringify(template.requests), JSON.stringify(template.questions), template.feeCents, actor.email, now(), template.currency),
     ...(organizer ? [stmt(db,'UPDATE b_templates SET organizer=? WHERE id=?',JSON.stringify(organizer),template.id),
       stmt(db,'INSERT INTO b_organizer_versions(template_id,version,definition,author,created_at) VALUES(?,?,?,?,?)',template.id,organizer.version,JSON.stringify(organizer),actor.email,now())] : []),
-    // Each template has a work type of its own name (WORK-007), the default for its jobs.
+    // Each template has a work type of its own name (WORK-020), the default for its jobs.
     stmt(db, 'INSERT INTO b_work_types(id,name,template_id,created_by,created_at) VALUES(?,?,?,?,?)', 'wt-' + template.id, template.name, template.id, actor.email, now()),
     audit(db, actor, 'template.saved', template.id, template.name),
   ]);

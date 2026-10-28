@@ -1,5 +1,5 @@
 import { accessActor } from './permissions';
-// ERASURE-002 restore fence, destination side (ct 22 Oct 2026). A destination that knows no later
+// ERASURE-016 restore fence, destination side (ct 22 Oct 2026). A destination that knows no later
 // erasure can still be handed an archive made before one. Without the newer erasure journal the
 // principal must acknowledge that the erasure history is unverified; the acknowledgment is
 // recorded in the import report and the audit log. With the journal, Base refuses a stale archive.

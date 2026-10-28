@@ -1,4 +1,4 @@
-// LEARN-001 evidence is projected from its current native source. Learning
+// LEARN-002 evidence is projected from its current native source. Learning
 // stores references and change fences, never a second copy of private content.
 import { nextPeriod } from './jobs';
 import { insist, job, need, rows, stmt, text, type Actor, type Data } from './model';

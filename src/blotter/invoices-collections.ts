@@ -190,7 +190,7 @@ export async function runInvoiceReminders(env: Bindings, at = new Date()) {
         stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), policy.consented_by, 'invoice.reminder_held', i.id, `${latest} days from due: not sent (${reason})`, now())]);
       results.push({ invoiceId: i.id, step: latest, held: reason });
     };
-    // MSG-002 engagement send-time recheck: the invoice's billing contact must still be active, authorized, consenting and deliverable.
+    // MSG-008 engagement send-time recheck: the invoice's billing contact must still be active, authorized, consenting and deliverable.
     const contact = await stmt(db, `SELECT c.*,EXISTS(SELECT 1 FROM b_mail_suppressions s WHERE s.address=c.email) invalid,EXISTS(SELECT 1 FROM json_each(c.roles) WHERE value='billing') billing
       FROM b_client_contacts c WHERE c.id=? AND c.client_id=?`, snapshot.recipient.id, i.client_id).first<Data>();
     if (!contact || !contact.active || !contact.authorized || !contact.billing) { await hold('contact no longer an authorized billing contact'); continue; }

@@ -28,7 +28,7 @@ function code(secret, currentStep = false) {
   return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1e6).padStart(6, '0');
 }
 
-test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a second factor to only their entities, recover a lost factor, lose a revoked entity mid-session, and archives carry accounts without factors or sessions', async () => {
+test('PORTAL-009 / BASE-001 / ERASURE-009: invited contacts sign in with a second factor to only their entities, recover a lost factor, lose a revoked entity mid-session, and archives carry accounts without factors or sessions', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-17' } }); let restored;
   try {
     for (const [address, role] of [['reviewer@example.test', 'reviewer'], ['prep@example.test', 'preparer']]) { await h.json('/team', { email: address, name: address.split('@')[0], role }, h.owner); await h.json('/team/invite', { email: address }, h.owner); }

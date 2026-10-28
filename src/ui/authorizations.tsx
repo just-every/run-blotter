@@ -5,7 +5,7 @@ import { PrepareAuthorization } from './authorization-prepare';
 const METHOD: Record<string, string> = { irs_online: 'IRS online submission', tax_pro_account: 'Tax Pro Account', fax: 'Fax' };
 const title = (a: Row) => a.kind === 'state' ? `${a.agency} authorization` : `Form ${a.kind}`;
 
-/** AUTHZ-001: the client's 2848, 8821 and state authorizations, their lifecycle and the transcript requests they scope. */
+/** AUTHZ-002: the client's 2848, 8821 and state authorizations, their lifecycle and the transcript requests they scope. */
 export function Authorizations({ clientId, client, jobs, lead, run, tick }: { clientId: string; client: Row; jobs: Row[]; lead: boolean; run: Run; tick: number }) {
   const [data, setData] = useState<Row>(), [signatures, setSignatures] = useState<Row[]>([]), [kind, setKind] = useState('2848');
   const load = async () => { const [list, signed] = await Promise.all([api(`/clients/${clientId}/authorizations`), api(`/clients/${clientId}/signatures`)]); setData(list); setSignatures(signed.filter((s: Row) => s.status === 'completed')); };

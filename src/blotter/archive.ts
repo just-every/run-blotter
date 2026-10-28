@@ -54,7 +54,7 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
   insist(file, 'File not found', 404);
   if (regular) await job(db, actor, file.job_id);
   insist(!file.erased_at, 'This file was already erased', 409);
-  // ERASURE-002: inside a hold this door is refused, naming the hold.
+  // ERASURE-009: inside a hold this door is refused, naming the hold.
   if (regular) await refuseHeld(db, { clientIds: [String((await stmt(db, 'SELECT client_id FROM b_jobs WHERE id=?', file.job_id).first<Data>())?.client_id)], jobId: file.job_id, fileId: file.id, cls: 'signed_work' }, 'Erasing this file');
   else {
     const owner = await stmt(db, 'SELECT client_id FROM b_prospects WHERE id=?', intake!.prospect_id).first<Data>();
@@ -73,7 +73,7 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
   return { id: file.id, erased: true };
 }
 
-/** A practitioner-recorded signed letter's bytes (ERASURE-002): refused inside a hold; the record, signers, date and SHA-256 stay. */
+/** A practitioner-recorded signed letter's bytes (ERASURE-017): refused inside a hold; the record, signers, date and SHA-256 stay. */
 async function eraseLetter(db: D1Database, actor: Actor, letter: Data, body: Data) {
   insist(!letter.erased_at, 'This file was already erased', 409);
   await refuseHeld(db, { clientIds: [letter.client_id], engagementId: letter.id, cls: 'engagement' }, 'Erasing this engagement letter');

@@ -11,13 +11,13 @@ export const amount = (minutes: number, rateCents: number) => Math.floor((minute
 /** SQL that holds while no closed billing period (TIME-002) covers this date. */
 export const openPeriodSql = 'NOT EXISTS(SELECT 1 FROM b_periods WHERE ? BETWEEN start_date AND end_date)';
 
-/** Time is billable unless the request says `billable: false` (TIME-001). */
+/** Time is billable unless the request says `billable: false` (TIME-006). */
 export const billableFlag = (value: unknown, fallback = true) => {
   insist(value === undefined || typeof value === 'boolean', 'Billable is true or false');
   return value === undefined ? fallback : value as boolean;
 };
 
-/** The job's checklist task an entry or timer names, if any (TIME-001). */
+/** The job's checklist task an entry or timer names, if any (TIME-007). */
 export async function taskOrdinal(db: D1Database, j: Data, value: unknown) {
   if (value === undefined || value === null || value === '') return null;
   const ordinal = integer(value, 'Task', 1, 100);

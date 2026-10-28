@@ -1,4 +1,4 @@
-// The maintained deadline catalog (DUE-001, DUE-003), release 2026.1. Each
+// The maintained deadline catalog (DUE-004, DUE-003), release 2026.1. Each
 // rule names its agency source; a firm approves a rule before any client uses
 // it, and later source revisions are imported and approved through
 // deadlines.ts. Dates follow the published instructions as of 1 January 2026.
@@ -34,7 +34,7 @@ export const CATALOG: Rule[] = [
     source: { url: 'https://www.cdtfa.ca.gov/taxes-and-fees/sutprograms.htm', title: 'CDTFA: Sales and use tax filing due dates' } }),
   r({ key: 'tx-sales', calendarYear: true, form: '01-114', title: 'Texas sales and use tax return', jurisdiction: 'TX', entities: ['business', 'individual'], frequency: 'monthly', due: after(1, 20),
     source: { url: 'https://comptroller.texas.gov/taxes/sales/', title: 'Texas Comptroller: Sales and use tax due dates' } }),
-  // DUE-003's wider catalog.
+  // DUE-008's wider catalog.
   r({ key: 'us-1120', form: '1120', title: 'U.S. corporation income tax return', jurisdiction: 'US', entities: ['business'], frequency: 'annual', due: after(4, 15),
     extension: { form: '7004', due: after(10, 15), automatic: false },
     fiscal: [{ endMonth: 6, startsBefore: '2026-01-01', due: after(3, 15), extension: after(10, 15) }], source: IRS('Instructions for Form 1120', 'https://www.irs.gov/instructions/i1120') }),

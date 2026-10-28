@@ -12,7 +12,7 @@ const file = (h, id, who = h.owner) => h.request('/api/blotter/files/' + id, und
 const rowsOf = archive => archive.trim().split('\n').map(JSON.parse).filter(p => p.kind === 'part').flatMap(p => p.items).filter(i => i.kind === 'row');
 const years = n => new Date(Date.now() - n * 365 * 864e5).toISOString();
 
-test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and holds, preview, approved marker redaction keeping signed work and billing evidence, sealed remainder, named outside copies, journal and stale restore', async () => {
+test('ERASURE-009 / BASE-001 / policy journey: principal-only doors, clocks and holds, preview, approved marker redaction keeping signed work and billing evidence, sealed remainder, named outside copies, journal and stale restore', async () => {
   const h = await harness(), target = await harness();
   try {
     const s = await build(h);
@@ -253,7 +253,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
   } finally { await h.close(); await target.close(); }
 });
 
-test('ERASURE-002 / holds by client and record class leave named exceptions, refuse the single-item doors inside them, merged clients are erased with their survivor, and an unclassified store stops the preview', async () => {
+test('ERASURE-013 / holds by client and record class leave named exceptions, refuse the single-item doors inside them, merged clients are erased with their survivor, and an unclassified store stops the preview', async () => {
   const h = await harness();
   try {
     const s = await team(h);

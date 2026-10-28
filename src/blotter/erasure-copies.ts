@@ -1,7 +1,7 @@
 import { integrationFamilySql } from './integration-policy';
 import {signatureOutsideCopies} from './signatures-retention';
 import { invoiceObservedCopies } from './invoices-erasure';
-// ERASURE-002 observed outside copies (ct 22 Oct 2026). Blotter names every copy of a client's
+// ERASURE-016 observed outside copies (ct 22 Oct 2026). Blotter names every copy of a client's
 // data it can observe leaving the installation, with its owner, and never claims to delete one:
 // mail through the platform relay, files downloaded through share links, the portal or by staff,
 // billing exports and owner archives downloaded by staff, and data read by agent or API keys.

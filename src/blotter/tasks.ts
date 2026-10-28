@@ -120,7 +120,7 @@ export async function downloadAttachment(db: D1Database, actor: Actor, jobId: st
 /** A task's owner now, in SQL over step `s` and job `j` (WORK-009). */
 export const ownerSql = `COALESCE(s.assignee_email,CASE s.assignee_role WHEN 'preparer' THEN j.preparer_email WHEN 'reviewer' THEN j.reviewer_email WHEN 'manager' THEN COALESCE(j.manager_email,j.reviewer_email) END)`;
 
-/** The client sees only the labels, dates and progress of client-facing tasks (PORTAL-003). */
+/** The client sees only the labels, dates and progress of client-facing tasks (PORTAL-016). */
 export async function clientTasks(db: D1Database, j: Data) {
   return (await flowSteps(db, j)).filter(t => t.client_facing && t.state !== 'not_applicable').map(t => ({ label: t.label, dueDate: t.due_date, done: !!t.done_at }));
 }

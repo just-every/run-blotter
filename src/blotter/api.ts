@@ -284,7 +284,7 @@ api.post(`${P}/clients/duplicates/dismiss`, as(async (a, c) => dismissPair(db(c)
 api.get(`${P}/clients/merges`, as((a, c) => merges(db(c), a)));
 api.post(`${P}/clients/merge`, as(async (a, c) => mergeClients(db(c), a, await body(c))));
 api.post(`${P}/clients/merges/:id/undo`, as((a, c) => undoMerge(db(c), a, param(c))));
-// Client credential vault (VAULT-001): listing never returns a secret; each reveal carries a fresh second factor.
+// Client credential vault (VAULT-004): listing never returns a secret; each reveal carries a fresh second factor.
 api.get(`${P}/clients/:id/credentials`, as((a, c) => staffCredentials(db(c), a, param(c))));
 api.post(`${P}/clients/:id/credentials`, as(async (a, c) => staffStore(db(c), a, vaultSite(c), param(c), await body(c))));
 api.post(`${P}/credentials/:id/reveal`, as(async (a, c) => reveal(db(c), a, vaultSite(c), param(c), await body(c))));
@@ -401,7 +401,7 @@ api.post(`${P}/messages/templates/:id`, as(async (a, c) => editTemplate(db(c), a
 api.post(`${P}/messages/templates/:id/translations`, as(async (a, c) => addTranslation(db(c), a, param(c), await body(c))));
 api.post(`${P}/messages/templates/:id/delete`, as((a, c) => deleteTemplate(db(c), a, param(c))));
 api.post(`${P}/messages/templates/:id/copy`, as(async (a, c) => copyTemplate(db(c), a, param(c), await body(c))));
-// Sourced deadlines (DUE-001, DUE-003): the principal approves catalog rules, firm rules and source revisions; dates are calculated per obligation.
+// Sourced deadlines (DUE-004, DUE-003): the principal approves catalog rules, firm rules and source revisions; dates are calculated per obligation.
 api.get(`${P}/deadlines`, as((a, c) => deadlineState(db(c), a)));
 api.post(`${P}/deadlines/rules/:key/approve`, as((a, c) => approveRule(db(c), a, param(c, 'key'))));
 api.post(`${P}/deadlines/firm-rules`, as(async (a, c) => defineFirmRule(db(c), a, await body(c))));
@@ -507,7 +507,7 @@ api.post(`${P}/import/:op`, as(async (a, c) => importAction(db(c), a, param(c, '
 api.get(`${P}/backup`, as((a, c) => backup(db(c), a)));
 api.post(`${P}/restore`, as(async (a, c) => restore(db(c), a, await body(c, 64_000_000))));
 
-// LEARN-001 uses the existing agent-key preparation and native human decision boundaries.
+// LEARN-002 uses the existing agent-key preparation and native human decision boundaries.
 api.post(`${P}/learning/evidence`, as(async (a,c) => learningEvidence(db(c),a,await body(c))));
 api.post(`${P}/learning`, as(async (a,c) => prepareLearning(db(c),a,await body(c))));
 api.get(`${P}/learning/:id`, as((a,c) => learningDetail(db(c),a,param(c))));

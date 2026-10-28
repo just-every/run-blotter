@@ -1,4 +1,4 @@
-// Workload capacity and coverage (CAPACITY-001). For one Monday-to-Sunday
+// Workload capacity and coverage (CAPACITY-004). For one Monday-to-Sunday
 // week, each person's available minutes are their weekly hours less leave and
 // commitments on that week's weekdays; their demand is the estimates of open
 // tasks they own that fall due in the week (WORK-009) plus the review estimates
@@ -96,7 +96,7 @@ const OPEN_STEPS = `SELECT j.id job_id,j.title,j.period_label,j.due_date job_due
   FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id JOIN b_clients c ON c.id=j.client_id JOIN b_work_types t ON t.id=j.work_type_id
   WHERE j.status<>'signed_off' AND ${pendingStep('s')} AND (?1='' OR t.name=?1)`;
 
-/** One week's capacity across the firm (a preparer sees only themselves), filtered by skill and service (the job's work type, WORK-007). */
+/** One week's capacity across the firm (a preparer sees only themselves), filtered by skill and service (the job's work type, WORK-018). */
 export async function capacity(db: D1Database, actor: Actor, query: Data) {
   const start = date(query.week, 'Week starting');
   insist(new Date(start + 'T00:00:00Z').getUTCDay() === 1, 'A capacity week starts on a Monday');

@@ -9,7 +9,7 @@ const member = async (h, email, role) => {
   return h.login(email);
 };
 
-test('US-001 money: USD defaults, stored AUD remains distinct through time, billing CSV and archive restore', async () => {
+test('US-002 money: USD defaults, stored AUD remains distinct through time, billing CSV and archive restore', async () => {
   const h = await harness();
   let restored;
   try {
@@ -64,7 +64,7 @@ test('US-001 money: USD defaults, stored AUD remains distinct through time, bill
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('US-001 client IDs: EIN validation and CSV replay preserve legacy ABNs; authorized digit search stays masked', async () => {
+test('US-002 client IDs: EIN validation and CSV replay preserve legacy ABNs; authorized digit search stays masked', async () => {
   const h = await harness();
   try {
     const preparer = await member(h, 'preparer@example.test', 'preparer');
@@ -101,7 +101,7 @@ test('US-001 client IDs: EIN validation and CSV replay preserve legacy ABNs; aut
   } finally { await h.close(); }
 });
 
-test('US-001 firm setup: US practice details, filing calendar, local DST clock and durable notification hours survive restore', async () => {
+test('US-003 firm setup: US practice details, filing calendar, local DST clock and durable notification hours survive restore', async () => {
   const h = await harness(); let restored;
   try {
     const reviewer = await member(h, 'reviewer@example.test', 'reviewer');

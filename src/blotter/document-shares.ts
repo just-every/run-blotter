@@ -1,4 +1,4 @@
-// DOC-002: explicit entity-contact grants and recipient-scoped bearer downloads.
+// DOC-007: explicit entity-contact grants and recipient-scoped bearer downloads.
 // Ref: ordinary upload id, deliverable:id, expense:id, task:jobId:ordinal, notice:eventId,
 // intake:id (converted intake refs resolve to the regular upload).
 import { atomic, audit, digest, guard, human, id, insist, integer, need, now, readableJob, rows, secret, stmt, text, type Actor, type Data } from './model';

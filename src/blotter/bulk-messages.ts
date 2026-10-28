@@ -1,4 +1,4 @@
-// Bulk client messages (MSG-002; ct 20 Oct 21:21Z). A batch has one class,
+// Bulk client messages (MSG-014; ct 20 Oct 21:21Z). A batch has one class,
 // engagement or marketing, fixed with its template version and recipients at
 // preview. Engagement batches declare a reason and a per-recipient basis and go
 // per client under the existing recipient rules; marketing batches need the
@@ -325,7 +325,7 @@ export async function runBulk(env: Bindings, at = new Date(), onlyBatch?: string
         }
       }
       if (b.class === 'marketing') {
-        // The footer and the unsubscribe page read in the recipient's language (PORTAL-005, MSG-002).
+        // The footer and the unsubscribe page read in the recipient's language (PORTAL-025, MSG-008).
         const token = secret('us_'), language = localized.language, lang = language === 'en' ? '' : `&lang=${language}`;
         const link = unsubscribe = `${origin}/unsubscribe?t=${token}${lang}`;
         await stmt(db, 'INSERT INTO b_unsubscribe_tokens(digest,recipient_id,address,created_at) VALUES(?,?,?,?)', await digest(token), r.id, r.address, now()).run();

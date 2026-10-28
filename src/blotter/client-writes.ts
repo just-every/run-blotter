@@ -1,4 +1,4 @@
-// Native-session API-002 client writes share the native validation and transaction.
+// Native-session API-006 client writes share the native validation and transaction.
 import { prepareClient } from './clients';
 import { clientDetail } from './client-lifecycle';
 import { atomic, digest, Fault, guard, human, insist, need, now, stmt, type Actor, type Data } from './model';

@@ -11,7 +11,7 @@ import { PortalConversation, PortalProgress } from './client-portal';
 import { LanguageProvider, useT } from './i18n';
 import type { Language } from '../i18n/catalog';
 
-/** The client's upload page. The link's secret is the only credential; the page speaks the contact's language (PORTAL-005). */
+/** The client's upload page. The link's secret is the only credential; the page speaks the contact's language (PORTAL-024). */
 export function Portal({ token }: { token: string }) {
   const [view, setView] = useState<Row>(), [error, setError] = useState('');
   const path = `/api/blotter/portal/${encodeURIComponent(token)}`;

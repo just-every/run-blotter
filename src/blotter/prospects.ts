@@ -118,7 +118,7 @@ export async function winProspect(db: D1Database, actor: Actor, prospectId: stri
     stmt(db, "INSERT INTO b_clients(id,name,abn,contact_name,contact_email,source,revision,created_at,fields,tags) VALUES(?,?,'',?,?,'native',?,?,?,'[]')", clientId, p.name, p.contact_name, p.contact_email, id(), at, JSON.stringify(fields)),
     stmt(db, 'UPDATE b_clients SET services=? WHERE id=?', p.services,clientId),
     contactInsert(db,actor,clientId,legacyContactValues(p.contact_name,p.contact_email),'legacy:'+clientId),
-    // The intake checkbox grant follows the prospect's own contact to the converted client (MSG-002).
+    // The intake checkbox grant follows the prospect's own contact to the converted client (MSG-009).
     ...(optIn && p.contact_email ? intakeGrantStatements(db, actor, 'legacy:'+clientId, clientId, String(p.contact_email).toLowerCase(), optIn, p.id) : []),
     ...JSON.parse(p.contacts).map((c: Data) => contactInsert(db,actor,clientId,c)),
     audit(db, actor, 'client.added', clientId, `${p.name} (won prospect)`),

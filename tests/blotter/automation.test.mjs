@@ -141,14 +141,14 @@ test('AUTOMATE-001 / BASE-001: request/organizer/proposal completion, roll-forwa
 });
 
 
-test('AUTOMATE-001 / ACCESS-006 / WORK-006 / WORK-007: principal previews, saves and enables rules in the app, board actions run once and completed/held outcomes render at 1440 and 390',async()=>{
+test('AUTOMATE-001 / ACCESS-015 / WORK-006 / WORK-007: principal previews, saves and enables rules in the app, board actions run once and completed/held outcomes render at 1440 and 390',async()=>{
  let uncertain=false;
  const h=await harness({mailResponse:(mail,mails)=>{if(uncertain&&mail.subject.startsWith('Documents for')){uncertain=false;throw new Error('Provider accepted; response interrupted');}return Response.json({id:'accepted-'+mails.length});}});
  try {const s=await fixture(h);await automationAppJourney(h,s,()=>{uncertain=true;});} finally {await h.close();}
 });
 
 
-test('AUTOMATE-001 / BASE-001: actual Worker interruption after provider acceptance retains dispatching and requires reconciliation after restart',async()=>{
+test('AUTOMATE-001 / BASE-003: actual Worker interruption after provider acceptance retains dispatching and requires reconciliation after restart',async()=>{
  let block=false, release, accepted;
  const arrived=new Promise(resolve=>{accepted=resolve;});
  const h=await harness({mailResponse:(mail,mails,request)=>{

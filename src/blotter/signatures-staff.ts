@@ -1,4 +1,4 @@
-// SIGN-002 (ct 22 Oct): a staff representative signs through their own authenticated session,
+// SIGN-009 (ct 22 Oct): a staff representative signs through their own authenticated session,
 // and a staff member records the remote-authentication attestation a Form 2848 or 8821 needs
 // before a remote signer's signature is accepted.
 import { canAccessClient, clientAuthority } from './permissions';

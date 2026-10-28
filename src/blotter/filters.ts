@@ -1,4 +1,4 @@
-// Work filters shared by the queue, boards and calendars (WORK-006, WORK-007):
+// Work filters shared by the queue, boards and calendars (WORK-016, WORK-007):
 // work type, stage, sub-status, client, assignee (the job's preparer,
 // reviewer, manager or partner), due dates (an inclusive range, or overdue:
 // due before today in UTC and not completed), blocked and priority. A job is

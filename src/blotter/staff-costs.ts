@@ -1,4 +1,4 @@
-// BILL-003 staff cost rates: the practice's hourly cost of a person, from an effective date. Only
+// BILL-018 staff cost rates: the practice's hourly cost of a person, from an effective date. Only
 // the principal records them in a native session; the report shows the derived cost to the
 // principal and financial-authority holders only, and recorded rates never change retroactively.
 import { atomic, audit, date, email, human, id, insist, integer, need, now, rows, stmt, text, type Actor, type Data } from './model';

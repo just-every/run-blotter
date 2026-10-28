@@ -1,7 +1,7 @@
 import {signatureExpiryEffects} from './signatures-retention';
 import { invoiceExpiryEffects } from './invoices-erasure';
 import { invoiceOpenBalances,noInvoiceOpenBalanceSql } from './invoices-sources';
-// ERASURE-002 Ready to erase (ct 22 Oct 2026). Nothing expires or is purged automatically:
+// ERASURE-012 Ready to erase (ct 22 Oct 2026). Nothing expires or is purged automatically:
 // a retained record whose period (or later retain-until date) has passed is listed here and is
 // erased only when the principal confirms it. Confirmation removes the record's bytes and
 // personal fields and keeps the record, its kind, number, totals, revision, sign-off

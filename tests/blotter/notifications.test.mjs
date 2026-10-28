@@ -72,7 +72,7 @@ test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, 
  }finally{await stale?.close();await h.close();}
 });
 
-test('NOTIFY-001 / BASE-001: due thresholds, user-local quiet hours and once-daily DST digest, restart and paused restore',async()=>{
+test('NOTIFY-001 / BASE-003: due thresholds, user-local quiet hours and once-daily DST digest, restart and paused restore',async()=>{
  const h=await harness();let restored;try{
   const s=await fixture(h);
   await h.json('/notifications/settings',{...base,quietStart:'22:00',quietEnd:'07:00',digestEnabled:true,emailKinds:['due_soon','overdue']},s.prep);
@@ -97,7 +97,7 @@ test('NOTIFY-001 / BASE-001: due thresholds, user-local quiet hours and once-dai
  }finally{await restored?.close();await h.close();}
 });
 
-test('NOTIFY-001 / BASE-001: a real send failure creates an owned in-app exception without recursive retries',async()=>{
+test('NOTIFY-002 / BASE-003: a real send failure creates an owned in-app exception without recursive retries',async()=>{
  const h=await harness({mailResponse:(mail,mails)=>mail.subject.startsWith('Documents needed:')?Response.json({message:'Provider unavailable'},{status:400}):Response.json({id:'test-'+mails.length})});
  try{
   const s=await fixture(h),job=await s.start('2026-04-01','2026-05-01');

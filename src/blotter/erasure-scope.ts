@@ -87,7 +87,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
       set: `address='',subject=NULL,body=NULL,preview_language='en',template_wording_hash=NULL,attachments='[]',misclassified_reason=NULL,held_reason=CASE WHEN status IN ('pending','claimed') THEN 'client erased' ELSE held_reason END,status=CASE WHEN status IN ('pending','claimed') THEN 'held' ELSE status END` },
     { cls: 'message', table: 'b_bulk_exclusions', action: 'redact', label: 'Bulk message exclusions: address', where: `client_id=${s.c}`, set: `address=''` },
     { cls: 'contact', table: 'b_mail_suppressions', action: 'delete', label: 'Plain-text bounce suppressions (a bounced address is dropped, not digested)', where: `address IN (SELECT email FROM b_client_contacts WHERE client_id=${s.c} AND email<>'')` },
-    // PORTAL-002: an account that opens no other entity goes with this one; one that does keeps its other entities.
+    // PORTAL-009: an account that opens no other entity goes with this one; one that does keeps its other entities.
     ...(['b_portal_sessions', 'b_portal_signins', 'b_portal_recovery', 'b_portal_failures'] as const).map((table): Step => ({ cls: 'link', table, action: 'delete', label: `Client portal ${table.slice(9)} of accounts that open no other entity`, where: `account_id IN ${portalOnly(s.c)}` })),
     { cls: 'contact', table: 'b_portal_accounts', action: 'redact', label: 'Client portal accounts that open no other entity: address and second factor (disabled)', where: `id IN ${portalOnly(s.c)}`,
       set: `email='erased+'||id||'@erased.invalid',status='disabled',totp_sealed=NULL,totp_pending_sealed=NULL,totp_confirmed_at=NULL` },

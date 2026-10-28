@@ -1,4 +1,4 @@
-// Integration carriers for the existing ERASURE-002 engine. That engine owns
+// Integration carriers for the existing ERASURE-006 engine. That engine owns
 // approval, holds, counts, immutable-trigger suspension, receipts and fencing.
 import { addYears, localDate } from './retention-clock';
 import { lit, type Context, type Step } from './erasure-scope';

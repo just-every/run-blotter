@@ -1,4 +1,4 @@
-// Explicit CSV field mapping and entity-scoped contact groups (IMPORT-001).
+// Explicit CSV field mapping and entity-scoped contact groups (IMPORT-002).
 import { Buffer } from 'node:buffer';
 import { canonicalJson, sha256, type Diagnostic, type SourceBundle, type ImportMapping } from '../../modules/import-kit/src/d1/index';
 import { contactValues } from '../client-contacts';

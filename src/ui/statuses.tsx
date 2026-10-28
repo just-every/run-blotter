@@ -8,7 +8,7 @@ const allowed = (sub: Row, workTypeId: string) => !sub.work_types.length || sub.
 /** "Waiting – on client documents" for a stage and sub-status. */
 export const statusLabel = (model: Row, stage: string, sub?: string | null) => `${model.stages.find((s: Row) => s.key === stage)?.label ?? stage}${sub ? ` – ${sub}` : ''}`;
 
-/** The stages and sub-statuses a job may move to (WORK-007): open stages while open; In review and Completed only by review. */
+/** The stages and sub-statuses a job may move to (WORK-021): open stages while open; In review and Completed only by review. */
 export function MoveTo({ model, job, run }: { model: Row; job: Row; run: Run }) {
   const stage = job.stage, options = (job.status === 'open' ? OPEN : [stage]).flatMap(key => [
     { value: key, label: statusLabel(model, key) },
@@ -42,7 +42,7 @@ export function JobStatus({ detail, run, tick }: { detail: Row; run: Run; tick: 
 }
 
 /**
- * The board (WORK-006): columns by stage, or by the chosen work type's
+ * The board (WORK-017): columns by stage, or by the chosen work type's
  * sub-statuses; each card moves in place through WORK-007's moves. The
  * person's filters are kept, so a refresh opens the same board.
  */

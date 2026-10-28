@@ -50,7 +50,7 @@ async function schedule(h, batch) {
   return h.json(`/bulk-messages/${batch.batch.id}/schedule`, { fingerprint: batch.batch.fingerprint }, h.owner);
 }
 
-test('MSG-002 / PORTAL-004 / BASE-001 bulk organizer invitations preserve contact-specific questions, send one mail once, retain history and restore exact invitations without links or queued replay', async () => {
+test('MSG-002 / PORTAL-019 / BASE-003 bulk organizer invitations preserve contact-specific questions, send one mail once, retain history and restore exact invitations without links or queued replay', async () => {
   const h = await harness(); let restored;
   try {
     const { a, b, body } = await setup(h), clients = [a, b];
@@ -133,7 +133,7 @@ test('MSG-002 / PORTAL-004 / BASE-001 bulk organizer invitations preserve contac
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('MSG-002 / PORTAL-004 / BASE-001 organizer batches refuse missing authority and unavailable snapshots, freeze preview revisions and hold changed or consent-revoked recipients without mail or new invitations', async () => {
+test('MSG-006 / PORTAL-020 / BASE-003 organizer batches refuse missing authority and unavailable snapshots, freeze preview revisions and hold changed or consent-revoked recipients without mail or new invitations', async () => {
   const h = await harness(); let target;
   try {
     const { a, b, body } = await setup(h);

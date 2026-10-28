@@ -3,7 +3,7 @@
 // files, discussions, notices, expenses and time, and the billing exports that
 // include its work, newest first, with
 // its author, time and the record it links to. Unresolved items are the open
-// requests, tasks, reviews, discussions, notices and uncovered work (CAPACITY-002), each with a responsible
+// requests, tasks, reviews, discussions, notices and uncovered work (CAPACITY-007), each with a responsible
 // person, next action and due condition. A preparer sees only the jobs they
 // may read; client-wide records are for reviewers and the principal. A
 // reviewer or the principal hands any unresolved item to another person.

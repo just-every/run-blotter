@@ -1,5 +1,5 @@
 import { noInvoiceOpenBalanceSql } from './invoices-sources';
-// ERASURE-002 whole-client erasure (ct 22 Oct 2026): preview the classes, holds and named
+// ERASURE-013 whole-client erasure (ct 22 Oct 2026): preview the classes, holds and named
 // exceptions; erase only what the principal approves by digest, reason and the client's name;
 // record the receipt (counts, no values); fence every older archive through native portability.
 import { createPortability } from '@runeditrun/rer/modules/portability';

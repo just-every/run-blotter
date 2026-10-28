@@ -28,7 +28,7 @@ async function sent(h,f,extra={}){const d=await draft(h,f,extra);return h.json(`
 async function complete(h,r){for(const i of r.invitations){const t=token(i),v=await open(h,t,r.id);await sign(h,t,r.id,v);}return h.json(`/signatures/${r.id}`,undefined,h.owner);}
 async function finishJob(h,f){let d=await h.json(`/jobs/${f.job.id}`,undefined,f.prep);for(const r of d.requests){await h.json(`/requests/${r.id}/files`,{name:'synthetic-blotter-11.txt',mime:'text/plain',contentBase64:Buffer.from('Evidence').toString('base64')},f.prep);await h.json(`/requests/${r.id}/decide`,{decision:'accept'},f.prep);}for(const s of d.steps)await h.json(`/jobs/${f.job.id}/steps`,{ordinal:s.ordinal,done:true},f.prep);d=await h.json(`/jobs/${f.job.id}/submit`,{revision:(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).job.revision},f.prep);await h.json(`/jobs/${f.job.id}/review`,{revision:d.job.revision,decision:'signoff',note:'Inspected the evidence'},h.owner);}
 
-test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized sequential and parallel signers, decline/resend, void, filed certificate/timeline, notification preferences and atomic offboarding',async()=>{
+test('SIGN-002 / BASE-001 / NOTIFY-002: real PDF fields, consent, authorized sequential and parallel signers, decline/resend, void, filed certificate/timeline, notification preferences and atomic offboarding',async()=>{
  const h=await harness();let copy;try{
   const f=await fixture(h),key=await h.json('/keys',{label:'synthetic-blotter-12'},h.owner);
   const empty={title:'Denied'};await h.json(`/jobs/${f.job.id}/signatures`,empty,f.outside,404);await h.json(`/jobs/${f.job.id}/signatures`,empty,'',401,{authorization:'Bearer '+key.key});
@@ -73,7 +73,7 @@ test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized seq
  }finally{await copy?.close();await h.close();}
 });
 
-test('SIGN-002 / ERASURE-002: record/class/job holds, clocks, pending refusal, preview counts, retained signatures, named outside copies, approved expiry receipt and stale restore fence',async()=>{
+test('SIGN-011 / ERASURE-013: record/class/job holds, clocks, pending refusal, preview counts, retained signatures, named outside copies, approved expiry receipt and stale restore fence',async()=>{
  const h=await harness();let copy;try{
   const f=await fixture(h),r=await sent(h,f,{title:f.client.name+' management representation'}),done=await complete(h,r),pending=await sent(h,f,{title:'synthetic-blotter-18'});
   let preview=await h.json(`/clients/${f.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.blockers.some(b=>/Pending signature/.test(b)));
@@ -113,7 +113,7 @@ test('SIGN-002 / ERASURE-002: record/class/job holds, clocks, pending refusal, p
  }finally{await copy?.close();await h.close();}
 });
 
-test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the representative signs in their own session, connection evidence is certified, and IRS e-file forms are refused by their PDF text',async()=>{
+test('SIGN-010: Form 2848 needs a staff remote-authentication attestation, the representative signs in their own session, connection evidence is certified, and IRS e-file forms are refused by their PDF text',async()=>{
  const h=await harness();try{
   const f=await fixture(h),rep='staff:'+prepEmail;
   const pdfWith=async lines=>{const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),page=pdf.addPage([612,792]);lines.forEach((line,i)=>page.drawText(line,{x:40,y:740-i*20,font,size:12}));return Buffer.from(await pdf.save()).toString('base64');};
@@ -154,7 +154,7 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
  }finally{await h.close();}
 });
 
-test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attest a 2848, record online submission and CAF status, scope transcripts and agency contact, alert once and withdraw',async()=>{
+test('AUTHZ-001 / SIGN-010 / DUE-002: prepare official IRS forms, sign and attest a 2848, record online submission and CAF status, scope transcripts and agency contact, alert once and withdraw',async()=>{
  const h=await harness();try{
   const f=await fixture(h,{name:'Mia Chen',entityType:'individual'}),client=f.client.contacts.find(c=>c.name==='Mia Chen');
   const body={kind:'2848',representative:'Pat Harper',representativeEmail:prepEmail,matters:[{form:'Form 1040',from:2022,to:2025}]};

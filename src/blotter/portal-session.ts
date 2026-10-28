@@ -1,4 +1,4 @@
-// PORTAL-002 client sign-in. A client proves the address with a one-use emailed link
+// PORTAL-009 client sign-in. A client proves the address with a one-use emailed link
 // (an invitation or a sign-in link), then a second factor when the firm requires one or
 // the account has one. The session is a server-side row behind an HttpOnly cookie; every
 // request rechecks the session, the account and, through liveGrantSql, each entity.

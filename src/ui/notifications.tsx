@@ -11,7 +11,7 @@ type Settings = { personal: Personal; firm: Defaults; kinds: Kind[]; role: strin
 type Save = (path: string, body: unknown, message: string) => Promise<void>;
 const message = (error: unknown) => error instanceof Error ? error.message : 'The request could not be completed';
 
-/** The signed-in staff member's notification center and delivery preferences (NOTIFY-001). */
+/** The signed-in staff member's notification center and delivery preferences (NOTIFY-003). */
 export function MyAlerts({ tick, open }: { tick: number; open: (id: string) => void }) {
   const [alerts, setAlerts] = useState<Row[]>(), [settings, setSettings] = useState<Settings>();
   const [alertsError, setAlertsError] = useState(''), [settingsError, setSettingsError] = useState('');

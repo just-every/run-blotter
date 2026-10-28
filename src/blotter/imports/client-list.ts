@@ -11,7 +11,7 @@ const REQUIRED = ['client_name'];
 const OPTIONAL = ['client_id', 'ein', 'abn', 'contact_name', 'contact_email', 'tags'];
 /** Firm-defined fields arrive as `field:<key>` columns (CRM-002). */
 const FIELD = 'field:';
-/** The client a source row creates; a later merge keeps this id attached to its survivor (CRM-004). */
+/** The client a source row creates; a later merge keeps this id attached to its survivor (CRM-017). */
 export const importTargetId = (sourceId: string) => `import:${sha256(sourceId)}`;
 
 export function clientListSource(raw: unknown, filename: unknown, defs: FieldDef[]) {

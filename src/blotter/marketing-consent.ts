@@ -1,4 +1,4 @@
-// Marketing consent (MSG-002; ct 20 Oct 21:21Z). An append-only log: staff
+// Marketing consent (MSG-015; ct 20 Oct 21:21Z). An append-only log: staff
 // record a contact's own explicit opt-in or withdrawal with evidence, the
 // unsubscribe page and provider complaints record withdrawals, and only the
 // principal records a correction. Grants belong to one contact relationship;
@@ -11,14 +11,14 @@ import { atomic, audit, human, id, insist, need, now, optional, rows, stmt, text
 export const voided = (alias: string) => `EXISTS(SELECT 1 FROM b_marketing_consents v WHERE v.corrects_id=${alias}.id)`;
 /**
  * The contact `c` holds an email grant later than every withdrawal of its address (a withdrawal at the same
- * instant wins) and later than any standing contact-merge hold on it (CRM-004: the most restrictive consent wins).
+ * instant wins) and later than any standing contact-merge hold on it (CRM-018: the most restrictive consent wins).
  */
 export const marketingGrantSql = `EXISTS(SELECT 1 FROM b_marketing_consents g WHERE g.contact_id=c.id AND g.kind='grant' AND g.channel='email' AND g.address=c.email AND NOT ${voided('g')}
   AND NOT EXISTS(SELECT 1 FROM b_marketing_consents w WHERE w.address=c.email AND w.kind='withdraw' AND w.channel='email' AND NOT ${voided('w')} AND w.acted_at>=g.acted_at)
   AND NOT EXISTS(SELECT 1 FROM b_marketing_merge_holds h WHERE h.contact_id=c.id AND h.held_at>=g.acted_at))`;
 export const withdrawnSql = `EXISTS(SELECT 1 FROM b_marketing_consents w WHERE w.address=c.email AND w.kind='withdraw' AND w.channel='email' AND NOT ${voided('w')})`;
 const STAFF_SOURCES = ['staff_evidence', 'staff_reply'];
-/** The public intake form's optional, unticked marketing checkbox (CRM-005 carrier), kept apart from the reply consent. */
+/** The public intake form's optional, unticked marketing checkbox (CRM-023 carrier), kept apart from the reply consent. */
 export const INTAKE_MARKETING = { wording: 'Optional: also email me newsletters, seminar invitations and offers from this practice. I can unsubscribe at any time.', version: 'intake-marketing-v1', language: 'en' };
 
 /** Contacts, by id, holding a current marketing grant. */

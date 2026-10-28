@@ -37,7 +37,7 @@ export async function submitIntake(env: Bindings, request: Request, body: Data) 
   const source = optional(body.source, 'Lead source', 120) || 'Website intake', services = text(body.services, 'Requested services', 1000).split(',').map(s => s.trim()).filter(Boolean);
   insist(services.length > 0 && services.length <= 20 && services.every(s => s.length <= 120), 'List up to 20 requested services');
   const consentAt = now();
-  // The optional marketing checkbox is the contact's own opt-in (MSG-002); its grant follows the contact when the prospect is won.
+  // The optional marketing checkbox is the contact's own opt-in (MSG-009); its grant follows the contact when the prospect is won.
   const answers = { feeBand: optional(body.feeBand, 'Estimated annual budget', 120), details: optional(body.details, 'Inquiry details', 4000), consent: 'Your details go only to this practice to reply to this inquiry.', consentAt,
     ...(body.marketing === true ? { marketing: { ...INTAKE_MARKETING, at: consentAt } } : {}) };
   const recorded = body.marketing === true ? 'Website inquiry; consent and marketing opt-in recorded' : 'Website inquiry; consent recorded';

@@ -1,4 +1,4 @@
-// Text a search can match inside an uploaded document (SEARCH-001). Plain text
+// Text a search can match inside an uploaded document (SEARCH-002). Plain text
 // and CSV files are read as UTF-8. A PDF's content streams (uncompressed or
 // FlateDecode) are read for the strings its text operators show: literal
 // strings with their escapes, and hex strings as single bytes; a line move or

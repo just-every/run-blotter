@@ -52,7 +52,7 @@ export async function createStatements(db: D1Database, actor: Actor, sourceTempl
   const jobId = values.id;
   const [active, activeDone] = guard(db, "EXISTS(SELECT 1 FROM b_clients WHERE id=? AND lifecycle='active' AND merged_into IS NULL)", values.clientId);
   const statements = [active, activeDone,
-    // A job carries the work type chosen for it, else its template's own (WORK-007), and starts Planned.
+    // A job carries the work type chosen for it, else its template's own (WORK-020), and starts Planned.
     stmt(db, `INSERT INTO b_jobs(id,client_id,template_id,title,period_start,period_label,due_date,due_note,preparer_email,reviewer_email,manager_email,status,fee_cents,rolled_from,revision,created_by,created_channel,created_at,work_type_id,open_stage,partner_email,currency)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'planned',?,?)`,
       jobId, values.clientId, template.id, template.name, values.periodStart, periodLabel(values.periodStart, template.recurrence),
@@ -68,7 +68,7 @@ export async function createStatements(db: D1Database, actor: Actor, sourceTempl
     ...[...new Set(JSON.parse(template.steps).map((entry: Data) => entry?.assigneeEmail).filter(Boolean))].map(person =>
       audit(db, actor, 'job.task_access', jobId, `${person} can read this job and act on their own tasks`)),
     ...JSON.parse(template.requests).map((label: string, n: number) => stmt(db, "INSERT INTO b_requests(id,job_id,ordinal,label,status,updated_by,updated_at) VALUES(?,?,?,?,'requested',?,?)", id(), jobId, n + 1, label, actor.email, now())),
-    // The template's questions (WORK-003), unanswered; branches wait for them.
+    // The template's questions (WORK-012), unanswered; branches wait for them.
     ...JSON.parse(template.questions ?? '[]').map((q: Data, n: number) => stmt(db, 'INSERT INTO b_job_answers(job_id,key,ordinal,label,options) VALUES(?,?,?,?,?)', jobId, q.key, n + 1, q.label, JSON.stringify(q.options))),
     ...organizerJobStatements(db,actor,template,values),
     ...learningJobStatements(db, values.clientId, template.id, jobId, template.learningVersionId),
@@ -84,7 +84,7 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   insist(client, 'Client not found', 404);
   const template = await stmt(db, 'SELECT * FROM b_templates WHERE id=?', text(body.templateId, 'Template')).first<Data>();
   insist(template, 'Template not found', 404);
-  // A job started from a client obligation (DUE-001, DUE-003) takes its calculated due date and source.
+  // A job started from a client obligation (DUE-005, DUE-003) takes its calculated due date and source.
   const periodStart = date(body.periodStart, 'Period start');
   const deadline = body.obligationId ? await jobDeadline(db, client.id, text(body.obligationId, 'Obligation'), periodStart, template.recurrence) : null;
   const values = {
@@ -95,7 +95,7 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
     // The manager job role (WORK-009) is the reviewer unless someone is named.
     manager: body.managerEmail ? await assignee(db, body.managerEmail, 'Manager', ['reviewer']) : null,
   };
-  // The work type (WORK-007): the one chosen, else the template's own; its default budget applies unless one is given.
+  // The work type (WORK-020): the one chosen, else the template's own; its default budget applies unless one is given.
   const type = await stmt(db, 'SELECT * FROM b_work_types WHERE id=?', body.workTypeId ? text(body.workTypeId, 'Work type') : 'wt-' + template.id).first<Data>();
   insist(type, 'Work type not found', 404);
   // The roles the work type needs beyond preparer and reviewer: a manager and a partner (never the preparer) must be named.
@@ -105,7 +105,7 @@ export async function startJob(env: Bindings, actor: Actor, body: Data) {
   insist(!roles.includes('partner') || partner, `${type.name} work needs a partner for sign-off`);
   insist(partner !== values.preparer, 'The partner cannot be the preparer', 400);
   Object.assign(values, { workTypeId: type.id, partner: roles.includes('partner') ? partner : null });
-  // An optional time budget, approved by the reviewer or principal who starts the job (TIME-001).
+  // An optional time budget, approved by the reviewer or principal who starts the job (TIME-005).
   const budgetMinutes = body.budgetMinutes === undefined || body.budgetMinutes === '' ? type.budget_minutes : integer(body.budgetMinutes, 'Time budget in minutes', 1, 100_000);
   await atomic(db, actor, [...await createStatements(db, actor, template, values), ...(deadline ? [deadline.statement(values.id)] : []), ...(budgetMinutes ? [stmt(db, 'UPDATE b_jobs SET budget_minutes=? WHERE id=?', budgetMinutes, values.id)] : [])]);
   await advance(env, [values.id], actor.email);
@@ -157,7 +157,7 @@ export async function jobDetail(db: D1Database, actor: Actor, jobId: string) {
   ]);
   if (client?.ssn_last4) client.ssn_last4 = '•••••' + client.ssn_last4;
   const next = await stmt(db, 'SELECT id FROM b_jobs WHERE rolled_from=?', j.id).first<Data>();
-  // Full readers see the client link's progress, messages and to-dos (PORTAL-003); a named-task reader does not.
+  // Full readers see the client link's progress, messages and to-dos (PORTAL-018); a named-task reader does not.
   const portal = j.access === 'full' ? await staffPortal(db, j) : null;
   return { warnings: await creditHoldWarnings(db, actor, j.client_id), deadline: await deadlineFor(db, j.id), contacts: await clientContacts(db,actor,j.client_id), job: j, starter: j.starter_content ? JSON.parse(j.starter_content) : null, portal, statusHistory: await statusHistory(db, actor, j.id), client, budget: await budget(db, j), timer: await myTimer(db, actor) ?? null, steps, requests: requests.map(r => ({ ...r, files: files.filter(f => f.request_id === r.id) })), reminders, time, links, deliverables, ...money, answers, nextJobId: next?.id ?? null };
 }
@@ -176,7 +176,7 @@ export async function setStep(env: Bindings, actor: Actor, jobId: string, body: 
   insist(step, 'Checklist step not found', 404);
   insist(j.access === 'full' || step.assignee_email === actor.email, 'You can act only on your own tasks on this job', 403);
   const [check, release] = guard(db, "EXISTS(SELECT 1 FROM b_jobs WHERE id=? AND status='open')", j.id);
-  // A task that is blocked or outside its answered branch cannot be completed (WORK-003).
+  // A task that is blocked or outside its answered branch cannot be completed (WORK-013).
   const ready = done && !step.done_at ? await readyGuard(db, j, ordinal) : [];
   await atomic(db, actor, [check, ...ready,
     await completion(db, j, step, done, actor.email, now(), body),
@@ -212,7 +212,7 @@ export async function reviewJob(env: Bindings, actor: Actor, jobId: string, body
   const j = await job(db, actor, jobId);
   insist(j.status === 'review', 'This job is not waiting for review', 409);
   insist(body.revision === j.revision, 'The job changed. Refresh and try again.', 409);
-  // After the reviewer's sign-off a partner-sign-off job waits for its partner (WORK-007); only they or the principal act on it.
+  // After the reviewer's sign-off a partner-sign-off job waits for its partner (WORK-023); only they or the principal act on it.
   const partnerStep = !!j.reviewed_at;
   insist(actor.role === 'owner' || actor.email === (partnerStep ? j.partner_email : j.reviewer_email),
     partnerStep ? 'Only the named partner or the principal can sign off or return this job' : 'Only the assigned reviewer or the principal can review this job', 403);

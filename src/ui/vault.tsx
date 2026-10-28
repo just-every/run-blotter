@@ -15,7 +15,7 @@ export function CredentialFields({ credential = {} }: { credential?: Row }) {
   </>;
 }
 
-/** Staff list a client's credentials by name; each reveal asks for a fresh second-factor code (VAULT-001). */
+/** Staff list a client's credentials by name; each reveal asks for a fresh second-factor code (VAULT-003). */
 export function ClientVault({ clientId, run, tick, owner }: { clientId: string; run: Run; tick: number; owner: boolean }) {
   const [vault, setVault] = useState<Row>(), [shown, setShown] = useState<Row>();
   useEffect(() => { api(`/clients/${clientId}/credentials`).then(setVault).catch(e => run(async () => { throw e; })); }, [clientId, tick]);
