@@ -14,7 +14,7 @@ export function ResolutionCases({ jobId, actor, run, tick }: { jobId: string; ac
   return <>
     {(record || candidate) && <section className="panel" id="resolution-case" aria-label="Resolution case">
       <h2>Resolution case · 433-A collection</h2>
-      <p className="notice">Transcript context unavailable. Collection answers are client supplied. The practitioner chooses the resolution path; this case makes no recommendation and takes no agency action.</p>
+      <p className="muted">Transcript context unavailable. Collection answers are client supplied. The practitioner chooses the resolution path; this case makes no recommendation and takes no agency action.</p>
       {record ? <>
         <p>Case {record.id} · organizer version {record.definition_version}<br />Question set reviewed by {record.reviewed_by} · {when(record.reviewed_at)}</p>
         {view.erased ? <p>Client erased. Collection content is unavailable here; retained originals remain under the existing retention policy.</p> : <>

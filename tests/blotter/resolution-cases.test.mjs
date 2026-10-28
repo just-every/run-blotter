@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { harness } from './harness.mjs';
+import { enroll } from './erasure-fixture.mjs';
 import { address, contact, definition, setup, answer, portal, tokenOf, save } from './organizers-fixture.mjs';
 import { resolutionStaffJourney, resolutionPhoneJourney } from './resolution-cases-ui.mjs';
 
@@ -43,7 +44,7 @@ test('Reviewed 433-A collection on a native case preserves two-contact responsib
     await h.json(`/jobs/${s.job.id}/organizers/send`, { revision: s.organizer.revision, assignments: s.assignments }, h.owner, 409);
     await h.json(path, { ...body, reviewed: false }, h.owner, 400);
     await h.json(path, { ...body, revision: 'stale' }, h.owner, 409);
-    await h.json(path, body, s.prep, 403); await h.json(path, body, s.outside, 404);
+    await h.json(path, body, s.prep, 403); await h.json(path, body, s.outside, 403); await h.json(path, undefined, s.outside, 404);
     await resolutionStaffJourney(h, s, 'create');
     const initial = await h.json(path, undefined, h.owner);
     assert.equal(initial.case.organizer_id, s.organizer.id); assert.equal(initial.case.job_id, s.job.id);
@@ -113,6 +114,16 @@ test('Case collection rechecks live contact and staff authority, isolates client
     await h.json(`${portal(foreignToken)}/${encodeURIComponent(s.organizer.id)}`, undefined, undefined, 404);
     const key = await h.json('/keys', { label: 'synthetic-blotter-433 preparation' }, h.owner), auth = { authorization: 'Bearer ' + key.key };
     await h.json(casePath(s.job), undefined, '', 401, auth); await h.json(casePath(s.job), review(s.organizer), '', 401, auth);
+    await h.json('/access/people', { email: address('reviewer'), readOnly: false, clientIds: [s.client.id] }, h.owner);
+    await h.json(casePath(s.job), undefined, s.reviewer);
+    await h.json(casePath(job), undefined, s.reviewer, 404);
+    await h.json('/access/people', { email: address('reviewer'), readOnly: false, clientIds: [] }, h.owner);
+    await h.json(casePath(s.job), undefined, s.reviewer, 404);
+    await h.json('/access/people', { email: address('reviewer'), readOnly: false, clientIds: [s.client.id] }, h.owner);
+    const factor = await enroll(h, s.reviewer), unconfirmed = await h.login(address('reviewer'));
+    assert.equal((await h.json(casePath(s.job), undefined, unconfirmed, 403)).mfa, 'verify');
+    await h.json('/mfa/verify', { recoveryCode: factor.recovery[0] }, unconfirmed);
+    await h.json(casePath(s.job), undefined, unconfirmed);
     await complete(h, s, tokens);
     const oldArchive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     const before = await current(h, s.job);
@@ -130,6 +141,7 @@ test('Case collection rechecks live contact and staff authority, isolates client
     const after = await h.json(casePath(s.job), undefined, h.owner);
     assert.deepEqual(after.answers, {}); assert.ok(after.organizer.submissions.every(s => s.answers === null));
     assert.deepEqual(after.case, record.case, 'Erasure preserves structural case links and review attribution');
+    await h.json(casePath(s.job), review(s.organizer), h.owner, 409);
     await save(h, tokens.b, { id: s.organizer.id, revision: before.revision }, { bookkeeping: answer('Replay erased data') }, true, 404);
     const latest = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
     restored = await harness(); await restored.json('/restore', { archive: oldArchive, journal: latest, confirm: 'RESTORE' }, restored.owner, 409);
@@ -160,6 +172,7 @@ test('Resolution originals honor holds and signed-work custody through client er
     assert.equal(portable.answers.bookkeeping.value, 'synthetic-blotter-433 household information');
     await restored.json(portal(tokens.a), undefined, undefined, 404);
     await restored.close(); restored = undefined;
+    await h.json(`/clients/${s.client.id}/lifecycle`, { lifecycle: 'archived', revision: (await h.json(`/clients/${s.client.id}/detail`, undefined, h.owner)).revision }, h.owner);
     const preview = await h.json(`/clients/${s.client.id}/erasure/preview`, undefined, h.owner);
     assert.deepEqual(preview.blockers, []);
     assert.ok(preview.retained.some(r => r.key === 'consumed_originals' && r.count === 2));

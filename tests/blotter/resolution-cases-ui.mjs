@@ -42,7 +42,7 @@ export async function resolutionStaffJourney(h, s, phase) {
       await expect(panel).toContainText('Corrected monthly business profit 2400');
       const file = panel.getByRole('link', { name: 'synthetic-blotter-433.txt', exact: true });
       assert.equal(await file.count(), 1);
-      const original = await page.request.get(await file.getAttribute('href'));
+      const original = await page.request.get(h.origin + await file.getAttribute('href'));
       assert.equal(await original.text(), 'synthetic-blotter-433 original supporting bytes');
       const organizer = page.getByRole('region', { name: s.organizer.definition.name, exact: true });
       const originalSubmission = organizer.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Submission 1 · Alex Owner', exact: true }) });
