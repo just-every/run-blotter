@@ -8,7 +8,7 @@ import { atomic, audit, Fault, guard, id, insist, now, rows, stmt, text, type Ac
 
 async function portalSignature(db:D1Database,token:string,requestId:string) {
   const p=await portalJob(db,token),r=await signatureRecord(db,requestId);
-  insist(r.job_id===p.job.id&&r.status!=='draft'&&!r.erased_at,'Signature request not found',404);
+  insist(r.job_id===p.job.id&&r.status!=='draft'&&r.sent_at&&!r.erased_at,'Signature request not found',404);
   const signers=await signerRows(db,r),s=signers.find(s=>s.contact_id===p.contact.id);
   insist(s&&s.contact_revision===p.contact.revision&&p.contact.signer,'Signature request not found or signer authority changed',404);
   return {...p,r,s,signers};
@@ -29,7 +29,7 @@ export async function portalSignatures(db:D1Database,token:string) {
   const p=await portalJob(db,token);
   return rows(db,`SELECT r.id,r.title,r.status,r.mode,r.attempt,r.completed_at,r.revision,s.status signer_status FROM b_signatures r
     JOIN b_signature_signers s ON s.request_id=r.id AND s.attempt=r.attempt
-    WHERE r.job_id=? AND s.contact_id=? AND s.contact_revision=? AND r.status<>'draft' AND r.erased_at IS NULL AND ?=1 ORDER BY r.created_at,r.id`,p.job.id,p.contact.id,p.contact.revision,p.contact.signer);
+    WHERE r.job_id=? AND s.contact_id=? AND s.contact_revision=? AND r.status<>'draft' AND r.sent_at IS NOT NULL AND r.erased_at IS NULL AND ?=1 ORDER BY r.created_at,r.id`,p.job.id,p.contact.id,p.contact.revision,p.contact.signer);
 }
 export async function portalSignatureDetail(db:D1Database,token:string,requestId:string) {
   const p=await portalSignature(db,token,requestId),[check,done]=portalFence(db,p);

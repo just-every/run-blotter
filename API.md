@@ -579,3 +579,17 @@ is excluded from archives with portal links. Completed files use ordinary
 DOC-001 originals and ERASURE-002 classes, clocks, holds, preview, receipts and
 stale-restore fencing. Staff transport cannot resume portal staging. New packet
 originals start internal and grant no new contact download rights.
+
+
+## Ordinary engagement proposal versions
+
+The principal authors and amends proposals and explicitly sends or voids their signing requests. Other staff with current working access to the job may read versions and downloads. This is the standing conservative owner-only authority default; delegated proposal authority remains unbuilt. Person and session MFA checks apply; integration bearers and agent keys have no proposal authority.
+
+- `GET /api/blotter/clients/:id/engagement-proposals` lists visible proposal versions.
+- `POST /api/blotter/jobs/:id/engagement-proposals` freezes a new ordinary proposal. Supply `title`, `scope`, `exclusions`, explicit `currency: "USD"`, integer `feeCents`, `retainerTerms`, `renewalRules`, `amendmentRules` and two distinct authorized contact IDs in `contactIds`.
+- `GET /api/blotter/engagement-proposals/:id` returns the frozen terms, signing evidence and version chain.
+- `POST /api/blotter/engagement-proposals/:id/amend` takes the same complete terms and the current signature `revision`. A single transaction creates the next version and voids the prior signing authority. Stale or concurrent completion refuses on the same revision; a completed or superseded version cannot be amended. Partial earlier signatures and exact source bytes remain evidence.
+
+Review the generated PDF, then explicitly send through `POST /api/blotter/signatures/:id/send`. Existing SIGN-002 contact-bound portal doors collect separate electronic consent and signatures, and provide original, signed and certificate PDF downloads. Both contacts sign every replacement. Marketing consent is separate and signing changes no invoice, payment mandate or onboarding record; proposal completion does not trigger signature automation. IRS e-file forms remain refused pending SIGN-001 KBA.
+
+Completed proposal families, including partially signed prior versions, use the signed-engagement class period and its later client-work sign-off clock. Existing signature record holds, class and job holds, erasure previews, retained principal reads, explicit expiry receipts and stale-restore fences apply. Expiry clears proposal terms and PDF bytes while preserving version links and attribution. Mail invitations and staff and contact downloads are named outside copies. Unfinished restored requests stay held until an explicit fresh send; old contact links never travel. Practitioner-recorded signed letters retain their existing provenance label.
