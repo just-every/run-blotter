@@ -45,6 +45,8 @@ export interface Bindings {
  RER_MANAGEMENT_ORIGIN?: string
  OWNER_EMAIL: string
  /** A hosted demo's front signs the owner claim; set only there. */
+ RER_BUSINESS_TRUST?: string
+ RER_OWNER_CLAIM_APP_ORIGIN?: string
  RER_OWNER_CLAIM_ISSUER?: string
  RER_OWNER_CLAIM_INSTALLATION_ID?: string
  RER_OWNER_CLAIM_PUBLIC_KEYS?: string

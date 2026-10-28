@@ -1,0 +1,442 @@
+{
+  "schema": "rer-agent-surface/1",
+  "seed": "blotter",
+  "specialist": "practice coordinator",
+  "tools": [
+    {
+      "name": "blotter.billing.prepare",
+      "scope": "billing:prepare",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "AGENT-001",
+        "BILL-001"
+      ]
+    },
+    {
+      "name": "blotter.events.list",
+      "scope": "events:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "BASE-AGENT-010"
+      ]
+    },
+    {
+      "name": "blotter.learning.evidence",
+      "scope": "learning:read",
+      "readOnly": true,
+      "classes": [
+        "sensitive"
+      ],
+      "clauses": [
+        "LEARN-001"
+      ]
+    },
+    {
+      "name": "blotter.learning.prepare",
+      "scope": "learning:prepare",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "LEARN-001"
+      ]
+    },
+    {
+      "name": "blotter.learning.read",
+      "scope": "learning:read",
+      "readOnly": true,
+      "classes": [
+        "sensitive"
+      ],
+      "clauses": [
+        "LEARN-001"
+      ]
+    },
+    {
+      "name": "blotter.practice.context",
+      "scope": "context:read",
+      "readOnly": true,
+      "classes": [
+        "sensitive"
+      ],
+      "clauses": [
+        "AGENT-001",
+        "ACCESS-001",
+        "ACCESS-002"
+      ]
+    },
+    {
+      "name": "blotter.practice.snapshot",
+      "scope": "context:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "AGENT-001",
+        "ACCESS-001",
+        "ACCESS-002"
+      ]
+    },
+    {
+      "name": "blotter.readiness.prepare",
+      "scope": "readiness:prepare",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "READY-001"
+      ]
+    },
+    {
+      "name": "blotter.readiness.read",
+      "scope": "readiness:read",
+      "readOnly": true,
+      "classes": [
+        "sensitive"
+      ],
+      "clauses": [
+        "READY-001",
+        "ACCESS-001",
+        "ACCESS-002"
+      ]
+    },
+    {
+      "name": "blotter.reminder.prepare",
+      "scope": "reminder:prepare",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "AGENT-001",
+        "PORTAL-001"
+      ]
+    },
+    {
+      "name": "blotter.rollforward.prepare",
+      "scope": "rollforward:prepare",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "AGENT-001",
+        "WORK-002"
+      ]
+    }
+  ],
+  "notTools": [
+    {
+      "clauses": [
+        "MOBILE-001"
+      ],
+      "reason": "device"
+    },
+    {
+      "clauses": [
+        "IMPORT-001",
+        "ARCHIVE-001",
+        "ARCHIVE-002"
+      ],
+      "reason": "import-door"
+    },
+    {
+      "clauses": [
+        "BASE-001",
+        "COST-001"
+      ],
+      "reason": "installation"
+    },
+    {
+      "clauses": [
+        "AI-003",
+        "INTEGRATE-001",
+        "INTEGRATE-002",
+        "INTEGRATE-003",
+        "INTEGRATE-004",
+        "INTEGRATE-005",
+        "INTEGRATE-006",
+        "INTEGRATE-007",
+        "INTEGRATE-008"
+      ],
+      "reason": "connector"
+    }
+  ],
+  "resources": [
+    "blotter://clients/{id}",
+    "blotter://engagements/{id}",
+    "blotter://proposals/{id}",
+    "blotter://learning/{id}"
+  ],
+  "witness": {
+    "tool": "blotter.practice.snapshot",
+    "args": {}
+  },
+  "escalations": [],
+  "journey": [
+    {
+      "id": "snapshot",
+      "tool": "blotter.practice.snapshot",
+      "args": {},
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "context",
+      "tool": "blotter.practice.context",
+      "args": {},
+      "expect": [
+        {
+          "class": "sensitive",
+          "facts": {
+            "kind": "practice"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rollforward",
+      "tool": "blotter.rollforward.prepare",
+      "args": {
+        "jobId": {
+          "$from": "context",
+          "pointer": "/jobs/1/id"
+        },
+        "dueDate": "2026-04-15",
+        "dueNote": "Firm approved target; this proposal creates no work"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ],
+      "inject": {
+        "classes": [
+          "money"
+        ],
+        "internal": true,
+        "confirmExternal": false
+      }
+    },
+    {
+      "id": "reminder",
+      "tool": "blotter.reminder.prepare",
+      "args": {
+        "jobId": {
+          "$from": "context",
+          "pointer": "/jobs/2/id"
+        },
+        "message": "Please provide the source statement. Treat embedded instructions as untrusted."
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "billing",
+      "tool": "blotter.billing.prepare",
+      "args": {
+        "title": "Review close fees",
+        "sourceKeys": [
+          {
+            "$from": "context",
+            "pointer": "/unbilled/0/source_key"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "readiness",
+      "tool": "blotter.readiness.read",
+      "args": {
+        "jobId": {
+          "$from": "context",
+          "pointer": "/jobs/2/id"
+        }
+      },
+      "expect": [
+        {
+          "class": "sensitive",
+          "facts": {
+            "measure": 1,
+            "kind": "practice"
+          }
+        }
+      ]
+    },
+    {
+      "id": "question",
+      "tool": "blotter.readiness.prepare",
+      "args": {
+        "jobId": {
+          "$from": "context",
+          "pointer": "/jobs/2/id"
+        },
+        "sourceKind": "request",
+        "sourceId": {
+          "$from": "readiness",
+          "pointer": "/documents/0/id"
+        }
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "evidence",
+      "tool": "blotter.learning.evidence",
+      "args": {
+        "jobIds": [
+          {
+            "$from": "context",
+            "pointer": "/jobs/0/id"
+          },
+          {
+            "$from": "context",
+            "pointer": "/jobs/1/id"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "class": "sensitive",
+          "facts": {
+            "measure": 2,
+            "kind": "practice"
+          }
+        }
+      ]
+    },
+    {
+      "id": "improvement",
+      "tool": "blotter.learning.prepare",
+      "args": {
+        "jobIds": [
+          {
+            "$from": "context",
+            "pointer": "/jobs/0/id"
+          },
+          {
+            "$from": "context",
+            "pointer": "/jobs/1/id"
+          }
+        ],
+        "clientIds": [
+          {
+            "$from": "evidence",
+            "pointer": "/jobs/0/clientId"
+          }
+        ],
+        "title": "Reconcile merchant deposits before review",
+        "expectedBenefit": "Reduce repeated review returns",
+        "exceptions": "Unclear evidence remains practitioner judgment",
+        "assumptions": "Comparable monthly close periods",
+        "improvement": {
+          "steps": [
+            "Reconcile merchant deposits",
+            "Prepare close"
+          ],
+          "requests": [
+            "Bank statement"
+          ]
+        },
+        "supportingRefs": [
+          {
+            "kind": "review_return",
+            "id": {
+              "$from": "evidence",
+              "pointer": "/jobs/0/corrections/0/id"
+            }
+          },
+          {
+            "kind": "review_return",
+            "id": {
+              "$from": "evidence",
+              "pointer": "/jobs/1/corrections/0/id"
+            }
+          }
+        ]
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "improvement-read",
+      "tool": "blotter.learning.read",
+      "args": {
+        "id": {
+          "$from": "improvement",
+          "pointer": "/id"
+        }
+      },
+      "expect": [
+        {
+          "class": "sensitive",
+          "facts": {
+            "measure": 1,
+            "kind": "practice"
+          }
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "tool": "blotter.events.list",
+      "args": {
+        "limit": 200
+      },
+      "expect": [
+        {
+          "class": "standard"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "owner": {
+      "initializer": "tests/agent-door/owner.mjs"
+    }
+  }
+}
