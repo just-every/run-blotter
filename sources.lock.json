@@ -164,7 +164,7 @@
       "executable": false
     },
     "docs/agent-door.md": {
-      "sha256": "27de19515edb3f9562ca39a62902248d35f336a9130c1937705914fb4d6a40dd",
+      "sha256": "a32c2d426aab4585d63f0e6b2c36f2f16c5d9760eddd39e0a11bad67001dde4c",
       "executable": false
     },
     "docs/ai-assistance.md": {
@@ -1259,6 +1259,10 @@
       "sha256": "d80012a2a76b47e6207848ba59d320525daeca79f3efff02e776248533c6ce8d",
       "executable": false
     },
+    "src/blotter/agent-door/custody.ts": {
+      "sha256": "acb3aa3932b6db59e1f0df7858b3e4fbb646aa77c19bd0a2f50b047c16900816",
+      "executable": false
+    },
     "src/blotter/agent-door/index.ts": {
       "sha256": "05cd39dc6e1e7b0d43d15871e8c6f0d8995908cabac18d113ab85a9d95711d22",
       "executable": false
@@ -1528,11 +1532,11 @@
       "executable": false
     },
     "src/blotter/erasure-plan.ts": {
-      "sha256": "7be86c84c0de99b9038c99a2f4242a914a0f8a45cea145acee7f13b3286b08a0",
+      "sha256": "39dc7c64833c1bdb8d53a98505f237ed711240a54f7e487355befe5518bdfc5f",
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "64f4f3b244ab0e87909313fc82af6f216de3c5fec8c3df781a09faf74b937900",
+      "sha256": "13f234edb6a3572849f7f1c8ff194e3d4285048457184be7f8d5aa2c751d8232",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -5156,7 +5160,7 @@
       "executable": false
     },
     "tests/blotter/integration-keys.test.mjs": {
-      "sha256": "42290caf2759b4e7d33fce8d688ac93f0336be50583e851aa637f7af88700130",
+      "sha256": "24f3b9124f6d3b37a411c27e4f899e3eb899f5265c26f906ee257b8196a1cff7",
       "executable": false
     },
     "tests/blotter/integration-ui.mjs": {

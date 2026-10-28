@@ -73,7 +73,7 @@ not represented by these preparation tools. The broader ct Agent surface remains
 unmerged and unjudged; its four-part job names also need alignment with Base's
 three-part tool naming contract. No clause status is promoted by this adoption.
 
-Two Base interfaces block complete adoption at the runtime pin recorded in
+Three Base interfaces block complete adoption at the runtime pin recorded in
 `base-copies.json`:
 
 - Resource readers receive only `{person, db}`. Blotter's native retained-invoice
@@ -86,9 +86,17 @@ Two Base interfaces block complete adoption at the runtime pin recorded in
   consent's revocation through this hook. Persisting a guessed consent or calling
   a different policy dispatcher is not an adoption.
 
-A Base resource context carrying authenticated attribution and an embedded
-invocation/context carrying the originating consent are required before the
-remaining resources, legacy agent endpoints and scheduled work can complete the
+- The door has no client-custody/erasure hook for private cached outcomes,
+  pending approvals, review summaries and trace data. The native registry classifies
+  these stores explicitly. Existing client erasure remains available with empty
+  shared history; once shared history exists, erasure fails closed with an owned
+  custody exception. A complete client-scoped redaction and replay fence is
+  required before that exception can be resolved.
+
+A Base resource context carrying authenticated attribution, embedded
+invocation/context carrying the originating consent, and module-owned
+client-custody hooks are required before the
+remaining resources, legacy agent endpoints, scheduled work and client custody can complete the
 one-door migration. Practice archives retain door audit, events, usage and native revision handles. Live
 Business bindings, policy state, agent admission, pending approvals/reviews and
 cached call authority are installation-local and excluded from export and import.

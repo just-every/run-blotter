@@ -59,7 +59,12 @@ test('API-002 / BASE-001 integration lifecycle: principal step-up, bounded pagin
   assert.ok(audit.some(a=>a.action==='integration.key_created'&&a.object_id===key.id&&a.actor==='owner@example.test'));
   assert.ok(audit.some(a=>a.action==='integration.read'&&a.object_id===key.id&&a.actor.includes(key.id)));
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
-  assert.ok(!archive.includes(key.key));assert.ok(!archive.includes('"table":"b_integration_limits"'));
+  assert.ok(!archive.includes(key.key));
+  // Rer retains schema objects for excluded tables; their rows and catalogue
+  // entries remain excluded. Check actual exported data rather than schema text.
+  const records=archive.trim().split('\n').map(JSON.parse);
+  assert.ok(!records.find(r=>r.kind==='manifest').tables.some(t=>t.name==='b_integration_limits'));
+  assert.ok(!records.filter(r=>r.kind==='part').flatMap(r=>r.items).some(r=>r.kind==='row'&&r.table==='b_integration_limits'));
   restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const restoredKeys=await restored.json('/integration-keys',undefined,restored.owner);
   assert.equal(restoredKeys.keys.find(k=>k.id===key.id).status,'suspended');
