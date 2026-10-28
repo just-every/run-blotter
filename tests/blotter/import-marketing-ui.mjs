@@ -1,4 +1,4 @@
-// MSG-002 / IMPORT-001: use the native Move in screen with the real HTTP Worker.
+// MSG-002 / IMPORT-001 / IMPORT-002: use the native Move in screen with the real HTTP Worker.
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';

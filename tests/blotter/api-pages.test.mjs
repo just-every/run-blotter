@@ -49,7 +49,7 @@ before(async () => {
 });
 after(async () => { await h?.close(); });
 
-test('API-002 native work pages: tied due/client keys, filters, live visibility and cursor validation', async () => {
+test('API-002 / API-003 native work pages: tied due/client keys, filters, live visibility and cursor validation', async () => {
   const listed = await allPages('work', { limit: 2 }, prep);
   assert.deepEqual(listed.map(item => item.id).sort(), jobs.map(item => item.id).sort());
   const ordered = [...listed].sort((a, b) => cmp(a.due_date, b.due_date) || cmp(a.client_name, b.client_name) || cmp(a.id, b.id));
@@ -82,7 +82,7 @@ test('API-002 native work pages: tied due/client keys, filters, live visibility 
   assert.ok((await h.json(path('work'), undefined, prep)).items.every(item => item.preparer_email === firstEmail));
 });
 
-test('API-002 native time pages: descending keys, inclusive dates, own-person scope and bound cursors', async () => {
+test('API-002 / API-003 native time pages: descending keys, inclusive dates, own-person scope and bound cursors', async () => {
   const listed = await allPages('time', { limit: 2, from: '2026-10-01', to: '2026-10-03' }, prep);
   assert.deepEqual(listed.map(item => item.id).sort(), entries.map(item => item.id).sort());
   assert.deepEqual(listed.map(item => [item.person_email,item.minutes,item.rate_cents,item.amount_cents,item.currency,item.description,item.status]), entries.map(() => [firstEmail,15,6000,1500,'USD','Page boundary work',null]), 'Versioned writes read back exactly once with native snapshots and no submission');
@@ -107,7 +107,7 @@ test('API-002 native time pages: descending keys, inclusive dates, own-person sc
   await h.json(path('time'), undefined, '', 401);
 });
 
-test('API-002 / BASE-001 native client pages: exact fields, tied Unicode names, scope, bound cursors and read-only traversal', async () => {
+test('API-002 / API-003 / BASE-001 native client pages: exact fields, tied Unicode names, scope, bound cursors and read-only traversal', async () => {
   const made = [];
   for (const name of ['Client ties café', 'Client ties café', 'Ω client', '𐀀 client', '😀 client']) {
     made.push(await h.json('/clients', { name }, h.owner));
@@ -173,7 +173,7 @@ test('API-002 / BASE-001 native client pages: exact fields, tied Unicode names, 
   } finally { await restored.close(); }
 });
 
-test('API-002 / BASE-001 client cursors lose job/task authority and follow current roles, MFA and member status', async () => {
+test('API-002 / API-003 / BASE-001 client cursors lose job/task authority and follow current roles, MFA and member status', async () => {
   const address = 'pages-reader@example.test';
   await h.json('/team', { email: address, name: 'Page reader', role: 'preparer' }, h.owner);
   await h.json('/team/invite', { email: address }, h.owner);

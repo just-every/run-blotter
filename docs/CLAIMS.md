@@ -27,5 +27,17 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 19 | Migration from Karbon, TaxDome, Canopy, Financial Cents and Double | `MIGRATE-001` missing; `MIGRATE-002` missing; `MIGRATE-003` missing; `MIGRATE-004` missing; `MIGRATE-005` missing | missing |
 | 20 | Recurrence and future work survive cutover without duplication | `MIGRATE-006` partial; `MIGRATE-008` partial | partial |
 | 21 | Staff can run Blotter, try the demo and read the docs | `BASE-001` partial | partial |
+| 22 | Email portal and opted-in text reminders stop on completed documents | `FOLLOWUP-001` partial; `SMS-001` missing; `PORTAL-003` partial; `PORTAL-010` partial | partial |
+| 23 | A wrong-period statement is identified and returned without losing the original | `AI-002` partial; `DOC-001` partial; `DOC-004` partial; `DOC-005` partial | partial |
+| 24 | A client can scan a statement on a phone | `MOBILE-001` partial | partial |
+| 25 | Spanish organizers retain supporting uploads and confirmed prior-year answers | `PORTAL-004` partial; `PORTAL-011` partial; `PORTAL-012` partial; `PORTAL-005` partial | partial |
+| 26 | Both spouses can sign Form 8879 in Spanish with a failed identity-question retry | `SIGN-001` missing; `PORTAL-005` partial | partial |
+| 27 | ACH pending and settlement stay distinct and the Stripe fee is shown separately | `PAY-001` partial | partial |
+| 28 | Collected fees synchronize to the firm’s QuickBooks Online | `INTEGRATE-001` missing | missing |
+| 29 | The agent identifies payroll work outside signed scope under company policy | `REVENUE-001` partial | partial |
+| 30 | Moved auto-pay methods or tracked client reauthorization are ready before cutover charging | `MIGRATE-007` missing | missing |
+| 31 | Queue stage and staff totals reconcile across all returns | `WORK-007` partial; `WORK-013` partial; `REPORT-001` partial; `REPORT-002` partial; `REPORT-003` partial | partial |
+| 32 | Bank-reconciliation variances retain their source receipt and reviewer sign-off | `LEDGER-002` missing; `REVIEW-001` partial | partial |
+| 33 | Migration counts reconcile at the approved cutover | `MIGRATE-001` missing; `SWITCH-001` missing | missing |
 
-Claims: 21; 0 done, 19 partial, 2 missing.
+Claims: 33; 0 done, 28 partial, 5 missing.

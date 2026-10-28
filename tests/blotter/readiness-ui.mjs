@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
-// READY-001: the approved question uses the existing client portal, at both widths.
+// READY-001 / READY-002: the approved question uses the existing client portal, at both widths.
 export async function readinessPortalJourney(h, token) {
   const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain','--password-store=basic'] });
   const evidence = process.env.BLOTTER_READINESS_EVIDENCE;

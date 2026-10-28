@@ -6,7 +6,7 @@ const mapping={client_id:'Account',client_name:'Entity',entity_type:'Type',ein:'
 const header='Account,Entity,Type,Tax,Contact,Name,Email,Role,Authorized,Portal,Requests,Mail,Tags';
 const line=(i,c='one',extra={})=>[i,`Client ${i}`,extra.type??'business','',c,`Contact ${c}`,`${c}.${i}@example.test`,'primary','true','true','true','true','1040'].join(',');
 
-test('BASE-001 / IMPORT-001 mapped entity/contact CSV: write-free errors and duplicate review, exact file/mapping commit, resume, source replay, native matching without grants, conflict-preserving undo and protected portable originals',async()=>{
+test('BASE-001 / IMPORT-001 / IMPORT-002 mapped entity/contact CSV: write-free errors and duplicate review, exact file/mapping commit, resume, source replay, native matching without grants, conflict-preserving undo and protected portable originals',async()=>{
  const h=await harness();let restored;
  try{
   const existing=await h.json('/clients',{name:'Client native',contacts:[{name:'Contact one',email:'one.native@example.test',roles:['primary'],authorized:true,portal:true,requestConsent:true,emailConsent:true}]},h.owner);
@@ -61,7 +61,7 @@ const consentCsv = records => [marketingHeader.join(','), ...records.map(r=>mark
 const importedContact = (i, extra={}) => ({client_id:`consent-${i}`,client_name:`Consent client ${String(i).padStart(2,'0')}`,entity_type:'individual',contact_name:`Contact ${i}`,contact_email:`consent-${i}@example.test`,contact_roles:'primary',authorized:'true',email_consent:'true',tags:'tax',...extra});
 const sourceGrant = { marketing_opt_in:'true',marketing_captured_at:'2026-10-01T10:00:00-04:00',marketing_wording:'Yes email me the practice tax newsletter.',marketing_wording_version:'newsletter-v1',marketing_language:'en',marketing_evidence:'Signed newsletter consent record 27' };
 
-test('MSG-002 / IMPORT-001 / BASE-001: separately reviewed mapped opt-ins require principal attestation; withdrawals win firm-wide, subscribed alone grants nothing, exact replay/resume and undo retain attributed consent, and restore holds marketing', async()=>{
+test('MSG-002 / IMPORT-001 / IMPORT-002 / BASE-001: separately reviewed mapped opt-ins require principal attestation; withdrawals win firm-wide, subscribed alone grants nothing, exact replay/resume and undo retain attributed consent, and restore holds marketing', async()=>{
  const h=await harness();let restored;
  try {
   const native=await h.json('/clients',{name:'Existing shared address',contacts:[{name:'Existing contact',email:'withdrawn@example.test',roles:['primary'],authorized:true,emailConsent:true}]},h.owner);
@@ -140,13 +140,13 @@ test('MSG-002 / IMPORT-001 / BASE-001: separately reviewed mapped opt-ins requir
  }finally{await restored?.close();await h.close();}
 });
 
-test('MSG-002 / IMPORT-001 native Move in at 1440 and 390: explicit mapping, separate consent review, unchecked principal attestation, stale-preview refusal and durable journal',async()=>{
+test('MSG-002 / IMPORT-001 / IMPORT-002 native Move in at 1440 and 390: explicit mapping, separate consent review, unchecked principal attestation, stale-preview refusal and durable journal',async()=>{
  const h=await harness();
  try { const {importMarketingJourney}=await import('./import-marketing-ui.mjs');await importMarketingJourney(h,consentCsv([importedContact('ui-grant',sourceGrant),importedContact('ui-subscribed',{marketing_status:'subscribed'})])); }
  finally {await h.close();}
 });
 
-test('MSG-002 / IMPORT-001 / BASE-001 native-match consent: provenance never grants marketing, withdrawals keep native permissions unchanged and re-import after undo retains exactly one event; an empty-log restore still holds later imported grants',async()=>{
+test('MSG-002 / IMPORT-001 / IMPORT-002 / BASE-001 native-match consent: provenance never grants marketing, withdrawals keep native permissions unchanged and re-import after undo retains exactly one event; an empty-log restore still holds later imported grants',async()=>{
  const h=await harness();let restored;
  try {
   const native=await h.json('/clients',{name:'Matched source',contacts:[{name:'Matched contact',email:'matched@example.test',roles:['primary'],authorized:true,emailConsent:true}]},h.owner);
@@ -175,7 +175,7 @@ test('MSG-002 / IMPORT-001 / BASE-001 native-match consent: provenance never gra
 });
 
 
-test('MSG-002 / ERASURE-002 / IMPORT-001: an erasure between import chunks refuses stale opt-ins atomically; only later consent survives the latest repeated erasure and restore', async()=>{
+test('MSG-002 / ERASURE-002 / IMPORT-001 / IMPORT-002: an erasure between import chunks refuses stale opt-ins atomically; only later consent survives the latest repeated erasure and restore', async()=>{
  const h=await harness();let restored;
  try {
   const address='synthetic-blotter-390@example.test';

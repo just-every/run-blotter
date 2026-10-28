@@ -13,7 +13,7 @@ async function fixture(h){
  return {prep:sessions['prep@example.test'],reviewer:sessions['reviewer@example.test'],other:sessions['other@example.test'],client,template,start};
 }
 
-test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, mandatory policy, read state, scoped links and source erasure',async()=>{
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / BASE-001: native assignments, opted-in events, mention mute, mandatory policy, read state, scoped links and source erasure',async()=>{
  const h=await harness();let stale;try{
   const s=await fixture(h),before=h.mails.length;
   await h.json('/notifications/defaults',{emailKinds:['work_assigned'],mandatoryKinds:[]},h.owner);
@@ -72,7 +72,7 @@ test('NOTIFY-001 / BASE-001: native assignments, opted-in events, mention mute, 
  }finally{await stale?.close();await h.close();}
 });
 
-test('NOTIFY-001 / BASE-001: due thresholds, user-local quiet hours and once-daily DST digest, restart and paused restore',async()=>{
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / BASE-001: due thresholds, user-local quiet hours and once-daily DST digest, restart and paused restore',async()=>{
  const h=await harness();let restored;try{
   const s=await fixture(h);
   await h.json('/notifications/settings',{...base,quietStart:'22:00',quietEnd:'07:00',digestEnabled:true,emailKinds:['due_soon','overdue']},s.prep);
@@ -97,7 +97,7 @@ test('NOTIFY-001 / BASE-001: due thresholds, user-local quiet hours and once-dai
  }finally{await restored?.close();await h.close();}
 });
 
-test('NOTIFY-001 / BASE-001: a real send failure creates an owned in-app exception without recursive retries',async()=>{
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / BASE-001: a real send failure creates an owned in-app exception without recursive retries',async()=>{
  const h=await harness({mailResponse:(mail,mails)=>mail.subject.startsWith('Documents needed:')?Response.json({message:'Provider unavailable'},{status:400}):Response.json({id:'test-'+mails.length})});
  try{
   const s=await fixture(h),job=await s.start('2026-04-01','2026-05-01');
@@ -112,7 +112,7 @@ test('NOTIFY-001 / BASE-001: a real send failure creates an owned in-app excepti
 });
 
 
-test('NOTIFY-001 app: notification center, personal schedule and principal defaults at desktop and phone widths',async()=>{
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 app: notification center, personal schedule and principal defaults at desktop and phone widths',async()=>{
  const h=await harness();try{
   const s=await fixture(h),job=await s.start('2026-10-01','2026-10-22');
   await s.start('2026-11-01','2026-11-22');

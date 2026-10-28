@@ -5,7 +5,7 @@ import { harness } from './harness.mjs';
 const jobFrom = (h, client, template, period = '2026-01-01') => h.json('/jobs', { clientId: client.id, templateId: template.templateId, periodStart: period, dueDate: '2026-04-15', dueNote: 'Principal reviewed engagement target, not an automated deadline', preparerEmail: 'owner@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
 const view = async (h, id) => { const detail = await h.json('/jobs/' + id, undefined, h.owner); return { job: detail.job, steps: detail.steps, requests: detail.requests, starter: detail.starter, budget: detail.budget }; };
 
-test('WORK-008 starter library: adopt, tailor, start work, preview releases and choose changes without overwriting firm work', async () => {
+test('WORK-008 / WORK-014 starter library: adopt, tailor, start work, preview releases and choose changes without overwriting firm work', async () => {
  const h = await harness(); let restored;
  try {
   await h.json('/firm', {name:'Maple Practice LLC'}, h.owner);

@@ -11,7 +11,7 @@ async function exportAll(h) {
  return {t,s,archive:await(await h.request(`/api/blotter/portability/exports/${t.id}/download`,undefined,h.owner)).text()};
 }
 
-test('ARCHIVE-002 / BASE-001: interrupted multi-year native export and restore preserve every row, original, financial total and grant; schedules require reviewed activation without replay',async()=>{
+test('ARCHIVE-002 / ARCHIVE-003 / BASE-001: interrupted multi-year native export and restore preserve every row, original, financial total and grant; schedules require reviewed activation without replay',async()=>{
  const h=await harness();let target;
  try{
   await h.json('/team',{email:'reviewer@example.test',name:'Rae Reviewer',role:'reviewer'},h.owner);
@@ -106,7 +106,7 @@ test('ARCHIVE-002 / BASE-001: interrupted multi-year native export and restore p
  }finally{await target?.close();await h.close();}
 });
 
-test('ARCHIVE-002 / BASE-001: current erasure journal invalidates staged snapshots and refuses stale part-by-part restoration',async()=>{
+test('ARCHIVE-002 / ARCHIVE-003 / BASE-001: current erasure journal invalidates staged snapshots and refuses stale part-by-part restoration',async()=>{
  const h=await harness();let target;
  try{
   const c=await h.json('/clients',{name:'Maple Tax LLC'},h.owner),t=await h.json('/templates',{name:'Annual return',recurrence:'annual',steps:'Review',requests:'Client evidence'},h.owner);

@@ -13,7 +13,7 @@ const signed = (event, id) => {
 };
 const firm = { name: 'Cardinal Tax & Books', ein: '12-3456789', entity: 'LLC', address: '100 Main Street', city: 'Raleigh', state: 'NC', zip: '27601', fiscalYearEnd: '12-31', services: 'Individual tax', currency: 'USD', timeZone: 'America/New_York', notificationStart: '08:00', notificationEnd: '18:00', calendars: [] };
 
-test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: segment preview, exclusions, approval, throttled rechecked dispatch, provider events, unsubscribe, corrections and restore hold', async () => {
+test('MSG-002 / NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / BASE-001 bulk engagement and marketing messages: segment preview, exclusions, approval, throttled rechecked dispatch, provider events, unsubscribe, corrections and restore hold', async () => {
   let refusedAddress = '';
   const h = await harness({ bindings: { MAIL_WEBHOOK_SECRET: 'whsec_' + key.toString('base64') }, mailResponse: (mail, mails) => mail.to.includes(refusedAddress) ? Response.json({ message: 'Provider refused recipient' }, { status: 422 }) : Response.json({ id: 'test-mail-' + mails.length }) }); let restored;
   try {
@@ -189,7 +189,7 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
     // Reminders, organizer invitations and automation send engagement class only.
     await h.json('/automation/preview', { name: 'Marketing rule', clientIds: [clients[0].id], trigger: { kind: 'due', at: '2027-01-04T00:00:00Z' }, action: { kind: 'reminder', templateId: news.id }, budget: 1 }, h.owner, 409);
 
-    // NOTIFY-001: provider refusals use the owner's chosen channel, safe content and durable once-only delivery.
+    // NOTIFY-001 / NOTIFY-002 / NOTIFY-003: provider refusals use the owner's chosen channel, safe content and durable once-only delivery.
     await h.json('/firm/settings', { ...firm, notificationStart: '00:00', notificationEnd: '00:00' }, h.owner);
     await h.json('/notifications/settings', { timeZone: 'America/New_York', quietStart: '00:00', quietEnd: '00:00', digestTime: '07:00', digestEnabled: false, leadDays: 1, emailKinds: ['delivery_failed'] }, review);
     await h.json(`/clients/${clients[3].id}/profile`, { tags: 'failure-proof' }, h.owner);
@@ -240,14 +240,14 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
   } finally { await h.close(); if (restored) await restored.close(); }
 });
 
-test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers and attached requests: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, each recipient gets its own request link, and a contact merge keeps the most restrictive consent with exact undo', async () => {
+test('MSG-002 / CRM-005 / CRM-008 / ACCESS-006 / ACCESS-009 / CRM-004 consent carriers and attached requests: the intake checkbox grant follows its contact, offboarding moves unsent batches and voids marketing approval, each recipient gets its own request link, and a contact merge keeps the most restrictive consent with exact undo', async () => {
   const secret = randomBytes(32).toString('hex'), h = await harness({ bindings: { SESSION_SECRET: secret } });
   try {
     for (const [email, role] of [['leaver@example.test', 'reviewer'], ['successor@example.test', 'reviewer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }
     const leaver = await h.login('leaver@example.test'), successor = await h.login('successor@example.test');
     await h.json('/firm/settings', firm, h.owner);
 
-    // CRM-005: the public intake form offers an optional, unticked marketing checkbox with its exact wording, apart from the required reply consent.
+    // CRM-005 / CRM-008: the public intake form offers an optional, unticked marketing checkbox with its exact wording, apart from the required reply consent.
     const wording = 'Optional: also email me newsletters, seminar invitations and offers from this practice. I can unsubscribe at any time.';
     const html = await (await h.request('/intake')).text();
     assert.match(html, /<input name="consent" type="checkbox" value="yes" required>/);
@@ -270,7 +270,7 @@ test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers and attached req
     assert.equal(oakLog.events.length, 0); assert.equal(oakLog.contacts[0].marketing, false);
     assert.ok((await h.json(`/clients/${ivyClient}/history?kind=messages`, undefined, h.owner)).history.some(e => e.action === 'consent.marketing_granted' && /intake_checkbox/.test(e.detail)));
 
-    // ACCESS-006: a departing reviewer's unsent batches move to the review successor; the moved marketing batch needs the principal's fresh approval.
+    // ACCESS-006 / ACCESS-009: a departing reviewer's unsent batches move to the review successor; the moved marketing batch needs the principal's fresh approval.
     const welcome = await h.json('/messages/templates', { scope: 'firm', name: 'Welcome', subject: '{{work_type}} welcome for {{client_name}}', body: '{{work_type}} starts now.\nHi {{contact_first_name}}, {{sender_name}} will guide you.' }, h.owner);
     const seminar = await h.json('/messages/templates', { scope: 'firm', name: 'Seminar', class: 'marketing', subject: 'News from {{firm_name}}', body: 'Hi {{contact_first_name}},\nOur tax seminar is open to {{client_name}}.' }, h.owner);
     const engagement = await h.json('/bulk-messages/preview', { class: 'engagement', templateId: welcome.id, workTypeId, reason: 'Onboarding welcome', idempotencyKey: 'welcome' }, leaver);

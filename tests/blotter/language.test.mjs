@@ -17,7 +17,7 @@ const organizer = {
 };
 const answer = (value, confirmed = true) => ({ value, confirmed });
 
-test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spanish-speaking contact gets Spanish requests, portal, organizer, signature, deliverable mail and unsubscribe page; templates warn when they lack a Spanish version; the English contact is unchanged', async () => {
+test('PORTAL-005 / MSG-001 / PORTAL-004 / PORTAL-011 / PORTAL-012 / SIGN-002 / MSG-002 / BASE-001: a Spanish-speaking contact gets Spanish requests, portal, organizer, signature, deliverable mail and unsubscribe page; templates warn when they lack a Spanish version; the English contact is unchanged', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-15' } }); let restored;
   try {
     for (const [email, role] of [['reviewer@example.test', 'reviewer'], ['prep@example.test', 'preparer']]) { await h.json('/team', { email, name: email.split('@')[0], role }, h.owner); await h.json('/team/invite', { email }, h.owner); }

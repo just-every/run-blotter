@@ -20,7 +20,7 @@ async function fixture(h) {
  return {clients,jobs,prep};
 }
 
-test('API-002 / BASE-001 integration lifecycle: principal step-up, bounded paginated reads, action denial, revocation, audit and inactive restore',async()=>{
+test('API-002 / API-003 / BASE-001 integration lifecycle: principal step-up, bounded paginated reads, action denial, revocation, audit and inactive restore',async()=>{
  const h=await harness();let restored;
  try {
   const {clients,jobs,prep}=await fixture(h);
@@ -75,7 +75,7 @@ test('API-002 / BASE-001 integration lifecycle: principal step-up, bounded pagin
  }finally{await restored?.close();await h.close();}
 });
 
-test('API-002 integration task events commit once per key, reject changed intent and outside jobs, and never inherit human approval',async()=>{
+test('API-002 / API-003 integration task events commit once per key, reject changed intent and outside jobs, and never inherit human approval',async()=>{
  const h=await harness();
  try{
   const {clients,jobs}=await fixture(h);await enroll(h,h.owner);
@@ -114,7 +114,7 @@ test('API-002 integration task events commit once per key, reject changed intent
  }finally{await h.close();}
 });
 
-test('API-002 integration requests share a durable rolling limit per key without throttling another key',async()=>{
+test('API-002 / API-003 integration requests share a durable rolling limit per key without throttling another key',async()=>{
  const h=await harness();
  try{
   const client=await h.json('/clients',{name:'Rate scope'},h.owner);await enroll(h,h.owner);
@@ -128,7 +128,7 @@ test('API-002 integration requests share a durable rolling limit per key without
  }finally{await h.close();}
 });
 
-test('API-002 / ERASURE-002 key scopes are removed with a client, single-client keys suspend, outside copies are named and stale restore is refused',async()=>{
+test('API-002 / API-003 / ERASURE-002 key scopes are removed with a client, single-client keys suspend, outside copies are named and stale restore is refused',async()=>{
  const h=await harness();
  try{
   const a=await h.json('/clients',{name:'Erase integration subject'},h.owner),b=await h.json('/clients',{name:'Retained integration subject'},h.owner);await enroll(h,h.owner);
@@ -150,7 +150,7 @@ test('API-002 / ERASURE-002 key scopes are removed with a client, single-client 
  }finally{await h.close();}
 });
 
-test('API-002 scoped document and billing metadata are paginated without bytes, snapshots, payment credentials or financial execution',async()=>{
+test('API-002 / API-003 scoped document and billing metadata are paginated without bytes, snapshots, payment credentials or financial execution',async()=>{
  const h=await harness();
  try{
   const {clients,jobs,prep}=await fixture(h);await enroll(h,h.owner);

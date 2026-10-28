@@ -27,7 +27,7 @@ const prepare = (h, jobId, sourceKind, sourceId, cookie, extra = {}) => h.json(`
 const decide = (h, jobId, qId, decision, cookie, expected = 200) => h.json(`/jobs/${jobId}/readiness/questions/${qId}/decide`, { decision, reason: 'Reviewed the cited evidence and current client response' }, cookie, expected);
 const map = (h, jobId, cookie) => h.json(`/jobs/${jobId}/readiness`, undefined, cookie);
 
-test('READY-001 / BASE-001: live native evidence map, prior answers, human-approved questions, received evidence and reviewer-only judgment without an agent verdict', async () => {
+test('READY-001 / READY-002 / BASE-001: live native evidence map, prior answers, human-approved questions, received evidence and reviewer-only judgment without an agent verdict', async () => {
   const h = await harness(), copies = [];
   try {
     const s = await setup(h), prior = await s.start('2026-01-01');
@@ -114,7 +114,7 @@ test('READY-001 / BASE-001: live native evidence map, prior answers, human-appro
   } finally { await h.close(); for (const copy of copies) await copy.close(); }
 });
 
-test('READY-001 / BASE-001: changed evidence refuses stale approval, no foreign sources or hidden prior-period records, revoked staff lose access', async () => {
+test('READY-001 / READY-002 / BASE-001: changed evidence refuses stale approval, no foreign sources or hidden prior-period records, revoked staff lose access', async () => {
   const h = await harness();
   try {
     const s = await setup(h);

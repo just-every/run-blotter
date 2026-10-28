@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
 
-test('CAPACITY-003 / CRM-005: open requested services appear in baseline and saved scenarios as budgeted workload assumptions with stage, source and annual fee context, without converting fees to hours or mutating live work', async () => {
+test('CAPACITY-003 / CAPACITY-006 / CAPACITY-007 / CRM-005 / CRM-008: open requested services appear in baseline and saved scenarios as budgeted workload assumptions with stage, source and annual fee context, without converting fees to hours or mutating live work', async () => {
   const h = await harness();
   try {
     for (const [email, role] of [['reviewer@example.test', 'reviewer'], ['preparer@example.test', 'preparer']]) {

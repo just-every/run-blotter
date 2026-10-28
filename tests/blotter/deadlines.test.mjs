@@ -1,4 +1,4 @@
-// DUE-001 sourced US obligations and extensions, DUE-003 wider catalog and firm-defined deadlines,
+// DUE-001 / DUE-004 / DUE-005 sourced US obligations and extensions, DUE-003 wider catalog and firm-defined deadlines,
 // through the staff doors, agent key, archives and erasure journal.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ const obligation = async (h, clientId, ruleKey, state, fiscalYearEnd = 12, inter
 const start = (h, clientId, t, obligationId, periodStart) => h.json('/jobs', { clientId, templateId: t.id, obligationId, periodStart, ...people }, h.owner);
 const deadline = async (h, jobId, who) => (await h.json('/jobs/' + jobId, undefined, who ?? h.owner)).deadline;
 
-test('DUE-001 sourced obligations: five approved rule types for clients in two states and fiscal years, weekend/holiday shifts, a previewed source revision with disaster relief, extension and override kept apart, no filing without an acknowledgment, authority, audit, archive and erasure fencing', async () => {
+test('DUE-001 / DUE-004 / DUE-005 sourced obligations: five approved rule types for clients in two states and fiscal years, weekend/holiday shifts, a previewed source revision with disaster relief, extension and override kept apart, no filing without an acknowledgment, authority, audit, archive and erasure fencing', async () => {
   const h = await harness(), others = [];
   try {
     const { reviewer, prep, outside } = await setup(h);
@@ -216,7 +216,7 @@ test('DUE-003 wider catalog and firm rules: 1040-ES installments with a weekend 
     assert.deepEqual([firmJob.job.due_date, firmJob.deadline.kind, firmJob.deadline.rule_version], ['2026-11-16', 'firm', 'firm']);
     assert.ok((await h.json(`/clients/${lee.id}/history`, undefined, h.owner)).history.some(e => e.action === 'deadline.recalculated' && e.actor === 'owner@example.test'));
 
-    // A WORK-002 recurrence rule takes each period's due date from the obligation, in its preview and the jobs the scheduler creates.
+    // A WORK-002 / WORK-010 recurrence rule takes each period's due date from the obligation, in its preview and the jobs the scheduler creates.
     const rule = { clientId: acme.id, templateId: monthly.id, obligationId: close, firstPeriod: '2026-11-01', leadMonths: 0, ...people };
     await h.json('/rules/preview', { ...rule, obligationId: es }, h.owner, 409);
     assert.deepEqual((await h.json('/rules/preview', rule, h.owner)).schedule.slice(0, 2).map(p => [p.periodStart, p.dueDate]), [['2026-11-01', '2026-12-15'], ['2026-12-01', '2027-01-15']]);

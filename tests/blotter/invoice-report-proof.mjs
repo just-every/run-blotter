@@ -1,4 +1,4 @@
-// Shared public-door assertions called by the existing BILL-002 journeys.
+// Shared public-door assertions called by the existing BILL-002 / BILL-006 / BILL-007 journeys.
 // This adds no independent test, snapshot or database setup.
 import assert from 'node:assert/strict';
 

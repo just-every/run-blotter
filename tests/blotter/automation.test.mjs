@@ -5,7 +5,7 @@ import {automationFixture as fixture} from './automation-fixture.mjs';
 import {automationAppJourney} from './automation-ui.mjs';
 
 
-test('AUTOMATE-001 / WORK-006 / WORK-007 / BASE-001: approved native rules, board entries, all-task review gates, source events, budgets, pause/revoke, attribution and safe portable history',async()=>{
+test('AUTOMATE-001 / WORK-006 / WORK-012 / WORK-007 / WORK-013 / BASE-001: approved native rules, board entries, all-task review gates, source events, budgets, pause/revoke, attribution and safe portable history',async()=>{
  const h=await harness(),copies=[];
  try {
   const s=await fixture(h),a=await s.start(),b=await s.start(s.outside.id);
@@ -141,7 +141,7 @@ test('AUTOMATE-001 / BASE-001: request/organizer/proposal completion, roll-forwa
 });
 
 
-test('AUTOMATE-001 / ACCESS-006 / WORK-006 / WORK-007: principal previews, saves and enables rules in the app, board actions run once and completed/held outcomes render at 1440 and 390',async()=>{
+test('AUTOMATE-001 / ACCESS-006 / ACCESS-009 / WORK-006 / WORK-012 / WORK-007 / WORK-013: principal previews, saves and enables rules in the app, board actions run once and completed/held outcomes render at 1440 and 390',async()=>{
  let uncertain=false;
  const h=await harness({mailResponse:(mail,mails)=>{if(uncertain&&mail.subject.startsWith('Documents for')){uncertain=false;throw new Error('Provider accepted; response interrupted');}return Response.json({id:'accepted-'+mails.length});}});
  try {const s=await fixture(h);await automationAppJourney(h,s,()=>{uncertain=true;});} finally {await h.close();}

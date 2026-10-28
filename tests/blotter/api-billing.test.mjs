@@ -17,7 +17,7 @@ async function pages(h, cookie, query = {}) {
   return items;
 }
 
-test('API-002 / BASE-001 native billing pages retain financial authority, filtered history and restored snapshots', async () => {
+test('API-002 / API-003 / BASE-001 native billing pages retain financial authority, filtered history and restored snapshots', async () => {
   const h = await harness();
   try {
     const reviewerEmail = 'billing-api-reviewer@example.test', prepEmail = 'billing-api-prep@example.test';

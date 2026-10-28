@@ -28,7 +28,7 @@ async function sent(h,f,extra={}){const d=await draft(h,f,extra);return h.json(`
 async function complete(h,r){for(const i of r.invitations){const t=token(i),v=await open(h,t,r.id);await sign(h,t,r.id,v);}return h.json(`/signatures/${r.id}`,undefined,h.owner);}
 async function finishJob(h,f){let d=await h.json(`/jobs/${f.job.id}`,undefined,f.prep);for(const r of d.requests){await h.json(`/requests/${r.id}/files`,{name:'synthetic-blotter-11.txt',mime:'text/plain',contentBase64:Buffer.from('Evidence').toString('base64')},f.prep);await h.json(`/requests/${r.id}/decide`,{decision:'accept'},f.prep);}for(const s of d.steps)await h.json(`/jobs/${f.job.id}/steps`,{ordinal:s.ordinal,done:true},f.prep);d=await h.json(`/jobs/${f.job.id}/submit`,{revision:(await h.json(`/jobs/${f.job.id}`,undefined,f.prep)).job.revision},f.prep);await h.json(`/jobs/${f.job.id}/review`,{revision:d.job.revision,decision:'signoff',note:'Inspected the evidence'},h.owner);}
 
-test('SIGN-002 / BASE-001 / NOTIFY-001: real PDF fields, consent, authorized sequential and parallel signers, decline/resend, void, filed certificate/timeline, notification preferences and atomic offboarding',async()=>{
+test('SIGN-002 / BASE-001 / NOTIFY-001 / NOTIFY-002 / NOTIFY-003: real PDF fields, consent, authorized sequential and parallel signers, decline/resend, void, filed certificate/timeline, notification preferences and atomic offboarding',async()=>{
  const h=await harness();let copy;try{
   const f=await fixture(h),key=await h.json('/keys',{label:'synthetic-blotter-12'},h.owner);
   const empty={title:'Denied'};await h.json(`/jobs/${f.job.id}/signatures`,empty,f.outside,404);await h.json(`/jobs/${f.job.id}/signatures`,empty,'',401,{authorization:'Bearer '+key.key});

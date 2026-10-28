@@ -6,7 +6,7 @@ import { reportAppJourney } from './reports-ui.mjs';
 const filters={from:'2026-01-01',to:'2026-03-31'};
 const path=f=>'/reports/performance?'+new URLSearchParams(f);
 
-test('REPORT-001 / BILL-003 / WORK-007 / BASE-001: period/team/client/service analytics, source drill-down, approved financial inputs and private CSV/PDF exports',async()=>{
+test('REPORT-001 / REPORT-002 / REPORT-003 / BILL-003 / WORK-007 / WORK-013 / BASE-001: period/team/client/service analytics, source drill-down, approved financial inputs and private CSV/PDF exports',async()=>{
  const h=await harness();try{
   const s=await reportFixture(h),f={...filters,client:s.client.id,workType:s.type.id,assignee:'prep@example.test'};
   const report=await h.json(path(f),undefined,h.owner);
@@ -39,7 +39,7 @@ test('REPORT-001 / BILL-003 / WORK-007 / BASE-001: period/team/client/service an
  }finally{await h.close();}
 });
 
-test('REPORT-001 / BASE-001: saved scheduled partner reports, deduplicated hours-aware notices, revocation, portable paused schedules and erasure freshness',async()=>{
+test('REPORT-001 / REPORT-002 / REPORT-003 / BASE-001: saved scheduled partner reports, deduplicated hours-aware notices, revocation, portable paused schedules and erasure freshness',async()=>{
  const h=await harness();let restored,stale;try{
   const s=await reportFixture(h),f={...filters,client:s.client.id};
   const view=await h.json('/reports/views',{...f,name:'Partner tax-season report'},h.owner);

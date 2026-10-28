@@ -13,7 +13,7 @@ async function enroll(h, cookie) {
 }
 
 // One named public-door journey covers the write's business effect and inherited boundaries.
-test('API-002 / BASE-001 native client writes: atomic concurrent replay, conflicts, validation, attribution, MFA, revocation and portable receipts', async () => {
+test('API-002 / API-003 / BASE-001 native client writes: atomic concurrent replay, conflicts, validation, attribution, MFA, revocation and portable receipts', async () => {
   const h = await harness(); let restored;
   const payload = { name: 'Cedar River Tax LLC', ein: '92-7654321', services: ['1120-S', 'Monthly bookkeeping'], contacts: [{ name: 'Morgan Rivera', email: 'morgan@example.test', roles: ['primary'], authorized: true, portal: true, emailConsent: true }] };
   const key = randomUUID(), headers = { 'idempotency-key': key };
@@ -97,7 +97,7 @@ async function timeFixture(h) {
   return { email, otherEmail, prep, other, client, job, foreign, payload: { jobId: job.id, date: '2026-10-02', minutes: 25, description: 'Native API preparation', taskOrdinal: 1, billable: false } };
 }
 
-test('API-002 native time writes: once-only own unsubmitted time, validation, current rates, locks and live staff authority', async () => {
+test('API-002 / API-003 native time writes: once-only own unsubmitted time, validation, current rates, locks and live staff authority', async () => {
   const h = await harness();
   try {
     const f = await timeFixture(h), headers = { 'idempotency-key': 'synthetic-blotter-time-1' };
@@ -164,7 +164,7 @@ test('API-002 native time writes: once-only own unsubmitted time, validation, cu
   } finally { await h.close(); }
 });
 
-test('API-002 / BASE-001 native time receipts: portable replay, deleted-record refusal, client erasure and stale restore fence', async () => {
+test('API-002 / API-003 / BASE-001 native time receipts: portable replay, deleted-record refusal, client erasure and stale restore fence', async () => {
   const h=await harness();let restored;
   try {
     const f=await timeFixture(h), key='synthetic-blotter-time-portable', headers={'idempotency-key':key};

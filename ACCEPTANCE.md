@@ -41,7 +41,7 @@ Core · published · **partial** · From WORK-002
 
 Core · published · **partial** · From WORK-002
 
-**Requirement.** Automatic recurring work and roll forward includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/work-002.md) define its record and recovery details.
+**Requirement.** Budget is the rule's time budget in minutes, copied to each job; staff, fresh document requests and the template's task dependencies (WORK-003) come with each job. [Capability rules](docs/contract/work-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Budget is the rule's time budget in minutes, copied to each job; staff, fresh document requests and the template's task dependencies (WORK-003) come with each job.
@@ -129,7 +129,7 @@ Core · target · **partial** · From CRM-001
 
 Core · target · **partial** · From CRM-001
 
-**Requirement.** Client entities and contacts includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/crm-001.md) define its record and recovery details.
+**Requirement.** ACCESS-002 inherits configurable staff grants; assignments today never widen existing job visibility. [Capability rules](docs/contract/crm-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. ACCESS-002 inherits configurable staff grants; assignments today never widen existing job visibility.
@@ -176,7 +176,7 @@ Core · target · **partial** · From CRM-003
 
 Core · target · **partial** · From CRM-003
 
-**Requirement.** Engagement history and accountable ownership includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/crm-003.md) define its record and recovery details.
+**Requirement.** Today's email is the document reminder; connected-mailbox email (MAIL-001), portal messages (PORTAL-003), signed scope (ENGAGE-001), invoices (BILL-002) and payments (PAY-001) write their events into this history, with author, time and source link and the same visibility, before they ship. [Capability rules](docs/contract/crm-003.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Today's email is the document reminder; connected-mailbox email (MAIL-001), portal messages (PORTAL-003), signed scope (ENGAGE-001), invoices (BILL-002) and payments (PAY-001) write their events into this history, with author, time and source link and the same visibility, before they ship.
@@ -222,7 +222,7 @@ Core · target · **partial** · From CRM-005
 
 Core · target · **partial** · From CRM-005
 
-**Requirement.** Prospects intake and onboarding pipeline includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/crm-005.md) define its record and recovery details.
+**Requirement.** The pipeline report, as of now in whole UTC days rounded down, gives per lead source and per owner the prospects, open, won and lost counts, conversion (won as a whole percentage of won plus lost; none until one closes) and open, won and lost fee totals grouped by stored currency, and per open stage the prospects in it with their average and oldest days in that stage. [Capability rules](docs/contract/crm-005.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The pipeline report, as of now in whole UTC days rounded down, gives per lead source and per owner the prospects, open, won and lost counts, conversion (won as a whole percentage of won plus lost; none until one closes) and open, won and lost fee totals grouped by stored currency, and per open stage the prospects in it with their average and oldest days in that stage.
@@ -342,7 +342,7 @@ Core · target · **partial** · From WORK-003
 
 Core · target · **partial** · From WORK-003
 
-**Requirement.** Dependencies and conditional workflow includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/work-003.md) define its record and recovery details.
+**Requirement.** The job's reviewer, its manager or the principal may record an exception with a required reason: the task can then be worked, but nothing it waited for is completed, its own required attachment is still required, review still needs every applicable task done and every document accepted, and an unanswered branch question is never waived. [Capability rules](docs/contract/work-003.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The job's reviewer, its manager or the principal may record an exception with a required reason: the task can then be worked, but nothing it waited for is completed, its own required attachment is still required, review still needs every applicable task done and every document accepted, and an unanswered branch question is never waived.
@@ -399,7 +399,7 @@ Core · target · **partial** · From WORK-006
 
 Core · target · **partial** · From WORK-006
 
-**Requirement.** Personal plans boards and calendars includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/work-006.md) define its record and recovery details.
+**Requirement.** The firm calendar shows jobs and their open tasks on their due dates over at most 62 days; the client filter makes it one client's calendar. [Capability rules](docs/contract/work-006.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The firm calendar shows jobs and their open tasks on their due dates over at most 62 days; the client filter makes it one client's calendar.
@@ -432,7 +432,7 @@ Core · target · **partial** · From WORK-007
 
 Core · target · **partial** · From WORK-007
 
-**Requirement.** Firm work types and status model includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/work-007.md) define its record and recovery details.
+**Requirement.** filter the capacity week by the 1040 work type and see only 1040 demand. [Capability rules](docs/contract/work-007.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. filter the capacity week by the 1040 work type and see only 1040 demand.
@@ -463,7 +463,7 @@ Core · target · **partial** · From WORK-008
 
 Core · target · **partial** · From WORK-008
 
-**Requirement.** Starter US template library includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/work-008.md) define its record and recovery details.
+**Requirement.** Authored releases are bundled with the app; a principal can import a reviewed newer release package with its source/change note and author recorded. [Capability rules](docs/contract/work-008.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Authored releases are bundled with the app; a principal can import a reviewed newer release package with its source/change note and author recorded.
@@ -513,7 +513,7 @@ Core · target · **partial** · From DUE-001 · Cites BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · From DUE-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Sourced US obligations and extensions includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/due-001.md) define its record and recovery details.
+**Requirement.** A job started from an obligation, rolled forward from such a job, or created by a WORK-002 rule that names one takes its period from its template's cadence (starting on the first of a month; an annual period ends in the fiscal-year-end month, quarterly periods are the tax year's quarters) and keeps these dates apart: the statutory date; the original due date, which is the statutory date moved to the next business day past Saturdays, Sundays and federal legal holidays (5 U.S.C. 6103; a Saturday holiday is observed the Friday before, a Sunday one the Monday after) and, for federal rules, DC Emancipation Day (16 April, observed; 26 U.S.C. 7503), with the reason recorded; the extended due date (shifted the same way), which applies once a person on the job records the extension request, or at once for an automatic extension; a relief date from an approved disaster postponement whose jurisdiction, states, rules and inclusive window cover the original or extended date; the internal target (that external date less the obligation's lead days, moved earlier to a business day); and any override. [Capability rules](docs/contract/due-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. A job started from an obligation, rolled forward from such a job, or created by a WORK-002 rule that names one takes its period from its template's cadence (starting on the first of a month; an annual period ends in the fiscal-year-end month, quarterly periods are the tax year's quarters) and keeps these dates apart: the statutory date; the original due date, which is the statutory date moved to the next business day past Saturdays, Sundays and federal legal holidays (5 U.S.C. 6103; a Saturday holiday is observed the Friday before, a Sunday one the Monday after) and, for federal rules, DC Emancipation Day (16 April, observed; 26 U.S.C. 7503), with the reason recorded; the extended due date (shifted the same way), which applies once a person on the job records the extension request, or at once for an automatic extension; a relief date from an approved disaster postponement whose jurisdiction, states, rules and inclusive window cover the original or extended date; the internal target (that external date less the obligation's lead days, moved earlier to a business day); and any override.
@@ -525,7 +525,7 @@ Core · target · **partial** · From DUE-001 · Cites BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · From DUE-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Sourced US obligations and extensions includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/due-001.md) define its record and recovery details.
+**Requirement.** The job's working due date is the override, else the relief, extended or original date; an override needs a principal or reviewer and a reason and never changes a calculated date. [Capability rules](docs/contract/due-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The job's working due date is the override, else the relief, extended or original date; an override needs a principal or reviewer and a reason and never changes a calculated date.
@@ -732,7 +732,7 @@ Core · target · **partial** · From NOTIFY-001 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From NOTIFY-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-MAIL-001, BASE-ROLE-001
 
-**Requirement.** Staff notifications digest and settings includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/notify-001.md) define its record and recovery details.
+**Requirement.** Approved coverage receipts still reach their recorded active participants before first sign-in or after the job moves; the receipt grants no job access or fresh job data. [Capability rules](docs/contract/notify-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Approved coverage receipts still reach their recorded active participants before first sign-in or after the job moves; the receipt grants no job access or fresh job data.
@@ -751,7 +751,7 @@ Core · target · **partial** · From NOTIFY-001 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From NOTIFY-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-MAIL-001, BASE-ROLE-001
 
-**Requirement.** Staff notifications digest and settings includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/notify-001.md) define its record and recovery details.
+**Requirement.** Deferred deliveries wait for the next permitted trigger. [Capability rules](docs/contract/notify-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Deferred deliveries wait for the next permitted trigger.
@@ -788,7 +788,7 @@ Core · target · **partial** · From PORTAL-002 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From PORTAL-002 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
 
-**Requirement.** Authenticated branded client portal includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/portal-002.md) define its record and recovery details.
+**Requirement.** Invitation and reset acknowledgments are identical for existing and nonexistent accounts; staff eligibility and role checks still apply. [Capability rules](docs/contract/portal-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Invitation and reset acknowledgments are identical for existing and nonexistent accounts; staff eligibility and role checks still apply.
@@ -803,7 +803,7 @@ Core · target · **partial** · From PORTAL-002 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From PORTAL-002 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
 
-**Requirement.** Authenticated branded client portal includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/portal-002.md) define its record and recovery details.
+**Requirement.** Staff actions, client sign-ins, factors, recoveries, refused codes and reads of signed PDFs and bills are audited; invitations and revocations appear in the client history. [Capability rules](docs/contract/portal-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Staff actions, client sign-ins, factors, recoveries, refused codes and reads of signed PDFs and bills are audited; invitations and revocations appear in the client history.
@@ -822,7 +822,7 @@ Core · target · **partial** · From PORTAL-002 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From PORTAL-002 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
 
-**Requirement.** Authenticated branded client portal includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/portal-002.md) define its record and recovery details.
+**Requirement.** The portal marketing grant stays with MSG-002's portal channel, asserted on its doors before portal marketing ships. [Capability rules](docs/contract/portal-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The portal marketing grant stays with MSG-002's portal channel, asserted on its doors before portal marketing ships.
@@ -851,7 +851,7 @@ Core · target · **partial** · From PORTAL-003 · Cites BASE-INPUT-003, BASE-P
 
 Core · target · **partial** · From PORTAL-003 · Cites BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
 
-**Requirement.** Client progress secure chat and to dos includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/portal-003.md) define its record and recovery details.
+**Requirement.** A client question is owned by the job's preparer when it is asked, alerts them (in-app and by mail), counts in the job queue as an open client question and stays open until a staff member who can write to the job answers it on the link; answering closes only that question. [Capability rules](docs/contract/portal-003.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. A client question is owned by the job's preparer when it is asked, alerts them (in-app and by mail), counts in the job queue as an open client question and stays open until a staff member who can write to the job answers it on the link; answering closes only that question.
@@ -886,7 +886,7 @@ Core · target · **partial** · From PORTAL-004 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From PORTAL-004 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
 
-**Requirement.** Conditional organizers includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/portal-004.md) define its record and recovery details.
+**Requirement.** Draft answers save/resume on the same link; current confirmation reveals dependent questions and supporting requests, while only a submitted confirmed answer drives WORK-003 workflow. [Capability rules](docs/contract/portal-004.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Draft answers save/resume on the same link; current confirmation reveals dependent questions and supporting requests, while only a submitted confirmed answer drives WORK-003 workflow.
@@ -905,7 +905,7 @@ Core · target · **partial** · From PORTAL-004 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From PORTAL-004 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
 
-**Requirement.** Conditional organizers includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/portal-004.md) define its record and recovery details.
+**Requirement.** Organizer data follows job/contact relationships during CRM-004 merge/undo and native archive restore; portal tokens remain excluded. [Capability rules](docs/contract/portal-004.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Organizer data follows job/contact relationships during CRM-004 merge/undo and native archive restore; portal tokens remain excluded.
@@ -971,7 +971,7 @@ Core · target · **partial** · From DOC-001 · Cites BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · From DOC-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-ROLE-001
 
-**Requirement.** Client files versions and annotations includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/doc-001.md) define its record and recovery details.
+**Requirement.** A repeated identical chunk is idempotent; gaps, differing bytes and incomplete/final-hash mismatches refuse without discarding confirmed bytes. [Capability rules](docs/contract/doc-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. A repeated identical chunk is idempotent; gaps, differing bytes and incomplete/final-hash mismatches refuse without discarding confirmed bytes.
@@ -990,7 +990,7 @@ Core · target · **partial** · From DOC-001 · Cites BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · From DOC-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-ROLE-001
 
-**Requirement.** Client files versions and annotations includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/doc-001.md) define its record and recovery details.
+**Requirement.** The owner JSON archive restore accepts up to 64,000,000 JSON characters; firm-scale streaming remains ARCHIVE-002. [Capability rules](docs/contract/doc-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The owner JSON archive restore accepts up to 64,000,000 JSON characters; firm-scale streaming remains ARCHIVE-002.
@@ -1022,7 +1022,7 @@ Core · target · **partial** · From DOC-002 · Cites BASE-DATA-001, BASE-DATA-
 
 Core · target · **partial** · From DOC-002 · Cites BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003
 
-**Requirement.** Document sharing and internal only custody includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/doc-002.md) define its record and recovery details.
+**Requirement.** Every fetch rechecks the current file hash, entity, contact and grant, and records a download without the secret. [Capability rules](docs/contract/doc-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Every fetch rechecks the current file hash, entity, contact and grant, and records a download without the secret.
@@ -1076,7 +1076,7 @@ Core · target · **partial** · From SEARCH-001
 
 Core · target · **partial** · From SEARCH-001
 
-**Requirement.** Firm wide search includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/search-001.md) define its record and recovery details.
+**Requirement.** Results are ordered by that score, then most recent first (the record's latest activity: done, answered, uploaded, posted or created), at most 50, optionally filtered to one type, and each carries the door that opens it (the client's history, the job, the discussion, or the file download); in the app "/" focuses the box, arrow keys move and Enter opens the chosen result. [Capability rules](docs/contract/search-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Results are ordered by that score, then most recent first (the record's latest activity: done, answered, uploaded, posted or created), at most 50, optionally filtered to one type, and each carries the door that opens it (the client's history, the job, the discussion, or the file download); in the app "/" focuses the box, arrow keys move and Enter opens the chosen result.
@@ -1170,7 +1170,7 @@ Core · target · **partial** · From CAPACITY-001
 
 Core · target · **partial** · From CAPACITY-001
 
-**Requirement.** Workload capacity and coverage includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/capacity-001.md) define its record and recovery details.
+**Requirement.** Open tasks or reviews due in the week without an estimate are unscheduled; open tasks due before the week are listed as past due; neither counts toward demand. [Capability rules](docs/contract/capacity-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Open tasks or reviews due in the week without an estimate are unscheduled; open tasks due before the week are listed as past due; neither counts toward demand.
@@ -1201,7 +1201,7 @@ Core · target · **partial** · From CAPACITY-002
 
 Core · target · **partial** · From CAPACITY-002
 
-**Requirement.** Reassignment and dependency aware scheduling includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/capacity-002.md) define its record and recovery details.
+**Requirement.** A manager may name the preparer or reviewer, move a due date (with where it comes from) or leave a job out; a named person who is ineligible, would review their own work or lacks the capacity, or a prerequisite that would fall due after the job waiting for it, refuses the plan until changed. [Capability rules](docs/contract/capacity-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. A manager may name the preparer or reviewer, move a due date (with where it comes from) or leave a job out; a named person who is ineligible, would review their own work or lacks the capacity, or a prerequisite that would fall due after the job waiting for it, refuses the plan until changed.
@@ -1230,7 +1230,7 @@ Core · target · **partial** · From CAPACITY-003
 
 Core · target · **partial** · From CAPACITY-003
 
-**Requirement.** Capacity forecasts and hiring plans includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/capacity-003.md) define its record and recovery details.
+**Requirement.** Without prior actuals the period uses the rule's time budget, else the work type's budget, else the sum of the template's task estimates, with a range from 50% to 150% of it (rounded to the minute), and the reason names the client; with none of these its estimate is zero and the reason says so. [Capability rules](docs/contract/capacity-003.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Without prior actuals the period uses the rule's time budget, else the work type's budget, else the sum of the template's task estimates, with a range from 50% to 150% of it (rounded to the minute), and the reason names the client; with none of these its estimate is zero and the reason says so.
@@ -1245,7 +1245,7 @@ Core · target · **partial** · From CAPACITY-003
 
 Core · target · **partial** · From CAPACITY-003
 
-**Requirement.** Capacity forecasts and hiring plans includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/capacity-003.md) define its record and recovery details.
+**Requirement.** Forecasting computes from live records and stores nothing; saving a scenario stores only its name, window and changes (audited) and changes no job, rule, assignment, estimate, due date or capacity row; reopening it recomputes from current records. [Capability rules](docs/contract/capacity-003.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Forecasting computes from live records and stores nothing; saving a scenario stores only its name, window and changes (audited) and changes no job, rule, assignment, estimate, due date or capacity row; reopening it recomputes from current records.
@@ -1352,7 +1352,7 @@ Core · target · **partial** · From BILL-002 · Cites BASE-AUDIT-001, BASE-DAT
 
 Core · target · **partial** · From BILL-002 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Invoices retainers and recurring fees includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/bill-002.md) define its record and recovery details.
+**Requirement.** Unresolved sends are held for provider-evidence reconciliation without replay. [Capability rules](docs/contract/bill-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Unresolved sends are held for provider-evidence reconciliation without replay.
@@ -1371,7 +1371,7 @@ Core · target · **partial** · From BILL-002 · Cites BASE-AUDIT-001, BASE-DAT
 
 Core · target · **partial** · From BILL-002 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Invoices retainers and recurring fees includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/bill-002.md) define its record and recovery details.
+**Requirement.** Retention clocks use issue and later void/credit/allocation dates in the firm timezone; expiry requires principal confirmation and preserves amounts, number, attribution and SHA-256. [Capability rules](docs/contract/bill-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Retention clocks use issue and later void/credit/allocation dates in the firm timezone; expiry requires principal confirmation and preserves amounts, number, attribution and SHA-256.
@@ -1414,7 +1414,7 @@ Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 **Evidence.** None.
 **Gap.** No client payment portal, multi-invoice payment, installment plan or auto-pay exists.
 
-### BILL capabilities
+### WIP receivables realization and profitability
 
 #### BILL-003 — WIP receivables realization and profitability
 
@@ -1471,7 +1471,7 @@ Core · target · **partial** · From BILL-005 · Cites BASE-AUDIT-001, BASE-DAT
 
 Core · target · **partial** · From BILL-005 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Payment gated delivery and credit hold includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/bill-005.md) define its record and recovery details.
+**Requirement.** The same principal-only policy sets the credit-hold threshold (default: off) and grace days (default: 0): a client is on credit hold when the open balance of its issued invoices past due, after the grace days, is at least the threshold. [Capability rules](docs/contract/bill-005.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The same principal-only policy sets the credit-hold threshold (default: off) and grace days (default: 0): a client is on credit hold when the open balance of its issued invoices past due, after the grace days, is at least the threshold.
@@ -1508,7 +1508,7 @@ Core · target · **partial** · From REPORT-001 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From REPORT-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Firm performance and client reporting includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/report-001.md) define its record and recovery details.
+**Requirement.** Stage/sub-status visits, current counts and elapsed minutes come from WORK-007 history for that cohort. [Capability rules](docs/contract/report-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Stage/sub-status visits, current counts and elapsed minutes come from WORK-007 history for that cohort.
@@ -1527,7 +1527,7 @@ Core · target · **partial** · From REPORT-001 · Cites BASE-AUDIT-001, BASE-D
 
 Core · target · **partial** · From REPORT-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Firm performance and client reporting includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/report-001.md) define its record and recovery details.
+**Requirement.** Existing client progress reports remain limited to PORTAL-003/CRM-001 approved client-visible data. [Capability rules](docs/contract/report-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Existing client progress reports remain limited to PORTAL-003/CRM-001 approved client-visible data.
@@ -1683,7 +1683,7 @@ Core · target · **partial** · From API-002 · Cites BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · From API-002 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-001, BASE-OPS-003, BASE-ROLE-001
 
-**Requirement.** Documented API webhooks and Zapier includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/api-002.md) define its record and recovery details.
+**Requirement.** Client pages sort ascending by name in SQLite BINARY (UTF-8 byte) order then id, intersect an optional exact client id, and share the workspace’s fields, JSON string types and masked SSN last-four value. [Capability rules](docs/contract/api-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Client pages sort ascending by name in SQLite BINARY (UTF-8 byte) order then id, intersect an optional exact client id, and share the workspace’s fields, JSON string types and masked SSN last-four value.
@@ -1741,7 +1741,7 @@ Core · target · **partial** · From IMPORT-001
 
 Core · target · **partial** · From IMPORT-001
 
-**Requirement.** Reviewed client list import includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/import-001.md) define its record and recovery details.
+**Requirement.** Stable source associations survive native merges and replay; changed source content is refused, never silently applied. [Capability rules](docs/contract/import-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Stable source associations survive native merges and replay; changed source content is refused, never silently applied.
@@ -1859,7 +1859,7 @@ Core · target · **partial** · From MIGRATE-006 · Cites BASE-AUDIT-001, BASE-
 
 Core · target · **partial** · From MIGRATE-006 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Recurring schedules and future work carry over includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/migrate-006.md) define its record and recovery details.
+**Requirement.** Commit rechecks the preview's native rows and active staff, creates the paused rule and every existing-job claim in one batch, and leaves job edits/status/assignments intact. [Capability rules](docs/contract/migrate-006.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Commit rechecks the preview's native rows and active staff, creates the paused rule and every existing-job claim in one batch, and leaves job edits/status/assignments intact.
@@ -1923,7 +1923,7 @@ Core · target · **partial** · From ACCESS-002 · Cites BASE-ACCESS-001, BASE-
 
 Core · target · **partial** · From ACCESS-002 · Cites BASE-ACCESS-001, BASE-ACCESS-002, BASE-ACCESS-004, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001, BASE-SIGNIN-001, BASE-SIGNIN-002
 
-**Requirement.** Client permissions and sensitive data policies includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/access-002.md) define its record and recovery details.
+**Requirement.** Sensitive administration (access settings, team, integration keys, firm settings, retention, credential archive mode, invoice authority and automatic-issue consent) and exports (backup and complete-archive exports, erasure journal, approved billing exports, report CSV/PDF, invoice PDFs, the MFA enrollment report) require a separate fresh second-factor confirmation valid five minutes in that session, from installation and whether or not scopes are configured; restores and imports are not exports. [Capability rules](docs/contract/access-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Sensitive administration (access settings, team, integration keys, firm settings, retention, credential archive mode, invoice authority and automatic-issue consent) and exports (backup and complete-archive exports, erasure journal, approved billing exports, report CSV/PDF, invoice PDFs, the MFA enrollment report) require a separate fresh second-factor confirmation valid five minutes in that session, from installation and whether or not scopes are configured; restores and imports are not exports.
@@ -1955,7 +1955,7 @@ Core · target · **partial** · From ACCESS-003 · Cites BASE-ACCESS-001, BASE-
 
 Core · target · **partial** · From ACCESS-003 · Cites BASE-ACCESS-001, BASE-ACCESS-002, BASE-ACCESS-004, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001, BASE-SIGNIN-001, BASE-SIGNIN-002
 
-**Requirement.** Enterprise identity lifecycle includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/access-003.md) define its record and recovery details.
+**Requirement.** Required enterprise sign-in fails closed during outages and after disconnection; native owner recovery retains the existing second-factor policy. [Capability rules](docs/contract/access-003.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Required enterprise sign-in fails closed during outages and after disconnection; native owner recovery retains the existing second-factor policy.
@@ -1969,7 +1969,7 @@ Core · target · **partial** · From ACCESS-003 · Cites BASE-ACCESS-001, BASE-
 
 Core · target · **partial** · Cites BASE-ACCESS-001, BASE-ACCESS-002, BASE-ACCESS-004, BASE-ROLE-001, BASE-SIGNIN-001, BASE-SIGNIN-002
 
-**Requirement.** Under the held company policy, the owner can set a firm policy requiring a second factor for every staff sign-in, whatever the method. When the provider does not assert MFA, Blotter requires its own factor. The policy covers web, mobile and person-created API sessions. Integration and agent keys are separately scoped credentials (API-002, AGENT-001) and cannot be used to bypass it. A staff member must enroll before seeing any client data. Recovery uses one-time recovery codes, or an owner reset that is audited and revokes all of that person's sessions. The owner's own factor is recovered with recovery codes or by a second owner. Session lifetime and idle timeout are configurable. An enrollment report gives evidence for the firm's WISP and the FTC Safeguards Rule (16 CFR 314.4(c)(5)); it records enrollment facts and never claims certification. Every session, whenever it began, must pass its own second-factor check before any practice data, and a person who has enrolled a factor is asked for it at every new session even while the policy is off. Until a second owner role exists, the principal recovers their own factor with a recovery code. Until ACCESS-005 or ACCESS-003 passes a provider's MFA assertion to Blotter, every federated session is treated as lacking one and is challenged for a Blotter factor. Today's sessions are browser sign-in sessions, whatever the method, and all pass the same check; MOBILE-001 apps and API-002 person-created sessions inherit it before they ship. Session lifetime (from sign-in) and idle timeout (since the session's last request) are whole minutes set by the principal; reaching either ends the session. [Capability rules](docs/contract/access-004.md) define its record and recovery details.
+**Requirement.** The owner can set a firm policy requiring a second factor for every staff sign-in, whatever the method. When the provider does not assert MFA, Blotter requires its own factor. The policy covers web, mobile and person-created API sessions. Integration and agent keys are separately scoped credentials (API-002, AGENT-001) and cannot be used to bypass it. A staff member must enroll before seeing any client data. Recovery uses one-time recovery codes, or an owner reset that is audited and revokes all of that person's sessions. The owner's own factor is recovered with recovery codes or by a second owner. Session lifetime and idle timeout are configurable. An enrollment report gives evidence for the firm's WISP and the FTC Safeguards Rule (16 CFR 314.4(c)(5)); it records enrollment facts and never claims certification. Every session, whenever it began, must pass its own second-factor check before any practice data, and a person who has enrolled a factor is asked for it at every new session even while the policy is off. Until a second owner role exists, the principal recovers their own factor with a recovery code. Until ACCESS-005 or ACCESS-003 passes a provider's MFA assertion to Blotter, every federated session is treated as lacking one and is challenged for a Blotter factor. Today's sessions are browser sign-in sessions, whatever the method, and all pass the same check; MOBILE-001 apps and API-002 person-created sessions inherit it before they ship. Session lifetime (from sign-in) and idle timeout (since the session's last request) are whole minutes set by the principal; reaching either ends the session. [Capability rules](docs/contract/access-004.md) define its record and recovery details.
 
 **Acceptance.**
 1. Enable the firm MFA policy.
@@ -2020,7 +2020,7 @@ Core · target · **partial** · From ACCESS-006 · Cites BASE-ACCESS-001, BASE-
 
 Core · target · **partial** · From ACCESS-006 · Cites BASE-ACCESS-001, BASE-ACCESS-002, BASE-ACCESS-004, BASE-ROLE-001, BASE-SIGNIN-001, BASE-SIGNIN-002
 
-**Requirement.** Staff offboarding and ownership transfer includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/access-006.md) define its record and recovery details.
+**Requirement.** One batch, matching the preview exactly and refused while any job or rule would make someone review their own work, moves all of it, discards the running timer (nothing recorded; its start is kept in the audit), submits their unsubmitted time for approval on their behalf (returned entries never bill; the principal deletes them before closing their period), and deactivates them. [Capability rules](docs/contract/access-006.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. One batch, matching the preview exactly and refused while any job or rule would make someone review their own work, moves all of it, discards the running timer (nothing recorded; its start is kept in the audit), submits their unsubmitted time for approval on their behalf (returned entries never bill; the principal deletes them before closing their period), and deactivates them.
@@ -2055,7 +2055,7 @@ Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001, BASE-SECRET-001, BASE-SIGNIN-002
 
-**Requirement.** Under the held company policy, clients and staff store client-provided logins, such as bank, payroll, state tax and sales-tax portal credentials, encrypted under per-firm keys. Each credential is visible only to staff permitted on that client. Every reveal requires the staff member's MFA step-up (ACCESS-004) and is logged. Clients add and update credentials through the portal. Credentials never appear in AI context, emails, search or plain exports; archives either encrypt or exclude them, at the owner's choice. Rotation reminders are optional. Staff permitted on a client are the principal, reviewers and a preparer holding a job on that client (ACCESS-001 job scope; ACCESS-002 inherits configurable client grants before it ships); others get not found, and lists show names, portal addresses, authors, times and rotation dates only; usernames, passwords and notes stay sealed. Every reveal and every refused reveal by permitted staff is logged with person, credential, time and outcome, and shows in the client's history. Clients add and replace credentials through their contact-scoped link (CRM-001 authority) and never read one back. Rotation dates show as due on the staff list; no reminder is sent. Archives carry the ciphertext (default), readable only where the same VAULT_KEY is configured, or leave it out; either way a restored credential that cannot be opened says so. The principal erases a credential by typing its name with a reason: the ciphertext goes, its name, authors, times and log stay, and older archives are fenced. A merged client's credentials follow its survivor. ERASURE-002 inherits client-wide credential erasure and holds, and MOBILE-001 inherits the native reveal, before they ship. [Capability rules](docs/contract/vault-001.md) define its record and recovery details.
+**Requirement.** Clients and staff store client-provided logins, such as bank, payroll, state tax and sales-tax portal credentials, encrypted under per-firm keys. Each credential is visible only to staff permitted on that client. Every reveal requires the staff member's MFA step-up (ACCESS-004) and is logged. Clients add and update credentials through the portal. Credentials never appear in AI context, emails, search or plain exports; archives either encrypt or exclude them, at the owner's choice. Rotation reminders are optional. Staff permitted on a client are the principal, reviewers and a preparer holding a job on that client (ACCESS-001 job scope; ACCESS-002 inherits configurable client grants before it ships); others get not found, and lists show names, portal addresses, authors, times and rotation dates only; usernames, passwords and notes stay sealed. Every reveal and every refused reveal by permitted staff is logged with person, credential, time and outcome, and shows in the client's history. Clients add and replace credentials through their contact-scoped link (CRM-001 authority) and never read one back. Rotation dates show as due on the staff list; no reminder is sent. Archives carry the ciphertext (default), readable only where the same separately configured vault secret is available, or leave it out; either way a restored credential that cannot be opened says so. The principal erases a credential by typing its name with a reason: the ciphertext goes, its name, authors, times and log stay, and older archives are fenced. A merged client's credentials follow its survivor. ERASURE-002 inherits client-wide credential erasure and holds, and MOBILE-001 inherits the native reveal, before they ship. [Capability rules](docs/contract/vault-001.md) define its record and recovery details.
 
 **Acceptance.**
 1. A client adds a state sales-tax portal login through the portal.
@@ -2088,7 +2088,7 @@ Core · target · **partial** · Cites BASE-AGENT-005, BASE-AGENT-007, BASE-AGEN
 
 Core · target · **partial** · Cites BASE-BACKUP-001, BASE-DATA-001
 
-**Requirement.** Under the held company policy, the principal downloads an integrity-checked native archive containing product records, original small files, import provenance, review history and immutable approved CSVs, then restores into an empty installation. Identity/sessions, outboxes, agent keys, upload-link authority and private configuration stay installation-local and excluded. Damaged archives and nonempty destinations are refused; imported history does not reauthorize external actions. Base portability is the data transport, with Blotter's explicit exclusions.
+**Requirement.** The principal downloads an integrity-checked native archive containing product records, original small files, import provenance, review history and immutable approved CSVs, then restores into an empty installation. Identity/sessions, outboxes, agent keys, upload-link authority and private configuration stay installation-local and excluded. Damaged archives and nonempty destinations are refused; imported history does not reauthorize external actions. Base portability is the data transport, with Blotter's explicit exclusions.
 
 **Acceptance.**
 1. Export via the owner HTTP door, reject a damaged archive and a nonempty restore, restore the intact archive into an empty installation and export again.
@@ -2101,7 +2101,7 @@ Core · target · **partial** · Cites BASE-BACKUP-001, BASE-DATA-001
 
 Core · target · **partial** · From ARCHIVE-002 · Cites BASE-AUDIT-001, BASE-BACKUP-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Under the held company policy, extend owner archives and selective machine-readable exports to every new target record: messages, organizer/signature evidence, versions, deadlines, ledger snapshots, capacity, invoices/payments, automation/agent history and source-labeled migrations. Publish limits and resumable export/restore progress for a working firm; restore historical external references inactive, reauthorize connectors and preview scheduled follow-up before activation. [Capability rules](docs/contract/archive-002.md) define its record and recovery details.
+**Requirement.** Extend owner archives and selective machine-readable exports to every new target record: messages, organizer/signature evidence, versions, deadlines, ledger snapshots, capacity, invoices/payments, automation/agent history and source-labeled migrations. Publish limits and resumable export/restore progress for a working firm; restore historical external references inactive, reauthorize connectors and preview scheduled follow-up before activation. [Capability rules](docs/contract/archive-002.md) define its record and recovery details.
 
 **Acceptance.**
 1. Export a multi-year firm with connected history, interrupt/resume the operation and restore to an empty destination.
@@ -2120,7 +2120,7 @@ Core · target · **partial** · From ARCHIVE-002 · Cites BASE-AUDIT-001, BASE-
 
 Core · target · **partial** · From ARCHIVE-002 · Cites BASE-AUDIT-001, BASE-BACKUP-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Complete target data portability includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/archive-002.md) define its record and recovery details.
+**Requirement.** Restored external references remain history, with configuration and provider credentials re-entered separately. [Capability rules](docs/contract/archive-002.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Restored external references remain history, with configuration and provider credentials re-entered separately.
@@ -2167,7 +2167,7 @@ Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-OPS-005
 
-**Requirement.** Product mutations retain actor, action, object and timestamp, including reviewer notes, human proposal decisions, billing approvals and erasure reasons. The principal can inspect the action history; archive round trips preserve it. Portal actions are labeled as upload-link actions rather than falsely attributed to a verified named client. [Capability rules](docs/contract/audit-001.md) define its record and recovery details.
+**Requirement.** The principal can inspect the action history; archive round trips preserve it. Portal actions are labeled as upload-link actions rather than falsely attributed to a verified named client. [Capability rules](docs/contract/audit-001.md) define its record and recovery details.
 
 **Acceptance.**
 1. Create and review work, approve a proposal/export and erase a file through public doors.
@@ -2218,7 +2218,7 @@ Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 **Acceptance.**
 1. Under the held company policy, summarize a long email or portal thread with conflicting amounts, inspect source links and unresolved questions, edit a reply and approve its exact recipients and attachments.
 2. Under the held company policy, reject another draft and confirm no send or unauthorized client information.
-3. Only an authorized staff member's explicit click may transmit selected source text, after masking tax identifiers, SSNs and bank numbers.
+3. Under the held company policy, an authorized staff member explicitly initiates the external and sensitive call transmitting selected source text, after masking tax identifiers, SSNs and bank numbers.
 4. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request.
 5. Provider output persists only as a draft the person saves.
 6. The portal disclosure states that staff may use an AI provider on client documents.
@@ -2235,7 +2235,7 @@ Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 **Acceptance.**
 1. Upload a wrong-period statement, illegible scan and correct invoice with misleading embedded instructions.
 2. Under the held company policy, inspect sourced validation/naming/routing proposals, approve one and reject another; originals persist and no file changes client or visibility without authority.
-3. Only an authorized staff member's explicit click may transmit selected source text, after masking tax identifiers, SSNs and bank numbers.
+3. Under the held company policy, an authorized staff member explicitly initiates the external and sensitive call transmitting selected source text, after masking tax identifiers, SSNs and bank numbers.
 4. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request.
 5. Provider output persists only as a draft the person saves.
 6. The portal disclosure states that staff may use an AI provider on client documents.
@@ -2247,7 +2247,7 @@ Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Calls for this workflow carry standard, external and sensitive as their facts require; the company’s policy decides their disposition. Run authorized client agents on schedules and task/file/question events with explicit data scope, tools, budget and named supervisor. Show plan, sources, pending actions, cost and outcome; de-duplicate events and stop on revocation. Calls concerning external messages, staffing/deadline changes, fees, write-offs, financial writes and final engagement judgments carry the corresponding risk classes; company policy decides their disposition. Model/provider data use, retention and permissions are visible to the firm. [Capability rules](docs/contract/ai-003.md) define its record and recovery details.
+**Requirement.** Calls for this workflow carry standard, external, money, commitment, access, sensitive and live as their facts require; the company’s policy decides their disposition. Run authorized client agents on schedules and task/file/question events with explicit data scope, tools, budget and named supervisor. Show plan, sources, pending actions, cost and outcome; de-duplicate events and stop on revocation. Calls concerning external messages, staffing/deadline changes, fees, write-offs, financial writes and final engagement judgments carry the corresponding risk classes; company policy decides their disposition. Model/provider data use, retention and permissions are visible to the firm. [Capability rules](docs/contract/ai-003.md) define its record and recovery details.
 
 **Acceptance.**
 1. Enable one client-scoped file-event agent and one scheduled agent, deliver duplicate events and inspect a single pending plan.
@@ -2256,7 +2256,7 @@ Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-
 **Evidence.** `src/blotter/scheduled-agents.ts`; `src/blotter/scheduled-agent-gate.ts`; `src/blotter/clients.ts`; `src/ui/proposals.tsx`; `tests/blotter/service-agents.test.mjs` — “scoped file and scheduled plans” (principal-only grants, own key, client scope, configured six-hour slots across skipped intervals, granted roll-forward, legacy preparation and learning denial matrix with unchanged budgets and effects, plan budget, key revocation and retained attribution); “question and completed-task events” (both event doors, human-only effects, grant revocation and decision attribution); “budget exception notifies its owner” (service budget, owned refusal, once-only recovery and costs); “keyed external plans enforce client, tool, immutable replay, live revocation and human decisions” (positively readable document, discussion, vault and financial fixtures excluded beside allowed metadata, complete unverified provider declaration, later key and rule and plan reads without key disclosure, immutable external preparation, human refusal, grant and revocation audit actor and action and object and time); “archives retain plans and costs” (excluded keys, source-equal rules and runs and decisions and cost references with documented inactive transformations only, erased-source refusal and stale-restore fence); “client erasure revokes scheduled grants” (held-client scheduled grant revocation, derived-data redaction and attributed retained references); “Cron plans stop when MFA is required” (live supervisor factor); `tests/blotter/service-agents-ui.mjs` / serviceAgentsJourney (operator grant and human decision disclosures, creation-only key display across navigation and reload, source plans, costs, outcomes and icon tooltips at 1440 and 390)
 **Gap.** Old evidence exercises this workflow; complete proof of Enable one client-scoped file-event agent and one scheduled agent, deliver duplicate events and inspect a single pending plan is not traced for every listed outcome in docs/contract/DONE-AUDIT.md.
 
-### PORTAL capabilities
+### Portal sign-in on the firm custom domain
 
 #### PORTAL-006 — Portal sign-in on the firm custom domain
 
@@ -2309,7 +2309,7 @@ Core · push-further · **partial** · From READY-001 · Cites BASE-AUDIT-001, B
 
 Core · push-further · **partial** · From READY-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Calls for this workflow carry standard, external and commitment as their facts require; the company’s policy decides their disposition. Maintain engagement evidence and readiness includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/ready-001.md) define its record and recovery details.
+**Requirement.** Under the held company policy, source changes refuse stale approval; replay of the same source fingerprint returns the same preparation. [Capability rules](docs/contract/ready-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Under the held company policy, source changes refuse stale approval; replay of the same source fingerprint returns the same preparation.
@@ -2399,7 +2399,7 @@ Core · push-further · **partial** · From ONBOARD-001 · Cites BASE-AUDIT-001,
 
 Core · push-further · **partial** · From ONBOARD-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Calls for this workflow carry standard, external, access, accounts and gated as their facts require; the company’s policy decides their disposition. Run new client onboarding to readiness includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/onboard-001.md) define its record and recovery details.
+**Requirement.** Under the held company policy, restored reviews are held, and derived reviews join ERASURE-002 with its holds; removed or erased sources are refused. ct approved this principal-only review and observation subset on 25 October 2026 at 17:55Z: owner custody, audited review of signed scope, attributed immutable practitioner observations, no outbound execution and inactive held restoration. [Capability rules](docs/contract/onboard-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. Under the held company policy, restored reviews are held, and derived reviews join ERASURE-002 with its holds; removed or erased sources are refused. ct approved this principal-only review and observation subset on 25 October 2026 at 17:55Z: owner custody, audited review of signed scope, attributed immutable practitioner observations, no outbound execution and inactive held restoration.
@@ -2450,7 +2450,7 @@ Core · push-further · **partial** · From NOTICE-001 · Cites BASE-AUDIT-001, 
 
 Core · push-further · **partial** · From NOTICE-001 · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
-**Requirement.** Calls for this workflow carry standard, external, sensitive and commitment as their facts require; the company’s policy decides their disposition. Read notices and propose the response plan includes capability journey on the same client, engagement and current source records. [Capability rules](docs/contract/notice-001.md) define its record and recovery details.
+**Requirement.** The practitioner uses the separate native notice and message doors to adopt verified values or send their selected question. [Capability rules](docs/contract/notice-001.md) retain its detailed data and recovery rules.
 
 **Acceptance.**
 1. The practitioner uses the separate native notice and message doors to adopt verified values or send their selected question.

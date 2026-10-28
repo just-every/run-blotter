@@ -37,7 +37,7 @@ async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhook
   return mf.dispatchFetch(origin+path,{redirect:'manual',method,headers:{origin,host:new URL(origin).host,'CF-Connecting-IP':'192.0.2.1',...(multipart?{'content-type':multipart.headers.get('content-type')}:body===undefined?{}:{'content-type':'application/json'}),...(cookie?{cookie}:{}),...extra},...(body===undefined?{}:{body:multipart?await multipart.arrayBuffer():JSON.stringify(body)})});
  };
 
- // Sensitive administration and exports need a fresh step-up from installation (ACCESS-002). Tests that are not about the factor
+ // Sensitive administration and exports need a fresh step-up from installation (ACCESS-002 / ACCESS-007). Tests that are not about the factor
  // record that confirmation for the session directly; the step-up and MFA journeys use the real enrollment and confirmation doors.
  const sessions=new Map();
  const remember=async(cookie,address)=>{const row=await(await mf.getD1Database('DB')).prepare('SELECT s.id FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE o.email=? ORDER BY s.created_at DESC,s.rowid DESC LIMIT 1').bind(address).first();sessions.set(cookie,{id:row.id,email:address});};

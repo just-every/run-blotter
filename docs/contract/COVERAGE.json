@@ -13856,8 +13856,10 @@
       "file": "CONTRACT.md",
       "line": 248,
       "text": "**AUDIT-001 \u2014 Durable action attribution.** Product mutations retain actor, action, object and timestamp, including reviewer notes, human proposal decisions, billing approvals and erasure reasons.",
-      "to": "docs",
-      "path": "docs/contract/audit-001.md"
+      "to": "base",
+      "ids": [
+        "BASE-AUDIT-001"
+      ]
     },
     {
       "file": "CONTRACT.md",

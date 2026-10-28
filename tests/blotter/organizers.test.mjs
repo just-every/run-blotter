@@ -33,7 +33,7 @@ const answer = (value, confirmed = true) => ({ value, confirmed });
 const portal = token => `/portal/${token}/organizers`;
 const save = (h, token, o, answers, submit = false, expected = 200) => h.json(`${portal(token)}/${encodeURIComponent(o.id)}`, { revision: o.revision, answers, submit }, undefined, expected);
 
-test('NOTIFY-001 / PORTAL-004 / WORK-003 / MSG-001 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / PORTAL-004 / PORTAL-011 / PORTAL-012 / WORK-003 / WORK-011 / MSG-001 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
  const h = await harness();
  try {
   const s = await setup(h), { job, template, a, b, assignments, organizer } = s;
@@ -124,7 +124,7 @@ test('NOTIFY-001 / PORTAL-004 / WORK-003 / MSG-001 conditional organizers: expli
  } finally { await h.close(); }
 });
 
-test('PORTAL-004 / WORK-008 organizers travel through starter releases, individual update choices, firm edits, job snapshots and archive restore', async () => {
+test('PORTAL-004 / PORTAL-011 / PORTAL-012 / WORK-008 / WORK-014 organizers travel through starter releases, individual update choices, firm edits, job snapshots and archive restore', async () => {
  const h = await harness(); let restored;
  try {
   await h.json('/team', { email: 'reviewer@example.test', name: 'Reviewer', role: 'reviewer' }, h.owner);
@@ -180,7 +180,7 @@ test('PORTAL-004 / WORK-008 organizers travel through starter releases, individu
  } finally { await restored?.close(); await h.close(); }
 });
 
-test('BASE-001 / PORTAL-004 authority, revocation, attributed originals and portable organizer content exclude client credentials', async () => {
+test('BASE-001 / PORTAL-004 / PORTAL-011 / PORTAL-012 authority, revocation, attributed originals and portable organizer content exclude client credentials', async () => {
  const h = await harness(); let restored;
  try {
   const s = await setup(h), { organizer, job, assignments, a } = s;
@@ -225,7 +225,7 @@ test('BASE-001 / PORTAL-004 authority, revocation, attributed originals and port
  } finally { await restored?.close(); await h.close(); }
 });
 
-test('BASE-001 / PORTAL-004 typed owner erasure removes answer content and derived carry, preserves authors and sign-off, and refuses stale archive restore', async () => {
+test('BASE-001 / PORTAL-004 / PORTAL-011 / PORTAL-012 typed owner erasure removes answer content and derived carry, preserves authors and sign-off, and refuses stale archive restore', async () => {
  const h = await harness(); let target;
  try {
   const s = await setup(h), { organizer, job, assignments, a, b } = s;

@@ -528,7 +528,7 @@ test('DOC-003 client approval of deliverables: changes on version 1, approval bo
   await h.json(`/jobs/${work.id}/review`, { revision: after.job.revision, decision: 'signoff', note: 'Self' }, preparer, 403);
 });
 
-test('NOTIFY-001 / COLLAB-001 review alerts and internal threads: mention, correction, unread state, resolution, no leak to the client or unassigned staff', async () => {
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / COLLAB-001 review alerts and internal threads: mention, correction, unread state, resolution, no leak to the client or unassigned staff', async () => {
   await h.json('/team', { email: 'other@example.test', name: 'Omar Other', role: 'preparer' }, h.owner);
   await h.json('/team/invite', { email: 'other@example.test' }, h.owner);
   const other = await h.login('other@example.test');
@@ -620,7 +620,7 @@ test('BASE-001 / agent keys only prepare; a person approves or declines and the 
   await h.json('/agent/context', undefined, '', 401, auth);
 });
 
-test('BASE-001 / IMPORT-001 legacy client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {
+test('BASE-001 / IMPORT-001 / IMPORT-002 legacy client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {
   const file = await readFile(new URL('../../fixtures/client-list.csv', import.meta.url), 'utf8');
   const before = (await h.json('/state', undefined, h.owner)).clients.length;
   const preview = await h.json('/import/preview', { csv: file }, h.owner);
@@ -907,7 +907,7 @@ const passkey = origin => {
 const wrongCode = secret => String((Number(totp(secret)) + 500000) % 1e6).padStart(6, '0');
 
 // Runs last: once the policy is on, every later request needs a verified second factor.
-test('WORK-003 dependencies: a close feeds a tax engagement, an organizer answer picks the branch, completions advance only eligible tasks, cycles are refused and an exception is recorded without faking evidence', async () => {
+test('WORK-003 / WORK-011 dependencies: a close feeds a tax engagement, an organizer answer picks the branch, completions advance only eligible tasks, cycles are refused and an exception is recorded without faking evidence', async () => {
   const close = await h.json('/templates', { name: 'Monthly close', recurrence: 'monthly', steps: 'Reconcile bank\nClose the books', requests: 'Bank statements' }, h.owner);
   const questions = [{ key: 'itemized', label: 'Itemizing deductions this year?', options: ['yes', 'no'] }];
   const base = { name: '1040 with close', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms\nCharity receipts', questions };
@@ -987,7 +987,7 @@ test('WORK-003 dependencies: a close feeds a tax engagement, an organizer answer
   assert.equal((await h.json(`/jobs/${work.id}/submit`, {}, preparer)).job.status, 'review');
 });
 
-test('WORK-002 recurring work: monthly and fiscal-year rules create each period inside a three-month lead time once, claim existing jobs, skip, pause, catch up and never alter a created job', async () => {
+test('WORK-002 / WORK-010 recurring work: monthly and fiscal-year rules create each period inside a three-month lead time once, claim existing jobs, skip, pause, catch up and never alter a created job', async () => {
   const monthly = await h.json('/templates', { name: 'Monthly bookkeeping', recurrence: 'monthly', steps: 'Reconcile\nClose', requests: 'Bank statements\nReceipts' }, h.owner);
   const fiscal = await h.json('/templates', { name: '1120-S return', recurrence: 'annual', steps: 'Prepare\nReview', requests: 'Trial balance' }, h.owner);
   const firm = await h.json('/clients', { name: 'Lindqvist Studio Inc', fields: { service_tier: 'Premier' } }, h.owner);
@@ -1274,7 +1274,7 @@ test('TIME-001 activity suggestions: only consented actions suggest time with th
   assert.deepEqual((await mine()).pending, []);
 });
 
-test('BASE-001 / ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review transfer, move everything to two successors in one batch, keep past authors and revoke sessions and agent keys', async () => {
+test('BASE-001 / ACCESS-006 / ACCESS-009 offboarding: preview what a preparer owns, refuse a self-review transfer, move everything to two successors in one batch, keep past authors and revoke sessions and agent keys', async () => {
   await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'preparer' }, h.owner);
   await h.json('/team/invite', { email: 'leaving@example.test' }, h.owner);
   const lee = await h.login('leaving@example.test');
@@ -1334,7 +1334,7 @@ test('BASE-001 / ACCESS-006 offboarding: preview what a preparer owns, refuse a 
   await h.json('/state', undefined, again, 401);
 });
 
-test('CRM-003 client history and unresolved items: a newest-first timeline with authors and job links, searchable by kind and text; open items name an owner, next action and due condition and change hands; a preparer sees only jobs they may read', async () => {
+test('CRM-003 / CRM-007 client history and unresolved items: a newest-first timeline with authors and job links, searchable by kind and text; open items name an owner, next action and due condition and change hands; a preparer sees only jobs they may read', async () => {
   const shop = await h.json('/clients', { name: 'Larkspur Books', contactName: 'Iris Lark', contactEmail: 'iris@larkspur.example', fields: { service_tier: 'Plus' } }, h.owner);
   const start = { clientId: shop.id, templateId: template.id, dueNote: 'Firm close' };
   const mine = await h.json('/jobs', { ...start, periodStart: '2027-01-01', dueDate: '2027-02-28', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
@@ -1388,7 +1388,7 @@ test('CRM-003 client history and unresolved items: a newest-first timeline with 
   assert.deepEqual(handed, [['reviewer@example.test', 'discussion Resolve “Inventory count”: reviewer@example.test to owner@example.test'], ['reviewer@example.test', 'task Complete “Draft BAS”: preparer@example.test to reviewer@example.test']]);
 });
 
-test('PORTAL-003 client progress, secure questions and to-dos: the client asks and completes one to-do; the preparer is alerted, answers, and sees the same progress after review; internal notes and another client\'s to-dos stay hidden; the question is in CRM-003 history with its owner', async () => {
+test('PORTAL-003 / PORTAL-010 client progress, secure questions and to-dos: the client asks and completes one to-do; the preparer is alerted, answers, and sees the same progress after review; internal notes and another client\'s to-dos stay hidden; the question is in CRM-003 / CRM-007 history with its owner', async () => {
   const home = await h.json('/clients', { name: 'Okafor household', contactName: 'Ada Okafor', contactEmail: 'ada@okafor.example', fields: { service_tier: 'Plus' } }, h.owner);
   const elsewhere = await h.json('/clients', { name: 'Brightwater Dental', contactName: 'Sam Bright', contactEmail: 'sam@brightwater.example', fields: { service_tier: 'Plus' } }, h.owner);
   const start = { templateId: template.id, periodStart: '2027-07-01', dueDate: '2027-10-28', dueNote: 'Lodgement', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
@@ -1458,7 +1458,7 @@ test('PORTAL-003 client progress, secure questions and to-dos: the client asks a
   await mobileTaskJourney(h,{token,work,preparer,reviewer,phase:'review'});
 });
 
-test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and a client meeting shows available hours, overloaded staff and affected jobs; adjusting an estimate updates totals and conflict explanations', async () => {
+test('CAPACITY-001 / CAPACITY-004 workload capacity: a tax-season week with budgets, leave and a client meeting shows available hours, overloaded staff and affected jobs; adjusting an estimate updates totals and conflict explanations', async () => {
   const season = await h.json('/templates', { name: '1040 season', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms', tasks: [
     { label: 'Prepare federal return', assignee: 'preparer', dueFrom: 'due', dueDays: -2, estimateMinutes: 900 },
     { label: 'Prepare state return', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 600 },
@@ -1500,7 +1500,7 @@ test('CAPACITY-001 workload capacity: a tax-season week with budgets, leave and 
   assert.deepEqual((await h.json('/capacity?week=2029-03-05', undefined, preparer)).people.map(p => p.email), ['preparer@example.test']);
 });
 
-test('NOTIFY-001 / CAPACITY-002 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
+test('NOTIFY-001 / NOTIFY-002 / NOTIFY-003 / CAPACITY-002 / CAPACITY-005 coverage: a preparer on leave, previewed skilled cover with capacity, a dependent close-and-return chain moved in order, self-review and ineligible overrides refused, notifications sent and uncovered work owned by the approving manager', async () => {
   for (const [address, name] of [['leaver@example.test', 'Lee Leaver'], ['cover@example.test', 'Cam Cover']]) await h.json('/team', { email: address, name, role: 'preparer' }, h.owner);
   const close = await h.json('/templates', { name: 'Coverage close', recurrence: 'monthly', steps: 'unused', requests: 'Bank statements', tasks: [{ label: 'Close the month', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 120 }] }, h.owner);
   const ret = await h.json('/templates', { name: 'Coverage return', recurrence: 'annual', steps: 'unused', requests: 'W-2 forms', tasks: [{ label: 'Prepare return', assignee: 'preparer', dueFrom: 'due', dueDays: -1, estimateMinutes: 240, afterJob: { templateId: close.id, gate: 'signed_off' } }] }, h.owner);
@@ -1550,7 +1550,7 @@ test('NOTIFY-001 / CAPACITY-002 coverage: a preparer on leave, previewed skilled
   assert.ok(!(await h.json(`/clients/${firm.id}/history`, undefined, h.owner)).unresolved.some(i => i.kind === 'coverage'));
 });
 
-test('CAPACITY-003 forecast: next tax season from recurring rules and prior actuals, as weekly ranges with confidence; a client with no actuals widens the range and is named; a hire and a lost client compared by skill; a saved scenario changes no live work', async () => {
+test('CAPACITY-003 / CAPACITY-006 / CAPACITY-007 forecast: next tax season from recurring rules and prior actuals, as weekly ranges with confidence; a client with no actuals widens the range and is named; a hire and a lost client compared by skill; a saved scenario changes no live work', async () => {
   const individual = await h.json('/templates', { name: 'Individual 1040', recurrence: 'annual', steps: 'Prepare return', requests: 'Organizer' }, h.owner);
   const people = { templateId: individual.id, preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' };
   const clients = {};
@@ -1611,7 +1611,7 @@ test('CAPACITY-003 forecast: next tax season from recurring rules and prior actu
   assert.deepEqual([reopened.scenario.name, reopened.compared, reopened.baseline], ['Seasonal hire, Quint lost', view.compared, view.baseline]);
 });
 
-test('SEARCH-001 firm-wide search: a client by last name (with a typo), a phrase inside an uploaded PDF, a task, a portal message and a note, each opened; type filter and ranking; a preparer gets nothing from a client they cannot read; tax-id digits only for a principal or reviewer, always masked', async () => {
+test('SEARCH-001 / SEARCH-002 firm-wide search: a client by last name (with a typo), a phrase inside an uploaded PDF, a task, a portal message and a note, each opened; type filter and ranking; a preparer gets nothing from a client they cannot read; tax-id digits only for a principal or reviewer, always masked', async () => {
   const deflated = (await import('node:zlib')).deflateSync(Buffer.from('BT /F1 12 Tf 72 720 Td (Schedule C home office) Tj T* [(deduction) -250 (worksheet for 2031)] TJ ET'));
   const pdf = Buffer.concat([Buffer.from(`%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nendobj\n2 0 obj\n<< /Length ${deflated.length} /Filter /FlateDecode >>\nstream\n`, 'latin1'), deflated, Buffer.from('\nendstream\nendobj\n%%EOF\n', 'latin1')]);
   const okonkwo = await h.json('/clients', { name: 'Amara Okonkwo', abn: '51 824 753 556', contactName: 'Amara Okonkwo', contactEmail: 'amara@okonkwo.example', fields: { service_tier: 'Plus' } }, h.owner);
@@ -1663,7 +1663,7 @@ test('SEARCH-001 firm-wide search: a client by last name (with a typo), a phrase
   assert.deepEqual((await find('home office deduction', preparer)).results, []);
 });
 
-test('CRM-005 pipeline slice: prospects with source, services, fees and owner move through firm stages; lost needs a reason; winning creates exactly one client with its contact and onboarding job, and repeating the win creates nothing; the report shows conversion, stage age and fees by source and owner', async () => {
+test('CRM-005 / CRM-008 pipeline slice: prospects with source, services, fees and owner move through firm stages; lost needs a reason; winning creates exactly one client with its contact and onboarding job, and repeating the win creates nothing; the report shows conversion, stage age and fees by source and owner', async () => {
   const onboarding = await h.json('/templates', { name: 'New client onboarding', recurrence: 'annual', steps: 'Collect prior returns', requests: 'Prior-year returns' }, h.owner);
   const base = { contactName: 'Dana Reyes', contactEmail: 'dana@reyes.example', services: ['Monthly bookkeeping', '1120-S return'], ownerEmail: 'reviewer@example.test' };
   await h.json('/prospects', { ...base, name: 'Reyes Studio LLC', source: 'Website', estimatedFeeCents: 600000 }, preparer, 403);
@@ -1705,7 +1705,7 @@ test('CRM-005 pipeline slice: prospects with source, services, fees and owner mo
   assert.equal(prospects.find(p => p.id === kim.id).stageAgeDays, 0);
 });
 
-test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
+test('WORK-007 / WORK-013 work types and statuses: a 1040 type with a sub-status limited to it, moves on the board, queue and report by sub-status, review gates hold, and deleting a used sub-status needs a previewed move while history is kept', async () => {
   const returns = await h.json('/templates', { name: 'Individual return', recurrence: 'annual', steps: 'Prepare return', requests: 'W-2 forms' }, h.owner);
   const books = await h.json('/templates', { name: 'Monthly Bookkeeping', recurrence: 'monthly', steps: 'Reconcile', requests: 'Bank feed' }, h.owner);
   await h.json('/work-types', { name: '1040', templateId: returns.id }, reviewer, 403);
@@ -1751,7 +1751,7 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   assert.deepEqual((await h.json('/queue?view=' + view.id, undefined, preparer)).map(j => j.id), [ret.id]);
   assert.deepEqual((await h.json('/views', undefined, preparer)).map(v => v.name), ['Awaiting 8879']);
   await h.json('/queue?view=' + view.id, undefined, reviewer, 404);
-  // Capacity's service filter selects by work type (CAPACITY-001), not by template name.
+  // Capacity's service filter selects by work type (CAPACITY-001 / CAPACITY-004), not by template name.
   assert.deepEqual([...new Set((await h.json('/capacity?week=2029-04-09&service=1040', undefined, h.owner)).unscheduled.map(u => u.jobId))], [ret.id]);
   assert.deepEqual((await h.json('/capacity?week=2029-04-09&service=Individual%20return', undefined, h.owner)).unscheduled, []);
   const report = await h.json('/reports/status-time?workType=' + t1040.id, undefined, h.owner);
@@ -1796,7 +1796,7 @@ test('WORK-007 work types and statuses: a 1040 type with a sub-status limited to
   await move(ret, { stage: 'planned' }, h.owner, 409);
 });
 
-test('WORK-006 plans, boards and calendars: plan a preparer’s week from the overdue queue, group a 1040 board by sub-status, move a card and see it in queue, calendar, plan and client views; review moves are refused, filters persist, a due-date move shows its consequences', async () => {
+test('WORK-006 / WORK-012 plans, boards and calendars: plan a preparer’s week from the overdue queue, group a 1040 board by sub-status, move a card and see it in queue, calendar, plan and client views; review moves are refused, filters persist, a due-date move shows its consequences', async () => {
   const day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
   const monday = d => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
   const today = day(0), week = monday(today);
@@ -1850,7 +1850,7 @@ test('WORK-006 plans, boards and calendars: plan a preparer’s week from the ov
   assert.equal((await h.json('/plan?week=' + week, undefined, preparer)).days.find(d => d.date === today).items[0].job.sub_status, 'on client organizer');
   await h.json(`/jobs/${late.id}/reminders`, {}, preparer);
   assert.equal((await h.json('/portal/' + portalToken(h.mails.at(-1)), undefined)).progress.status, 'Waiting for your organizer');
-  // The move is in the job's WORK-007 status history.
+  // The move is in the job's WORK-007 / WORK-013 status history.
   const moved = (await h.json('/jobs/' + late.id, undefined, preparer)).statusHistory.at(-1);
   assert.deepEqual([moved.from_stage, moved.to_stage, moved.to_sub_status, moved.by], ['planned', 'waiting', 'on client organizer', 'preparer@example.test']);
   // Assignee, due range, blocked and priority filters.

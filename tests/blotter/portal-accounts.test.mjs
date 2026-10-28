@@ -28,7 +28,7 @@ function code(secret, currentStep = false) {
   return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1e6).padStart(6, '0');
 }
 
-test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a second factor to only their entities, recover a lost factor, lose a revoked entity mid-session, and archives carry accounts without factors or sessions', async () => {
+test('PORTAL-002 / PORTAL-007 / PORTAL-008 / PORTAL-009 / BASE-001 / ERASURE-002: invited contacts sign in with a second factor to only their entities, recover a lost factor, lose a revoked entity mid-session, and archives carry accounts without factors or sessions', async () => {
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-17' } }); let restored;
   try {
     for (const [address, role] of [['reviewer@example.test', 'reviewer'], ['prep@example.test', 'preparer']]) { await h.json('/team', { email: address, name: address.split('@')[0], role }, h.owner); await h.json('/team/invite', { email: address }, h.owner); }
@@ -93,7 +93,7 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     assert.equal(await (await h.request(fileDoor, undefined, pat.cookie)).text(), '%PDF-1.4 Cedar statements');
     assert.equal((await (await h.request(billDoor, undefined, pat.cookie)).arrayBuffer()).byteLength > 0, true);
 
-    // BILL-005 inherits this newly shipped authenticated file door too.
+    // BILL-005 / BILL-008 inherits this newly shipped authenticated file door too.
     const gate = await h.json(`/jobs/${job.id}/payment-gates`, { deliverableId: deliverable.deliverableId, invoiceId: draft.id, reason: 'Release final statements when this engagement is paid' }, h.owner);
     assert.equal((await pat.get(`/entities/${cedar.id}`)).documents[0].locked, true);
     assert.equal((await h.request(fileDoor, undefined, pat.cookie)).status, 402, 'An authenticated account cannot bypass the unpaid final-copy gate');
