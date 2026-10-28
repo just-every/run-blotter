@@ -1,0 +1,6 @@
+# TIME-003 capability rules
+
+
+**TIME-003 — Billing rates and rate cards.** Billing rates are set by staff member, role and service or work type, with client-specific overrides and effective dates.
+
+**TIME-003 — Billing rates and rate cards.** Status: **done**. Set rates for a practice role, a staff member, a 1040 service, a client and that client plus service. Record time with only the role matching, then with staff, service, client and client-plus-service rates also matching in turn; inspect each entry's resolved rate and source to prove every precedence level: client and service, client, service, staff member, role. Verify role means principal, reviewer or preparer. Start two jobs with distinct work types sharing a template and inspect distinct service rates, including client-plus-work-type overrides. A work-type card takes priority over template cards within the same scope; a type without a default template may have a rate. Verify effective-date boundaries, immutable recorded amounts and archive restore through the named TIME-003 / BASE-001 journey in `tests/blotter/rate-worktypes.test.mjs` and its browser journey in `tests/blotter/rate-worktypes-ui.mjs`. Change the staff rate effective next month and confirm past entries are unchanged.

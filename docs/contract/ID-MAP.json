@@ -9,9 +9,10 @@
       ]
     },
     "CRM-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CRM-001"
+        "CRM-001",
+        "CRM-006"
       ]
     },
     "CRM-002": {
@@ -21,9 +22,10 @@
       ]
     },
     "CRM-003": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CRM-003"
+        "CRM-003",
+        "CRM-007"
       ]
     },
     "CRM-004": {
@@ -33,9 +35,10 @@
       ]
     },
     "CRM-005": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CRM-005"
+        "CRM-005",
+        "CRM-008"
       ]
     },
     "ENGAGE-001": {
@@ -69,15 +72,17 @@
       ]
     },
     "WORK-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "WORK-002"
+        "WORK-002",
+        "WORK-010"
       ]
     },
     "WORK-003": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "WORK-003"
+        "WORK-003",
+        "WORK-011"
       ]
     },
     "WORK-004": {
@@ -93,21 +98,24 @@
       ]
     },
     "WORK-006": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "WORK-006"
+        "WORK-006",
+        "WORK-012"
       ]
     },
     "WORK-007": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "WORK-007"
+        "WORK-007",
+        "WORK-013"
       ]
     },
     "WORK-008": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "WORK-008"
+        "WORK-008",
+        "WORK-014"
       ]
     },
     "WORK-009": {
@@ -117,9 +125,11 @@
       ]
     },
     "DUE-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "DUE-001"
+        "DUE-001",
+        "DUE-004",
+        "DUE-005"
       ]
     },
     "DUE-002": {
@@ -183,9 +193,11 @@
       ]
     },
     "NOTIFY-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "NOTIFY-001"
+        "NOTIFY-001",
+        "NOTIFY-002",
+        "NOTIFY-003"
       ]
     },
     "PORTAL-001": {
@@ -195,21 +207,27 @@
       ]
     },
     "PORTAL-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "PORTAL-002"
+        "PORTAL-002",
+        "PORTAL-007",
+        "PORTAL-008",
+        "PORTAL-009"
       ]
     },
     "PORTAL-003": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "PORTAL-003"
+        "PORTAL-003",
+        "PORTAL-010"
       ]
     },
     "PORTAL-004": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "PORTAL-004"
+        "PORTAL-004",
+        "PORTAL-011",
+        "PORTAL-012"
       ]
     },
     "PORTAL-005": {
@@ -225,15 +243,18 @@
       ]
     },
     "DOC-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "DOC-001"
+        "DOC-001",
+        "DOC-004",
+        "DOC-005"
       ]
     },
     "DOC-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "DOC-002"
+        "DOC-002",
+        "DOC-006"
       ]
     },
     "DOC-003": {
@@ -243,9 +264,10 @@
       ]
     },
     "SEARCH-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "SEARCH-001"
+        "SEARCH-001",
+        "SEARCH-002"
       ]
     },
     "FOLLOWUP-001": {
@@ -279,21 +301,25 @@
       ]
     },
     "CAPACITY-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CAPACITY-001"
+        "CAPACITY-001",
+        "CAPACITY-004"
       ]
     },
     "CAPACITY-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CAPACITY-002"
+        "CAPACITY-002",
+        "CAPACITY-005"
       ]
     },
     "CAPACITY-003": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CAPACITY-003"
+        "CAPACITY-003",
+        "CAPACITY-006",
+        "CAPACITY-007"
       ]
     },
     "TIME-001": {
@@ -327,9 +353,11 @@
       ]
     },
     "BILL-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "BILL-002"
+        "BILL-002",
+        "BILL-006",
+        "BILL-007"
       ]
     },
     "PAY-001": {
@@ -357,15 +385,18 @@
       ]
     },
     "BILL-005": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "BILL-005"
+        "BILL-005",
+        "BILL-008"
       ]
     },
     "REPORT-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "REPORT-001"
+        "REPORT-001",
+        "REPORT-002",
+        "REPORT-003"
       ]
     },
     "INTEGRATE-001": {
@@ -423,9 +454,10 @@
       ]
     },
     "API-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "API-002"
+        "API-002",
+        "API-003"
       ]
     },
     "AUTOMATE-001": {
@@ -435,9 +467,10 @@
       ]
     },
     "IMPORT-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "IMPORT-001"
+        "IMPORT-001",
+        "IMPORT-002"
       ]
     },
     "MIGRATE-001": {
@@ -471,9 +504,10 @@
       ]
     },
     "MIGRATE-006": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "MIGRATE-006"
+        "MIGRATE-006",
+        "MIGRATE-008"
       ]
     },
     "MIGRATE-007": {
@@ -489,15 +523,17 @@
       ]
     },
     "ACCESS-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ACCESS-002"
+        "ACCESS-002",
+        "ACCESS-007"
       ]
     },
     "ACCESS-003": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ACCESS-003"
+        "ACCESS-003",
+        "ACCESS-008"
       ]
     },
     "ACCESS-004": {
@@ -513,9 +549,10 @@
       ]
     },
     "ACCESS-006": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ACCESS-006"
+        "ACCESS-006",
+        "ACCESS-009"
       ]
     },
     "SECURE-001": {
@@ -543,9 +580,10 @@
       ]
     },
     "ARCHIVE-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ARCHIVE-002"
+        "ARCHIVE-002",
+        "ARCHIVE-003"
       ]
     },
     "ERASURE-001": {
@@ -597,9 +635,10 @@
       ]
     },
     "READY-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "READY-001"
+        "READY-001",
+        "READY-002"
       ]
     },
     "RESCUE-001": {
@@ -621,9 +660,10 @@
       ]
     },
     "ONBOARD-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ONBOARD-001"
+        "ONBOARD-001",
+        "ONBOARD-002"
       ]
     },
     "SWITCH-001": {
@@ -645,9 +685,10 @@
       ]
     },
     "NOTICE-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "NOTICE-001"
+        "NOTICE-001",
+        "NOTICE-003"
       ]
     }
   }
