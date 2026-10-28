@@ -120,7 +120,7 @@
       "executable": false
     },
     "agent-surface.json": {
-      "sha256": "4a52fff8878b537dd47f736439c237a06c592b8009a8fcfbf2d32ab8700cdb02",
+      "sha256": "b71462ea4525e6c028666ab7ab33826de2dccadfcd226b8c64316f8025d91682",
       "executable": false
     },
     "AGENTS.md": {
@@ -164,7 +164,7 @@
       "executable": false
     },
     "docs/agent-door.md": {
-      "sha256": "e569f5c21d3f3c10ba063535352ec92e8f94b502f8d065ac699a02fd9f4f2612",
+      "sha256": "27de19515edb3f9562ca39a62902248d35f336a9130c1937705914fb4d6a40dd",
       "executable": false
     },
     "docs/ai-assistance.md": {
@@ -1272,7 +1272,7 @@
       "executable": false
     },
     "src/blotter/agent-door/tools.ts": {
-      "sha256": "c4338d5a956a5b14c2b393366bfdab87b63b662bfbea1d89e99ada2fce35a796",
+      "sha256": "229e9788f6f324032cfd3f7dd609bbd97138ccc0523d0acf3dcae5c3386cb2e2",
       "executable": false
     },
     "src/blotter/ai-assistance.ts": {

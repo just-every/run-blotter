@@ -42,7 +42,8 @@
       "scope": "learning:prepare",
       "readOnly": false,
       "classes": [
-        "standard"
+        "standard",
+        "sensitive"
       ],
       "clauses": [
         "LEARN-001"
@@ -90,7 +91,8 @@
       "scope": "readiness:prepare",
       "readOnly": false,
       "classes": [
-        "standard"
+        "standard",
+        "sensitive"
       ],
       "clauses": [
         "READY-001"
@@ -315,6 +317,13 @@
           "facts": {
             "measure": 1
           }
+        },
+        {
+          "class": "sensitive",
+          "facts": {
+            "measure": 1,
+            "kind": "practice"
+          }
         }
       ]
     },
@@ -398,6 +407,13 @@
           "class": "standard",
           "facts": {
             "measure": 1
+          }
+        },
+        {
+          "class": "sensitive",
+          "facts": {
+            "measure": 2,
+            "kind": "practice"
           }
         }
       ]

@@ -20,9 +20,9 @@ a claim that every agent action in an installation uses company policy.
 | `blotter.reminder.prepare` | standard | AGENT-001, PORTAL-001 |
 | `blotter.billing.prepare` | standard | AGENT-001, BILL-001 |
 | `blotter.readiness.read` | sensitive | READY-001, ACCESS-001, ACCESS-002 |
-| `blotter.readiness.prepare` | standard | READY-001 |
+| `blotter.readiness.prepare` | standard, sensitive | READY-001 |
 | `blotter.learning.evidence` | sensitive | LEARN-001 |
-| `blotter.learning.prepare` | standard | LEARN-001 |
+| `blotter.learning.prepare` | standard, sensitive | LEARN-001 |
 | `blotter.learning.read` | sensitive | LEARN-001 |
 | `blotter.events.list` | standard | BASE-AGENT-010 |
 
@@ -30,7 +30,8 @@ Preparation saves a draft; it does not send a reminder, roll work forward,
 create a billing export, change a template or record a person's approval.
 Company policy governs the shared call. The later native decision remains a
 separate human act under the current AGENT-001 contract. Only actual private
-reads receive sensitive; internal preparation receives standard. Caller flags
+reads receive sensitive; internal preparation receives standard. Preparations
+returning native source evidence also carry sensitive. Caller flags
 and imported text cannot remove these classes. Draft summaries identify the
 native target and proposed items; job revisions use exact integer handles for
 the native UUID revision. No provider cost or spend reservation is registered.
