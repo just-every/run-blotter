@@ -119,6 +119,7 @@ test('Signed duplicate and out-of-order notifications cannot undo refunds; inval
   const disputed=await readBilling(h,s,cookie,edge);assert.deepEqual([disputed.payments[0].state,disputed.payments[0].netCents,disputed.totals.openCents],['disputed',0,1000]);
   await portalBillingJourney(h,{cookie,clientId:s.client.id,expectedOpenCents:1000,expectedPaymentStates:['disputed']});
   edge.intents.get(paid.provider_id).latest_charge.disputed=false;
+  await h.json(`/payments/${paid.id}/reconcile`,{},h.owner);
   await h.json(`/payments/${paid.id}/refund`,{amountCents:300,reason:'Complete requested refund',requestId:randomUUID()},h.owner);
   const refundedView=await readBilling(h,s,cookie,edge);assert.deepEqual([refundedView.payments[0].state,refundedView.payments[0].refundedCents,refundedView.payments[0].netCents],['refunded',500,0]);
   await portalBillingJourney(h,{cookie,clientId:s.client.id,expectedOpenCents:1000,expectedPaymentStates:['refunded']});
