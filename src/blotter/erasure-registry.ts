@@ -36,6 +36,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('signed_work', 'b_filing_status', 'b_files', 'b_document_chunks', 'b_document_packets', 'b_document_annotations', 'b_deliverables', 'b_deliverable_versions', 'b_job_answers', 'b_job_steps'),
   ...by('signed_documents','b_signatures','b_signature_signers','b_signature_attestations','b_signature_events','b_signature_deliveries','b_authorizations'),
   ...by('engagement', 'b_engagements'),
+  ...by('efile_auth', 'b_efile_authorizations'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),
   ...by('contact', 'b_sms_consents', 'b_client_contacts', 'b_portal_accounts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
   ...by('link', 'b_portal_grants', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_access_grants','b_access_team_clients','b_sensitive_documents','b_sensitive_grants', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
@@ -60,7 +61,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('policy', 'b_retention_marks', 'b_retention_periods', 'b_external_copies', 'b_deletion_requests', 'b_client_erasures', 'b_client_erasure_steps', 'b_retained_identity', 'b_retained_reads', 'b_expiry_erasures'),
 ]);
 /** Columns that hold bytes or ciphertext, per table. A column of that kind not named here stops the preview. */
-const BYTES: Record<string, string[]> = {b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
+const BYTES: Record<string, string[]> = {b_efile_authorizations:['original_base64'],b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
   b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_portal_branding: ['logo_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],

@@ -2,6 +2,7 @@
 // Identity, sessions, second factors and credential step-ups, outboxes, agent keys, client upload links and private
 // configuration stay out of every archive.
 const inactive = (table, row) => {
+  if (table === 'b_efile_authorizations') return {...row,restored:1};
   if(table==='b_enterprise_connection')return {...row,active:0,principal_id:null,token_digest:null};
   if(table==='b_enterprise_identities')return {...row,active:0,blocked:1};
   if(table==='b_integration_hooks')return {...row,status:'inactive',destination_sealed:null,secret_sealed:null};
@@ -51,7 +52,7 @@ export default {
   // Native client and time replay receipts travel by table discovery; they contain no session authority.
   // Retained rules and unsent staff alerts are history until explicitly reviewed.
   exportRow: inactive,
-  importSafety: { b_sms_consents: { restored: [1] }, b_enterprise_connection:{active:[0],principal_id:[null],token_digest:[null]}, b_enterprise_identities:{active:[0],blocked:[1]}, b_revenue_proposals: { status: ['held','approved','declined'] }, b_integration_hooks: { status: ['inactive'], destination_sealed: [null], secret_sealed: [null] }, b_integration_keys: { digest: [null], status: ['revoked','suspended'] }, b_provider_payments: { restored: [1], session_id: [null], customer_id: [null] }, b_payment_mandates: { status: ['held'], method_id: [null], customer_id: [null] }, b_onboarding_plans: { status: ['held'] }, b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },
+  importSafety: { b_efile_authorizations: { restored: [1] }, b_sms_consents: { restored: [1] }, b_enterprise_connection:{active:[0],principal_id:[null],token_digest:[null]}, b_enterprise_identities:{active:[0],blocked:[1]}, b_revenue_proposals: { status: ['held','approved','declined'] }, b_integration_hooks: { status: ['inactive'], destination_sealed: [null], secret_sealed: [null] }, b_integration_keys: { digest: [null], status: ['revoked','suspended'] }, b_provider_payments: { restored: [1], session_id: [null], customer_id: [null] }, b_payment_mandates: { status: ['held'], method_id: [null], customer_id: [null] }, b_onboarding_plans: { status: ['held'] }, b_meta: { marketing_restore_review: [1] }, b_recurrence_rules: { status: ['paused'], restore_review: [1] }, b_marketing_consents: { restored: [1] }, b_notifications: { delivery: ['held after restore: in-app only', 'held after restore: pending', 'held after restore: deferred: outside firm notification hours'] } },
   importRow: inactive,
   replaceableTables: ['b_meta'],
   requiredConfiguration: ['OWNER_EMAIL', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],

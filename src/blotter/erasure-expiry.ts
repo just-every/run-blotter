@@ -18,11 +18,12 @@ type Effect = { table: string; label: string; where: string; set?: string; actio
 const MARK = '[erased]';
 
 /** What confirming one record removes: bytes and personal fields only; ids, kinds, totals, revisions, attribution and hashes stay. */
-function effects(record: Clocked, at: string): Effect[] {
+function effects(record: Clocked, at: string, today: string): Effect[] {
   if(record.kind==='signature')return signatureExpiryEffects(record.id,at);
   if(record.kind==='invoice')return invoiceExpiryEffects(record.id,at);
   const r = lit(record.id);
   if (record.kind === 'job') return [
+    { table: 'b_efile_authorizations', label: 'Unsigned 8879 originals and spouse roster (no signature evidence or signed-record clock)', where: `job_id=${r} AND erased_at IS NULL AND NOT EXISTS(SELECT 1 FROM b_retention_marks m WHERE m.released_at IS NULL AND (m.kind='hold' OR m.until>=${lit(today)}) AND (m.client_id IS NULL OR m.client_id=b_efile_authorizations.client_id) AND (m.scope='client' OR (m.scope='class' AND m.class='efile_auth') OR (m.scope='file' AND m.target_id=b_efile_authorizations.file_id)))`, set: `original_base64=NULL,roster='[]',file_name='${MARK}',intent_sha256=NULL,erased_at=${lit(at)}`, action: 'redact' },
     { table: 'b_filing_status', label: 'Practitioner no-status declaration and replay intent (source references and attribution stay)', where: `job_id=${r} AND erased_at IS NULL`, set: `no_status_declaration=NULL,intent_sha256=NULL,erased_at=${lit(at)}`, action: 'redact' },
     { table: 'b_files', label: 'Accepted document bytes (name, size and SHA-256 stay)', where: `job_id=${r} AND erased_at IS NULL`, set: `content_base64=NULL,erased_at=${lit(at)},erased_by='retention expiry',erase_reason='retention period ended'`, action: 'redact' },
     { table: 'b_file_text', label: 'Extracted text', where: `file_id IN (SELECT id FROM b_files WHERE job_id=${r})`, action: 'delete' },
@@ -62,7 +63,7 @@ export async function readyToErase(db: D1Database, actor: Actor) {
     if(c.kind==='invoice' && (await invoiceOpenBalances(db,c.clientIds[0])).length){skipped.push({...row,heldBy:[{id:'open-balance',reason:'Open invoice balance or unapplied credit/deposit',owner:'Principal'}]});continue;}
     if (holds.length) { skipped.push({ ...row, heldBy: holds.map(h => ({ id: h.id, reason: h.reason, owner: h.owner })) }); continue; }
     const counts = [];
-    for (const e of effects(c, now())) counts.push({ table: e.table, label: e.label, count: Number((await stmt(db, `SELECT count(*) n FROM ${e.table} WHERE ${e.where}`).first<Data>())?.n ?? 0) });
+    for (const e of effects(c, now(), today)) counts.push({ table: e.table, label: e.label, count: Number((await stmt(db, `SELECT count(*) n FROM ${e.table} WHERE ${e.where}`).first<Data>())?.n ?? 0) });
     ready.push({ ...row, effects: counts.filter(e => e.count > 0) });
   }
   return { today, ready, held: skipped };
@@ -76,7 +77,7 @@ export async function confirmExpiry(db: D1Database, actor: Actor, body: Data) {
   const held = list.held.find(r => r.kind === body.kind && r.id === body.id);
   insist(!held, `This record is preserved by hold ${String(held?.heldBy?.[0]?.id ?? '').slice(0, 8)} (${held?.heldBy?.[0]?.reason}). Release the hold first.`, 409);
   insist(item, 'This record is not past its retention date, was already erased, or is not retained', 409);
-  const record = (await clocks(db)).find(c => c.kind === item.kind && c.id === item.id)!, at = now(), list2 = effects(record, at);
+  const record = (await clocks(db)).find(c => c.kind === item.kind && c.id === item.id)!, at = now(), list2 = effects(record, at, list.today);
   const triggers = await rows(db, `SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name IN (${[...GUARDS, 'b_exports_transition','b_invoice_document_immutable'].map(() => '?').join(',')})`, ...GUARDS, 'b_exports_transition','b_invoice_document_immutable');
   const service = await createPortability({ db, policy }), expiryId = id();
   const [check, release] = guard(db, 'NOT EXISTS(SELECT 1 FROM b_expiry_erasures WHERE kind=? AND record_id=?)', item.kind, item.id);

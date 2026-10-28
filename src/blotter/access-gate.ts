@@ -54,7 +54,7 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   if(parts[1]==='jobs' && parts[3]==='steps' && parts[5]==='attachment')fileKey='task:'+parts[2]+':'+parts[4];
   if(parts[1]==='notices' && parts[3]==='events' && parts[5]==='file')fileKey='notice:'+parts[4];
   if(fileKey)await requireDocument(db,actor,fileKey);
-  if (write && parts[1] === 'jobs' && parts[3] === 'filing-status') {
+  if (write && parts[1] === 'jobs' && ['filing-status','efile-authorization'].includes(parts[3])) {
     const body = await request.clone().json() as Data;
     if (body.fileId) await requireDocument(db, actor, String(body.fileId));
   }

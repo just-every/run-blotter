@@ -76,14 +76,16 @@ export function StatusSettings({ state, run, tick }: { state: Row; run: Run; tic
   return <section className="panel">
     <h2>Work types and statuses</h2>
     <ul className="list">{model.workTypes.map((w: Row) => <li key={w.id}><span className="badge" style={{ borderColor: w.color }}>{w.name}</span> <small className="muted">{w.template ? `default template ${w.template}` : 'no default template'}{w.budget_minutes && ` · default budget ${hours(w.budget_minutes)}`}{w.roles.length > 0 && ` · needs ${w.roles.join(' and ')}`} · {w.jobs} jobs</small></li>)}</ul>
-    <ul className="list">{model.subStatuses.map((s: Row) => <li key={s.id}>{statusLabel(model, s.stage, s.name)} <small className="muted">{s.client_label && `client sees “${s.client_label}” · `}{s.work_types.length ? `only ${s.work_types.map((t: string) => model.workTypes.find((w: Row) => w.id === t)?.name).join(', ')}` : 'every work type'} · {s.jobs} jobs</small>
+    <ul className="list">{model.subStatuses.map((s: Row) => <li key={s.id}>{statusLabel(model, s.stage, s.name)} {s.efile_ready === 1 && <strong> · Protected e-file readiness</strong>}<small className="muted">{s.client_label && `client sees “${s.client_label}” · `}{s.work_types.length ? `only ${s.work_types.map((t: string) => model.workTypes.find((w: Row) => w.id === t)?.name).join(', ')}` : 'every work type'} · {s.jobs} jobs</small>
       {owner && <details><summary>Rename or delete</summary>
-        <Form label="Save" submit={async data => run(() => api(`/sub-statuses/${s.id}`, { name: data.name, clientLabel: data.clientLabel }), 'Saved; history kept')}><Field label="Name" name="name" value={s.name} /><Field label="Client sees (optional)" name="clientLabel" required={false} value={s.client_label ?? ''} hint="Shown on the client link instead of the stage name" /></Form>
+        <Form label="Save" submit={async data => run(() => api(`/sub-statuses/${s.id}`, { name: data.name, clientLabel: data.clientLabel, ...(data.efileReady === 'on' ? { efileReady: true } : {}) }), 'Saved; history kept')}><Field label="Name" name="name" value={s.name} /><Field label="Client sees (optional)" name="clientLabel" required={false} value={s.client_label ?? ''} hint="Shown on the client link instead of the stage name" />{!s.efile_ready && OPEN.includes(s.stage) && <Field label="Protect as e-file readiness (permanent; move current jobs out first)" name="efileReady" type="checkbox" required={false} />}</Form>
+        {s.efile_ready ? <p>This permanent designation survives renaming. Moves remain blocked until required signature and KBA evidence is supported.</p> : <>
         <Form label="Preview deletion" submit={async data => run(async () => setPlan({ id: s.id, body: { toStage: data.toStage }, ...await api(`/sub-statuses/${s.id}/delete/preview`, { toStage: data.toStage }) }), 'Preview ready')}>
           <Field label="Move its jobs to" name="toStage"><select name="toStage" defaultValue={s.stage}>{model.stages.map((st: Row) => <option key={st.key} value={st.key}>{st.label}</option>)}</select></Field>
         </Form>
         {plan && plan.id === s.id && <div className="notice"><p>{plan.jobs.length} jobs move to {statusLabel(model, plan.to?.stage ?? s.stage)}.{plan.problems.join(' ')}</p>
           <button onClick={() => run(async () => { await api(`/sub-statuses/${s.id}/delete`, { ...plan.body, fingerprint: plan.fingerprint }); setPlan(undefined); }, 'Sub-status deleted; its jobs moved')}>Move jobs and delete</button></div>}
+        </>}
       </details>}</li>)}</ul>
     {owner && <>
       <Form label="Add work type" submit={async (data, form) => run(async () => { await api('/work-types', { name: data.name, templateId: data.templateId || undefined, roles: ['manager', 'partner'].filter(r => data['role:' + r] === 'on'), budgetMinutes: data.budgetHours ? Math.round(Number(data.budgetHours) * 60) : undefined, color: data.color }); form.reset(); }, 'Work type added')}>
@@ -92,9 +94,10 @@ export function StatusSettings({ state, run, tick }: { state: Row; run: Run; tic
           <Field label="Default budget hours" name="budgetHours" type="number" required={false} /><Field label="Color" name="color" type="color" value="#64748b" /></div>
         <fieldset><legend>Roles its jobs need besides preparer and reviewer</legend><label className="check"><input type="checkbox" name="role:manager" /> Manager</label><label className="check"><input type="checkbox" name="role:partner" /> Partner sign-off</label></fieldset>
       </Form>
-      <Form label="Add sub-status" submit={async (data, form) => run(async () => { await api('/sub-statuses', { stage: data.stage, name: data.name, clientLabel: data.clientLabel || undefined, workTypeIds: types(data) }); form.reset(); }, 'Sub-status added')}>
+      <Form label="Add sub-status" submit={async (data, form) => run(async () => { await api('/sub-statuses', { stage: data.stage, name: data.name, clientLabel: data.clientLabel || undefined, workTypeIds: types(data), efileReady: data.efileReady === 'on' }); form.reset(); }, 'Sub-status added')}>
         <div className="row"><Field label="Under" name="stage"><select name="stage">{model.stages.map((s: Row) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></Field><Field label="Sub-status" name="name" /><Field label="Client sees (optional)" name="clientLabel" required={false} /></div>
         <fieldset><legend>Only for (none ticked: every work type)</legend>{model.workTypes.map((w: Row) => <label key={w.id} className="check"><input type="checkbox" name={'type:' + w.id} /> {w.name}</label>)}</fieldset>
+        <Field label="Protect as e-file readiness (permanent; open stages only)" name="efileReady" type="checkbox" required={false} />
       </Form>
     </>}
     <h3>Time in status</h3>

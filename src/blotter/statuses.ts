@@ -9,6 +9,7 @@ import { tr, type Key, type Language } from '../i18n/catalog';
 // a sub-status jobs still use is deleted only by a previewed move of those jobs.
 import { atomic, audit, digest, guard, human, id, insist, integer, need, now, optional, readableJob, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 import { listJobs, parseFilters } from './filters';
+import { EFILE_BLOCKED } from './efile-authorizations';
 
 export const STAGES = ['planned', 'ready', 'in_progress', 'waiting', 'in_review', 'completed'] as const;
 export const STAGE_LABELS: Record<string, string> = { planned: 'Planned', ready: 'Ready to start', in_progress: 'In progress', waiting: 'Waiting', in_review: 'In review', completed: 'Completed' };
@@ -68,11 +69,13 @@ const allows = (sub: Data, workTypeId: string) => { const types = typeof sub.wor
 export async function addSubStatus(db: D1Database, actor: Actor, body: Data) {
   human(actor); need(actor, 'owner');
   insist(STAGES.includes(body.stage), 'Choose a stage');
+  insist(body.efileReady === undefined || typeof body.efileReady === 'boolean', 'Choose whether this is protected e-file readiness');
+  insist(!body.efileReady || OPEN_STAGES.includes(body.stage), 'E-file readiness belongs to an open stage');
   const name = text(body.name, 'Sub-status', 80), types = await permittedTypes(db, body.workTypeIds), subId = id(), clientLabel = optional(body.clientLabel, 'Client label', 80) || null;
   insist(!await stmt(db, 'SELECT 1 FROM b_sub_statuses WHERE stage=? AND lower(name)=lower(?) AND deleted_at IS NULL', body.stage, name).first(), `${STAGE_LABELS[body.stage]} – ${name} already exists`, 409);
-  await atomic(db, actor, [stmt(db, 'INSERT INTO b_sub_statuses(id,stage,name,work_types,client_label,created_by,created_at) VALUES(?,?,?,?,?,?,?)', subId, body.stage, name, JSON.stringify(types), clientLabel, actor.email, now()),
+  await atomic(db, actor, [stmt(db, 'INSERT INTO b_sub_statuses(id,stage,name,work_types,client_label,created_by,created_at,efile_ready) VALUES(?,?,?,?,?,?,?,?)', subId, body.stage, name, JSON.stringify(types), clientLabel, actor.email, now(), body.efileReady ? 1 : 0),
     audit(db, actor, 'sub_status.added', subId, `${STAGE_LABELS[body.stage]} – ${name}`)]);
-  return { id: subId, stage: body.stage, name, work_types: types, client_label: clientLabel };
+  return { id: subId, stage: body.stage, name, work_types: types, client_label: clientLabel, efile_ready: body.efileReady ? 1 : 0 };
 }
 
 /** Rename a sub-status or change its work types; history keeps pointing at it. A job may not lose its permission. */
@@ -80,13 +83,17 @@ export async function editSubStatus(db: D1Database, actor: Actor, subId: string,
   human(actor); need(actor, 'owner');
   const sub = await stmt(db, 'SELECT * FROM b_sub_statuses WHERE id=? AND deleted_at IS NULL', subId).first<Data>();
   insist(sub, 'Sub-status not found', 404);
+  insist(body.efileReady === undefined || typeof body.efileReady === 'boolean', 'Choose whether this is protected e-file readiness');
+  insist(!sub.efile_ready || body.efileReady !== false, 'A protected e-file designation cannot be removed', 409);
+  const protectedReady = sub.efile_ready || body.efileReady === true ? 1 : 0;
+  insist(!protectedReady || OPEN_STAGES.includes(sub.stage), 'E-file readiness belongs to an open stage');
   const clientLabel = body.clientLabel === undefined ? sub.client_label : optional(body.clientLabel, 'Client label', 80) || null;
   const name = body.name === undefined ? sub.name : text(body.name, 'Sub-status', 80), types = body.workTypeIds === undefined ? JSON.parse(sub.work_types) : await permittedTypes(db, body.workTypeIds);
   const stranded = (await rows(db, 'SELECT work_type_id FROM b_jobs WHERE sub_status_id=?', subId)).filter(j => !allows({ work_types: types }, j.work_type_id)).length;
   insist(!stranded, `${stranded} jobs of other work types use this sub-status; move them first`, 409);
-  await atomic(db, actor, [stmt(db, 'UPDATE b_sub_statuses SET name=?,work_types=?,client_label=? WHERE id=?', name, JSON.stringify(types), clientLabel, subId),
+  await atomic(db, actor, [stmt(db, 'UPDATE b_sub_statuses SET name=?,work_types=?,client_label=?,efile_ready=? WHERE id=?', name, JSON.stringify(types), clientLabel, protectedReady, subId),
     audit(db, actor, 'sub_status.edited', subId, `${STAGE_LABELS[sub.stage]} – ${sub.name} is now ${name}`)]);
-  return { id: subId, name, work_types: types, client_label: clientLabel };
+  return { id: subId, name, work_types: types, client_label: clientLabel, efile_ready: protectedReady };
 }
 
 /** Choose a stage (and sub-status) for a job; sub-statuses must belong to the stage and allow the job's work type. */
@@ -96,6 +103,7 @@ async function target(db: D1Database, j: Data, stage: unknown, subId: unknown) {
   if (subId) {
     insist(sub && sub.stage === stage, 'That sub-status is not under this stage', 400);
     insist(allows(sub, j.work_type_id), `${STAGE_LABELS[sub.stage]} – ${sub.name} is not offered for this work type`, 409);
+    insist(!sub.efile_ready, EFILE_BLOCKED, 409);
   }
   return { stage: stage as string, sub: sub?.id ?? null };
 }
@@ -131,6 +139,7 @@ async function deletionPlan(db: D1Database, actor: Actor, subId: string, body: D
   human(actor); need(actor, 'owner');
   const sub = await stmt(db, 'SELECT * FROM b_sub_statuses WHERE id=? AND deleted_at IS NULL', subId).first<Data>();
   insist(sub, 'Sub-status not found', 404);
+  insist(!sub.efile_ready, 'A protected e-file readiness status cannot be deleted', 409);
   const jobs = await rows(db, 'SELECT id,title,period_label,status,open_stage,sub_status_id,work_type_id,revision FROM b_jobs WHERE sub_status_id=? ORDER BY due_date,id', subId);
   let to: { stage: string; sub: string | null } | null = null;
   const problems: string[] = [];
@@ -139,6 +148,7 @@ async function deletionPlan(db: D1Database, actor: Actor, subId: string, body: D
     to = await target(db, { work_type_id: null }, body.toStage ?? sub.stage, null);
     const into = body.toSubStatusId ? await stmt(db, 'SELECT * FROM b_sub_statuses WHERE id=? AND deleted_at IS NULL', String(body.toSubStatusId)).first<Data>() : null;
     if (body.toSubStatusId) { insist(into && into.stage === to.stage, 'That sub-status is not under this stage'); to.sub = into.id; }
+    if (into?.efile_ready) problems.push(EFILE_BLOCKED);
     insist([sub.stage].includes(to.stage) || (OPEN_STAGES.includes(sub.stage) && OPEN_STAGES.includes(to.stage)), 'Jobs move only to an open stage, or within In review or Completed', 409);
     for (const j of jobs) if (into && !allows(into, j.work_type_id)) problems.push(`${j.title} ${j.period_label}: ${into.name} is not offered for its work type`);
   }

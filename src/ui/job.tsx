@@ -1,4 +1,5 @@
 import { SignatureRequests } from './signatures';
+import { EfileAuthorizations } from './efile-authorizations';
 import { AiAssistance } from './ai-assistance';
 import { JobDeadline } from './deadlines';
 import { ResolutionCases } from './resolution-cases';
@@ -107,6 +108,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
     <DocumentCustody jobId={job.id} run={run} tick={tick} />
     {job.access === 'full' && <ResolutionCases jobId={job.id} run={run} actor={actor} tick={tick} />}
     <JobStatus detail={detail} run={run} tick={tick} />
+    {job.access === 'full' && <EfileAuthorizations detail={detail} actor={actor} run={run} tick={tick} />}
     <ClientLink detail={detail} run={run} />
     <Discussions detail={detail} actor={actor} run={run} tick={tick} />
     <section className="panel">
