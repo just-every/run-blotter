@@ -3176,7 +3176,9 @@ Old reference: `ca2596bae4c081a2df169d327b23c0030428b918`.
 | AI-008 | 3. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request. | model | none | none |
 | AI-008 | 3. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request. | bytes | none | none |
 | AI-008 | 3. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request. | time once per request | none | none |
-| AI-008 | 4. Provider output persists only as a draft the person saves. | Provider output persists only as a draft the person saves | none | none |
+| AI-008 | 4. Provider output persists only when saved; an agent's save carries standard and sensitive under the company's policy. | Provider output persists only when saved | none | none |
+| AI-008 | 4. Provider output persists only when saved; an agent's save carries standard and sensitive under the company's policy. | an agent's save carries standard | none | none |
+| AI-008 | 4. Provider output persists only when saved; an agent's save carries standard and sensitive under the company's policy. | sensitive under the company's policy | none | none |
 | AI-008 | 5. The portal disclosure states that staff may use an AI provider on client documents. | The portal disclosure states that staff may use an AI provider on client documents | none | none |
 | AI-009 | 1. The principal records the provider attestation reference, request budget and document review threshold. | The principal records the provider attestation reference | none | none |
 | AI-009 | 1. The principal records the provider attestation reference, request budget and document review threshold. | request budget | none | none |
