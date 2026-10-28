@@ -35,7 +35,7 @@ export async function languageJourney(h, { job, requestJob, client, maria, engli
   const directory = process.env.BLOTTER_LANGUAGE_EVIDENCE;
   if (!directory) return;
   await mkdir(directory, { recursive: true });
-  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] });
+  const browser = await chromium.launch({ headless: true, ...(process.env.BLOTTER_CHROMIUM_PATH ? {executablePath:process.env.BLOTTER_CHROMIUM_PATH} : {}), args: ['--use-mock-keychain', '--password-store=basic', '--no-sandbox'] });
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'en-US', viewport: { width: 1440, height: 1000 } }), page = await context.newPage();
     await page.goto(`${h.origin}/portal/${kbToken}`);
@@ -77,7 +77,9 @@ export async function languageJourney(h, { job, requestJob, client, maria, engli
     await tabTo(page, upload, 'The upload control');
     const chooser = page.waitForEvent('filechooser'); await page.keyboard.press('Space');
     await (await chooser).setFiles({ name: 'estado-de-cuenta.txt', mimeType: 'text/plain', buffer: Buffer.from('Estado de cuenta bancario') });
-    await page.getByRole('status').filter({ hasText: 'Se cargó estado-de-cuenta.txt. Gracias.' }).waitFor();
+    const sendUpload=upload.locator('xpath=../..').getByRole('button',{name:'Cargar archivo',exact:true});
+    await tabTo(page,sendUpload,'Confirm the upload');await page.keyboard.press('Enter');
+    await page.getByRole('status').filter({hasText:'estado-de-cuenta.txt'}).filter({hasText:'Archivado'}).waitFor();
     // Keyboard only: open the signature request, enter each field, consent and sign.
     await tabTo(page, page.getByRole('button', { name: 'Carta de firma por teclado' }), 'The signature request'); await page.keyboard.press('Enter');
     await page.getByRole('heading', { level: 3, name: 'Carta de firma por teclado' }).waitFor();

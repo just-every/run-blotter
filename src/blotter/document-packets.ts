@@ -44,7 +44,7 @@ export async function packetUploadStatus(db: D1Database, actor: Actor, uploadId:
 export async function jobPacketUploads(db: D1Database, actor: Actor, jobId: string) {
   roles(actor); await job(db, actor, jobId);
   await purgeDocumentUploads(db);
-  return (await rows(db, "SELECT * FROM b_document_uploads WHERE job_id=? AND portal_link_id IS NULL AND state='pending' ORDER BY created_at DESC", jobId)).map(summary);
+  return (await rows(db, "SELECT * FROM b_document_uploads WHERE job_id=? AND portal_link_id IS NULL AND state='pending' ORDER BY created_at DESC", jobId)).map(packetSummary);
 }
 export async function startPacketUpload(db: D1Database, actor: Actor, requestId: string, body: Data) {
   roles(actor);
@@ -118,7 +118,7 @@ export async function completePacketUpload(db: D1Database, actor: Actor, uploadI
   insist(u.received_bytes === u.size, `Upload is incomplete. Resume at byte ${u.received_bytes}.`, 409);
   const chunks = await rows(db, 'SELECT * FROM b_document_upload_chunks WHERE upload_id=? ORDER BY offset', u.id);
   await assemblePacket(chunks, u.size, u.sha256);
-  const manifest = new TextEncoder().encodePacket(JSON.stringify({ format: 'blotter.chunked-document/1', size: u.size, sha256: u.sha256, chunks: chunks.length }));
+  const manifest = new TextEncoder().encode(JSON.stringify({ format: 'blotter.chunked-document/1', size: u.size, sha256: u.sha256, chunks: chunks.length }));
   const [check, release] = guard(db, `${scopeSql} AND EXISTS(SELECT 1 FROM b_document_uploads WHERE id=? AND state='pending' AND received_bytes=size AND expires_at>?)
     AND (? IS NULL OR EXISTS(SELECT 1 FROM b_files f WHERE f.id=? AND f.job_id=? AND f.request_id=? AND f.erased_at IS NULL
       AND NOT EXISTS(SELECT 1 FROM b_document_packets n WHERE n.previous_file_id=f.id)))`, ...scopeParams(u, actor), u.id, now(), u.previous_file_id, u.previous_file_id, u.job_id, u.request_id);
