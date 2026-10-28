@@ -84,12 +84,12 @@ export async function completePortalPacket(db: D1Database, token: string, upload
   const { u, c } = await load(db, token, uploadId);
   if (u.state === 'completed') return packetSummary(u);
   insist(u.received_bytes === u.size, 'Upload incomplete. Reselect the exact original to resume.', 409);
-  const chunks = await rows(db, 'SELECT * FROM b_document_upload_chunks WHERE upload_id=? ORDER BY offset', u.id);
-  await assemblePacket(chunks, u.size, u.sha256);
-  const manifest = new TextEncoder().encode(JSON.stringify({ format: 'blotter.chunked-document/1', size: u.size, sha256: u.sha256, chunks: chunks.length }));
-  const [check, release] = authority(db, c, `EXISTS(SELECT 1 FROM b_document_uploads WHERE id=? AND state='pending' AND received_bytes=size AND expires_at>?)`, [u.id, now()]);
-  const at = now(), by = `portal contact ${c.contact.id}`;
   try {
+    const chunks = await rows(db, 'SELECT * FROM b_document_upload_chunks WHERE upload_id=? ORDER BY offset', u.id);
+    await assemblePacket(chunks, u.size, u.sha256);
+    const manifest = new TextEncoder().encode(JSON.stringify({ format: 'blotter.chunked-document/1', size: u.size, sha256: u.sha256, chunks: chunks.length }));
+    const [check, release] = authority(db, c, `EXISTS(SELECT 1 FROM b_document_uploads WHERE id=? AND state='pending' AND received_bytes=size AND expires_at>?)`, [u.id, now()]);
+    const at = now(), by = `portal contact ${c.contact.id}`;
     await batch(db, [check, stmt(db, `INSERT INTO b_files(id,request_id,job_id,name,mime,size,sha256,content_base64,uploaded_by,channel,uploaded_at,storage) VALUES(?,?,?,?,?,?,?,?,?,'portal',?,'packet')`,
       u.file_id, u.request_id, u.job_id, u.name, u.mime, manifest.length, u.sha256, encodePacket(manifest), by, at),
       stmt(db, `INSERT INTO b_document_packets(file_id,packet_id,version,original_size,page_count,source,author,revision) VALUES(?,?,1,?,?,?,?,?)`, u.file_id, u.packet_id, u.size, u.page_count, u.source, u.author, id()),
