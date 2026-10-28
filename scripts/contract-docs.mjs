@@ -24,7 +24,7 @@ for(const id of migrated) {
  const rest=acceptance.slice(start.index+start[0].length),next=/^\d+\. \*\*/m.exec(rest);
  const end=next?start.index+start[0].length+next.index:acceptance.length;
  const number=start[0].match(/^\d+/)[0];
- const generated=id==='MOBILE-001' ? acceptance.slice(start.index,end).replace(/^   Generated status evidence:.*\n/gm,'').replace(/^   Remaining:.*\n/gm,'').trimEnd()+`\n   Generated status evidence: ${row[5]}\n   Remaining: ${row[6]}\n\n` : `${number}. **${id} — ${clause.title}.** Status: **${clause.status}**. ${acceptanceText} New capabilities, record kinds and doors supply BASE-001 activation evidence before shipping.\n   Current evidence: ${row[5]}\n   Remaining: ${row[6]}\n\n`;
+ const generated=id==='MOBILE-001' ? acceptance.slice(start.index,end).replace(/Status: \*\*\w+\*\*/,`Status: **${clause.status}**`).replace(/^   Generated status evidence:.*\n/gm,'').replace(/^   Remaining:.*\n/gm,'').trimEnd()+`\n   Generated status evidence: ${row[5]}\n   Remaining: ${row[6]}\n\n` : `${number}. **${id} — ${clause.title}.** Status: **${clause.status}**. ${acceptanceText} New capabilities, record kinds and doors supply BASE-001 activation evidence before shipping.\n   Current evidence: ${row[5]}\n   Remaining: ${row[6]}\n\n`;
  acceptance=acceptance.slice(0,start.index)+generated+acceptance.slice(end);
  claims+=`\n## ${id} — ${clause.title}\n\nStatus: **${clause.status}**.\n\nEvidence: ${row[5]}\n\nGap: ${row[6]}\n`;
 }
