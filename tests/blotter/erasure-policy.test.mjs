@@ -16,6 +16,9 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
   const h = await harness(), target = await harness();
   try {
     const s = await build(h);
+    const mobileHold = await h.json(`/clients/${s.client.id}/retention`, {scope:'file',targetId:s.intakeFile,kind:'hold',reason:'Mobile original under review',owner:'owner@example.test',reviewDate:'2999-01-01'}, h.owner);
+    assert.match((await h.json(`/files/${s.intakeFile}/erase`,{confirm:'bank.txt',reason:'Try erasing held original'},h.owner,409)).error,/hold|Mobile original/);
+    await h.json(`/retention/${mobileHold.id}/release`,{reason:'Review complete'},h.owner);
     const spanishContact = s.client.contacts.find(c => c.language === 'es');
     await h.json(`/clients/${s.client.id}/contacts`, { id: spanishContact.id, revision: spanishContact.revision, roles: ['primary', 'tax'] }, h.owner);
     const reviewTemplate = await h.json('/messages/templates', { scope: 'firm', name: 'Erasure review fixture', subject: '{{work_type}} review', body: '{{work_type}} document review.' }, h.owner);
@@ -123,7 +126,7 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     // Signed work, the held engagement and approved billing stay whole; the rest is marker-redacted or gone.
     assert.equal(await (await file(h, s.signedFile)).text(), SENTINEL.accepted, 'Accepted documents of signed-off work stay');
     assert.equal(await (await file(h, s.engagementFile)).text(), 'Engagement job working paper');
-    assert.equal((await file(h, s.intakeFile)).status, 200, 'Accepted documents on the closed job stay too');
+    assert.equal(await (await file(h, s.intakeFile)).text(), SENTINEL.intake, 'Portal packet original stays byte-identical under signed-work retention');
     assert.equal(await (await h.request(`/api/blotter/engagements/${s.letter.id}/file`, undefined, h.owner)).text(), SENTINEL.engagement);
     assert.equal(await (await h.request(`/api/blotter/exports/${exportId}/csv`, undefined, h.owner)).text(), csvBefore, 'Approved billing bytes are unchanged');
     assert.equal((await exportRow()).csv_sha256, shaBefore);

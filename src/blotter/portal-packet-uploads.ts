@@ -8,6 +8,7 @@ import { guard, id, insist, integer, now, optional, rows, stmt, text, digest, ty
 type Context = Awaited<ReturnType<typeof context>>;
 async function context(db: D1Database, token: string, requestId: string) {
   const c = await portalJob(db, token);
+  insist(!await stmt(db, 'SELECT 1 FROM b_portal_grants WHERE contact_id=? AND revoked_at IS NOT NULL', c.contact.id).first(), 'Portal grant revoked', 404);
   insist(c.job.status === 'open', 'This job is no longer collecting documents', 410);
   const request = await stmt(db, `SELECT r.* FROM b_requests r WHERE r.id=? AND r.job_id=? AND ${contactRequestSql()}`, requestId, c.job.id, c.contact.id).first<Data>();
   insist(request, 'Request not found', 404);
@@ -18,6 +19,7 @@ function authority(db: D1Database, c: Context, extra = '1', params: unknown[] = 
     JOIN b_client_contacts k ON k.id=l.contact_id AND k.client_id=e.id JOIN b_requests r ON r.job_id=j.id
     WHERE l.id=? AND l.contact_id=? AND l.revoked_at IS NULL AND l.expires_at>? AND j.status='open'
     AND e.lifecycle='active' AND e.merged_into IS NULL AND k.active=1 AND k.authorized=1 AND k.portal=1 AND k.request_consent=1
+    AND NOT EXISTS(SELECT 1 FROM b_portal_grants g WHERE g.contact_id=k.id AND g.revoked_at IS NOT NULL)
     AND k.revision=? AND r.id=? AND r.status<>'accepted' AND ${contactRequestSql()}) AND (${extra})`,
     c.link.id, c.contact.id, now(), c.contact.revision, c.request.id, c.contact.id, ...params);
 }
@@ -57,7 +59,7 @@ export async function startPortalPacket(db: D1Database, token: string, requestId
   await purgeDocumentUploads(db);
   await batch(db, [check, stmt(db, `INSERT INTO b_document_uploads(id,job_id,request_id,file_id,packet_id,version,name,mime,size,sha256,page_count,source,author,created_by,created_at,expires_at,portal_link_id,portal_contact_id,portal_contact_revision)
     VALUES(?,?,?,?,?,1,?,?,?,?,?,'Client portal',?,?,?,?,?,?,?)`, uploadId, c.job.id, requestId, fileId, fileId, name, mime, size, sha256, pages,
-    c.contact.name, `portal contact ${c.contact.id}`, at, expires, c.link.id, c.contact.id, c.contact.revision), event(db, c, 'file.upload_started', fileId), release]);
+    `portal contact ${c.contact.id}`, `portal contact ${c.contact.id}`, at, expires, c.link.id, c.contact.id, c.contact.revision), event(db, c, 'file.upload_started', fileId), release]);
   return portalPacketStatus(db, token, uploadId);
 }
 export async function appendPortalPacket(db: D1Database, token: string, uploadId: string, body: Data) {

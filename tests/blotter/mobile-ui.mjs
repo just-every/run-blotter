@@ -125,3 +125,45 @@ export async function mobileTaskJourney(h,{token,work,preparer,reviewer,phase}) 
   await context.close();
  }finally{await browser.close();}
 }
+
+/** Runs in push Verify through mobile-upload.test.mjs; asserts phone behavior once. */
+export async function mobileUploadJourney(h,f,bytes) {
+ const browser=await launch();
+ try{
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:390,height:1000}}),page=await context.newPage();
+  let interrupted=false,completionLost=false;
+  await page.route('**/packet-uploads/*/chunks',async route=>{
+   if(!interrupted){interrupted=true;const response=await route.fetch();assert.equal(response.status(),200);await route.abort('connectionreset');}
+   else await route.continue();
+  });
+  await page.route('**/packet-uploads/*/complete',async route=>{
+   if(!completionLost){completionLost=true;const response=await route.fetch();assert.equal(response.status(),200);await route.abort('connectionreset');}
+   else await route.continue();
+  });
+  await page.goto(h.origin+'/portal/'+f.token);
+  const request=panel(page,'Multi-page statement'),select=request.locator('input[type=file]');
+  const original={name:'synthetic-blotter-982.pdf',mimeType:'application/pdf',buffer:bytes};
+  await select.setInputFiles(original);await request.getByLabel('Page count',{exact:true}).fill('8');
+  await page.keyboard.press('Tab');await keyboard(request.getByRole('button',{name:'Upload file',exact:true}));
+  await expect(request.getByRole('alert')).toContainText('Confirmed chunks remain');
+  await expect(request.getByText(new RegExp('262144 of '+bytes.length+' bytes confirmed')).last()).toBeVisible();
+  const staged=await h.json(f.path);assert.equal(staged.length,1);assert.equal(staged[0].receivedBytes,262144);
+  await page.reload();await expect(request.getByRole('button',{name:'Retry upload',exact:true})).toBeVisible();
+  await expect(request.getByRole('button',{name:'Retry upload',exact:true})).toBeDisabled();
+  await select.setInputFiles({...original,buffer:Buffer.alloc(bytes.length,1)});
+  await request.getByRole('button',{name:'Retry upload',exact:true}).click();
+  await expect(request.getByRole('alert')).toContainText('different file');
+  assert.equal((await h.json(f.path))[0].receivedBytes,262144,'Wrong original sends no new bytes');
+  await proof(page,'portal-upload-paused',request);await accessibility(page);
+  await select.setInputFiles(original);await page.keyboard.press('Tab');await keyboard(request.getByRole('button',{name:'Retry upload',exact:true}));
+  await expect(request.getByRole('status')).toContainText('Filed');
+  await expect(request.getByRole('button',{name:'Retry upload',exact:true})).toHaveCount(0);
+  assert.equal(interrupted,true);assert.equal(completionLost,true);
+  const files=(await h.json('/jobs/'+f.job.id,undefined,h.owner)).requests.flatMap(r=>r.files);
+  assert.equal(files.length,1,'Reload and lost completion response file exactly one original');
+  assert.deepEqual(Buffer.from(await(await h.request('/api/blotter/files/'+files[0].id,undefined,h.owner)).arrayBuffer()),bytes);
+  assert.equal(files[0].uploaded_by,'portal contact '+f.client.contacts[0].id);
+  await proof(page,'portal-upload-filed',request);await accessibility(page);
+  await context.close();
+ }finally{await browser.close();}
+}
