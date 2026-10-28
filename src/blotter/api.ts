@@ -1,4 +1,5 @@
 import { exportAccessLog } from './security-logs';
+import { startPortalPacket, portalPacketList, portalPacketStatus, appendPortalPacket, completePortalPacket, cancelPortalPacket } from './portal-packet-uploads';
 import { eraseEnterprise, enterpriseState, connectEnterprise, mapEnterprise, bindEnterprise, enterpriseToken, disconnectEnterprise } from './enterprise';
 import { integrationWebhooks, registerWebhook, revokeWebhook, replayWebhook, reconcileWebhook, runIntegrationWebhooks } from './integration-webhooks';
 import { integrationKeys, mintIntegrationKey, revokeIntegrationKey } from './integration-keys';
@@ -519,6 +520,12 @@ api.get(`${P}/agent/learning/:id`, asAgent((a,c) => learningDetail(db(c),a,param
 api.get(`${P}/agent/context`, asAgent((a, c) => agentContext(db(c), a)));
 api.post(`${P}/agent/:command`, asAgent(async (a, c) => propose(db(c), a, param(c, 'command').replace(/^prepare-/, ''), await body(c))));
 
+api.get(`${P}/portal/:token/requests/:request/packet-uploads`, c => portalPacketList(db(c),param(c,'token'),param(c,'request')).then(r => c.json(r)));
+api.post(`${P}/portal/:token/requests/:request/packet-uploads`, async c => { sameOrigin(c); return c.json(await startPortalPacket(db(c),param(c,'token'),param(c,'request'),await body(c))); });
+api.get(`${P}/portal/:token/packet-uploads/:upload`, c => portalPacketStatus(db(c),param(c,'token'),param(c,'upload')).then(r => c.json(r)));
+api.post(`${P}/portal/:token/packet-uploads/:upload/chunks`, async c => { sameOrigin(c); return c.json(await appendPortalPacket(db(c),param(c,'token'),param(c,'upload'),await body(c))); });
+api.post(`${P}/portal/:token/packet-uploads/:upload/complete`, async c => { sameOrigin(c); return c.json(await completePortalPacket(db(c),param(c,'token'),param(c,'upload'))); });
+api.post(`${P}/portal/:token/packet-uploads/:upload/cancel`, async c => { sameOrigin(c); return c.json(await cancelPortalPacket(db(c),param(c,'token'),param(c,'upload'))); });
 // Client portal: the link's secret is the only credential; same-origin uploads only.
 api.get(`${P}/portal/:token`, async c => c.json(await portalView(db(c), param(c, 'token'), branding.name)));
 function sameOrigin(c:C) { return insist(c.req.header('origin') === runtimeBindings(c.env).AUTH_ORIGIN && c.req.header('sec-fetch-site') !== 'cross-site', 'Invalid request origin', 403); }
