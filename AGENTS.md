@@ -123,3 +123,14 @@ accounting firms; ACCEPTANCE.md is the first release. Product source is in
 owner-account deploy applies declared D1 migrations and checks health.
 
 Pinned reference: https://github.com/runeditrun/base/blob/a06bd065124c2b45fa879e62736fb5e1987efdaa/TANSTACK-START-MIGRATION.md
+
+## Lander-Regenerate
+
+After changing a migrated CONTRACT.md status row, run
+`node scripts/contract-docs.mjs write` and then
+`node scripts/contract-docs.mjs check`. This incremental generator mirrors
+SECURE-001 into ACCEPTANCE.md and docs/CLAIMS.md and recomputes the Status
+summary, preserving unmigrated legacy acceptance prose. Add other clauses to
+its migration list when their mirrors are adopted. Regenerate the edition
+source lock last with `node scripts/edition-authoring/cli.mjs lock`, then
+`node scripts/edition-authoring/cli.mjs check`.

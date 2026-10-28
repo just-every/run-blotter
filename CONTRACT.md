@@ -322,8 +322,8 @@ BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgement
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 3 | 0 | 0 | 3 |
-| Target and push further | 60 | 15 | 30 | 105 |
-| All | 63 | 15 | 30 | 108 |
+| Target and push further | 60 | 16 | 29 | 105 |
+| All | 63 | 16 | 29 | 108 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -413,7 +413,7 @@ BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgement
 | `ACCESS-004` | Enforced staff multi factor authentication | target | done | `src/blotter/mfa.ts`; `src/blotter/webauthn.ts`; `src/blotter/session.ts`; `migrations/core/0024_mfa.sql`; `src/ui/security.tsx`; `tests/blotter/flows.test.mjs` |  |
 | `ACCESS-005` | Google Workspace and Microsoft 365 staff sign in | target | missing |  | No Google or Microsoft staff sign-in, domain/tenant restriction or identity revalidation exists. |
 | `ACCESS-006` | Staff offboarding and ownership transfer | target | done | `src/blotter/offboarding.ts`; `src/blotter/team.ts`; `src/ui/offboarding.tsx`; `tests/blotter/flows.test.mjs` |  |
-| `SECURE-001` | Security program and attestation | target | missing |  | No security attestation package, SOC 2 report, subprocessor list, WISP mapping or access-log export exists. |
+| `SECURE-001` | Security program and attestation | target | partial | `src/blotter/security-logs.ts`; `src/ui/security.tsx`; `API.md`; `tests/blotter/security-logs.test.mjs` — “Recorded access-log export selects exact UTC instants across DST” (actual staff, contact-portal and bearer HTTP downloads, exact UTC selection and exclusion, safe fields, spreadsheet escaping, unchanged sources and attributed export); “Access-log export requires the live principal” (role, delegated authority, agent, deactivated, MFA and per-session step-up refusals); “Current access logs remain portable” (safe projection, archive equality, excluded live authority and stale-restore fencing); `tests/blotter/security-logs-ui.mjs` / securityLogsJourney (Sign-in security CSV download, date boundaries, coverage and unverified identity disclosure, existing icon tooltips, 1440 and 390 screens). | Native recorded document-download log export only: successful staff, contact-portal and bearer events, principal-only with fresh step-up; bearer identity remains unverified and coverage is explicitly incomplete. Missing: security overview; authorized auditor or attestation-provider account or NDA report access supplying a genuine current SOC 2 Type II report, bridge letter and penetration-test summary; attestation-package request and download with current-period verification; enabled-integration subprocessor list; data-flow description; SIG Lite or CAIQ questionnaire; documented WISP and FTC controls covering encryption, US residency, access logging, tested backups and restores, vulnerability management and incident response with 72-hour customer notification; WISP template mapped to IRS Publications 4557 and 5708. No certification or provider evidence is claimed. |
 | `VAULT-001` | Client credential vault | target | done | `src/blotter/vault.ts`; `src/blotter/mfa.ts`; `src/blotter/archive-policy.mjs`; `migrations/core/0067_vault.sql`; `src/ui/vault.tsx`; `tests/blotter/vault.test.mjs` |  |
 | `AGENT-001` | Agents prepare people approve | target | done | `src/blotter/proposals.ts`; `src/blotter/team.ts`; `tests/blotter/flows.test.mjs` |  |
 | `ARCHIVE-001` | Whole practice portability and restore | target | done | `src/blotter/archive.ts`; `src/blotter/archive-policy.mjs`; `tests/blotter/flows.test.mjs` |  |
