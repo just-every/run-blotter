@@ -7,24 +7,28 @@ import { accessGate, redactAccess } from '../access-gate'
 import { agentGate } from '../mfa'
 import { Fault, stmt, type Actor, type Data, type Role } from '../model'
 
-export async function nativePerson(env: Bindings, id: string): Promise<Person | null> {
+type PracticePerson = Person & { businessPolicyRole: 'owner' | 'editor' | null }
+
+export async function nativePerson(env: Bindings, id: string): Promise<PracticePerson | null> {
   const operator = await stmt(env.DB, 'SELECT id,email,display_name AS displayName,role,status FROM oa_operators WHERE id=?', id).first<Data>()
   if (!operator || !isActiveOperator(operator as never, authConfig(env).allowList)) return null
   const member = await stmt(env.DB, 'SELECT role FROM b_members WHERE email=? AND active=1', operator.email).first<{ role: Role }>()
   const role = operator.role === 'owner' ? 'owner' : member?.role
   if (!role) return null
   try { await agentGate(env.DB, operator.email) } catch (error) { if (error instanceof Fault) return null; throw error }
-  return { id: operator.id, email: operator.email, name: operator.displayName, role, active: true }
+  const business = await stmt(env.DB, "SELECT business_role FROM bs_team WHERE operator_id=? AND business_id IS NOT NULL AND state<>'conflict'", id).first<{ business_role: string }>()
+  return { id: operator.id, email: operator.email, name: operator.displayName, role, active: true, businessPolicyRole: role === 'owner' ? 'owner' : business?.business_role === 'admin' ? 'editor' : null }
 }
 
 export function practicePeople(env: Bindings): PeopleAdapter {
   const mapped = operatorAuthPeople({ db: env.DB, allowList: authConfig(env).allowList, session: async () => null })
   return {
     person: id => nativePerson(env, id),
+    businessRole: person => (person as PracticePerson).businessPolicyRole ?? null,
     async sponsor(claims) { const identity = await mapped.sponsor(claims); return identity ? nativePerson(env, identity.id) : null },
     async businessMember(person) { return await nativePerson(env, person.id) ? mapped.businessMember!(person) : null },
     async session(request) {
-      try { const actor = await nativeSession(request, env); return { id: actor.id, email: actor.email, name: actor.name, role: actor.role, active: true } }
+      try { const actor = await nativeSession(request, env); return nativePerson(env, actor.id) }
       catch (error) { if (error instanceof Fault) return null; throw error }
     },
   }

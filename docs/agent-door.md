@@ -88,4 +88,8 @@ Two Base interfaces block complete adoption at the runtime pin recorded in
 A Base resource context carrying authenticated attribution and an embedded
 invocation/context carrying the originating consent are required before the
 remaining resources, legacy agent endpoints and scheduled work can complete the
-one-door migration. No copied policy or transport source is modified here.
+one-door migration. Practice archives retain door audit, events, usage and native revision handles. Live
+Business bindings, policy state, agent admission, pending approvals/reviews and
+cached call authority are installation-local and excluded from export and import.
+A restored practice must establish its own current Business binding and policy.
+No copied policy or transport source is modified here.

@@ -164,7 +164,7 @@
       "executable": false
     },
     "docs/agent-door.md": {
-      "sha256": "8bf6ab1a2223740ac9435acfa480a6e567a4204daeaaf81622f3c37f1a712c50",
+      "sha256": "e569f5c21d3f3c10ba063535352ec92e8f94b502f8d065ac699a02fd9f4f2612",
       "executable": false
     },
     "docs/ai-assistance.md": {
@@ -1264,7 +1264,7 @@
       "executable": false
     },
     "src/blotter/agent-door/people.ts": {
-      "sha256": "3c0a989de26dd6061c62abdf508c57d0000acc2cd7042d0e113b2e8eb44a36cb",
+      "sha256": "a149bc9f2e39484f95ae88edd8c2907f36f0f23fc7cb700c642cc1a9265a16bb",
       "executable": false
     },
     "src/blotter/agent-door/resources.ts": {
@@ -1308,7 +1308,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "f0f077cfa5304c7224ec5602c4d9f24cdfaa9285985a3547c56d01d5c4b7efb7",
+      "sha256": "a54d571e1b3b1cf5544f1f8c857d23519431a5aad4d8dcbf2d30a812ee3e3791",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
