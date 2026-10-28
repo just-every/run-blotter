@@ -33,7 +33,7 @@ export async function exportAccessLog(db: D1Database, actor: Actor, query: Data)
         WHEN 'staff' THEN 'staff' WHEN 'contact_portal' THEN 'contact_portal' WHEN 'bearer' THEN 'bearer' ELSE 'not recorded' END
       ELSE 'not recorded' END channel FROM b_audit WHERE ${filter} ORDER BY julianday(at),id`, start, end),
     stmt(db, `INSERT INTO b_audit(id,actor,action,object_id,detail,at)
-      SELECT ?,?,'security.access_log_exported','access-log',json_object('from',?,'endExclusive',?,'rows',count(*)),? FROM b_audit WHERE ${filter}`,
+      SELECT ?,?,'security.access_log_exported','access-log',json_object('from',?,'endExclusive',?,'rows',count(*),'eventIds',json_group_array(id)),? FROM b_audit WHERE ${filter}`,
       id(), actor.email, start, end, new Date().toISOString(), start, end), done]);
   const header = ['event_id','occurred_at_utc','actor','action','resource_id','channel','identity','range_start_utc','range_end_exclusive_utc','recorded_coverage'];
   const body = (result[1].results as Data[]).map(row => [row.id,new Date(row.at).toISOString(),row.actor,row.action,row.object_id,row.channel,
