@@ -1,3 +1,4 @@
+import { clientProposals, proposalDetail, createProposal } from './engagement-proposals';
 import { exportAccessLog } from './security-logs';
 import { startPortalPacket, portalPacketList, portalPacketStatus, appendPortalPacket, completePortalPacket, cancelPortalPacket } from './portal-packet-uploads';
 import { eraseEnterprise, enterpriseState, connectEnterprise, mapEnterprise, bindEnterprise, enterpriseToken, disconnectEnterprise } from './enterprise';
@@ -164,6 +165,11 @@ api.post(`${P}/costs/usage/:id/reconcile`,as(async(a,c)=>reconcileCost(db(c),a,p
 invoiceRoutes(api,{as,body,db,param});
 portalAccountRoutes(api,{as,body,db,param});
 signatureRoutes(api,{as,body,db,param,sameOrigin});
+api.get(`${P}/clients/:id/engagement-proposals`,as((a,c)=>clientProposals(db(c),a,param(c))));
+api.post(`${P}/jobs/:id/engagement-proposals`,as(async(a,c)=>createProposal(db(c),a,param(c),await body(c))));
+api.get(`${P}/engagement-proposals/:id`,as((a,c)=>proposalDetail(db(c),a,param(c))));
+api.post(`${P}/engagement-proposals/:id/amend`,as(async(a,c)=>{const old=await proposalDetail(db(c),a,param(c));return createProposal(db(c),a,old.job_id,await body(c),param(c));}));
+
 api.get(`${P}/access`,as((a,c)=>permissions(db(c),a)));
 api.post(`${P}/access/step-up`,as(async(a,c)=>stepUp(db(c),a,site(c),await body(c))));
 api.post(`${P}/access/teams`,as(async(a,c)=>saveTeamAccess(db(c),a,await body(c))));

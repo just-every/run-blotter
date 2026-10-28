@@ -1228,7 +1228,7 @@
       "executable": false
     },
     "src/blotter/access-gate.ts": {
-      "sha256": "39ed2c32b590af7b8b856bd7091eea2ebf084fb00396bf02e42dcd1dc0902eeb",
+      "sha256": "f034ee0a30edabbb4f5f1ffdd1625f9ee92c153e26d9e01f3520d3d1b79950fe",
       "executable": false
     },
     "src/blotter/access-sql.ts": {
@@ -1260,7 +1260,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "d5aa4674809dc40e7d612ab26f5ebb5cc6972de2e31e43df9b9cec420fe7d427",
+      "sha256": "f079b35a78476126f51810d5d7fa0f0be4ed2e56286542e9b5979cb3a636b1e5",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1488,7 +1488,7 @@
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "64f4f3b244ab0e87909313fc82af6f216de3c5fec8c3df781a09faf74b937900",
+      "sha256": "7ddda8ae46e9c4eda04a8254b389b288fa7e3b20f7ddd9a64f1d20e342882d43",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -1496,7 +1496,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "34ab86dc859ae40e03ad026c183d40f9e0d17a37f58764f39acdd065db8b7efb",
+      "sha256": "57d5dd02c78619d653f2197ad8aa2048e917c048eabb53a591a0eafeea8a352f",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -1544,7 +1544,7 @@
       "executable": false
     },
     "src/blotter/history.ts": {
-      "sha256": "df74806605b224f0e6ffdc20a004bd06152c265753f9d943583c448f74da771c",
+      "sha256": "73c818019ccc42fc093aa0751de7d0d8157c480338a5488a549b5aaadb3068d6",
       "executable": false
     },
     "src/blotter/imports.ts": {
@@ -1872,7 +1872,7 @@
       "executable": false
     },
     "src/blotter/retention-clock.ts": {
-      "sha256": "364fcd77f89061d628e6d96e3adeed57de88443b82117c8abf2f106f7b3730be",
+      "sha256": "7cf9f14647beef808a02f4e2a2482ff671f6f1f9b408a07320bfecf0894b83ae",
       "executable": false
     },
     "src/blotter/revenue-accounting.ts": {
@@ -1916,15 +1916,15 @@
       "executable": false
     },
     "src/blotter/signatures-pdf.ts": {
-      "sha256": "319fced1b5fa2ae348e0f964b356439387b8316782f3bb510a6d43fba29afc5f",
+      "sha256": "13a8111481295827a69c52a917042ed852dc7c8a43eb0739b4c1a7e6ca12a832",
       "executable": false
     },
     "src/blotter/signatures-portal.ts": {
-      "sha256": "8f1c5f599d83fe53ec4a8512f416d7173785c81e0c97af0ea9836db898b51f2a",
+      "sha256": "0e80854559bbba0c10b50ebcd5662d9845a69cd8bedb95b5cc0f353efd04598c",
       "executable": false
     },
     "src/blotter/signatures-retention.ts": {
-      "sha256": "730a0eae52a4841c4ddbf8c1ccf4916a9654f987ab3846f628d61dd81bad8d16",
+      "sha256": "f3f5dc5b78d3ec7392c08b8cfdf12c4d4f64e14f60175f0dcc1f8e46ef0c3df3",
       "executable": false
     },
     "src/blotter/signatures-staff.ts": {
@@ -1936,7 +1936,7 @@
       "executable": false
     },
     "src/blotter/signatures.ts": {
-      "sha256": "cb060f26079d16d4b0e32e4814a81aee472182f04456e408eee23c60381818e5",
+      "sha256": "2fdc39aa269005caab3c27d235389be25d51c64714b94ac7db53101843d00472",
       "executable": false
     },
     "src/blotter/staff-costs.ts": {
@@ -4008,7 +4008,7 @@
       "executable": false
     },
     "src/ui/client-details.tsx": {
-      "sha256": "30af5718102f2fad578a2d9b83cd52b510a10e86ec1d0e5bee5bfcbf0e029980",
+      "sha256": "4a62c1d0c038143cc8803fc5551be6cd34e1a4df0fa1c5b8e4ffaef08ea643ba",
       "executable": false
     },
     "src/ui/client-erasure.tsx": {

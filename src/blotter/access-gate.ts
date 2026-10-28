@@ -19,6 +19,7 @@ const resources:Record<string,string>={
   notices:'SELECT client_id FROM b_notices WHERE id=?',
   credentials:'SELECT client_id FROM b_vault_credentials WHERE id=?',
   rules:'SELECT client_id FROM b_recurrence_rules WHERE id=?',
+  'engagement-proposals':'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   signatures:'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   invoices:'SELECT client_id FROM b_invoices WHERE id=?',
   payments:'SELECT client_id FROM b_provider_payments WHERE id=?',
