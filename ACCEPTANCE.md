@@ -70,7 +70,7 @@ Core · published · **partial** · From WORK-002 · Rules D-1
 
 Core · published · **partial** · Cites BASE-INPUT-003, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Staff send outstanding document requests using a private expiring upload link. The client can upload files without an account; staff download, accept or return them with a precise note. Link rotation revokes its predecessor, job completion closes collection, raw link secrets are not retained and upload limits are explicit. Firm-defined request wording uses MSG-001 templates.
+**Requirement.** Staff send outstanding document requests using a private expiring upload link. The client can upload files without an account; staff download, accept or return them with a precise note. Link rotation revokes its predecessor, job completion closes collection, raw link secrets are not retained and upload limits are explicit. Firm-defined request wording uses MSG-001 templates. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Send a request, rotate its link, refuse the old link and cross-origin upload, upload within the displayed limit and reject an oversized file.
@@ -97,7 +97,7 @@ Core · published · **partial** · From PORTAL-001 · Cites BASE-INPUT-003 · R
 
 Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** The preparer completes all checklist and accepted-document gates, submits to the assigned reviewer and receives approval or a recorded request for change. Sign-off requires a note, rejects preparer self-review, records who and when, closes collection and prevents later checklist edits to signed-off evidence.
+**Requirement.** The preparer completes all checklist and accepted-document gates, submits to the assigned reviewer and receives approval or a recorded request for change. Sign-off requires a note, rejects preparer self-review, records who and when, closes collection and prevents later checklist edits to signed-off evidence. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Attempt premature submission, complete the evidence and submit.
@@ -124,7 +124,7 @@ Core · published · **partial** · From REVIEW-001 · Cites BASE-AUDIT-001, BAS
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-MAIL-001 · Rules D-1
 
-**Requirement.** A US principal configures a firm in USD with US addresses, EIN/entity classifications, fiscal years, service lines, time zones and notification hours. Money uses integer cents and explicit currency; US 1099/W-2, federal/state tax and sales-tax engagements have appropriate terminology. Historical AUD records retain their currency and are never relabeled USD.
+**Requirement.** A US principal configures a firm in USD with US addresses, EIN/entity classifications, fiscal years, service lines, time zones and notification hours. Money uses integer cents and explicit currency; US 1099/W-2, federal/state tax and sales-tax engagements have appropriate terminology. Historical AUD records retain their currency and are never relabeled USD. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Set up a US bookkeeping and tax practice, add an LLC and individual client, select USD and America/New_York, and create payroll, sales-tax and annual-tax work.
@@ -198,7 +198,7 @@ Core · target · **partial** · From US-001 · Cites BASE-MAIL-001, BASE-ROLE-0
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Manage individuals, businesses and trusts with multiple contacts, authorized signers, portal users, responsible partner, assigned team, service scope, lifecycle and consent preferences. Contacts carry roles (primary, billing, tax, bookkeeping) that route invoices, requests and signatures. A contact may represent several entities without sharing their private records; duplicates are merged under CRM-004. Search, edit, archive and reactivate clients without losing engagement history.
+**Requirement.** Manage individuals, businesses and trusts with multiple contacts, authorized signers, portal users, responsible partner, assigned team, service scope, lifecycle and consent preferences. Contacts carry roles (primary, billing, tax, bookkeeping) that route invoices, requests and signatures. A contact may represent several entities without sharing their private records; duplicates are merged under CRM-004. Search, edit, archive and reactivate clients without losing engagement history. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted implemented semantics outcome is recorded in RL-9.
 
 **Acceptance.**
 1. Create a business with two contacts and an individual linked to its owner; assign different staff and portal permissions, change a contact, archive/reactivate the business and inspect retained jobs.
@@ -284,7 +284,7 @@ Core · target · **done** · Cites BASE-ROLE-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-INPUT-003, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Each client and engagement has a searchable chronological history of email, portal messages, documents, requests, assignments, reviews, deadlines, signed scope and billing outcomes. Every unresolved item has a responsible person, next action and due condition; closing a message alone does not complete the engagement.
+**Requirement.** Each client and engagement has a searchable chronological history of email, portal messages, documents, requests, assignments, reviews, deadlines, signed scope and billing outcomes. Every unresolved item has a responsible person, next action and due condition; closing a message alone does not complete the engagement. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Open a client after two periods of work and trace a request from email through upload, review and payment.
@@ -335,7 +335,7 @@ Core · target · **partial** · From CRM-003 · Cites BASE-AUDIT-001 · Rules D
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Blotter proposes likely duplicate clients and contacts after an import, email auto-match, portal sign-up or connector sync, using matching email, phone, EIN, last four SSN digits and name similarity. Staff compare the records side by side, choose the surviving value for each field and merge. Work, tasks, email threads, documents, organizers, signatures, invoices, payments, portal users and history move to the survivor with an audit record. Source IDs from both records (Karbon, TaxDome, Canopy, QBO, Xero) stay attached so later imports and syncs match the survivor. A merge that would give one contact access to another entity's private records without authority is refused. An unchanged merge can be undone for 30 days.
+**Requirement.** Blotter proposes likely duplicate clients and contacts after an import, email auto-match, portal sign-up or connector sync, using matching email, phone, EIN, last four SSN digits and name similarity. Staff compare the records side by side, choose the surviving value for each field and merge. Work, tasks, email threads, documents, organizers, signatures, invoices, payments, portal users and history move to the survivor with an audit record. Source IDs from both records (Karbon, TaxDome, Canopy, QBO, Xero) stay attached so later imports and syncs match the survivor. A merge that would give one contact access to another entity's private records without authority is refused. An unchanged merge can be undone for 30 days. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted authority outcome is recorded in RL-10.
 
 **Acceptance.**
 1. Import a Karbon client that duplicates a native client and accept the suggested match.
@@ -431,7 +431,7 @@ Core · target · **partial** · From CRM-004 · Cites BASE-DATA-001 · Rules D-
 
 Core · target · **partial** · Cites BASE-INPUT-003 · Rules D-1
 
-**Requirement.** Track prospects through firm-defined stages (for example inquiry, consult booked, proposal sent, won, lost) with lead source, requested services, estimated annual fees and owner. An embeddable, spam-protected website intake form creates a prospect with its answers and uploads. A consult can be booked under INTEGRATE-005 and a proposal sent under ENGAGE-001 or INTEGRATE-004. Winning converts the prospect into exactly one client with contacts, signed scope and documents and starts onboarding work. Lost prospects keep a required reason. A pipeline report shows conversion, stage age and fee totals by source and owner. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Track prospects through firm-defined stages (for example inquiry, consult booked, proposal sent, won, lost) with lead source, requested services, estimated annual fees and owner. An embeddable, spam-protected website intake form creates a prospect with its answers and uploads. A consult can be booked under INTEGRATE-005 and a proposal sent under ENGAGE-001 or INTEGRATE-004. Winning converts the prospect into exactly one client with contacts, signed scope and documents and starts onboarding work. Lost prospects keep a required reason. A pipeline report shows conversion, stage age and fee totals by source and owner. Mechanism: [details](docs/contract/mechanism.md). The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted public intake outcome is recorded in RL-11. The adopted inherited before shipping outcome is recorded in RL-12.
 
 **Acceptance.**
 1. Submit the embedded intake form and inspect the new prospect with source and answers; a spam submission is rejected.
@@ -515,7 +515,7 @@ Core · target · **partial** · From CRM-005 · Rules D-1
 
 Core · target · **missing** · Cites BASE-DATA-006, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Build service proposals and versioned engagement letters with scope, exclusions, USD fees, retainer terms, renewal and amendment rules. Send to authorized signers, collect electronic signatures with signer authority, consent, timestamps and a downloadable certificate, then launch onboarding once. Preserve declined, expired, superseded and partially signed states. IRS e-file signature authorizations (Forms 8879, 8879-S, 8879-PE, 8879-C, 8879-F and 8878) are owned by SIGN-001, which states the signers, KBA, fallback, record and retention rules; other signed documents use SIGN-002.
+**Requirement.** Build service proposals and versioned engagement letters with scope, exclusions, USD fees, retainer terms, renewal and amendment rules. Send to authorized signers, collect electronic signatures with signer authority, consent, timestamps and a downloadable certificate, then launch onboarding once. Preserve declined, expired, superseded and partially signed states. IRS e-file signature authorizations (Forms 8879, 8879-S, 8879-PE, 8879-C, 8879-F and 8878) are owned by SIGN-001, which states the signers, KBA, fallback, record and retention rules; other signed documents use SIGN-002. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Send a two-signer proposal, amend it before completion and verify the old version cannot bind the new terms.
@@ -589,7 +589,7 @@ Core · target · **missing** · From ENGAGE-001 · Cites BASE-DATA-006 · Rules
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-006, BASE-INPUT-003, BASE-ROLE-001 · Rules D-1 · Register R-9
 
-**Requirement.** Blotter collects IRS e-file signature authorizations: Forms 8879, 8879-S, 8879-PE, 8879-C, 8879-F and 8878. The practitioner attaches the final form produced by the tax software (INTEGRATE-002) to the client-year return engagement. Blotter sends it to every required signer: both spouses for married filing jointly, an officer for an 1120-S or 1120, and a partner or LLC member for a 1065. For remote signing, each signer passes knowledge-based authentication (KBA) through the identity provider, with their own credentials. A failed KBA attempt can be retried. After three failed attempts, electronic signing stops for that signer and Blotter creates a handwritten-signature task with the printable form, following the IRS e-signature rules for these forms. The record kept against the return engagement contains the signed PDF, the provider certificate and audit trail, and for each signer the name, timestamp, IP address, login ID and every KBA result. It also holds the document hash. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Blotter collects IRS e-file signature authorizations: Forms 8879, 8879-S, 8879-PE, 8879-C, 8879-F and 8878. The practitioner attaches the final form produced by the tax software (INTEGRATE-002) to the client-year return engagement. Blotter sends it to every required signer: both spouses for married filing jointly, an officer for an 1120-S or 1120, and a partner or LLC member for a 1065. For remote signing, each signer passes knowledge-based authentication (KBA) through the identity provider, with their own credentials. A failed KBA attempt can be retried. After three failed attempts, electronic signing stops for that signer and Blotter creates a handwritten-signature task with the printable form, following the IRS e-signature rules for these forms. The record kept against the return engagement contains the signed PDF, the provider certificate and audit trail, and for each signer the name, timestamp, IP address, login ID and every KBA result. It also holds the document hash. Mechanism: [details](docs/contract/mechanism.md). The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Attach a Form 8879 to a married-filing-jointly 1040 engagement and send it to both spouses through the KBA provider at its test edge.
@@ -620,7 +620,7 @@ Core · target · **missing** · From SIGN-001 · Cites BASE-DATA-006, BASE-ROLE
 
 Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Staff request signatures on any firm document, for example a Form 2848 or 8821 (AUTHZ-001), a bank authorization, a management representation letter or a W-9. They place signature, initial, date and text fields on the PDF and choose one or more signers in sequential or parallel order. Signers give ESIGN Act and UETA consent, or pass KBA when the form requires it. Requests can be voided, declined with a reason and resent. FOLLOWUP-001 chases unsigned requests. The signed PDF and its certificate are filed to the client and work item with a timeline entry. Mechanism: [details](docs/contract/mechanism.md). The adopted outcome is recorded in RL-1.
+**Requirement.** Staff request signatures on any firm document, for example a Form 2848 or 8821 (AUTHZ-001), a bank authorization, a management representation letter or a W-9. They place signature, initial, date and text fields on the PDF and choose one or more signers in sequential or parallel order. Signers give ESIGN Act and UETA consent, or pass KBA when the form requires it. Requests can be voided, declined with a reason and resent. FOLLOWUP-001 chases unsigned requests. The signed PDF and its certificate are filed to the client and work item with a timeline entry. Mechanism: [details](docs/contract/mechanism.md). The adopted outcome is recorded in RL-1. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted native semantics outcome is recorded in RL-13.
 
 **Acceptance.**
 1. Place fields on a PDF and request sequential signatures from two contacts.
@@ -1317,7 +1317,7 @@ Core · target · **missing** · From RESOLVE-001 · Cites BASE-INPUT-003, BASE-
 
 Core · target · **missing** · Cites BASE-MAIL-001, BASE-ROLE-001 · Rules D-1 · Register R-6
 
-**Requirement.** Connect Gmail/Google Workspace and Microsoft 365/Exchange mailboxes with scoped OAuth, shared/delegated mailbox access and visible sync health. Triage threads into clients and engagements, assign email as work, comment internally, send/reply with the authorized identity using firm or personal templates (MSG-001) and file attachments against the correct job. Colleague visibility follows MAIL-002; snooze, scheduled send and no-reply follow-up are MAIL-003. Preserve message/thread identity, timestamps and authors, prevent duplicate sends/imports, and quarantine ambiguous client matches. Revocation stops access and surfaces unsynced work.
+**Requirement.** Connect Gmail/Google Workspace and Microsoft 365/Exchange mailboxes with scoped OAuth, shared/delegated mailbox access and visible sync health. Triage threads into clients and engagements, assign email as work, comment internally, send/reply with the authorized identity using firm or personal templates (MSG-001) and file attachments against the correct job. Colleague visibility follows MAIL-002; snooze, scheduled send and no-reply follow-up are MAIL-003. Preserve message/thread identity, timestamps and authors, prevent duplicate sends/imports, and quarantine ambiguous client matches. Revocation stops access and surfaces unsynced work. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Connect a real authorized Google mailbox and Microsoft shared mailbox, receive and reply to client threads, delegate one as a job and file an attachment.
@@ -1438,7 +1438,7 @@ Core · target · **missing** · From MAIL-001 · Cites BASE-DATA-001, BASE-DATA
 
 Core · target · **missing** · Cites BASE-AGENT-007, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** When staff connect their own mailboxes, colleagues see only threads with matched client contacts and threads the mailbox owner explicitly shares. Personal, vendor and other non-client mail stays visible only to the mailbox owner. A user can mark any thread, sender or domain private, so it is never shared, triaged or summarized. A shared team mailbox such as info@ is visible to its assigned members. Firm administrators cannot read private threads through the app or API, and AI features (AI-001) and search (SEARCH-001) exclude them. Marking a client thread private later removes colleagues' access. Attachments already filed to a job stay filed, with the filing recorded.
+**Requirement.** When staff connect their own mailboxes, colleagues see only threads with matched client contacts and threads the mailbox owner explicitly shares. Personal, vendor and other non-client mail stays visible only to the mailbox owner. A user can mark any thread, sender or domain private, so it is never shared, triaged or summarized. A shared team mailbox such as info@ is visible to its assigned members. Firm administrators cannot read private threads through the app or API, and AI features (AI-001) and search (SEARCH-001) exclude them. Marking a client thread private later removes colleagues' access. Attachments already filed to a job stay filed, with the filing recorded. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Connect a preparer's mailbox containing a client thread, a personal thread and a vendor thread.
@@ -1465,7 +1465,7 @@ Core · target · **missing** · From MAIL-002 · Cites BASE-DATA-001, BASE-DATA
 
 Core · target · **missing** · Cites BASE-MAIL-001 · Rules D-1
 
-**Requirement.** Each user and each shared mailbox has a triage list. From it a thread can be marked done, snoozed until a date and time (when it returns to triage), assigned to a colleague with a note, converted into a work item or task, or linked to existing work. Replies can be scheduled for a future time and canceled until sent. A no-reply follow-up reminder fires if the client has not answered by a date. Each client and work item has an email-in forwarding address. Triage counts by person show who has a backlog.
+**Requirement.** Each user and each shared mailbox has a triage list. From it a thread can be marked done, snoozed until a date and time (when it returns to triage), assigned to a colleague with a note, converted into a work item or task, or linked to existing work. Replies can be scheduled for a future time and canceled until sent. A no-reply follow-up reminder fires if the client has not answered by a date. Each client and work item has an email-in forwarding address. Triage counts by person show who has a backlog. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Snooze a thread until tomorrow at 9:00 and see it return.
@@ -1506,7 +1506,7 @@ Core · target · **missing** · From MAIL-003 · Cites BASE-DATA-001, BASE-DATA
 
 Core · target · **partial** · Cites BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Owners maintain firm-wide message templates and staff keep personal ones. They are used for inbox replies (MAIL-001), portal messages (PORTAL-003), document requests and organizers (PORTAL-001, PORTAL-004), reminder-sequence steps (FOLLOWUP-001), signature and invoice notices (SIGN-001, BILL-004), text messages (SMS-001) and bulk messages (MSG-002). A template holds a subject, body, optional attachments and placeholders. The placeholders cover firm name, sender, client, contact first name, work item, work type, period, due date, the outstanding-requests list, portal link, and invoice amount and due date. Composing applies a template, renders it for the exact recipient and shows a preview. Sending is refused while any placeholder is unresolved or empty, with the missing field named, until the sender fills it in or edits the text. Each sent message stores its rendered text. Templates are versioned with their author, so editing or deleting one never changes sent messages. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Owners maintain firm-wide message templates and staff keep personal ones. They are used for inbox replies (MAIL-001), portal messages (PORTAL-003), document requests and organizers (PORTAL-001, PORTAL-004), reminder-sequence steps (FOLLOWUP-001), signature and invoice notices (SIGN-001, BILL-004), text messages (SMS-001) and bulk messages (MSG-002). A template holds a subject, body, optional attachments and placeholders. The placeholders cover firm name, sender, client, contact first name, work item, work type, period, due date, the outstanding-requests list, portal link, and invoice amount and due date. Composing applies a template, renders it for the exact recipient and shows a preview. Sending is refused while any placeholder is unresolved or empty, with the missing field named, until the sender fills it in or edits the text. Each sent message stores its rendered text. Templates are versioned with their author, so editing or deleting one never changes sent messages. Mechanism: [details](docs/contract/mechanism.md). The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Create a "Month-end close request" firm template with client, period, due-date and outstanding-items placeholders.
@@ -1564,7 +1564,7 @@ Core · target · **partial** · From MSG-001 · Cites BASE-ROLE-001 · Rules D-
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-MAIL-001 · Rules D-1
 
-**Requirement.** Send one templated email or portal message (MSG-001) to a filtered client or contact segment, for example every 1040 client for a tax-season kickoff, or every client with a tag. Each message is rendered for its recipient. Before sending, staff preview the recipient count and sample renderings. Contacts who opted out or have no valid address are excluded and listed. Sends can be scheduled and are throttled within provider limits. A request or organizer can be attached for each recipient. Delivery, bounce and reply are tracked per recipient and filed to each client's history, and replies thread back to the individual client. Marketing messages carry a CAN-SPAM unsubscribe; engagement notices are transactional.
+**Requirement.** Send one templated email or portal message (MSG-001) to a filtered client or contact segment, for example every 1040 client for a tax-season kickoff, or every client with a tag. Each message is rendered for its recipient. Before sending, staff preview the recipient count and sample renderings. Contacts who opted out or have no valid address are excluded and listed. Sends can be scheduled and are throttled within provider limits. A request or organizer can be attached for each recipient. Delivery, bounce and reply are tracked per recipient and filed to each client's history, and replies thread back to the individual client. Marketing messages carry a CAN-SPAM unsubscribe; engagement notices are transactional. The adopted marketing consent and message class outcome is recorded in RL-14.
 
 **Acceptance.**
 1. Filter 40 individual clients by the 1040 work type.
@@ -1795,7 +1795,7 @@ Core · target · **partial** · From MSG-002 · Cites BASE-AUDIT-001, BASE-DATA
 
 Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Staff and clients exchange text messages from a firm Twilio number registered for US A2P 10DLC or toll-free verification. Conversations are threaded on the client record. Blotter captures opt-in consent, handles STOP and HELP, holds sends during quiet hours in the client's time zone and supports MSG-001 templates. MMS images are filed as documents. Text bodies never carry taxpayer identifiers or portal secrets, only links to authenticated pages. Texts from unknown numbers go to triage.
+**Requirement.** Staff and clients exchange text messages from a firm Twilio number registered for US A2P 10DLC or toll-free verification. Conversations are threaded on the client record. Blotter captures opt-in consent, handles STOP and HELP, holds sends during quiet hours in the client's time zone and supports MSG-001 templates. MMS images are filed as documents. Text bodies never carry taxpayer identifiers or portal secrets, only links to authenticated pages. Texts from unknown numbers go to triage. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Capture a client's SMS consent and send a templated text.
@@ -1848,7 +1848,7 @@ Core · target · **partial** · Cites BASE-MAIL-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-INPUT-003, BASE-MAIL-001 · Rules D-1
 
-**Requirement.** Staff receive in-app, email and mobile push (MOBILE-001) notifications for: work or a task assigned to them, a review requested or returned, a mention, a client reply, an upload, an organizer submission or a completed signature, work due soon (with a configurable lead time), overdue work, status changes on work they own, failed deliveries or syncs, and payments received or failed. Each user chooses the channel per event and a daily digest time in their own time zone. The firm sets defaults and mandatory events. Notifications link to their item, collapse repeats, respect quiet hours and never put taxpayer identifiers in email or push subjects. A notification center tracks read and unread.
+**Requirement.** Staff receive in-app, email and mobile push (MOBILE-001) notifications for: work or a task assigned to them, a review requested or returned, a mention, a client reply, an upload, an organizer submission or a completed signature, work due soon (with a configurable lead time), overdue work, status changes on work they own, failed deliveries or syncs, and payments received or failed. Each user chooses the channel per event and a daily digest time in their own time zone. The firm sets defaults and mandatory events. Notifications link to their item, collapse repeats, respect quiet hours and never put taxpayer identifiers in email or push subjects. A notification center tracks read and unread. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted native completion and inherited events outcome is recorded in RL-15.
 
 **Acceptance.**
 1. Assign a job and a task to a preparer.
@@ -1928,7 +1928,7 @@ Core · target · **partial** · From NOTIFY-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-INPUT-003, BASE-MAIL-001, BASE-ROLE-001, BASE-SIGNIN-002 · Rules D-1
 
-**Requirement.** Each firm has a branded portal on the installation host with client login, invitations, recovery, two-factor authentication and entity-specific contact access. Clients switch among explicitly authorized entities, manage notification preferences and view approved documents, signatures and bills. Firm policy can require MFA; revoked contacts lose existing-session access server-side. Scoped upload links remain available as a separately controlled collection method.
+**Requirement.** Each firm has a branded portal on the installation host with client login, invitations, recovery, two-factor authentication and entity-specific contact access. Clients switch among explicitly authorized entities, manage notification preferences and view approved documents, signatures and bills. Firm policy can require MFA; revoked contacts lose existing-session access server-side. Scoped upload links remain available as a separately controlled collection method. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted implemented native slice outcome is recorded in RL-16.
 
 **Acceptance.**
 1. Invite two contacts with different entity access, sign in with a second factor on the installation host and recover a lost factor.
@@ -2027,7 +2027,7 @@ Core · target · **partial** · From PORTAL-002 · Cites BASE-DATA-001, BASE-DA
 
 Core · target · **partial** · Rules D-1
 
-**Requirement.** Clients see engagement milestones, next action, outstanding requests and review/completion progress, and exchange secure messages or to-dos attached to the right engagement. Staff control what is client-visible; a client response updates the outstanding item and alerts its owner without marking unrelated work complete.
+**Requirement.** Clients see engagement milestones, next action, outstanding requests and review/completion progress, and exchange secure messages or to-dos attached to the right engagement. Staff control what is client-visible; a client response updates the outstanding item and alerts its owner without marking unrelated work complete. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Open an engagement as a client, ask a secure question, complete one to-do and inspect the preparer's queue and progress view after review.
@@ -2107,7 +2107,7 @@ Core · target · **partial** · From PORTAL-003 · Rules D-1
 
 Core · target · **partial** · Cites BASE-INPUT-003 · Rules D-1
 
-**Requirement.** Create versioned tax and bookkeeping organizers with conditional questions, required fields, prior-period carry-forward clearly marked for confirmation, supporting uploads and multi-contact responsibility. Clients save and resume, and staff review changed answers and completeness without losing the submitted original.
+**Requirement.** Create versioned tax and bookkeeping organizers with conditional questions, required fields, prior-period carry-forward clearly marked for confirmation, supporting uploads and multi-contact responsibility. Clients save and resume, and staff review changed answers and completeness without losing the submitted original. The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted semantics outcome is recorded in RL-17.
 
 **Acceptance.**
 1. Send an organizer, answer an ownership question that reveals a dependent section, save/resume on a phone and attach evidence.
@@ -2182,7 +2182,7 @@ Core · target · **partial** · From PORTAL-004 · Cites BASE-DATA-006, BASE-RO
 
 Core · target · **partial** · Cites BASE-ACCESSIBILITY-001, BASE-INPUT-003, BASE-MAIL-001 · Rules D-1 · Register R-1, R-2
 
-**Requirement.** The client portal, emails, organizers and signature screens are available in English and Spanish. Each contact has a language preference, and firm templates (MSG-001) keep a version per language. Before a send, staff are warned when a template has no version in the contact's language. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** The client portal, emails, organizers and signature screens are available in English and Spanish. Each contact has a language preference, and firm templates (MSG-001) keep a version per language. Before a send, staff are warned when a template has no version in the contact's language. Mechanism: [details](docs/contract/mechanism.md). The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Set a contact to Spanish and send a templated request that has a Spanish version.
@@ -2280,7 +2280,7 @@ Core · target · **partial** · From PORTAL-005 · Cites BASE-DATA-001, BASE-DA
 
 Core · target · **partial** · Cites BASE-ACCESSIBILITY-001, BASE-INPUT-003, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1 · Register R-5
 
-**Requirement.** Responsive web and native iOS/Android apps let clients scan/crop multi-page documents, resume interrupted uploads, answer organizers, chat, sign and pay; staff triage, reassign and review work, and record time against client/job/task with manual entries and running timers (TIME-001) that continue across app restarts and sync once, with role-appropriate access. Push notifications use consent and reveal no tax details on a lock screen; offline drafts disclose sync state and revoked sessions cannot sync new work. Keyboard and assistive-technology access remain available on the web.
+**Requirement.** Responsive web and native iOS/Android apps let clients scan/crop multi-page documents, resume interrupted uploads, answer organizers, chat, sign and pay; staff triage, reassign and review work, and record time against client/job/task with manual entries and running timers (TIME-001) that continue across app restarts and sync once, with role-appropriate access. Push notifications use consent and reveal no tax details on a lock screen; offline drafts disclose sync state and revoked sessions cannot sync new work. Keyboard and assistive-technology access remain available on the web. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. At desktop and phone widths and on iOS/Android, capture a multi-page statement, interrupt/retry the upload, complete a client task and review it as staff.
@@ -2319,7 +2319,7 @@ Core · target · **partial** · From MOBILE-001 · Cites BASE-DATA-001, BASE-DA
 
 Core · target · **partial** · Cites BASE-INPUT-003, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Store engagement documents in client/period folders with searchable names, source, author, timestamps, version relationships, annotations and review status. Preserve originals and prior versions; downloads and annotations respect permissions. Support normal multi-page accounting packets with published limits, resumable uploads and clear failure recovery instead of silently truncating files.
+**Requirement.** Store engagement documents in client/period folders with searchable names, source, author, timestamps, version relationships, annotations and review status. Preserve originals and prior versions; downloads and annotations respect permissions. Support normal multi-page accounting packets with published limits, resumable uploads and clear failure recovery instead of silently truncating files. The adopted semantics outcome is recorded in RL-18.
 
 **Acceptance.**
 1. Upload a realistic multi-page packet, replace it with a corrected version, annotate a page and find both versions from the client and engagement.
@@ -2382,7 +2382,7 @@ Core · target · **partial** · From DOC-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Per-document visibility supports internal-only workpapers, selected client contacts and revocable/expiring approved shares. Preview recipients and access before sharing, audit downloads and preserve visibility on versions, connector copies and migration. External sharing never bypasses client or job permissions.
+**Requirement.** Per-document visibility supports internal-only workpapers, selected client contacts and revocable/expiring approved shares. Preview recipients and access before sharing, audit downloads and preserve visibility on versions, connector copies and migration. External sharing never bypasses client or job permissions. The adopted semantics outcome is recorded in RL-19.
 
 **Acceptance.**
 1. Keep a workpaper internal, share a final packet with one contact, rotate/revoke its share and attempt direct reads as another contact and preparer.
@@ -2502,7 +2502,7 @@ Core · target · **partial** · From SEARCH-001 · Cites BASE-MAIL-001 · Rules
 
 Core · target · **partial** · Cites BASE-MAIL-001 · Rules D-1
 
-**Requirement.** A firm-approved reminder sequence follows missing documents, organizer answers, signatures and unresolved questions through email, portal and opted-in US SMS via Twilio. Configure owner, business hours, cadence, maximum sends, pause and manager escalation. Each step's wording is a MSG-001 template rendered for the recipient at send time; a step whose placeholders cannot resolve is held and its owner is told, rather than sent. Re-evaluate outstanding items before each send, stop completed/declined items and record provider acceptance, delivery or failure separately. Respect SMS consent and STOP/HELP, firm sender registration and provider outages; an unanswered notification never resolves the blocker.
+**Requirement.** A firm-approved reminder sequence follows missing documents, organizer answers, signatures and unresolved questions through email, portal and opted-in US SMS via Twilio. Configure owner, business hours, cadence, maximum sends, pause and manager escalation. Each step's wording is a MSG-001 template rendered for the recipient at send time; a step whose placeholders cannot resolve is held and its owner is told, rather than sent. Re-evaluate outstanding items before each send, stop completed/declined items and record provider acceptance, delivery or failure separately. Respect SMS consent and STOP/HELP, firm sender registration and provider outages; an unanswered notification never resolves the blocker. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Approve a bounded reminder sequence, leave two items missing and complete one between sends.
@@ -2929,7 +2929,7 @@ Core · target · **partial** · Cites BASE-DATA-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-DATA-001 · Rules D-1
 
-**Requirement.** Reviewers prepare time/fixed-fee CSV drafts with snapshotted sources. The principal approves once with a note; the approved bytes and digest remain unchanged and each source belongs to one live export. Draft voiding releases reservations; CSV cells neutralize spreadsheet formulas and preserve source currency.
+**Requirement.** Reviewers prepare time/fixed-fee CSV drafts with snapshotted sources. The principal approves once with a note; the approved bytes and digest remain unchanged and each source belongs to one live export. Draft voiding releases reservations; CSV cells neutralize spreadsheet formulas and preserve source currency. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Prepare a mixed time/fixed-fee export, reject source reuse and non-owner approval, approve as principal and download twice.
@@ -2954,7 +2954,7 @@ Core · target · **partial** · From BILL-001 · Cites BASE-DATA-001, BASE-DATA
 
 Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Create numbered USD invoices from approved time, fixed scope, milestones or recurring retainers; separate fee entitlement from job completion. Preview invoice lines, terms, authorized sales-tax treatment, credits and client recipients, then approve and deliver PDF/portal invoices. Retainer deposits, credits, price changes, cancellation and prorations remain traceable. Select exactly one invoice authority: Blotter, QuickBooks Online or Xero; schedule generation is idempotent. The adopted outcome is recorded in RL-2.
+**Requirement.** Create numbered USD invoices from approved time, fixed scope, milestones or recurring retainers; separate fee entitlement from job completion. Preview invoice lines, terms, authorized sales-tax treatment, credits and client recipients, then approve and deliver PDF/portal invoices. Retainer deposits, credits, price changes, cancellation and prorations remain traceable. Select exactly one invoice authority: Blotter, QuickBooks Online or Xero; schedule generation is idempotent. The adopted outcome is recorded in RL-2. The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted native semantics outcome is recorded in RL-13.
 
 **Acceptance.**
 1. Bill a fixed engagement and hourly extra, start a monthly retainer, apply a deposit and preview a fee amendment.
@@ -3102,7 +3102,7 @@ Core · target · **partial** · From BILL-002 · Cites BASE-AUDIT-001, BASE-DAT
 
 Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-1 · Register R-10
 
-**Requirement.** Collect invoices by card and US ACH through Stripe, with saved-method mandates and explicit authorization for recurring or due-date automatic collection. Show fees in USD, payment terms and ACH pending/settled/returned states; distinguish provider acceptance from settlement. Verify webhook signatures, deduplicate events, reconcile partial payments, refunds, disputes and returns, and own failed-payment follow-up. Provider onboarding, US bank access and saved-method/auto-pay migration from Karbon Payments, TaxDome Payments, Canopy Payments and Financial Cents (MIGRATE-007) are engineering obligations; a method or authorization that cannot move becomes a tracked client reauthorization, and no client is charged automatically without a valid mandate. Under RL-101, staff quick collect needs explicit current invoice-specific consent and its remaining cumulative cap, after current financial authority and billing-recipient revision checks. Revocation and restored authority prevent another charge; recurring and due-date mandates remain separate work.
+**Requirement.** Collect invoices by card and US ACH through Stripe, with saved-method mandates and explicit authorization for recurring or due-date automatic collection. Show fees in USD, payment terms and ACH pending/settled/returned states; distinguish provider acceptance from settlement. Verify webhook signatures, deduplicate events, reconcile partial payments, refunds, disputes and returns, and own failed-payment follow-up. Provider onboarding, US bank access and saved-method/auto-pay migration from Karbon Payments, TaxDome Payments, Canopy Payments and Financial Cents (MIGRATE-007) are engineering obligations; a method or authorization that cannot move becomes a tracked client reauthorization, and no client is charged automatically without a valid mandate. Under RL-101, staff quick collect needs explicit current invoice-specific consent and its remaining cumulative cap, after current financial authority and billing-recipient revision checks. Revocation and restored authority prevent another charge; recurring and due-date mandates remain separate work. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Pay a real authorized low-value invoice by card and ACH, authorize a recurring mandate and inspect provider receipts and ledger reconciliation.
@@ -3165,7 +3165,7 @@ Core · target · **partial** · From PAY-001 · Cites BASE-DATA-001, BASE-DATA-
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** In the portal, clients see open invoices, statements and payment history. They can pay several invoices in one payment, save or remove payment methods, set up auto-pay, and accept a firm-offered installment plan with an amount, a schedule and a mandate. Scheduled charges run only under explicit authorization, with a reminder before each debit. A missed or returned installment creates owned follow-up instead of an unauthorized retry.
+**Requirement.** In the portal, clients see open invoices, statements and payment history. They can pay several invoices in one payment, save or remove payment methods, set up auto-pay, and accept a firm-offered installment plan with an amount, a schedule and a mandate. Scheduled charges run only under explicit authorization, with a reminder before each debit. A missed or returned installment creates owned follow-up instead of an unauthorized retry. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. A client pays two invoices in one card payment, and the payment is allocated correctly.
@@ -3191,7 +3191,7 @@ Core · target · **missing** · From PAY-002 · Cites BASE-DATA-001, BASE-DATA-
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001 · Rules D-1
 
-**Requirement.** Report unbilled WIP, earned/deferred retainers, aged receivables, collection follow-up (reminders and statements under BILL-004), credits, write-ups/downs, billed-versus-recorded realization, utilization and client/job/service profitability using approved time, cost and invoice/payment sources. Drill into calculation inputs, exclude duplicate exports and keep uncollected, settled and written-off amounts distinct. Partners approve credits, write-offs and collection messages.
+**Requirement.** Report unbilled WIP, earned/deferred retainers, aged receivables, collection follow-up (reminders and statements under BILL-004), credits, write-ups/downs, billed-versus-recorded realization, utilization and client/job/service profitability using approved time, cost and invoice/payment sources. Drill into calculation inputs, exclude duplicate exports and keep uncollected, settled and written-off amounts distinct. Partners approve credits, write-offs and collection messages. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Run WIP, aging and profitability for a client with hourly work, fixed fees, a retainer, partial payment and credit.
@@ -3273,7 +3273,7 @@ Core · target · **partial** · From BILL-003 · Cites BASE-DATA-001, BASE-DATA
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Overdue-invoice reminders run on a firm schedule (for example 3 days before the due date, on it, and 7, 14 and 30 days after) using MSG-001 templates. They stop when an invoice is paid, disputed or on a payment plan, and can be overridden per client. Staff can bulk resend selected invoices and generate monthly client statements of open invoices, credits and payments. Quick collect charges a saved method only within its PAY-001 authorization. Every reminder is recorded in the client's history. Quick collect follows PAY-001 (RL-101); the existing reminder consent and edit-to-pause rider remains in force.
+**Requirement.** Overdue-invoice reminders run on a firm schedule (for example 3 days before the due date, on it, and 7, 14 and 30 days after) using MSG-001 templates. They stop when an invoice is paid, disputed or on a payment plan, and can be overridden per client. Staff can bulk resend selected invoices and generate monthly client statements of open invoices, credits and payments. Quick collect charges a saved method only within its PAY-001 authorization. Every reminder is recorded in the client's history. Quick collect follows PAY-001 (RL-101); the existing reminder consent and edit-to-pause rider remains in force. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted implemented native slice outcome is recorded in RL-20.
 
 **Acceptance.**
 1. Issue three invoices with different due dates, let the reminders run and pay one between steps; only the unpaid invoices are reminded, on schedule.
@@ -3343,7 +3343,7 @@ Core · target · **partial** · From BILL-004 · Cites BASE-DATA-001, BASE-DATA
 
 Core · target · **partial** · Cites BASE-INPUT-003 · Rules D-1
 
-**Requirement.** A firm can require payment before releasing selected work product in the portal, such as a final return copy. The client sees the file as locked until paid. A card payment unlocks it on provider confirmation. For ACH the firm chooses whether a pending payment unlocks it or settlement is required. Records the client supplied are never withheld, consistent with Circular 230 §10.28; only the firm's own work product can be gated. Clients past a firm balance threshold go on credit hold: staff see the hold, and creating new work warns. A partner can override a gate or hold, with a recorded reason.
+**Requirement.** A firm can require payment before releasing selected work product in the portal, such as a final return copy. The client sees the file as locked until paid. A card payment unlocks it on provider confirmation. For ACH the firm chooses whether a pending payment unlocks it or settlement is required. Records the client supplied are never withheld, consistent with Circular 230 §10.28; only the firm's own work product can be gated. Clients past a firm balance threshold go on credit hold: staff see the hold, and creating new work warns. A partner can override a gate or hold, with a recorded reason. The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted implemented semantics outcome is recorded in RL-21.
 
 **Acceptance.**
 1. Gate a final return copy on an invoice.
@@ -3502,7 +3502,7 @@ Core · target · **partial** · From REPORT-001 · Cites BASE-ROLE-001 · Rules
 
 Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Connect the firm's QuickBooks Online or Xero billing organization separately from each client's ledger grant. Map customers, services, tax codes, invoice IDs, credits and payments to the chosen invoice authority; preview direction and conflicts before enabling writes. Reconcile provider and accounting events without duplicate invoices or silently overwriting closed periods; sync failures have an owner and repair action.
+**Requirement.** Connect the firm's QuickBooks Online or Xero billing organization separately from each client's ledger grant. Map customers, services, tax codes, invoice IDs, credits and payments to the chosen invoice authority; preview direction and conflicts before enabling writes. Reconcile provider and accounting events without duplicate invoices or silently overwriting closed periods; sync failures have an owner and repair action. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Connect firm QBO and Xero organizations in separate runs, choose each as invoice authority, deliver an approved invoice and reconcile payment/credit.
@@ -3527,7 +3527,7 @@ Core · target · **missing** · From INTEGRATE-001 · Cites BASE-DATA-001, BASE
 
 Core · target · **missing** · Cites BASE-INPUT-003, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Support Lacerte, ProSeries, Drake, UltraTax CS and CCH Axcess through authorized connectors and desktop print/upload bridges where needed. Map client/entity/year, deliver source documents and retrieve final packets, signature requests (SIGN-001) and filing status from the source INTEGRATE-008 names for each stack. Preview unsupported fields and require practitioner confirmation for ambiguous matches; no handoff implies a return was calculated or filed.
+**Requirement.** Support Lacerte, ProSeries, Drake, UltraTax CS and CCH Axcess through authorized connectors and desktop print/upload bridges where needed. Map client/entity/year, deliver source documents and retrieve final packets, signature requests (SIGN-001) and filing status from the source INTEGRATE-008 names for each stack. Preview unsupported fields and require practitioner confirmation for ambiguous matches; no handoff implies a return was calculated or filed. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. For each named tax stack, send an approved client-year packet through its supported connector/desktop path, receive a final packet and that stack's INTEGRATE-008 filing-status evidence and inspect IDs/provenance.
@@ -3552,7 +3552,7 @@ Core · target · **missing** · From INTEGRATE-002 · Cites BASE-DATA-001, BASE
 
 Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Connect Google Drive, OneDrive, SharePoint and Dropbox with explicit folder/client mapping, least-scope authority and clear original/copy/link custody. Sync approved versions and metadata, preserve internal-only rules, detect moved/deleted/changed files and surface permission conflicts; never grant a portal user access to an entire external folder by accident.
+**Requirement.** Connect Google Drive, OneDrive, SharePoint and Dropbox with explicit folder/client mapping, least-scope authority and clear original/copy/link custody. Sync approved versions and metadata, preserve internal-only rules, detect moved/deleted/changed files and surface permission conflicts; never grant a portal user access to an entire external folder by accident. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Connect each service, map two client folders and import/link an approved packet.
@@ -3577,7 +3577,7 @@ Core · target · **missing** · From INTEGRATE-003 · Cites BASE-DATA-006 · Ru
 
 Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** An authorized Ignition accepted proposal creates or links the correct client, records accepted scope/fees and launches assigned onboarding with the signed-document reference. Changes, cancellations and duplicate events create reviewed amendments or stop future work rather than duplicating engagements or silently changing signed scope.
+**Requirement.** An authorized Ignition accepted proposal creates or links the correct client, records accepted scope/fees and launches assigned onboarding with the signed-document reference. Changes, cancellations and duplicate events create reviewed amendments or stop future work rather than duplicating engagements or silently changing signed scope. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Accept a real authorized Ignition proposal, observe client/team/onboarding creation and signed-scope linkage, replay the event and amend/cancel it.
@@ -3614,7 +3614,7 @@ Core · target · **missing** · From INTEGRATE-004 · Cites BASE-DATA-001, BASE
 
 Core · target · **missing** · Rules D-1
 
-**Requirement.** Connect Google Calendar and Outlook Calendar for staff commitments and job deadlines with configurable direction, time-zone/DST handling and private-event masking. Embed or link Calendly and Acuity Scheduling from the client portal, attach appointments to engagements and update capacity for cancellations/reschedules without duplicate events.
+**Requirement.** Connect Google Calendar and Outlook Calendar for staff commitments and job deadlines with configurable direction, time-zone/DST handling and private-event masking. Embed or link Calendly and Acuity Scheduling from the client portal, attach appointments to engagements and update capacity for cancellations/reschedules without duplicate events. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Connect Google and Outlook staff calendars, book one Calendly and one Acuity appointment through a portal and reschedule across DST.
@@ -3675,7 +3675,7 @@ Core · target · **missing** · From INTEGRATE-005 · Cites BASE-DATA-001, BASE
 
 Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-1 · Register R-8
 
-**Requirement.** Retrieve IRS e-Services/TDS transcripts through the authorized practitioner account and specialist integration with required taxpayer authorization, identity verification and permitted data use. Track request, pending, received, unavailable and failed states, source period and freshness; reconcile transcript differences into notice/review work. Never bypass practitioner credentials, authority restrictions or agency access rules.
+**Requirement.** Retrieve IRS e-Services/TDS transcripts through the authorized practitioner account and specialist integration with required taxpayer authorization, identity verification and permitted data use. Track request, pending, received, unavailable and failed states, source period and freshness; reconcile transcript differences into notice/review work. Never bypass practitioner credentials, authority restrictions or agency access rules. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Using an authorized practitioner/taxpayer pair, request a permitted transcript, receive it into the correct client-period and link a discrepancy to review.
@@ -3700,7 +3700,7 @@ Core · target · **missing** · From INTEGRATE-006 · Cites BASE-DATA-001, BASE
 
 Core · target · **missing** · Cites BASE-ACCESSIBILITY-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Connect Gusto payroll clients with permission to read payroll work items, run status and due-date evidence, route unresolved payroll requests into practice work and link the authoritative payroll record. A completed practice checklist cannot mark payroll paid, taxes remitted or a 941 filed without source evidence.
+**Requirement.** Connect Gusto payroll clients with permission to read payroll work items, run status and due-date evidence, route unresolved payroll requests into practice work and link the authoritative payroll record. A completed practice checklist cannot mark payroll paid, taxes remitted or a 941 filed without source evidence. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Connect an authorized Gusto client, observe a payroll work item and missing-information exception, follow its run status and inspect the linked source result.
@@ -3725,7 +3725,7 @@ Core · target · **missing** · From INTEGRATE-007 · Cites BASE-DATA-001, BASE
 
 Core · target · **missing** · Cites BASE-DATA-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Each tax stack has a named source of filing-status evidence. For CCH Axcess and UltraTax CS, it is the stack's authorized e-file status API or status export. For Lacerte, ProSeries and Drake, it is the e-file status report export. The INTEGRATE-002 desktop bridge reads the desktop stacks' exports on the practitioner's machine. When a stack exposes no status for a return, the practitioner records the IRS or state acknowledgment (submission ID, accepted or rejected, date) with the acknowledgment file, and the status is labeled practitioner-recorded. Status values are not transmitted, transmitted, accepted, rejected (with its reject code) and paper-filed with proof, each with its source and time received. A rejection reopens the work item to the firm's rework status (WORK-007). A checklist, signature or work status never implies a filing.
+**Requirement.** Each tax stack has a named source of filing-status evidence. For CCH Axcess and UltraTax CS, it is the stack's authorized e-file status API or status export. For Lacerte, ProSeries and Drake, it is the e-file status report export. The INTEGRATE-002 desktop bridge reads the desktop stacks' exports on the practitioner's machine. When a stack exposes no status for a return, the practitioner records the IRS or state acknowledgment (submission ID, accepted or rejected, date) with the acknowledgment file, and the status is labeled practitioner-recorded. Status values are not transmitted, transmitted, accepted, rejected (with its reject code) and paper-filed with proof, each with its source and time received. A rejection reopens the work item to the firm's rework status (WORK-007). A checklist, signature or work status never implies a filing. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. For each of the five stacks, ingest one return's status from that stack's named source (transmitted, then accepted) and one rejection with its reject code, each mapped to the right client-year.
@@ -3764,7 +3764,7 @@ Core · target · **partial** · Cites BASE-AGENT-007, BASE-DATA-001, BASE-ROLE-
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Publish a versioned client/work/time/document/billing API with scoped revocable integration keys, pagination, filters, idempotent writes and explicit rate limits. Signed webhooks and Zapier triggers/actions support owner-configured cross-app workflows with field mapping, delivery history, replay control and conflict handling. External credentials never inherit broader owner authority. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Publish a versioned client/work/time/document/billing API with scoped revocable integration keys, pagination, filters, idempotent writes and explicit rate limits. Signed webhooks and Zapier triggers/actions support owner-configured cross-app workflows with field mapping, delivery history, replay control and conflict handling. External credentials never inherit broader owner authority. Mechanism: [details](docs/contract/mechanism.md). The adopted receiving erasure-002 outcome is recorded in RL-8. The adopted implemented integration boundary outcome is recorded in RL-22. The adopted inherited access-004 outcome is recorded in RL-23.
 
 **Acceptance.**
 1. Connect Zapier to create a client and task from an approved event, read paginated work/time and receive a signed completion webhook.
@@ -3931,7 +3931,7 @@ Core · target · **partial** · From API-002 · Cites BASE-DATA-006 · Rules D-
 
 Core · target · **partial** · Cites BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Firm-reviewed schedules and events coordinate status changes (WORK-007), recurrence, conditional step advancement, email filing, review notifications, reminders, onboarding and due-date billing. Triggers include a work item entering a primary status or sub-status, all its tasks completing, a client request or organizer completing, a signature completing and a due time. Actions include setting a status, assigning a role, sending a templated message (MSG-001), requesting documents or a signature and creating an invoice. Each rule has an owner, client scope, budget, preview, pause/stop, durable attempt/outcome and visible next action. Recovery deduplicates accepted effects, rechecks authority and reconciles ambiguous provider outcomes before repeating external messages or charges.
+**Requirement.** Firm-reviewed schedules and events coordinate status changes (WORK-007), recurrence, conditional step advancement, email filing, review notifications, reminders, onboarding and due-date billing. Triggers include a work item entering a primary status or sub-status, all its tasks completing, a client request or organizer completing, a signature completing and a due time. Actions include setting a status, assigning a role, sending a templated message (MSG-001), requesting documents or a signature and creating an invoice. Each rule has an owner, client scope, budget, preview, pause/stop, durable attempt/outcome and visible next action. Recovery deduplicates accepted effects, rechecks authority and reconciles ambiguous provider outcomes before repeating external messages or charges. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Enable rules through the app, including "when all tasks complete, set status In review" and "on entering Waiting – on client documents, send the request template".
@@ -4007,7 +4007,7 @@ Core · target · **partial** · From AUTOMATE-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-DATA-001 · Rules D-1
 
-**Requirement.** Preview CSV account/contact imports with flexible field mapping, validation, entity/contact matching, duplicate policy and source provenance. Commit exactly the reviewed file/mapping, resume safely and inspect the journal. Undo removes untouched imported records while preserving clients with native work or conflicting edits; source originals remain protected and portable.
+**Requirement.** Preview CSV account/contact imports with flexible field mapping, validation, entity/contact matching, duplicate policy and source provenance. Commit exactly the reviewed file/mapping, resume safely and inspect the journal. Undo removes untouched imported records while preserving clients with native work or conflicting edits; source originals remain protected and portable. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted semantics outcome is recorded in RL-24.
 
 **Acceptance.**
 1. Map an exported client/contact CSV, preview errors and duplicates without writes, commit its reviewed fingerprint and resume.
@@ -4065,7 +4065,7 @@ Core · target · **partial** · From IMPORT-001 · Rules D-1
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Migrate Karbon using authorized API extraction and supported exports/assisted extraction for clients/contacts/groups/custom fields, work types, primary statuses and firm sub-statuses with their per-type limits, job roles, work templates, repeating work schedules with the future work items they have already created (MIGRATE-006), automators (imported paused), email templates, active tasks/dependencies and assignments, triage email/thread references, notes/files, time/budget/billing history and Karbon Payments auto-pay enrollments with their saved-method references (MIGRATE-007). Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; auto-pay mandates are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss.
+**Requirement.** Migrate Karbon using authorized API extraction and supported exports/assisted extraction for clients/contacts/groups/custom fields, work types, primary statuses and firm sub-statuses with their per-type limits, job roles, work templates, repeating work schedules with the future work items they have already created (MIGRATE-006), automators (imported paused), email templates, active tasks/dependencies and assignments, triage email/thread references, notes/files, time/budget/billing history and Karbon Payments auto-pay enrollments with their saved-method references (MIGRATE-007). Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; auto-pay mandates are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Import an authorized Karbon practice containing completed history and live work, confirm every active work item keeps its work type and primary/sub-status (WORK-007) and that an unmapped status is held for review, review mappings and source limitations, compare counts and representative files/messages/fees, interrupt/resume and repeat the import.
@@ -4127,7 +4127,7 @@ Core · target · **missing** · From MIGRATE-001 · Cites BASE-DATA-001, BASE-D
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Migrate TaxDome using authorized API extraction and supported exports/assisted extraction for accounts/contacts, pipelines and stages (mapped to WORK-007 work types and statuses), jobs/templates/automations, recurring jobs with their already-created future jobs (MIGRATE-006), message templates, organizers and answers, portal requests/chats, documents, proposals/signed letters, invoices/credits/payment history, TaxDome Payments saved methods and auto-pay (MIGRATE-007) and staff permissions. Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; saved payment methods and auto-pay are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss.
+**Requirement.** Migrate TaxDome using authorized API extraction and supported exports/assisted extraction for accounts/contacts, pipelines and stages (mapped to WORK-007 work types and statuses), jobs/templates/automations, recurring jobs with their already-created future jobs (MIGRATE-006), message templates, organizers and answers, portal requests/chats, documents, proposals/signed letters, invoices/credits/payment history, TaxDome Payments saved methods and auto-pay (MIGRATE-007) and staff permissions. Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; saved payment methods and auto-pay are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Import an authorized TaxDome practice containing completed history and live work.
@@ -4168,7 +4168,7 @@ Core · target · **missing** · From MIGRATE-002 · Cites BASE-DATA-001, BASE-D
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Migrate Canopy using authorized API extraction and supported exports/assisted extraction for clients/contacts/custom fields, tasks/templates/dependencies, recurring tasks (MIGRATE-006) and task statuses (mapped to WORK-007), notices/transcript references, client files/versions, communications, time/WIP, invoices/credits/payments, Canopy Payments saved methods and scheduled payments (MIGRATE-007) and staff access. Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; saved payment methods and auto-pay are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss.
+**Requirement.** Migrate Canopy using authorized API extraction and supported exports/assisted extraction for clients/contacts/custom fields, tasks/templates/dependencies, recurring tasks (MIGRATE-006) and task statuses (mapped to WORK-007), notices/transcript references, client files/versions, communications, time/WIP, invoices/credits/payments, Canopy Payments saved methods and scheduled payments (MIGRATE-007) and staff access. Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; saved payment methods and auto-pay are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Import an authorized Canopy practice containing completed history and live work.
@@ -4209,7 +4209,7 @@ Core · target · **missing** · From MIGRATE-003 · Cites BASE-DATA-001, BASE-D
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Migrate Financial Cents using authorized API extraction and supported exports/assisted extraction for clients/contacts, recurring projects and their already-created future projects (MIGRATE-006) with their statuses (mapped to WORK-007), checklists/assignments, requests/portal documents, client communication, capacity/budgets, time, billing/payment history and saved payment methods with auto-pay (MIGRATE-007). Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; saved payment methods and auto-pay are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss.
+**Requirement.** Migrate Financial Cents using authorized API extraction and supported exports/assisted extraction for clients/contacts, recurring projects and their already-created future projects (MIGRATE-006) with their statuses (mapped to WORK-007), checklists/assignments, requests/portal documents, client communication, capacity/budgets, time, billing/payment history and saved payment methods with auto-pay (MIGRATE-007). Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants; saved payment methods and auto-pay are migrated or reauthorized under MIGRATE-007. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Import an authorized Financial Cents practice containing completed history and live work.
@@ -4250,7 +4250,7 @@ Core · target · **missing** · From MIGRATE-004 · Cites BASE-DATA-001, BASE-D
 
 Core · target · **missing** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Migrate Double using authorized API extraction and supported exports/assisted extraction for clients/contacts, recurring close tasks (MIGRATE-006) with their statuses and review state (mapped to WORK-007), transaction questions/answers, ledger/source references, files, communication, assignments and retained time/billing records. Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants. Double has no client auto-pay to migrate; client billing held by a connected partner such as Anchor is carried as labeled history. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss.
+**Requirement.** Migrate Double using authorized API extraction and supported exports/assisted extraction for clients/contacts, recurring close tasks (MIGRATE-006) with their statuses and review state (mapped to WORK-007), transaction questions/answers, ledger/source references, files, communication, assignments and retained time/billing records. Preview every supported mapping, row/file count, identity/permission match and unsupported or unavailable field; preserve originals, authors, timestamps and source IDs as labeled history. Reauthorize mail, ledger and signature grants. Double has no client auto-pay to migrate; client billing held by a connected partner such as Anchor is carried as labeled history. Stage active work with outgoing automation paused, reconcile counts and unresolved items, and approve cutover before activating follow-up; support idempotent resume and conflict-preserving batch undo. Missing source export surfaces require an owned extraction plan, never silent data loss. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Import an authorized Double practice containing completed history and live work.
@@ -4290,7 +4290,7 @@ Core · target · **missing** · From MIGRATE-005 · Cites BASE-DATA-001, BASE-D
 
 Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Every source's recurring definitions migrate as WORK-002 rules, never as loose jobs: Karbon repeating work schedules (period, frequency, end date and how far in advance work is created, three months by default), TaxDome recurring jobs, Canopy recurring tasks, Financial Cents recurring projects and Double recurring close tasks. Each source series becomes exactly one recurrence rule linked to its migrated template (WORK-001), with the same frequency, anchor period, fiscal-year end, end date, assignees and job roles, budget and creation lead time. Future items the source has already created are imported once, keep their period, status, assignees and edits, and are claimed by that rule as periods it already holds; information the source carries from the previous item in a series is carried the same way. After cutover the scheduler creates only periods the source had not created, each exactly once, and no period is duplicated or skipped across the cutover boundary. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Every source's recurring definitions migrate as WORK-002 rules, never as loose jobs: Karbon repeating work schedules (period, frequency, end date and how far in advance work is created, three months by default), TaxDome recurring jobs, Canopy recurring tasks, Financial Cents recurring projects and Double recurring close tasks. Each source series becomes exactly one recurrence rule linked to its migrated template (WORK-001), with the same frequency, anchor period, fiscal-year end, end date, assignees and job roles, budget and creation lead time. Future items the source has already created are imported once, keep their period, status, assignees and edits, and are claimed by that rule as periods it already holds; information the source carries from the previous item in a series is carried the same way. After cutover the scheduler creates only periods the source had not created, each exactly once, and no period is duplicated or skipped across the cutover boundary. Mechanism: [details](docs/contract/mechanism.md). The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Import an authorized Karbon practice with a monthly close series that has already created its next three periods, a quarterly 941 series and an annual 1120-S series.
@@ -4336,7 +4336,7 @@ Core · target · **partial** · From MIGRATE-006 · Cites BASE-DATA-001, BASE-D
 
 Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Migration imports each client's auto-pay enrollment and saved-method references (card or US bank account, brand and last four, authorization date and wording where available): from Karbon Payments, which runs on Stripe Connect, under MIGRATE-001, and from TaxDome Payments, Canopy Payments and Financial Cents under MIGRATE-002 to 004. Each enrollment ends in exactly one state. It becomes a valid PAY-001 mandate when the saved method is copied through Stripe's account-to-account payment-data migration (with the consent the source platform and Stripe require) and an authorization naming the firm covers Blotter's collection. Otherwise it becomes a tracked reauthorization request for that client: a MSG-001 template message with a portal link to authorize a new mandate (PAY-002), chased under FOLLOWUP-001 and owned until the client authorizes or declines. Until a client's mandate is migrated or reauthorized, Blotter never charges that client automatically; their invoices stay open with owned follow-up. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Migration imports each client's auto-pay enrollment and saved-method references (card or US bank account, brand and last four, authorization date and wording where available): from Karbon Payments, which runs on Stripe Connect, under MIGRATE-001, and from TaxDome Payments, Canopy Payments and Financial Cents under MIGRATE-002 to 004. Each enrollment ends in exactly one state. It becomes a valid PAY-001 mandate when the saved method is copied through Stripe's account-to-account payment-data migration (with the consent the source platform and Stripe require) and an authorization naming the firm covers Blotter's collection. Otherwise it becomes a tracked reauthorization request for that client: a MSG-001 template message with a portal link to authorize a new mandate (PAY-002), chased under FOLLOWUP-001 and owned until the client authorizes or declines. Until a client's mandate is migrated or reauthorized, Blotter never charges that client automatically; their invoices stay open with owned follow-up. Mechanism: [details](docs/contract/mechanism.md). The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Migrate three Karbon auto-pay clients, one whose saved card copies through Stripe's payment-data migration at the provider test edge and two whose methods cannot be copied.
@@ -4377,7 +4377,7 @@ Core · target · **partial** · Cites BASE-AGENT-007, BASE-AUDIT-001, BASE-ROLE
 
 Core · target · **partial** · Cites BASE-DATA-001, BASE-ROLE-001, BASE-SIGNIN-002 · Rules D-1
 
-**Requirement.** Configure least-privilege client/team/document access and separate partner financial authority, reviewer approval, preparer work, read-only staff and external-client identities. Taxpayer identifiers, transcripts, returns, exports and connector credentials have appropriate access, redaction and custody controls. Permission changes and revocation apply to APIs, background tasks, shares and cached sessions; in addition to ACCESS-004's second factor on every staff sign-in, require a fresh step-up for sensitive administration, credential reveals (VAULT-001) and exports. The adopted outcome is recorded in RL-3.
+**Requirement.** Configure least-privilege client/team/document access and separate partner financial authority, reviewer approval, preparer work, read-only staff and external-client identities. Taxpayer identifiers, transcripts, returns, exports and connector credentials have appropriate access, redaction and custody controls. Permission changes and revocation apply to APIs, background tasks, shares and cached sessions; in addition to ACCESS-004's second factor on every staff sign-in, require a fresh step-up for sensitive administration, credential reveals (VAULT-001) and exports. The adopted outcome is recorded in RL-3. The adopted implemented native policy outcome is recorded in RL-25.
 
 **Acceptance.**
 1. Give two teams overlapping client scopes, assign a read-only member and restrict a sensitive workpaper.
@@ -4544,7 +4544,7 @@ Core · target · **missing** · Cites BASE-MAIL-001, BASE-ROLE-001, BASE-SIGNIN
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Before deactivating a departing or long-absent staff member, the owner previews everything that person owns. That covers client ownership and team roles, open work and tasks, job roles, triaged email and their connected mailbox, scheduled reminders and automations, pending signature and document requests sent in their name, running timers and unapproved time. The owner transfers it to named successors in one reviewed batch. Messages already sent keep their original author. Future scheduled sends change sender only on approval. Deactivation revokes the person's sessions, API tokens and mailbox grants, and history keeps their attribution.
+**Requirement.** Before deactivating a departing or long-absent staff member, the owner previews everything that person owns. That covers client ownership and team roles, open work and tasks, job roles, triaged email and their connected mailbox, scheduled reminders and automations, pending signature and document requests sent in their name, running timers and unapproved time. The owner transfers it to named successors in one reviewed batch. Messages already sent keep their original author. Future scheduled sends change sender only on approval. Deactivation revokes the person's sessions, API tokens and mailbox grants, and history keeps their attribution. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Give a preparer clients, open work, a scheduled reminder sequence, a pending signature request and a connected mailbox.
@@ -4627,7 +4627,7 @@ Core · target · **partial** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1
 
 Core · target · **partial** · Cites BASE-AGENT-007, BASE-DATA-001, BASE-MAIL-001, BASE-ROLE-001, BASE-SIGNIN-002 · Rules D-1
 
-**Requirement.** Clients and staff store client-provided logins, such as bank, payroll, state tax and sales-tax portal credentials, encrypted under per-firm keys. Each credential is visible only to staff permitted on that client. Every reveal requires the staff member's MFA step-up (ACCESS-004) and is logged. Clients add and update credentials through the portal. Credentials never appear in AI context, emails, search or plain exports; archives either encrypt or exclude them, at the owner's choice. Rotation reminders are optional. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Clients and staff store client-provided logins, such as bank, payroll, state tax and sales-tax portal credentials, encrypted under per-firm keys. Each credential is visible only to staff permitted on that client. Every reveal requires the staff member's MFA step-up (ACCESS-004) and is logged. Clients add and update credentials through the portal. Credentials never appear in AI context, emails, search or plain exports; archives either encrypt or exclude them, at the owner's choice. Rotation reminders are optional. Mechanism: [details](docs/contract/mechanism.md). The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. A client adds a state sales-tax portal login through the portal.
@@ -4711,7 +4711,7 @@ Core · target · **partial** · Cites BASE-AGENT-007, BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · Cites BASE-AGENT-007, BASE-AUDIT-001, BASE-DATA-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Extend owner archives and selective machine-readable exports to every new target record: messages, organizer/signature evidence, versions, deadlines, ledger snapshots, capacity, invoices/payments, automation/agent history and source-labeled migrations. Publish limits and resumable export/restore progress for a working firm; restore historical external references inactive, reauthorize connectors and preview scheduled follow-up before activation.
+**Requirement.** Extend owner archives and selective machine-readable exports to every new target record: messages, organizer/signature evidence, versions, deadlines, ledger snapshots, capacity, invoices/payments, automation/agent history and source-labeled migrations. Publish limits and resumable export/restore progress for a working firm; restore historical external references inactive, reauthorize connectors and preview scheduled follow-up before activation. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Export a multi-year firm with connected history, interrupt/resume the operation and restore to an empty destination.
@@ -4769,7 +4769,7 @@ Core · target · **partial** · From ARCHIVE-002 · Cites BASE-DATA-001 · Rule
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-006, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** An owner confirms a file name and reason to erase its bytes, invalidate in-progress transfers and retain a minimal erasure/history record. New archives omit the bytes; an older archive is refused when the later erasure journal establishes its invalidity. The journal must travel with a stale copy for cross-installation fencing; offline copies cannot be recalled remotely.
+**Requirement.** An owner confirms a file name and reason to erase its bytes, invalidate in-progress transfers and retain a minimal erasure/history record. New archives omit the bytes; an older archive is refused when the later erasure journal establishes its invalidity. The journal must travel with a stale copy for cross-installation fencing; offline copies cannot be recalled remotely. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Export, erase a file through the owner door, refuse later downloads and inspect a new archive without the bytes.
@@ -4794,7 +4794,7 @@ Core · target · **partial** · From ERASURE-001 · Cites BASE-DATA-006, BASE-R
 
 Core · target · **partial** · Cites BASE-AGENT-007, BASE-DATA-001, BASE-DATA-006 · Rules D-1
 
-**Requirement.** Firm policies govern client/engagement retention, legal holds, deletion requests, connector copies, messages, derived AI data and archives. Preview affected records and exceptions, require owner approval, record counts and propagate erasure/tombstones to applicable stores without silently deleting retained signed/billing evidence. Export the latest erasure journal and explain held, provider-retained or buyer-controlled copies and their owners. Mechanism: [details](docs/contract/mechanism.md).
+**Requirement.** Firm policies govern client/engagement retention, legal holds, deletion requests, connector copies, messages, derived AI data and archives. Preview affected records and exceptions, require owner approval, record counts and propagate erasure/tombstones to applicable stores without silently deleting retained signed/billing evidence. Export the latest erasure journal and explain held, provider-retained or buyer-controlled copies and their owners. Mechanism: [details](docs/contract/mechanism.md). The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted semantic implemented outcome is recorded in RL-26.
 
 **Acceptance.**
 1. Request client erasure with a held signed engagement and an external document copy.
@@ -5004,7 +5004,7 @@ Core · target · **partial** · From ERASURE-002 · Rules D-1
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-006, BASE-INPUT-003 · Rules D-1
 
-**Requirement.** Product mutations retain actor, action, object and timestamp, including reviewer notes, human proposal decisions, billing approvals and erasure reasons. The principal can inspect the action history; archive round trips preserve it. Portal actions are labeled as upload-link actions rather than falsely attributed to a verified named client.
+**Requirement.** Product mutations retain actor, action, object and timestamp, including reviewer notes, human proposal decisions, billing approvals and erasure reasons. The principal can inspect the action history; archive round trips preserve it. Portal actions are labeled as upload-link actions rather than falsely attributed to a verified named client. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Create and review work, approve a proposal/export and erase a file through public doors.
@@ -5041,7 +5041,7 @@ Core · target · **partial** · From AUDIT-001 · Cites BASE-AUDIT-001, BASE-DA
 
 Core · target · **partial** · Cites BASE-AGENT-007, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-006, BASE-INPUT-003, BASE-MAIL-001, BASE-ROLE-001, BASE-SIGNIN-002 · Rules D-1
 
-**Requirement.** Blotter owns practice roles, guarded writes, request-upload links, independent review, snapshotted time, approved billing exports and human-agent decisions as explicit product extensions.  Native sign-in and MFA, staff/contact authority, mail-backed upload links, legacy and mapped imports, document sharing, intake files, human decisions and native archives retain these foundations.
+**Requirement.** Blotter owns practice roles, guarded writes, request-upload links, independent review, snapshotted time, approved billing exports and human-agent decisions as explicit product extensions.  Native sign-in and MFA, staff/contact authority, mail-backed upload links, legacy and mapped imports, document sharing, intake files, human decisions and native archives retain these foundations. The adopted inherited msg-002 marketing consent outcome is recorded in RL-7.
 
 **Acceptance.**
 1. Use native sign-in, import a client list, collect a file, review work, approve a billing export and archive/erase/restore through public doors.
@@ -5097,7 +5097,7 @@ Core · target · **partial** · Cites BASE-AGENT-007, BASE-AUDIT-001, BASE-DATA
 
 Core · target · **partial** · Cites BASE-AUDIT-001, BASE-MAIL-001, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** Summarize authorized client email, portal discussions and engagement history with source links, dates, open questions and conflicting evidence. Draft replies in the staff member's voice and current signed scope; the company's policy for external and sensitive decides whether a person reviews recipients, attachments and wording before sending. Private and internal material stays excluded and missing context remains explicit. The adopted outcome is recorded in RL-4.
+**Requirement.** Summarize authorized client email, portal discussions and engagement history with source links, dates, open questions and conflicting evidence. Draft replies in the staff member's voice and current signed scope; the company's policy for external and sensitive decides whether a person reviews recipients, attachments and wording before sending. Private and internal material stays excluded and missing context remains explicit. The adopted outcome is recorded in RL-4. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Under the held company policy, summarize a long email or portal thread with conflicting amounts, inspect source links and unresolved questions, edit a reply and approve its exact recipients and attachments.
@@ -5128,7 +5128,7 @@ Core · target · **partial** · From AI-001 · Cites BASE-AGENT-007, BASE-DATA-
 1. Provider processing records a no-training and no-retention attestation reference; the company's policy for external and sensitive decides agent use after setup is complete.
 2. Selected source text is masked for tax identifiers, SSNs and bank numbers; transmitting it carries external and sensitive, which the company's policy decides.
 3. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request.
-4. Provider output persists only as a draft the person saves.
+4. Provider output persists only when saved; an agent's save carries standard and sensitive under the company's policy.
 5. The portal disclosure states that staff may use an AI provider on client documents.
 
 **Evidence.** `tests/blotter/ai.test.mjs`; `tests/blotter/ai-live.mjs`
@@ -5157,7 +5157,7 @@ Core · target · **partial** · From AI-001 · Cites BASE-AGENT-007, BASE-AUDIT
 
 Core · target · **partial** · Cites BASE-AGENT-007, BASE-INPUT-003, BASE-ROLE-001 · Rules D-1
 
-**Requirement.** An assistant validates uploaded type, client, period and legibility against requests, proposes consistent names and folders and routes a copy while preserving original bytes and provenance. Readings carry evidence and confidence, including ambiguity, mismatch and suspicious content; the company's policy for standard, sensitive and external decides whether they fill fields, route a copy or wait for a person. Text embedded in documents is data and cannot authorize a tool action. The adopted outcome is recorded in RL-5.
+**Requirement.** An assistant validates uploaded type, client, period and legibility against requests, proposes consistent names and folders and routes a copy while preserving original bytes and provenance. Readings carry evidence and confidence, including ambiguity, mismatch and suspicious content; the company's policy for standard, sensitive and external decides whether they fill fields, route a copy or wait for a person. Text embedded in documents is data and cannot authorize a tool action. The adopted outcome is recorded in RL-5. The adopted receiving erasure-002 outcome is recorded in RL-8.
 
 **Acceptance.**
 1. Upload a wrong-period statement, illegible scan and correct invoice with misleading embedded instructions.
@@ -5188,7 +5188,7 @@ Core · target · **partial** · From AI-002 · Cites BASE-AGENT-007, BASE-DATA-
 1. Provider processing records a no-training and no-retention attestation reference; the company's policy for external and sensitive decides agent use after setup is complete.
 2. Selected source text is masked for tax identifiers, SSNs and bank numbers; transmitting it carries external and sensitive, which the company's policy decides.
 3. Retain input hash and source identifiers rather than input content; record requester, source identifiers, provider, model, bytes and time once per request.
-4. Provider output persists only as a draft the person saves.
+4. Provider output persists only when saved; an agent's save carries standard and sensitive under the company's policy.
 5. The portal disclosure states that staff may use an AI provider on client documents.
 
 **Evidence.** `tests/blotter/ai.test.mjs`; `tests/blotter/ai-live.mjs`
@@ -5480,6 +5480,7 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-002, BASE
 1. The registry covers every Core id in this area’s tool table or its stated non-tool reason, including each split part.
 2. The practice coordinator reads clients, work, documents, messages, authorizations, invoices, payments and plans through the listed resource templates.
 3. Each listed prompt resolves to its named practice jobs, and the on-site agent documentation matches this table.
+4. The Base conformance harness passes on Blotter’s client, work, portal, invoice and payment fixtures through the MCP door under both company policies.
 
 **Evidence.** None.
 **Gap.** No remote MCP practice registry, risk classifier or two-policy conformance journey is implemented.
