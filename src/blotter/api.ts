@@ -1,3 +1,4 @@
+import { efileAuthorization, recordEfileAuthorization, downloadEfileOriginal } from './efile-authorizations';
 import { resolutionCase, createResolutionCase } from './resolution-cases';
 import { exportAccessLog } from './security-logs';
 import { startPortalPacket, portalPacketList, portalPacketStatus, appendPortalPacket, completePortalPacket, cancelPortalPacket } from './portal-packet-uploads';
@@ -417,6 +418,9 @@ api.post(`${P}/clients/:id/obligations`, as(async (a, c) => addObligation(db(c),
 api.post(`${P}/jobs/:id/deadline/extension`, as((a, c) => recordExtension(db(c), a, param(c))));
 api.post(`${P}/jobs/:id/deadline/override`, as(async (a, c) => overrideDeadline(db(c), a, param(c), await body(c))));
 api.get(`${P}/jobs/:id/filing-status`, as((a, c) => filingStatus(db(c), a, param(c))));
+api.get(`${P}/jobs/:id/efile-authorization`, as((a, c) => efileAuthorization(db(c), a, param(c))));
+api.post(`${P}/jobs/:id/efile-authorization`, as(async (a, c) => recordEfileAuthorization(db(c), a, param(c), await body(c))));
+api.get(`${P}/jobs/:id/efile-authorization/original`, as((a, c) => downloadEfileOriginal(db(c), a, param(c))));
 api.post(`${P}/jobs/:id/filing-status`, as(async (a, c) => recordFallback(db(c), a, param(c), await body(c))));
 api.post(`${P}/jobs/:id/deadline/filing`, as(async (a, c) => recordFiling(db(c), a, param(c), await body(c))));
 api.get(`${P}/clients/:id/authorizations`, as((a, c) => clientAuthorizations(db(c), a, param(c))));

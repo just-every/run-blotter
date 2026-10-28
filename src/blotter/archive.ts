@@ -60,12 +60,15 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
     const owner = await stmt(db, 'SELECT client_id FROM b_prospects WHERE id=?', intake!.prospect_id).first<Data>();
     if (owner?.client_id) await refuseHeld(db, { clientIds: [String(owner.client_id)], cls: 'prospect' }, 'Erasing this intake file');
   }
+  if (regular && await stmt(db, 'SELECT 1 FROM b_efile_authorizations WHERE file_id=? AND erased_at IS NULL', file.id).first())
+    await refuseHeld(db, { clientIds: [String((await stmt(db, 'SELECT client_id FROM b_jobs WHERE id=?', file.job_id).first<Data>())?.client_id)], jobId: file.job_id, fileId: file.id, cls: 'efile_auth' }, 'Erasing this unsigned 8879 original');
   insist(body.confirm === file.name, 'Type the file name to confirm erasing its bytes');
   const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
   await atomic(db, actor, [
     regular ? stmt(db, 'UPDATE b_files SET content_base64=NULL,erased_at=?,erased_by=?,erase_reason=? WHERE id=? AND erased_at IS NULL', now(), actor.email, reason, file.id)
       : stmt(db, 'UPDATE b_prospect_files SET content_base64=NULL,erased_at=? WHERE id=? AND erased_at IS NULL', now(), file.id),
     stmt(db, 'DELETE FROM b_file_text WHERE file_id=?', file.id),
+    stmt(db, "UPDATE b_efile_authorizations SET original_base64=NULL,roster='[]',file_name='[erased]',intent_sha256=NULL,erased_at=? WHERE file_id=? AND erased_at IS NULL", now(), file.id),
     stmt(db, "DELETE FROM b_ai_drafts WHERE request_id IN (SELECT id FROM b_ai_requests WHERE source_kind='document' AND source_id=?)", file.id),
     ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
     audit(db, actor, 'file.erased', file.id, reason),
