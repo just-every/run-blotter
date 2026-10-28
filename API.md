@@ -601,3 +601,37 @@ The writable staff session needs full current job access. Agents, integration be
 The source mapping and acknowledgment share an atomic write through the deadline authority. Readback includes the declaration, exact file reference and digest, submission, accepted date, original acknowledgment attribution and mapping attribution. Erased files are shown as unavailable evidence and cannot authorize replay. Mappings travel in native archives as historical evidence without connector credentials or outbound authority. They join signed-off work under its existing retention clock and holds; whole-client erasure names the retained mappings in the receipt, refuses ordinary source reads and replay, and fences older archives. Approved retention expiry removes the declaration and replay intent while preserving source references and attribution.
 
 This is a native fallback only. Licensed five-stack ingestion, transmitted and rejected outcomes, reject codes, rejection-driven rework, paper-filed proof and disconnect journeys remain unbuilt. No provider verification is implied by practitioner-recorded acceptance.
+
+## Client current statement and payment history (PAY-002 partial)
+
+`GET /api/blotter/client/entities/:id/billing` uses the installation-host
+client portal session and its completed factor, with the same live entity and
+contact grant as the entity page. The entity response also includes `billing`.
+Both reads are attributed as `portal.billing_read` and use `Cache-Control: no-store`.
+Staff sessions, invoice links and integration credentials do not authenticate this door.
+An unknown entity and an entity the contact cannot currently open return the same refusal.
+
+The projection contains only issued, unerased invoices whose frozen recipient is
+that contact. It includes paid invoices for history; open invoices have a positive
+`balanceCents`. `asOf` is the current read time, rather than a selectable historical
+statement date. All amounts are integer USD cents, using native invoice balance
+semantics: gross subtotal plus tax, less applied credits and recorded deposits,
+approved write-offs and net recorded provider payments. `totals` reconciles those
+five categories across exactly the included invoices. No unapplied client-wide
+credit balance or other recipient's allocations are disclosed.
+
+Each payment exposes its native id, invoice id and number, currency, safe method
+category, state, original amount, refunded amount, net applied amount,
+`lastObservedAt` and `historical`. Pending, returned, failed, refunded and disputed
+amounts do not count as settled receipts. A partial refund reduces the net even
+while the remaining payment is settled. A missing observation time is explicitly
+unconfirmed. These are recorded provider observations, never a fresh provider
+query or settlement guarantee. Restored payment rows remain historical, with their
+original observation time, after fresh portal enrollment; restored mandates stay held.
+Provider references, credentials, raw failure details, internal approval reasons
+and other contacts' billing records are excluded.
+
+The English and Spanish account page shows the current statement, open invoices,
+recorded payment history and readable invoice PDFs. Reads never change invoices,
+payment records or mandates and never contact a payment provider. Multi-invoice
+payment, method management, auto-pay and installment mandates remain unimplemented.

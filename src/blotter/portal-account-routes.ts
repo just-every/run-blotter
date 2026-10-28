@@ -5,7 +5,7 @@ import type { Bindings } from '../auth.server';
 import type { Actor, Data } from './model';
 import { invitePortal, portalAccess, readPortalPolicy, resetPortalFactor, revokePortal, setPortalPolicy } from './portal-accounts';
 import { brandingLogo, portalBranding, setPortalBranding } from './portal-branding';
-import { clientBillPdf, clientEntity, clientFile, clientSignedPdf, savePreferences } from './portal-home';
+import { clientBilling, clientBillPdf, clientEntity, clientFile, clientSignedPdf, savePreferences } from './portal-home';
 import { acceptInvitation, clientMe, clientSession, confirmFactor, confirmSignIn, requestSignIn, sameSite, signOut, startFactor, verifyFactor, type Client } from './portal-session';
 
 type C = Context<{ Bindings: Bindings }>;
@@ -39,6 +39,7 @@ export function portalAccountRoutes(api: Hono<{ Bindings: Bindings }>, { as, bod
   api.post(`${P}/client/factor/confirm`, client(async (x, c) => confirmFactor(c.env, x, await body(c)), true));
   api.post(`${P}/client/verify`, client(async (x, c) => verifyFactor(c.env, x, await body(c)), true));
   api.get(`${P}/client/entities/:id`, client((x, c) => clientEntity(db(c), x, param(c))));
+  api.get(`${P}/client/entities/:id/billing`, client((x, c) => clientBilling(db(c), x, param(c))));
   api.get(`${P}/client/entities/:id/files/:ref`, client((x, c) => clientFile(db(c), x, param(c), param(c, 'ref'))));
   api.get(`${P}/client/entities/:id/signatures/:request/pdf`, client((x, c) => clientSignedPdf(db(c), x, param(c), param(c, 'request'))));
   api.get(`${P}/client/entities/:id/bills/:invoice/pdf`, client((x, c) => clientBillPdf(db(c), x, param(c), param(c, 'invoice'))));

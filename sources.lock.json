@@ -116,15 +116,15 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "deca82587271172266234960a0a8802bd25df102292cf3939f4dd94805c1bdc5",
+      "sha256": "006c197ef41253c6e000b1524c9f2ecaf3ebf3e282e41ac9bbaabb4cb24c6a35",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "7a58d24a3825e7aa9395d4a63629db2da89a9c613e822d086bf38a5258e2bcab",
+      "sha256": "fd8fe3b8a014c7b6abae8dcf563ac326d2cae92e0133cb937ae719a9cb7cbab4",
       "executable": false
     },
     "API.md": {
-      "sha256": "1b14e762080376b6a9100a62b83712b24b115fd3cb9c7df761f05768f965fa37",
+      "sha256": "6e6851a5210287f26e8c9df3ec14be35d942600a95ab7701ff849d78bd2bf57c",
       "executable": false
     },
     "base-copies.json": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "64940d085c06b101143c22c14156597ee7c1aac5593dc4cc150f7a8149c03cbc",
+      "sha256": "99c48f791f7a1599987d206de8a48f0b0668fa84000a56f317be4c4970f003eb",
       "executable": false
     },
     "deploy-demo.json": {
@@ -168,7 +168,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "580d5cb3ad991e08f09aa83ed18ab31094ae06caa0e661ff4cc6433279cb5110",
+      "sha256": "a7a339934c4b9bb4e343dae2040d5e6a51989ec99ed82c87a3f07854f2282558",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -932,7 +932,7 @@
       "executable": false
     },
     "scripts/contract-docs.mjs": {
-      "sha256": "155466d5c8fb92ab19096df89a8862444120571b41ba9797b819c96ae8c389c7",
+      "sha256": "723ce38b523fe116fe2b73496acd4fcd204523e38f03d565b73e8166abeea321",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {
@@ -1796,11 +1796,15 @@
       "executable": false
     },
     "src/blotter/portal-account-routes.ts": {
-      "sha256": "aad4372434125bb38575691698a018cd39dc671485131a595ef41ab4361b3956",
+      "sha256": "f1193c43c0a93c947265f4567bf32d9a98a0e3df248aa13161b87a19d6649aac",
       "executable": false
     },
     "src/blotter/portal-accounts.ts": {
       "sha256": "e1f1fa36464ad8c46abd4c5c22c91eaa80c52a639f1269cc5be1ff07984297e7",
+      "executable": false
+    },
+    "src/blotter/portal-billing.ts": {
+      "sha256": "c196edf0ee5f7ef7c6358c9323fd721f73fedd76c9ecab45951ee58b1efc8ac8",
       "executable": false
     },
     "src/blotter/portal-branding.ts": {
@@ -1808,7 +1812,7 @@
       "executable": false
     },
     "src/blotter/portal-home.ts": {
-      "sha256": "2e528f95eb8d82374b22fd09fe887fa105ee45afcadb3f6a39a01145bdd5968a",
+      "sha256": "a87f4f9f06df23f6cb073d14cfef2dafa061887e38998a2e8910778d7833c103",
       "executable": false
     },
     "src/blotter/portal-items.ts": {
@@ -2048,7 +2052,7 @@
       "executable": false
     },
     "src/i18n/catalog.ts": {
-      "sha256": "2c76c69ae5d4aaa2f965566d2fa7acf9cc41a055fdb551d52a75ad9edb528a63",
+      "sha256": "53a638fa98b21ec354ee21b76d872b3225b31aefdb603a5fc61e176b8a87df1d",
       "executable": false
     },
     "src/identity.ts": {
@@ -4020,7 +4024,11 @@
       "executable": false
     },
     "src/ui/client-account.tsx": {
-      "sha256": "b4e85e0f2423e43be325c8e5f8fb7a090f8e22533da3a76d636ed3f97f986758",
+      "sha256": "8d3ba2e8be851610475f6d4fe9c99440407911b38c0cbfc6c2a730c290fa8345",
+      "executable": false
+    },
+    "src/ui/client-billing.tsx": {
+      "sha256": "b40472e59728dea9df8e4918cea889689a1fd6f55ebcb15a59d341ab79d50705",
       "executable": false
     },
     "src/ui/client-details.tsx": {
@@ -4548,7 +4556,7 @@
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {
-      "sha256": "42c0811956626067b66c587475e047b109207adb45b7fe37b36e344e42e8d5ae",
+      "sha256": "16d670b647725ee21e952c066474099f4b14e32f7a2152682771ed774e6d9d16",
       "executable": false
     },
     "tests/blotter/pdf-text.mjs": {
@@ -4572,7 +4580,15 @@
       "executable": false
     },
     "tests/blotter/portal-accounts.test.mjs": {
-      "sha256": "54fcc4a9050411bdf2361a47a57fff6c16432fd3d90c35eb742b0ed9a9188ba7",
+      "sha256": "bbd3aa69380f1a3a6aa9d33e5335fb63c8d1e3f84f8ccd500138213ed88b483d",
+      "executable": false
+    },
+    "tests/blotter/portal-billing-fixture.mjs": {
+      "sha256": "843f174cadeeace0d0042766ff7ba07d728eafa3b69cc58a999986b7d9b466ee",
+      "executable": false
+    },
+    "tests/blotter/portal-billing-ui.mjs": {
+      "sha256": "96df66fe84b88f2517c4ba40ee0cc9a2cbb8c062ed5f8f753f5ee3ce2b627226",
       "executable": false
     },
     "tests/blotter/rate-worktypes-ui.mjs": {

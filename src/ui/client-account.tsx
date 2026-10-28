@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AiDisclosure } from './ai-disclosure';
-import { Field, Form, moneyText, Status, day, type Row } from './common';
+import { Field, Form, Status, type Row } from './common';
+import { ClientBilling } from './client-billing';
 import { LanguageProvider, useLanguage, useT } from './i18n';
 import type { Language } from '../i18n/catalog';
 
@@ -109,9 +110,7 @@ function Home(p: PageProps & { me: Row }) {
     <section className="panel" aria-labelledby="signatures"><h2 id="signatures">{t('account.signatures')}</h2>
       {e.signatures.length ? <ul className="list">{e.signatures.map((s: Row) => <li key={s.id}>{s.status === 'completed' && s.signerStatus === 'signed' ? <a href={`${path}/signatures/${s.id}/pdf`}>{t('account.download', { name: s.title })}</a> : s.title} · <Status value={s.status} /></li>)}</ul> : <p className="muted">{t('account.none')}</p>}
     </section>
-    <section className="panel" aria-labelledby="bills"><h2 id="bills">{t('account.bills')}</h2>
-      {e.bills.length ? <ul className="list">{e.bills.map((b: Row) => <li key={b.id}><a href={`${path}/bills/${b.id}/pdf`}>{t('account.billLine', { number: b.number, title: b.title, due: day(b.dueDate), balance: moneyText(b.balanceCents) })}</a></li>)}</ul> : <p className="muted">{t('account.none')}</p>}
-    </section>
+    <ClientBilling billing={e.billing} path={path} />
     <section className="panel" aria-labelledby="preferences"><h2 id="preferences">{t('account.preferences')}</h2>
       {e.preferences.marketingEmail ? <><p>{t('account.marketingOn', { email: p.me.email })}</p><button className="quiet" onClick={() => p.act(async () => { p.setEntity(await call(`/entities/${e.clientId}/preferences`, { marketingEmail: false })); })}>{t('account.stopMarketing')}</button></>
         : <p>{t('account.marketingOff')}</p>}

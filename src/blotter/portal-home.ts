@@ -8,7 +8,7 @@ import { isLanguage, type Language } from '../i18n/catalog';
 import { contactDownload } from './document-downloads';
 import { CONTACT_OK } from './document-source';
 import { invoiceNumber } from './invoices-pdf';
-import { invoiceBalanceSql } from './invoices-sources';
+import { portalBilling } from './portal-billing';
 import { marketingGrantSql, withdrawStatements, withdrawnSql } from './marketing-consent';
 import { gateRefusal } from './payment-gates';
 import { clientProgress } from './portal-items';
@@ -40,13 +40,18 @@ export async function clientEntity(db: D1Database, client: Client, clientId: str
   for (const d of documents) files.push({ ref: d.file_key, kind: d.kind, name: d.name, size: d.size, locked: Boolean(await gateRefusal(db, d.file_key)) });
   const signatures = await rows(db, `SELECT s.id,s.title,s.status,s.completed_at,x.status signer_status,x.signed_at FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id
     JOIN b_signature_signers x ON x.request_id=s.id AND x.attempt=s.attempt WHERE j.client_id=? AND x.contact_id=? AND s.status IN ('pending','completed') AND s.erased_at IS NULL ORDER BY s.created_at DESC`, clientId, g.contact_id);
-  const bills = await rows(db, `SELECT i.id,i.number,i.title,i.issue_date,i.due_date,i.total_cents,${invoiceBalanceSql('i')} balance_cents FROM b_invoices i
-    WHERE i.client_id=? AND i.status='issued' AND i.erased_at IS NULL AND json_extract(i.snapshot,'$.recipient.id')=? ORDER BY i.issue_date DESC,i.number DESC`, clientId, g.contact_id);
+  const billing = await portalBilling(db, client, clientId, g.contact_id);
   const marketing = await stmt(db, `SELECT ${marketingGrantSql} granted,${withdrawnSql} withdrawn FROM b_client_contacts c WHERE c.id=?`, g.contact_id).first<Data>();
   return { clientId, name: g.client_name, contactName: g.contact_name, language, work, documents: files,
     signatures: signatures.map(s => ({ id: s.id, title: s.title, status: s.status, signerStatus: s.signer_status, signedAt: s.signed_at, completedAt: s.completed_at })),
-    bills: bills.map(b => ({ id: b.id, number: invoiceNumber(b.number), title: b.title, issueDate: b.issue_date, dueDate: b.due_date, totalCents: b.total_cents, balanceCents: Number(b.balance_cents) })),
+    billing, bills: billing.invoices.map(b => ({ ...b, totalCents: b.documentTotalCents })),
     preferences: { marketingEmail: Boolean(marketing?.granted) && !marketing?.withdrawn } };
+}
+
+/** The current statement and payment history, under the same live contact grant. */
+export async function clientBilling(db: D1Database, client: Client, clientId: string) {
+  const g = await entityGrant(db, client, clientId);
+  return portalBilling(db, client, clientId, g.contact_id);
 }
 
 /** A shared document, through the same audited contact door (payment gates and grants rechecked). */
