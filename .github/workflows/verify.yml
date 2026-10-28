@@ -90,7 +90,7 @@ jobs:
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec rer check --profile first-party
-      - run: node scripts/contract-docs.mjs check
+      - run: node src/base/contract-docs.mjs check
       - run: pnpm run typecheck
       - name: Check edition source lock freshness
         run: node scripts/edition-authoring/cli.mjs check

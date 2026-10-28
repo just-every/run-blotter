@@ -106,8 +106,9 @@ accounting firms; ACCEPTANCE.md is the first release. Product source is in
 - Enforce the role in every server handler (`need`, `human`, `job()` for
   visibility) and write through `atomic()`, which re-checks the actor's role in
   the same D1 batch. Route guards alone are insufficient.
-- Agents prepare; people approve. Agent doors only read context or create
-  proposals (`src/blotter/proposals.ts`).
+- Agent effects carry the fleet risk classes and take the company's policy.
+  The current native proposal implementation remains in `src/blotter/proposals.ts`;
+  it does not yet implement the target policy-based MCP surface.
 - Money is integer cents with explicit USD/AUD currency; new inputs default USD and historical AUD is never relabelled. Due dates are recorded by people, set by an
   approved recurrence rule as the period's last day plus its days (WORK-002), or
   calculated from a client obligation on a firm-approved sourced deadline rule
@@ -126,11 +127,7 @@ Pinned reference: https://github.com/runeditrun/base/blob/a06bd065124c2b45fa879e
 
 ## Lander-Regenerate
 
-After changing a migrated CONTRACT.md status row, run
-`node scripts/contract-docs.mjs write` and then
-`node scripts/contract-docs.mjs check`. This incremental generator mirrors
-SECURE-001 and MOBILE-001 into ACCEPTANCE.md and docs/CLAIMS.md and recomputes the Status
-summary, preserving unmigrated legacy acceptance prose. Add other clauses to
-its migration list when their mirrors are adopted. Regenerate the edition
-source lock last with `node scripts/edition-authoring/cli.mjs lock`, then
-`node scripts/edition-authoring/cli.mjs check`.
+Lander-Regenerate: node src/base/contract-docs.mjs write
+Lander-Regenerate: node scripts/edition-authoring/cli.mjs lock
+
+Run `node src/base/contract-docs.mjs check` and the edition source check after regeneration.
