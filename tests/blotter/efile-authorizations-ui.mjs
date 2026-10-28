@@ -13,11 +13,18 @@ export async function efileJourney(h, s) {
     await page.goto(h.origin+'/app');
     if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();await page.waitForURL('**/app');}
     await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Jobs',exact:true}).click();
-    const row=page.locator('table tbody tr').filter({has:page.getByText(s.client.name,{exact:true})}).filter({hasText:'2024'});
+    const work=(await h.json(`/jobs/${s.job.id}`,undefined,h.owner)).job;
+    const row=page.locator('table tbody tr').filter({has:page.getByRole('cell',{name:work.title+' · '+work.period_label,exact:true})});
     await row.getByRole('button',{name:'Open',exact:true}).click();
     const panel=page.getByRole('region',{name:'Unsigned e-file authorization',exact:true});
     await panel.getByText('Review unsigned 8879 intake',{exact:true}).click();
-    await panel.getByLabel('Final unsigned original',{exact:true}).selectOption(s.job.file.id);
+    const uploaded=page.waitForResponse(r=>r.url().endsWith('/files')&&r.request().method()==='POST');
+    await panel.getByLabel('Final unsigned 8879 PDF',{exact:true}).setInputFiles({name:'synthetic-blotter-105.pdf',mimeType:'application/pdf',buffer:s.bytes});
+    const upload=await uploaded;assert.equal(upload.status(),200);const original=await upload.json();
+    const select=panel.getByLabel('Final unsigned original',{exact:true});
+    await select.locator(`option[value="${original.id}"]`).waitFor({state:'attached'});
+    if(!await select.isVisible())await panel.getByText('Review unsigned 8879 intake',{exact:true}).click();
+    await select.selectOption(original.id);
     await panel.getByLabel('First required spouse',{exact:true}).selectOption(s.client.contacts[0].id);
     await panel.getByLabel('Second required spouse',{exact:true}).selectOption(s.client.contacts[1].id);
     await panel.getByLabel('I reviewed this exact final PDF as unsigned Form 8879',{exact:true}).check();
@@ -35,12 +42,18 @@ export async function efileJourney(h, s) {
     assert.match(await panel.innerText(),/Tax-software provenance and signer identity are not verified/);
     const downloaded=await context.request.get(h.origin+await link.getAttribute('href'));
     assert.equal(downloaded.status(),200);assert.deepEqual(await downloaded.body(),s.bytes);
-    const move=page.getByLabel(`Move ${s.job.title}`,{exact:true});
+    const move=page.locator('select[aria-label^="Move "]');
     const response=page.waitForResponse(r=>r.url().endsWith(`/jobs/${s.job.id}/status`)&&r.request().method()==='POST');
     await move.selectOption('in_progress|'+s.protectedStatus.id);assert.equal((await response).status(),409);
     await capture('unsigned-intake-blocked');
     const search=page.getByRole('button',{name:'Search',exact:true});await search.focus();await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();
     await search.blur();await page.mouse.move(1,999);await search.hover();await page.waitForTimeout(150);assert.equal(await page.getByRole('tooltip').count(),0);await page.getByRole('tooltip',{name:'Search workspace',exact:true}).waitFor();
+    await page.getByRole('navigation',{name:'Workspace'}).getByRole('button',{name:'Team & safety',exact:true}).click();
+    await page.getByText('Work settings',{exact:true}).click();
+    const settings=page.locator('section').filter({has:page.getByRole('heading',{name:'Work types and statuses',exact:true})});
+    await settings.getByText('Protected e-file readiness',{exact:false}).first().waitFor();
+    const dir=process.env.BLOTTER_EFILE_EVIDENCE;
+    for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await settings.scrollIntoViewIfNeeded();if(dir)await settings.screenshot({path:`${dir}/protected-readiness-settings-${width}.png`});}
     await context.close();
   } finally {await browser.close();}
 }

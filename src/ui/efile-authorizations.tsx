@@ -12,7 +12,7 @@ export function EfileAuthorizations({ detail, actor, run, tick }: { detail: Row;
     <h2>Form 8879 intake</h2>
     <p>1040 · tax year {view.taxYear} · married filing jointly</p>
     <p>Practitioner-recorded final unsigned PDF and required spouse roster. Tax-software provenance and signer identity are not verified.</p>
-    <p className="notice">Ready to file is blocked. No signature, KBA, transmission, acceptance or filing is established here.</p>
+    <p className="notice" style={{ borderWidth: 1 }}>Ready to file is blocked. No signature, KBA, transmission, acceptance or filing is established here.</p>
     <ul>{view.reasons.map((reason: string) => <li key={reason}>{reason}</li>)}</ul>
     {view.record ? <>
       <p>{view.record.restored ? 'Historical intake restored inactive' : <a href={`/api/blotter${path}/original`}>Download unsigned original</a>} · {view.record.fileName}</p>
@@ -27,6 +27,7 @@ export function EfileAuthorizations({ detail, actor, run, tick }: { detail: Row;
       {files.length > 0 && <Form label="Record unsigned Form 8879" submit={async data => run(() => api(path, {
         jobId: job.id, clientId: view.clientId, taxYear: view.taxYear, form: view.form, filingStatus: view.filingStatus,
         fileId: data.fileId, spouseContactIds: [data.firstSpouse, data.secondSpouse],
+        spouseContactRevisions: [data.firstSpouse, data.secondSpouse].map(contactId => view.contacts.find((c: Row) => c.id === contactId)?.revision),
         reviewedFinalUnsigned: data.reviewedFinalUnsigned === 'on', reviewedRequiredSigners: data.reviewedRequiredSigners === 'on',
       }), 'Unsigned original and reviewed spouse roster recorded')}>
         <Field label="Final unsigned original" name="fileId"><select name="fileId">{files.map((f: Row) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></Field>

@@ -670,3 +670,13 @@ creates no message, provider request, scheduled send, sender connection or sendi
 authority. Marketing texts remain refused. An authorized Twilio account and
 registered US sender, carrier STOP and HELP, MMS, quiet hours and full provider-copy
 activation proof remain required by SMS-001.
+
+### Unsigned Form 8879 intake
+
+Native staff with full job and document access use `GET /api/blotter/jobs/:id/efile-authorization` to inspect the exact US 1040 client-year engagement, practitioner-recorded spouse requirements and missing signature and KBA reasons. `POST /api/blotter/jobs/:id/efile-authorization` requires `jobId`, `clientId`, `taxYear`, `form` equal to `8879`, `filingStatus` equal to `married_filing_jointly`, the same job's `fileId`, two distinct `spouseContactIds` with their reviewed `spouseContactRevisions` in the same order, and explicit true `reviewedFinalUnsigned` and `reviewedRequiredSigners` confirmations. Add the valid unsigned PDF through the job's existing document upload first. No tax-software provenance or verified identity is claimed.
+
+The first intake freezes original bytes and digest, the reviewed contact names and revisions, and recorder and time. Identical concurrent submissions yield one record and history event; different intent, revoked authority, erased originals and inactive restored records are refused. `GET /api/blotter/jobs/:id/efile-authorization/original` returns the byte-identical unsigned PDF after current staff, document, contact and session checks, with an attributed download. No contact or integration bearer can create this intake.
+
+The principal sets `efileReady: true` when creating or editing an empty open-stage sub-status through the existing sub-status doors under Settings. The designation is permanent and survives renaming. Every status effect, including automation and bulk reassignment, refuses entry while required signature and KBA evidence is unavailable. Review and completion still use the existing review gates. A label alone confers no readiness designation. General signing refuses IRS e-file forms; no local signature completion or gate override is supported.
+
+Unsigned intake has no signed-record retention clock. Its originals and spouse roster are classified for class, job and original-file holds, preview and confirmed erasure; digest and attribution remain. Downloaded outside copies name their staff holder. Archives carry the exact record as inactive historical evidence; they grant no signing authority and cannot bypass the erasure journal fence. Genuine KBA, remote delivery, handwritten fallback, signed artifacts and release to ready to file remain unavailable.

@@ -1,4 +1,5 @@
 import { Permissions } from './permissions';
+import { StatusSettings } from './statuses';
 import { AiSettings } from './ai-settings';
 import { Enterprise } from './enterprise';
 import { ArchiveTransfers } from './archive-transfers';
@@ -18,6 +19,7 @@ export function Team({ state, run, tick }: { state: Row; run: Run; tick: number 
   if (!team) return <p>Opening team…</p>;
   const ownRate = team.ownRateCents;
   return <div className="grid">
+    {state.actor.role !== 'preparer' && <details className="wide"><summary>Work settings</summary><StatusSettings state={state} run={run} tick={tick} /></details>}
     {(owner || state.actor.manageAccess) && <Permissions state={state} run={run} tick={tick} />}
     {owner && <FirmSettings run={run} tick={tick} />}
     {owner && <AiSettings run={run} tick={tick} />}

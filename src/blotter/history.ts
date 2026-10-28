@@ -47,7 +47,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
   const history = await rows(db, `SELECT a.id,a.actor,a.action,a.object_id,a.detail,a.at,
       COALESCE((SELECT id FROM b_jobs WHERE id=a.object_id),(SELECT job_id FROM b_requests WHERE id=a.object_id),(SELECT job_id FROM b_files WHERE id=a.object_id),
         (SELECT job_id FROM b_threads WHERE id=a.object_id),(SELECT job_id FROM b_portal_items WHERE id=a.object_id),(SELECT job_id FROM b_notices WHERE id=a.object_id),(SELECT job_id FROM b_expenses WHERE id=a.object_id),(SELECT job_id FROM b_time WHERE id=a.object_id),(SELECT job_id FROM b_invoices WHERE id=a.object_id),(SELECT d.job_id FROM b_payment_gates g JOIN b_deliverables d ON d.id=g.deliverable_id WHERE g.id=a.object_id)) job_id
-    FROM b_audit a WHERE ${objects} AND ${documentAuthority(actor, 'a.object_id')} AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
+    FROM b_audit a WHERE ${objects} AND ${documentAuthority(actor, 'a.object_id')} AND (a.action NOT LIKE 'efile.%' OR EXISTS(SELECT 1 FROM b_efile_authorizations ef WHERE ef.job_id=a.object_id AND ${documentAuthority(actor, 'ef.file_id')})) AND (?4='' OR ${kind ? KINDS[kind] : '1'}) AND (lower(a.action) LIKE ?5 OR lower(a.detail) LIKE ?5 OR lower(a.actor) LIKE ?5)
     ORDER BY a.at DESC,a.id LIMIT 500`, ids, clientId, lead ? 1 : 0, kind, q);
   const owner = optional(query.owner, 'Owner', 254).toLowerCase();
   const unresolved = (await openItems(db, ids, lead ? clientId : null)).filter(item => !owner || item.owner === owner);

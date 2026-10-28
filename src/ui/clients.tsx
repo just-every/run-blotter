@@ -2,7 +2,6 @@ import { OrganizerTemplateEditor } from './organizers';
 import { ClientDetails } from './client-details';
 import { VaultDetails } from './vault';
 import { StarterLibrary } from './starter-library';
-import { StatusSettings } from './statuses';
 import { Blotter, api, money, taxId, Empty, Field, Form, type Row, type Run } from './common';
 import { useState } from 'react';
 import { ScheduleBulk } from './bulk';
@@ -93,6 +92,5 @@ export function Clients({ state, run, open, tick }: { state: Row; run: Run; open
       <p className="muted">Start one period's jobs for several clients. People come from an override, else the client's last period, else the default. Existing jobs are kept.</p>
       <ScheduleBulk key={`${segment ? 'segment' : 'all'}:${(segment ?? state.clients).map((c: Row) => c.id).join(',')}`} state={state} run={run} segment={segment} />
     </section>}
-    {lead && <StatusSettings state={state} run={run} tick={tick} />}
   </div>;
 }
