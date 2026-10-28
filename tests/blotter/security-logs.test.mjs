@@ -60,6 +60,10 @@ test('Recorded access-log export selects exact UTC instants across DST, preserve
   assert.deepEqual(await audit(h),before,'export never changes a source event');
   const exports=(await h.db.prepare("SELECT * FROM b_audit WHERE action='security.access_log_exported'").all()).results;
   assert.equal(exports.length,1);assert.equal(exports[0].actor,'owner@example.test');assert.equal(exports[0].object_id,'access-log');assert.deepEqual(JSON.parse(exports[0].detail),{from:'2026-03-08T00:00:00.000Z',endExclusive:'2026-03-09T00:00:00.000Z',rows:4});assert.ok(Number.isFinite(Date.parse(exports[0].at)));
+  await h.db.prepare('UPDATE b_audit SET detail=? WHERE id=?').bind('[erased] synthetic-blotter-13',ids[1]).run();
+  const redacted=records(await(await h.request(base+range,undefined,h.owner)).text());
+  assert.deepEqual(redacted.map(r=>r.event_id),ids.slice(1,5));assert.equal(redacted[0].channel,'not recorded');assert.equal(redacted[0].identity,'not recorded');assert.ok(!JSON.stringify(redacted).includes('synthetic-blotter-13'));
+  await h.db.prepare('UPDATE b_audit SET detail=? WHERE id=?').bind(before.find(r=>r.id===ids[1]).detail,ids[1]).run();
   const fall=[];fall.push(await downloadAt(h,s.doors[0],'2026-11-01T01:30:00-04:00'));fall.push(await downloadAt(h,s.doors[2],'2026-11-01T01:30:00-05:00'));
   const fallRows=records(await(await h.request(base+'?from=2026-11-01&to=2026-11-01',undefined,h.owner)).text());assert.deepEqual(fallRows.map(r=>r.event_id),fall);assert.deepEqual(fallRows.map(r=>r.occurred_at_utc),['2026-11-01T05:30:00.000Z','2026-11-01T06:30:00.000Z']);
   const empty=await h.request(base+'?from=2026-03-10&to=2026-03-10',undefined,h.owner);assert.equal(empty.status,200);assert.equal(records(await empty.text()).length,0);
@@ -89,6 +93,13 @@ test('Access-log export requires the live principal and a fresh confirmation in 
   assert.equal((await h.send(door,undefined,fresh)).status,200);
   await h.db.prepare("UPDATE b_access_stepups SET verified_at='2000-01-01T00:00:00.000Z'").run();
   assert.equal((await h.send(door,undefined,fresh)).status,403);
+  const approval=await h.request('/auth/step-up',{action:'owner:transfer',returnTo:'/app'},h.owner);assert.equal(approval.status,202);
+  const token=h.mails.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)[1];assert.equal((await h.request('/auth/confirm',{token},h.owner)).status,303);
+  const operators=await(await h.request('/auth/operators',undefined,h.owner)).json();
+  const old=operators.find(o=>o.email==='owner@example.test'),successor=operators.find(o=>o.email==='=synthetic-blotter-1@example.test');
+  assert.equal((await h.request('/auth/operator/role',{operatorId:successor.id,role:'owner'},h.owner)).status,200);
+  assert.equal((await h.request('/auth/operator/role',{operatorId:old.id,role:'member'},h.owner)).status,200);
+  assert.ok([401,403].includes((await h.send(door,undefined,fresh)).status),'principal revocation reaches the existing session');
  }finally{await h.close();}
 });
 
