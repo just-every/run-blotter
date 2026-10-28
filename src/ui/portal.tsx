@@ -1,8 +1,9 @@
+import { PortalUpload } from './portal-upload';
 import { PortalSignatures } from './signatures';
 import { AiDisclosure } from './ai-disclosure';
 import { PortalOrganizers } from './organizers';
 import { useEffect, useState } from 'react';
-import { Blotter, readFile, Status, when, type Row, day } from './common';
+import { Blotter, Status, when, type Row, day } from './common';
 import { ClientTasks } from './tasks';
 import { PortalDeliverables } from './deliverables';
 import { PortalCredentials } from './vault';
@@ -25,11 +26,6 @@ function PortalPage({ view, error, setError, path, load }: { view?: Row; error: 
     setBusy(true); setError(''); setNotice('');
     try { setNotice(await work()); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
-  const upload = (requestId: string, file: File) => act(async () => {
-    const r = await fetch(`${path}/requests/${requestId}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(await readFile(file)) });
-    const b: any = await r.json(); if (!r.ok) throw new Error(b.error ?? t('portal.uploadFailed'));
-    await load(); return t('portal.uploadDone', { name: file.name });
-  });
   return <div className="portal" aria-busy={busy}>
     <a className="skip-link" href="#portal-main">{t('portal.skip')}</a>
     <header className="topbar"><span className="brand"><img src="/brand/mark-32.svg" alt="" width="28" height="28" /><span>{view?.practice ?? t('portal.title')}</span></span></header>
@@ -44,7 +40,7 @@ function PortalPage({ view, error, setError, path, load }: { view?: Row; error: 
           <div className="split"><h2 id={`request-${r.id}`}>{r.label}</h2><Status value={r.status} /></div>
           {r.note && <p className="notice">{t('portal.asks', { note: r.note })}</p>}
           {r.files.map((f: Row) => <p key={f.uploadedAt + f.name} className="muted">{t('portal.uploadedFile', { name: f.name, when: when(f.uploadedAt) })}</p>)}
-          {view.collecting && r.status !== 'accepted' && <label className="upload">{t('portal.chooseFile')}<input type="file" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) upload(r.id, file); e.target.value = ''; }} /></label>}
+          {view.collecting && r.status !== 'accepted' && <PortalUpload path={path} requestId={r.id} reload={load} />}
         </section>)}</Blotter>
         {view.sharedFiles?.length > 0 && <section className="panel" aria-labelledby="shared-files"><h2 id="shared-files">{t('portal.sharedFiles')}</h2><ul>{view.sharedFiles.map((f: Row) => <li key={f.file_key}><a href={`${path}/files/${encodeURIComponent(f.file_key)}`}>{f.name}</a> · {Math.ceil(f.size / 1024)} KB</li>)}</ul></section>}
         <PortalOrganizers path={path} busy={busy} act={act} reload={load} />

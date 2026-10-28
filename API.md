@@ -556,3 +556,26 @@ that history and export attribution, exclude step-ups and bearer tokens, and
 retain the existing newer-erasure-journal fence on stale restore. Downloaded
 logs are external copies the principal must safeguard and erase independently.
 The remainder of SECURE-001, including attestation and WISP materials, is unbuilt.
+### Recoverable client portal uploads
+
+The existing portal link can start and list uploads at
+`/api/blotter/portal/:token/requests/:request/packet-uploads`. POST supplies
+`name`, `mime`, `size`, `sha256` and a recorded `pageCount`. The selected original
+is limited to 20 MiB, 2,000 pages and 256 KiB chunks. Upload status is GET
+`/api/blotter/portal/:token/packet-uploads/:upload`; POST its `chunks`, `complete`
+or `cancel` child. Chunks supply `offset`, `chunkId`, `sha256` and `contentBase64`.
+Only confirmed bytes count. Exact chunk and completion replays retain one original.
+
+Progress is bound to the issuing link, contact revision, job and visible request.
+Each effect rechecks current link validity, contact authority, request visibility
+and open work inside its transaction. Replaced links cannot recover old staging.
+The browser keeps original bytes only in memory, requires an explicit retry and
+checks the reselected original digest before resuming. There is no automatic
+background sync, camera capture or native-device qualification. Link possession
+remains bearer authority and does not verify personal identity.
+
+Staging expires after seven days, is cancellable while work accepts uploads and
+is excluded from archives with portal links. Completed files use ordinary
+DOC-001 originals and ERASURE-002 classes, clocks, holds, preview, receipts and
+stale-restore fencing. Staff transport cannot resume portal staging. New packet
+originals start internal and grant no new contact download rights.
