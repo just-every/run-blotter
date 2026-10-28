@@ -12,7 +12,7 @@ export function OrganizerStaff({ jobId, run, actorRole }: { jobId: string; run: 
   return <>{view.organizers.map((o: Row) => <section className="panel" key={o.id} id={`organizer-${o.id}`} aria-label={o.definition.name}>
     <h2>{o.definition.name}</h2><p className="muted">{o.definition.collectionForm ? `${o.definition.collectionForm} collection` : o.definition.kind} organizer · version {o.definition.version}. Submitted originals remain available when a client corrects an answer.</p>
     {o.erased_at ? <p>Answers erased {when(o.erased_at)}.</p> : <>
-      {o.definition.collectionForm && !o.resolutionCaseId && <p className="notice">Create and review the resolution case before inviting contacts.</p>}
+      {o.definition.collectionForm && !o.resolutionCaseId && <p className="muted">Create and review the resolution case before inviting contacts.</p>}
       {view.writable && (!o.definition.collectionForm || o.resolutionCaseId) && <form onSubmit={e => { e.preventDefault(); const form = e.currentTarget, data = new FormData(form), assignments = Object.fromEntries(o.definition.questions.map((q: Row) => [q.key, data.get(q.key)]));
         run(async () => { const sent = await api(`/jobs/${jobId}/organizers/send`, { revision: o.revision, assignments, templateId: data.get('templateId') || undefined }); setLinks(sent.recipients); setPreview(undefined); await load(); }, 'Organizer links created; check each contact’s mail outcome'); }}>
         <fieldset><legend>Who answers each question</legend>{o.definition.questions.map((q: Row) => <label key={q.key}>{q.label}<select name={q.key} required defaultValue={o.answers[q.key]?.contactId ?? ''}>

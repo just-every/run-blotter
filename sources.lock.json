@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "084ee6200ce4a6f11b55c6f8acf8b9c41a4870ec1d8d0bc6558b5a66417676a0",
+      "sha256": "6f9aecb5176edfeeeb0be766552b0b31463373707514aab3468ede6b11846d4e",
       "executable": false
     },
     "AGENTS.md": {
@@ -124,7 +124,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "acbb9a7fba02fdd5992f453082f26b76989828e56fe5f4fe0a88c777b030ec22",
+      "sha256": "8b7b27eb5151230d0cdf4aa917b8323a2eb87606ea258f19423ddc487398aca4",
       "executable": false
     },
     "base-copies.json": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a5b74679348aa56529d3b9dfd1fd9ae368832ee955b12f9fede05ef52870d065",
+      "sha256": "275503a40e538993d2ac1b5122ae4d36e5bfccc27db26df7dd15a24c1d4c9bfd",
       "executable": false
     },
     "deploy-demo.json": {
@@ -168,7 +168,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "0eb95591831b56ce25b3300ef05a09cfb4818613cf709505d9963877473b81a7",
+      "sha256": "93f3375519387e712f57ad6944c9f0da6c3956d875f365481588f4df1c278c11",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -619,6 +619,10 @@
       "sha256": "03a3842b1d62e75310169464df9b01ebeb80a6e48c6ed521f029d5915fda3b4f",
       "executable": false
     },
+    "migrations/core/0109_resolution_cases.sql": {
+      "sha256": "b96ad0726291aefb0c02cad6b558da3ae706d363ce04ecee707e39fa7058e2dc",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "0c6494a4aba09099ce7b2fc37b145c3e917dad82ee47934b6a6205d37a454632",
       "executable": false
@@ -924,7 +928,7 @@
       "executable": false
     },
     "scripts/contract-docs.mjs": {
-      "sha256": "548d614024589f0ff6530e7f77c7e752bbcaef087717f36b12c38dd70e43ee3e",
+      "sha256": "ceaf59b25bbfde988a7b8f61735ad8f1c3de4023578e17f69c1047d3d3010675",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {
@@ -1865,6 +1869,10 @@
     },
     "src/blotter/reports.ts": {
       "sha256": "1bdd961f7d70801d34819b20d2b4fc9c7cdf1668474961cc2482991703356405",
+      "executable": false
+    },
+    "src/blotter/resolution-cases.ts": {
+      "sha256": "ee826a282f79bc49f8d651cf95e07552bd19e969d447692a53031f0c5cc653ab",
       "executable": false
     },
     "src/blotter/retained-records.ts": {
@@ -4152,7 +4160,7 @@
       "executable": false
     },
     "src/ui/organizers.tsx": {
-      "sha256": "9c7aaf736838ec5b0f322149a5dd8d5e91e00e225b6e256f6146dd383083981d",
+      "sha256": "566f4d9e7bfc67a9babe7d6d15182eaa2625f348a2b9f52de7c5d42d53f2418f",
       "executable": false
     },
     "src/ui/pdf-worker.d.ts": {
@@ -4213,6 +4221,10 @@
     },
     "src/ui/reports.tsx": {
       "sha256": "e7daee96b63023a7c33f754f4c6ece8fe8445cd2af3cd7e42f796a1492d52ebc",
+      "executable": false
+    },
+    "src/ui/resolution-cases.tsx": {
+      "sha256": "581e1ca1cc6f181610a4f208c472fee844d6499a6b0bc442736e49d968aa3543",
       "executable": false
     },
     "src/ui/retention.tsx": {
@@ -4487,6 +4499,10 @@
       "sha256": "2fa2cc9eb6258a7d5b075b254dc01b30d93b9fa6df806b09b21bed749c0ee979",
       "executable": false
     },
+    "tests/blotter/organizers-fixture.mjs": {
+      "sha256": "6efb3de9af5f22665ba13d6dcda0a747c502c8198427b0a9c126af3ab812fc69",
+      "executable": false
+    },
     "tests/blotter/organizers.test.mjs": {
       "sha256": "92f453a069b61dc6fb077129f597204f6a1e999ab4d14b927ea08e930ca5a4a8",
       "executable": false
@@ -4581,6 +4597,14 @@
     },
     "tests/blotter/reports.test.mjs": {
       "sha256": "20da757bc71e4d794876ed62164b842d681d74c46029a186cbf1ed2ea13aec70",
+      "executable": false
+    },
+    "tests/blotter/resolution-cases-ui.mjs": {
+      "sha256": "edb0bba15d3e58d2491de12ac47d4d27eb0306ab715f33bd75d0f890469f9308",
+      "executable": false
+    },
+    "tests/blotter/resolution-cases.test.mjs": {
+      "sha256": "a6f9cc52a2ac0718157eea203869a688f1c312f0263753981a82592880094464",
       "executable": false
     },
     "tests/blotter/revenue-custody.mjs": {
