@@ -5,7 +5,7 @@ import {harness} from './harness.mjs';
 import {paymentFixture} from './payment-fixture.mjs';
 import {stripeEdge} from './stripe-edge.mjs';
 import {paymentJourney} from './payment-ui.mjs';
-import {billingSession,readBilling,privatePaidInvoice,closeBillingWork} from './portal-billing-fixture.mjs';
+import {billingSession,readBilling,privatePaidInvoice,closeBillingWork,historicalBillingArchive} from './portal-billing-fixture.mjs';
 import {portalBillingJourney} from './portal-billing-ui.mjs';
 const secret='synthetic-blotter-1';
 const preferences={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:[]};
@@ -123,6 +123,9 @@ test('Signed duplicate and out-of-order notifications cannot undo refunds; inval
   await h.json(`/payments/${paid.id}/refund`,{amountCents:300,reason:'Complete requested refund',requestId:randomUUID()},h.owner);
   const refundedView=await readBilling(h,s,cookie,edge);assert.deepEqual([refundedView.payments[0].state,refundedView.payments[0].refundedCents,refundedView.payments[0].netCents],['refunded',500,0]);
   await portalBillingJourney(h,{cookie,clientId:s.client.id,expectedOpenCents:1000,expectedPaymentStates:['refunded']});
+  const contact=(await h.json(`/clients/${s.client.id}/contacts`,undefined,h.owner)).find(c=>c.id===s.billing.id);
+  await h.json(`/clients/${s.client.id}/contacts`,{id:contact.id,revision:contact.revision,language:'es'},h.owner);
+  await portalBillingJourney(h,{cookie,clientId:s.client.id,language:'es',expectedOpenCents:1000,expectedPaymentStates:['refunded']});
  }finally{await h.close();}
 });
 test('Failed card and returned ACH create owned follow-up, pending acceptance is unsettled, and revoked mandates never debit again',async()=>{
@@ -185,5 +188,25 @@ test('Payment archives retain accounting and restore without charging authority;
   const latest=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();
   fenced=await harness();await fenced.json('/restore',{archive,journal:latest,confirm:'RESTORE'},fenced.owner,409);
   await fenced.json(`/client/entities/${s.client.id}/billing`,undefined,cookie,401);
+  await fenced.close();fenced=undefined;
+  await restored.close();restored=undefined;
+  // An active contact also loses an individually expired invoice and its payments.
+  // This is independent of whole-client revocation or retained-identity sealing.
+  const historicalArchive=await historicalBillingArchive(archive);
+  restored=await harness({bindings:{STRIPE_SECRET_KEY:'synthetic-blotter-2'},stripeResponse:()=>{throw new Error('Historical billing reads must not contact Stripe');}});
+  await restored.json('/restore',{archive:historicalArchive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
+  const currentCookie=await billingSession(restored,s),beforeExpiry=await readBilling(restored,s,currentCookie);
+  assert.deepEqual(beforeExpiry.invoices.map(i=>[i.id,i.balanceCents]),[[s.invoice.id,0]]);
+  assert.deepEqual(beforeExpiry.payments.map(p=>[p.id,p.state,p.netCents,p.historical]),[[paid.id,'settled',1000,true]]);
+  assert.ok((await restored.json('/retention/ready',undefined,restored.owner)).ready.some(r=>r.kind==='invoice'&&r.id===s.invoice.id));
+  const expiry=await restored.json('/retention/ready/confirm',{kind:'invoice',id:s.invoice.id,reason:'Billing retention ended and deletion was explicitly confirmed'},restored.owner);
+  assert.equal(expiry.recordId,s.invoice.id);
+  const afterExpiry=await readBilling(restored,s,currentCookie);
+  assert.deepEqual(afterExpiry,{asOf:afterExpiry.asOf,currency:'USD',invoices:[],payments:[],totals:{invoicedCents:0,creditsAppliedCents:0,writtenOffCents:0,paidCents:0,openCents:0}});
+  assert.equal((await restored.request(`/api/blotter/client/entities/${s.client.id}/bills/${s.invoice.id}/pdf`,undefined,currentCookie)).status,404);
+  await portalBillingJourney(restored,{cookie:currentCookie,clientId:s.client.id,expectedOpenCents:0,empty:true});
+  const expiryJournal=await (await restored.request('/api/blotter/backup',undefined,restored.owner)).text();
+  fenced=await harness();await fenced.json('/restore',{archive:historicalArchive,journal:expiryJournal,confirm:'RESTORE'},fenced.owner,409);
+  await fenced.json(`/client/entities/${s.client.id}/billing`,undefined,currentCookie,401);
  }finally{await fenced?.close();await restored?.close();await h.close();}
 });

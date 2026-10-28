@@ -50,14 +50,16 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     await h.json(`/invoices/${draft.id}/issue`, { revision: draft.revision, snapshotHash: draft.snapshotHash, reviewNote: 'Compared entitlement and recipient' }, h.owner);
 
     const other = await h.json(`/clients/${cedar.id}/contacts`, person('Separate bill recipient', ['synthetic-blotter-501', 'example.test'].join('@'), { roles: ['billing'] }), h.owner);
-    const extra = async (contactId, amount, issue) => {
+    const extra = async (contactId, amount, issue, adjustments = {}) => {
       const source = await h.json('/invoice-entitlements', { jobId: job.id, kind: 'milestone', reference: `synthetic-blotter-${amount}`, description: 'Separate authorized scope', amountCents: amount, authorization: 'Explicit separate engagement fee' }, h.owner);
-      const input = { ...invoiceInput, contactId, sourceKeys: [source.sourceKey], title: `Separate scope ${amount}` };
+      const input = { ...invoiceInput, contactId, sourceKeys: [source.sourceKey], title: `Separate scope ${amount}`, ...adjustments };
       const d = await h.json('/invoices', { ...input, previewHash: (await h.json('/invoices/preview', input, h.owner)).previewHash }, h.owner);
       if (issue) await h.json(`/invoices/${d.id}/issue`, { revision: d.revision, snapshotHash: d.snapshotHash, reviewNote: 'Checked the separate recipient' }, h.owner);
       return d;
     };
     const foreignBill = await extra(other.id, 1234, true), unissuedBill = await extra(patCedar.id, 567, false);
+    const deposit = await h.json('/invoice-credits', { clientId: cedar.id, kind: 'deposit', reference: 'synthetic-blotter-505', amountCents: 1234, reason: 'Practitioner recorded the client deposit' }, h.owner);
+    const depositedBill = await extra(patCedar.id, 7500, true, { taxCents: 37, credits: [{ creditId: deposit.id, amountCents: 1234 }] });
 
     // Invitations: staff who may edit contacts invite one portal-enabled contact per entity.
     await h.json(`/clients/${cedar.id}/contacts/${patCedar.id}/portal-invite`, {}, prep, 403);
@@ -102,22 +104,29 @@ test('PORTAL-002 / BASE-001 / ERASURE-002: invited contacts sign in with a secon
     const patMe = await pat.get('/me');
     assert.deepEqual([patMe.firm, patMe.entities.map(e => e.name)], ['Cedar Practice', ['Birch Street Cafe', 'Cedar Lane LLC']]);
     const cedarView = await pat.get(`/entities/${cedar.id}`);
-    assert.deepEqual([cedarView.work.map(w => w.title), cedarView.documents.map(d => d.name), cedarView.bills.map(b => b.balanceCents)], [['Monthly bookkeeping'], ['cedar.pdf'], [25000]]);
+    assert.deepEqual([cedarView.work.map(w => w.title), cedarView.documents.map(d => d.name), cedarView.bills.map(b => b.balanceCents)], [['Monthly bookkeeping'], ['cedar.pdf'], [25000, 6303]]);
     const billingSource = { client: cedar, billing: patCedar };
     const initialBilling = await readBilling(h, billingSource, pat.cookie);
-    assert.deepEqual(initialBilling.invoices.map(i => [i.id, i.currency, i.balanceCents]), [[draft.id, 'USD', 25000]]);
+    assert.deepEqual(initialBilling.invoices.map(i => [i.id, i.currency, i.totalCents, i.documentTotalCents, i.creditsAppliedCents, i.balanceCents]), [[draft.id, 'USD', 25000, 25000, 0, 25000], [depositedBill.id, 'USD', 7537, 6303, 1234, 6303]]);
+    assert.deepEqual(initialBilling.totals, { invoicedCents: 32537, creditsAppliedCents: 1234, writtenOffCents: 0, paidCents: 0, openCents: 31303 });
     assert.deepEqual(initialBilling.payments, []);
     assert.ok(!JSON.stringify(initialBilling).includes(foreignBill.id) && !JSON.stringify(initialBilling).includes(unissuedBill.id));
     const credit = await h.json('/invoice-credits', { clientId: cedar.id, kind: 'credit', reference: 'synthetic-blotter-502', amountCents: 1000, reason: 'Approved credit for prior work' }, h.owner);
     await h.json(`/invoices/${draft.id}/credits`, { creditId: credit.id, amountCents: 1000, reason: 'Apply approved credit' }, h.owner);
     await h.json(`/invoices/${draft.id}/write-off`, { amountCents: 500, reason: 'Approved fee adjustment' }, h.owner);
     const statement = await readBilling(h, billingSource, pat.cookie);
-    assert.deepEqual(statement.totals, { invoicedCents: 25000, creditsAppliedCents: 1000, writtenOffCents: 500, paidCents: 0, openCents: 23500 });
-    assert.deepEqual(statement.invoices.map(i => [i.id, i.creditsAppliedCents, i.writtenOffCents, i.paidCents, i.balanceCents]), [[draft.id, 1000, 500, 0, 23500]]);
-    await portalBillingJourney(h, { cookie: pat.cookie, clientId: cedar.id, expectedOpenCents: 23500, expectedInvoiceIds: [draft.id] });
+    assert.deepEqual(statement.totals, { invoicedCents: 32537, creditsAppliedCents: 2234, writtenOffCents: 500, paidCents: 0, openCents: 29803 });
+    assert.deepEqual(statement.invoices.map(i => [i.id, i.creditsAppliedCents, i.writtenOffCents, i.paidCents, i.balanceCents]), [[draft.id, 1000, 500, 0, 23500], [depositedBill.id, 1234, 0, 0, 6303]]);
+    await portalBillingJourney(h, { cookie: pat.cookie, clientId: cedar.id, expectedOpenCents: 29803, expectedInvoiceIds: [draft.id, depositedBill.id] });
+    const settlement = await h.json('/invoice-credits', { clientId: cedar.id, kind: 'credit', reference: 'synthetic-blotter-506', amountCents: 6303, reason: 'Practitioner approved the remaining fee credit' }, h.owner);
+    await h.json(`/invoices/${depositedBill.id}/credits`, { creditId: settlement.id, amountCents: 6303, reason: 'Apply the approved remaining fee credit' }, h.owner);
+    const credited = await readBilling(h, billingSource, pat.cookie);
+    assert.deepEqual(credited.totals, { invoicedCents: 32537, creditsAppliedCents: 8537, writtenOffCents: 500, paidCents: 0, openCents: 23500 });
+    assert.deepEqual(credited.invoices.map(i => [i.id, i.documentTotalCents, i.balanceCents]), [[draft.id, 25000, 23500], [depositedBill.id, 6303, 0]]);
+    assert.deepEqual(credited.payments, [], 'Deposits and fee credits never become provider payments');
     const currentPat = (await h.json(`/clients/${cedar.id}/contacts`, undefined, h.owner)).find(c => c.id === patCedar.id);
     await h.json(`/clients/${cedar.id}/contacts`, { id: currentPat.id, revision: currentPat.revision, language: 'es' }, h.owner);
-    await portalBillingJourney(h, { cookie: pat.cookie, clientId: cedar.id, language: 'es', expectedOpenCents: 23500, expectedInvoiceIds: [draft.id] });
+    await portalBillingJourney(h, { cookie: pat.cookie, clientId: cedar.id, language: 'es', expectedOpenCents: 23500, expectedInvoiceIds: [draft.id, depositedBill.id] });
     await h.json(`/clients/${cedar.id}/contacts`, { id: currentPat.id, revision: currentPat.revision, language: 'en' }, h.owner);
     const fileDoor = `/api/blotter/client/entities/${cedar.id}/files/${encodeURIComponent(cedarView.documents[0].ref)}`, billDoor = `/api/blotter/client/entities/${cedar.id}/bills/${cedarView.bills[0].id}/pdf`;
     assert.equal(await (await h.request(fileDoor, undefined, pat.cookie)).text(), '%PDF-1.4 Cedar statements');

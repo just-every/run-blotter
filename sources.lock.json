@@ -116,7 +116,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "006c197ef41253c6e000b1524c9f2ecaf3ebf3e282e41ac9bbaabb4cb24c6a35",
+      "sha256": "083425ab5da8ce4d18b827555d78132bebf19153d6c915f5f8cf51a67a0c4115",
       "executable": false
     },
     "AGENTS.md": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "99c48f791f7a1599987d206de8a48f0b0668fa84000a56f317be4c4970f003eb",
+      "sha256": "16053570f53ecb22b7b4632e152d1da9b1fe86ee67082084dd08ddede3d71f88",
       "executable": false
     },
     "deploy-demo.json": {
@@ -168,7 +168,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "a7a339934c4b9bb4e343dae2040d5e6a51989ec99ed82c87a3f07854f2282558",
+      "sha256": "a22415fa6f67e5e92a88d4e22ba838fd717e63cba3584d8983fd354c01715d44",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -4556,7 +4556,7 @@
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {
-      "sha256": "15fa3b024ca7bf1139696a38cfb7646036858a9e68b77c9c15f91d830943495f",
+      "sha256": "b0e9b7d97693cb3fa3cc8f064c8ddd04107d311b4a1c24db4a61d5e25d7ec57d",
       "executable": false
     },
     "tests/blotter/pdf-text.mjs": {
@@ -4580,15 +4580,15 @@
       "executable": false
     },
     "tests/blotter/portal-accounts.test.mjs": {
-      "sha256": "bbd3aa69380f1a3a6aa9d33e5335fb63c8d1e3f84f8ccd500138213ed88b483d",
+      "sha256": "2df63bfeb68c90ae385f9d1f7de2f78c4e210eb25efb4c923e918b0841b9ba40",
       "executable": false
     },
     "tests/blotter/portal-billing-fixture.mjs": {
-      "sha256": "843f174cadeeace0d0042766ff7ba07d728eafa3b69cc58a999986b7d9b466ee",
+      "sha256": "a54a30dea2a75d78dd2adbec136386c7c42c4d6a306b000498c9150bd331ccb1",
       "executable": false
     },
     "tests/blotter/portal-billing-ui.mjs": {
-      "sha256": "96df66fe84b88f2517c4ba40ee0cc9a2cbb8c062ed5f8f753f5ee3ce2b627226",
+      "sha256": "cb04d54eddc835aaad5176822dbde8a37bc1e0223c183b3f4a68e54cc3c93619",
       "executable": false
     },
     "tests/blotter/rate-worktypes-ui.mjs": {

@@ -1,5 +1,21 @@
 import assert from 'node:assert/strict';
 import { totp } from './erasure-fixture.mjs';
+import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
+
+/** Age synthetic billing evidence in the public archive format to exercise confirmed expiry. */
+export async function historicalBillingArchive(source) {
+  const records = source.trim().split('\n').map(JSON.parse), manifest = records[0], parts = [];
+  const content = new ContentVerifier(manifest), archive = new ArchiveVerifier(manifest);
+  for (const part of records.filter(record => record.kind === 'part')) {
+    for (const item of part.items) if (item.kind === 'row' && ['b_invoices', 'b_invoice_entitlements', 'b_provider_payments', 'b_payment_observations'].includes(item.table)) {
+      for (const key of Object.keys(item.row)) if (key.endsWith('_at') && item.row[key]) item.row[key] = '2015-01-02T12:00:00.000Z';
+    }
+    const changed = await makePart(part.index, part.items);
+    parts.push(changed); archive.add(changed);
+    for (const item of changed.items) content.add(item);
+  }
+  return [manifest, ...parts, { kind: 'closing', partCount: parts.length, contentHash: content.digest(), archiveHash: archive.digest() }].map(JSON.stringify).join('\n') + '\n';
+}
 
 /** A synthetic contact uses the real invitation and completed-factor doors. */
 export async function billingSession(h, s) {

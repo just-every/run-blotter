@@ -58,7 +58,7 @@ export async function portalBillingJourney(h, { cookie, clientId, language = 'en
     for (const invoice of billing.invoices) {
       const row = invoices.locator('[data-invoice-id]').filter({ has: page.locator(`a[href$="/bills/${encodeURIComponent(invoice.id)}/pdf"]`) });
       await row.getByText(invoice.title, { exact: false }).waitFor();
-      assert.equal(await row.locator('dd').last().innerText(), amount(invoice.balanceCents, language));
+      for (const [index, cents] of [invoice.totalCents, invoice.creditsAppliedCents, invoice.writtenOffCents, invoice.paidCents, invoice.balanceCents].entries()) await expect(row.locator('dd').nth(index)).toHaveText(amount(cents, language));
       assert.equal(await row.getByRole('link').getAttribute('href'), `/api/blotter/client/entities/${clientId}/bills/${encodeURIComponent(invoice.id)}/pdf`);
     }
     await payments.getByText(text.provenance, { exact: false }).waitFor();
