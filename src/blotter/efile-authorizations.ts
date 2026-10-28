@@ -61,17 +61,19 @@ export async function efileAuthorization(db: D1Database, actor: Actor, jobId: st
 }
 export async function recordEfileAuthorization(db: D1Database, actor: Actor, jobId: string, body: Data) {
   insist(!actor.readOnly, 'Writable staff access required', 403);
-  insist(Object.keys(body).every(k => ['jobId','clientId','taxYear','form','filingStatus','fileId','spouseContactIds','reviewedFinalUnsigned','reviewedRequiredSigners'].includes(k)), 'Only unsigned intake fields are supported; no signature completion override exists');
+  insist(Object.keys(body).every(k => ['jobId','clientId','taxYear','form','filingStatus','fileId','spouseContactIds','spouseContactRevisions','reviewedFinalUnsigned','reviewedRequiredSigners'].includes(k)), 'Only unsigned intake fields are supported; no signature completion override exists');
   const { j, taxYear } = await context(db, actor, jobId);
   insist(j.status === 'open' && taxYear !== null, 'Choose an open US 1040 client-year engagement', 409);
   insist(body.jobId === jobId && body.clientId === j.client_id && integer(body.taxYear, 'Tax year', 1900, 9999) === taxYear
     && body.form === '8879' && body.filingStatus === 'married_filing_jointly', 'Identify this exact client-year 1040 engagement and Form 8879', 409);
   insist(body.reviewedFinalUnsigned === true && body.reviewedRequiredSigners === true, 'Explicitly review the final unsigned form and both required spouses');
   insist(Array.isArray(body.spouseContactIds) && body.spouseContactIds.length === 2 && new Set(body.spouseContactIds).size === 2, 'Review two distinct required spouse contacts');
+  insist(Array.isArray(body.spouseContactRevisions) && body.spouseContactRevisions.length === 2, 'Supply both reviewed contact revisions in spouse order');
   const roster: Data[] = [];
   for (const contactId of body.spouseContactIds) {
     const c = await stmt(db, 'SELECT id,name,revision FROM b_client_contacts WHERE id=? AND client_id=? AND active=1 AND authorized=1 AND signer=1', contactId, j.client_id).first<Data>();
     insist(c, 'Every required spouse must be a current authorized signer for this client', 409);
+    insist(c.revision === body.spouseContactRevisions[roster.length], 'A required spouse contact changed. Review the current roster again.', 409);
     roster.push({ contactId: c.id, name: c.name, revision: c.revision, requirement: 'required spouse; practitioner-recorded' });
   }
   const file = await sourceFile(db, actor, j.id, String(body.fileId)), bytes = await documentBytes(db, file);
