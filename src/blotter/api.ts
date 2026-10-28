@@ -1,3 +1,4 @@
+import { exportAccessLog } from './security-logs';
 import { eraseEnterprise, enterpriseState, connectEnterprise, mapEnterprise, bindEnterprise, enterpriseToken, disconnectEnterprise } from './enterprise';
 import { integrationWebhooks, registerWebhook, revokeWebhook, replayWebhook, reconcileWebhook, runIntegrationWebhooks } from './integration-webhooks';
 import { integrationKeys, mintIntegrationKey, revokeIntegrationKey } from './integration-keys';
@@ -131,6 +132,7 @@ const site = (c: C) => ({ secret: sealer(c), origin: runtimeBindings(c.env).AUTH
 const vaultSite = (c: C) => ({ ...site(c), vaultKey: runtimeBindings(c.env).VAULT_KEY });
 const asAgent = (fn: (a: Actor, c: C) => Promise<unknown>) => async (c: C) => { const actor=await agent(c.req.raw,c.env); if(c.req.path!==P+'/agent/context' && !new RegExp('^'+P+'/agent/plans(?:/[^/]+)?$').test(c.req.path) && await db(c).prepare('SELECT 1 FROM b_agent_rules WHERE key_id=?').bind(actor.agentKeyId).first()) insist(false,'This key uses supervised plans; direct agent commands cannot bypass its grant and budgets',403); await accessGate(db(c),actor,c.req.raw); return c.json(await redactAccess(db(c),actor,await fn(actor,c))); };
 const P = '/api/blotter';
+api.get(`${P}/security/access-log.csv`,as((a,c)=>exportAccessLog(db(c),a,c.req.query())));
 api.get(`${P}/enterprise`,as((a,c)=>enterpriseState(c.env,a)));
 api.post(`${P}/enterprise`,as(async(a,c)=>connectEnterprise(c.env,a,await body(c,5000))));
 api.post(`${P}/enterprise/mappings`,as(async(a,c)=>mapEnterprise(c.env,a,await body(c,5000))));

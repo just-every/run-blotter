@@ -37,6 +37,11 @@ export async function observedCopies(db: D1Database, clientId: string): Promise<
   out.push(...named(csvs, who => `Billing CSVs downloaded by staff (${who})`, 'billing-downloads', who => `${who} (the named downloader)`));
   const reports=await rows(db,`SELECT actor,count(*) n FROM b_audit WHERE action='report.client_downloaded' AND object_id=${c} GROUP BY actor`);
   out.push(...named(reports,who=>`Client data in report CSVs/PDFs downloaded by staff (${who})`,'report-downloads',who=>`${who} (the named downloader)`));
+  const logs = await rows(db, `SELECT e.actor,count(*) n FROM b_audit e WHERE e.action='security.access_log_exported'
+    AND json_valid(e.detail) AND EXISTS(SELECT 1 FROM b_audit d WHERE d.action='file.downloaded' AND d.object_id IN ${files}
+      AND julianday(d.at)>=julianday(json_extract(e.detail,'$.from')) AND julianday(d.at)<julianday(json_extract(e.detail,'$.endExclusive')))
+    GROUP BY e.actor`);
+  out.push(...named(logs, who => `Access-log CSVs downloaded (${who})`, 'access-log-downloads', who => `${who} (the named downloader; erase external copies independently)`));
   const archives = await rows(db, `SELECT actor,count(*) n FROM b_audit WHERE action='archive.downloaded' AND at>=(SELECT created_at FROM b_clients WHERE id=${c}) GROUP BY actor`);
   out.push(...named(archives, who => `Owner archives downloaded (${who})`, 'archive-downloads', who => `${who} (the named downloader)`));
   const deliveries=await rows(db,`SELECT h.label,k.creator_email,count(*) n FROM b_integration_deliveries d JOIN b_integration_hooks h ON h.id=d.hook_id JOIN b_integration_keys k ON k.id=h.key_id WHERE d.client_id IN ${integrationFamilySql(c)} AND d.attempts>0 AND d.status IN ('delivered','held','dispatching') GROUP BY h.id`);
