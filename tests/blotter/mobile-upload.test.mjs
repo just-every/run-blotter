@@ -22,7 +22,9 @@ async function fixture(h) {
 }
 async function finish(h,f,u,bytes) {
  while(u.receivedBytes<bytes.length)u=await h.json(f.root+'/packet-uploads/'+u.id+'/chunks',chunk(bytes,u.receivedBytes));
- return h.json(f.root+'/packet-uploads/'+u.id+'/complete',{});
+ const results=await Promise.all(Array.from({length:3},()=>h.json(f.root+'/packet-uploads/'+u.id+'/complete',{})));
+ assert.deepEqual(results.map(r=>r.fileId),[results[0].fileId,results[0].fileId,results[0].fileId],'Concurrent completion returns the same original');
+ return results[0];
 }
 const archiveRows = archive => archive.trim().split('\n').map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).filter(i=>i.kind==='row');
 

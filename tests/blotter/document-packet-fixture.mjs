@@ -1,4 +1,4 @@
-// A valid 24-page bank/receipts PDF with transaction tables and page scan images.
+// A valid 24-page bank statement and receipts PDF with transaction tables and page scan images.
 // The original is deliberately bigger than the historical 1 MiB attachment cap.
 export function accountingPacket(corrected = false, pageCount = 24) {
   const objects = [], add = content => { objects.push(Buffer.isBuffer(content) ? content : Buffer.from(content)); return objects.length; };
