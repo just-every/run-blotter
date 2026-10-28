@@ -635,3 +635,37 @@ The English and Spanish account page shows the current statement, open invoices,
 recorded payment history and readable invoice PDFs. Reads never change invoices,
 payment records or mandates and never contact a payment provider. Multi-invoice
 payment, method management, auto-pay and installment mandates remain unimplemented.
+
+
+### Optional engagement-text consent
+
+The authenticated client portal has a separate `GET` and `POST` door at
+`/api/blotter/client/entities/:id/sms-consent`. Both require a completed
+current authenticator factor and a live entity and contact grant, even when the
+firm's other portal reads permit an optional factor. The read presents the current
+normalized phone, contact revision, language, wording and version, latest event id
+and attributed history. Staff cannot record a choice for a contact.
+
+The write accepts `requestId`, `contactRevision`, `phone`, `language`,
+`wordingVersion`, `lastId` and `choice` (`decline`, `opt_in` or `withdraw`).
+It retains the exact presented wording and immutable original entity, contact,
+account actor id, phone, revision, choice and time. Request ids are digest-only,
+scoped to the account; identical concurrent requests create one event and audit.
+Changed intent and stale choices are refused. A contact edit invalidates earlier
+choices except for a language-only edit. Merging either entity invalidates choices
+on both; undo never revives them. Matching phones, imports and email, request or
+marketing consent create no SMS choice. No default is changed.
+
+Authorized native staff may inspect evidence with
+`GET /api/blotter/clients/:id/sms-consent`, including the immutable original entity
+for records merged into that client. It supplies no staff write door. The contact
+record class covers SMS evidence in retention holds, erasure previews and receipts;
+unheld erasure redacts the phone, wording and revision while retaining attributed
+choice history. Archives carry historical evidence with `restored=1`; fresh portal
+enrollment cannot reactivate it. The existing erasure journal rejects stale restores.
+
+Phones are not carrier-verified. Text delivery remains unavailable. Consent capture
+creates no message, provider request, scheduled send, sender connection or sending
+authority. Marketing texts remain refused. An authorized Twilio account and
+registered US sender, carrier STOP and HELP, MMS, quiet hours and full provider-copy
+activation proof remain required by SMS-001.

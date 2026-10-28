@@ -102,6 +102,7 @@ export async function mergeClients(db: D1Database, actor: Actor, body: Data) {
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, mergeId, s.id, m.id, JSON.stringify(choices), authority, JSON.stringify(pick(s)), JSON.stringify(pick(seen!)), revision,
       JSON.stringify(moved), JSON.stringify(after), actor.email, at.toISOString(), new Date(at.getTime() + UNDO_MS).toISOString()),
     stmt(db,'UPDATE b_document_shares SET revoked_at=? WHERE revoked_at IS NULL AND file_key IN (SELECT file_key FROM b_document_access WHERE client_id IN (?,?))',at.toISOString(),s.id,m.id),
+    stmt(db, "UPDATE b_sms_consents SET invalidated_at=?,invalidation_reason='Entity merged; a fresh client choice is required' WHERE (client_id IN (?,?) OR contact_id IN (SELECT id FROM b_client_contacts WHERE client_id IN (?,?))) AND invalidated_at IS NULL", at.toISOString(), s.id, m.id, s.id, m.id),
     // Existing credentials are never widened by a merge.
     stmt(db,'UPDATE b_portal_links SET revoked_at=? WHERE revoked_at IS NULL AND job_id IN (SELECT id FROM b_jobs WHERE client_id IN (?,?))',at.toISOString(),s.id,m.id),
     ...mergedContacts.map(c => {

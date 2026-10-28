@@ -1,3 +1,4 @@
+import { SmsConsent } from './sms-consent';
 import { useEffect, useState } from 'react';
 import { AiDisclosure } from './ai-disclosure';
 import { Field, Form, Status, type Row } from './common';
@@ -112,6 +113,7 @@ function Home(p: PageProps & { me: Row }) {
     </section>
     <ClientBilling billing={e.billing} path={path} />
     <section className="panel" aria-labelledby="preferences"><h2 id="preferences">{t('account.preferences')}</h2>
+      <details><summary>{t('sms.settings')}</summary><SmsConsent key={e.clientId} clientId={e.clientId} /></details>
       {e.preferences.marketingEmail ? <><p>{t('account.marketingOn', { email: p.me.email })}</p><button className="quiet" onClick={() => p.act(async () => { p.setEntity(await call(`/entities/${e.clientId}/preferences`, { marketingEmail: false })); })}>{t('account.stopMarketing')}</button></>
         : <p>{t('account.marketingOff')}</p>}
     </section>

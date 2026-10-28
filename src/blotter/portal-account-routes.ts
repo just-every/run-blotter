@@ -1,3 +1,4 @@
+import { clientSmsConsent, saveSmsConsent, smsConsentEvidence } from './sms-consent';
 // PORTAL-002 HTTP doors: staff manage portal access with their native session; clients
 // sign in with an emailed link and a second factor and hold a server-side session cookie.
 import type { Context, Hono } from 'hono';
@@ -13,6 +14,7 @@ type Doors = { as: (fn: (a: Actor, c: C) => Promise<unknown>) => (c: C) => Promi
 const P = '/api/blotter';
 
 export function portalAccountRoutes(api: Hono<{ Bindings: Bindings }>, { as, body, db, param }: Doors) {
+  api.get(`${P}/clients/:id/sms-consent`, as((a, c) => smsConsentEvidence(db(c), a, param(c))));
   api.get(`${P}/clients/:id/portal-access`, as((a, c) => portalAccess(db(c), a, param(c))));
   api.post(`${P}/clients/:id/contacts/:contact/portal-invite`, as((a, c) => invitePortal(c.env, a, param(c), param(c, 'contact'))));
   api.post(`${P}/clients/:id/contacts/:contact/portal-revoke`, as(async (a, c) => revokePortal(db(c), a, param(c), param(c, 'contact'), await body(c))));
@@ -43,5 +45,7 @@ export function portalAccountRoutes(api: Hono<{ Bindings: Bindings }>, { as, bod
   api.get(`${P}/client/entities/:id/files/:ref`, client((x, c) => clientFile(db(c), x, param(c), param(c, 'ref'))));
   api.get(`${P}/client/entities/:id/signatures/:request/pdf`, client((x, c) => clientSignedPdf(db(c), x, param(c), param(c, 'request'))));
   api.get(`${P}/client/entities/:id/bills/:invoice/pdf`, client((x, c) => clientBillPdf(db(c), x, param(c), param(c, 'invoice'))));
+  api.get(`${P}/client/entities/:id/sms-consent`, client((x, c) => clientSmsConsent(db(c), x, param(c))));
+  api.post(`${P}/client/entities/:id/sms-consent`, client(async (x, c) => saveSmsConsent(db(c), x, param(c), await body(c))));
   api.post(`${P}/client/entities/:id/preferences`, client(async (x, c) => savePreferences(c.env, x, param(c), await body(c))));
 }

@@ -37,7 +37,7 @@ const REGISTRY = new Map<string, TableClass>([
   ...by('signed_documents','b_signatures','b_signature_signers','b_signature_attestations','b_signature_events','b_signature_deliveries','b_authorizations'),
   ...by('engagement', 'b_engagements'),
   ...by('billing', 'b_time', 'b_time_adjustments', 'b_expenses', 'b_exports', 'b_export_sources'),
-  ...by('contact', 'b_client_contacts', 'b_portal_accounts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
+  ...by('contact', 'b_sms_consents', 'b_client_contacts', 'b_portal_accounts', 'b_marketing_consents', 'b_marketing_confirmations', 'b_marketing_merge_holds', 'b_mail_suppressions', 'b_erased_suppressions'),
   ...by('link', 'b_portal_grants', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_access_grants','b_access_team_clients','b_sensitive_documents','b_sensitive_grants', 'b_portal_links', 'b_document_access', 'b_document_grants', 'b_document_shares', 'b_document_uploads', 'b_document_upload_chunks'),
   ...by('message', 'b_portal_items', 'b_reminders', 'b_threads', 'b_thread_messages', 'b_thread_reads', 'b_notices', 'b_notice_events', 'b_bulk_batches', 'b_bulk_recipients', 'b_bulk_exclusions', 'b_bulk_events', 'b_unsubscribe_tokens', 'b_organizer_deliveries'),
   ...by('notification', 'b_notifications', 'b_notification_digests'),

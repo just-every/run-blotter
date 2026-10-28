@@ -1,3 +1,4 @@
+import { SmsConsentEvidence } from './sms-consent';
 import { Onboarding } from './onboarding';
 import { SignatureRequests } from './signatures';
 import { Authorizations } from './authorizations';
@@ -51,6 +52,7 @@ export function ClientDetails({ clientId, state, run, tick }: { clientId: string
       <button className="quiet" onClick={() => run(() => api(`/clients/${clientId}/lifecycle`, {revision:detail.revision,lifecycle:detail.lifecycle === 'active' ? 'archived' : 'active'}), detail.lifecycle === 'active' ? 'Client archived; history retained' : 'Client reactivated')}>{detail.lifecycle === 'active' ? 'Archive client' : 'Reactivate client'}</button>
       {detail.contacts.map((c: Row) => <details key={c.id}><summary>{c.name || c.email} · {c.roles.join(', ') || 'no routing role'}{!c.authorized && ' · no entity authority'}{!c.active && ' · inactive'}</summary><ContactForm contact={c} clientId={clientId} run={run} /></details>)}
       {state.actor.role !== 'preparer' && <details><summary>Client portal access</summary><PortalAccess clientId={clientId} contacts={detail.contacts} owner={state.actor.role === 'owner'} run={run} tick={tick} /></details>}
+      <SmsConsentEvidence clientId={clientId} run={run} tick={tick} />
       <details><summary>Add another contact</summary><ContactForm clientId={clientId} run={run} /></details>
     </div>}
   </details>;
