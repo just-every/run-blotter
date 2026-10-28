@@ -145,7 +145,7 @@ Core · target · **partial** · From CRM-001
 
 #### CRM-002 — Client groups and custom fields
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-INPUT-001, BASE-ROLE-001
 
 **Requirement.** Group related entities and households, capture typed firm-defined fields and tags, filter a segment and apply reviewed bulk updates or work creation. Required-field validation and permissions apply to imported and API-created records too.
 
@@ -1038,7 +1038,7 @@ Core · target · **partial** · From DOC-002 · Cites BASE-DATA-001, BASE-DATA-
 
 #### DOC-003 — Client approval of deliverables
 
-Core · target · **done** · Cites BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003
+Core · target · **done** · Cites BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-ROLE-001
 
 **Requirement.** Staff send a deliverable such as a draft return copy, financial statements or a management report for client approval. The client approves, or requests changes with comments, on that exact version. An approval records the approver, the time and the document hash. Uploading a newer version resets approval, and approval can move the work item's status (WORK-007).
 
@@ -1272,7 +1272,7 @@ Core · target · **partial**
 
 #### TIME-002 — Timesheet approval and period locks
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001
 
 **Requirement.** Staff submit timesheets to managers, who approve or return entries with reasons. Closing a billing period locks approved time; corrections use an authorized adjustment that preserves the original. Invoice/export reservations prevent the same work being billed twice.
 

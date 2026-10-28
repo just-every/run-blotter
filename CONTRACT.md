@@ -33,7 +33,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 | BASE-ACCESS-002 | Sessions | ACCESS-001, ACCESS-002, ACCESS-007, ACCESS-003, ACCESS-008, ACCESS-004, ACCESS-005, ACCESS-006, ACCESS-009 | not run |
 | BASE-ACCESS-003 | Public endpoints | none | not run |
 | BASE-ACCESS-004 | Server-side authorisation | ACCESS-001, ACCESS-002, ACCESS-007, ACCESS-003, ACCESS-008, ACCESS-004, ACCESS-005, ACCESS-006, ACCESS-009 | not run |
-| BASE-INPUT-001 | Validation | API-001, API-002, API-003 | not run |
+| BASE-INPUT-001 | Validation | CRM-002, API-001, API-002, API-003 | not run |
 | BASE-INPUT-002 | HTML | MSG-001, MSG-002 | not run |
 | BASE-INPUT-003 | Uploads | PORTAL-001, PORTAL-002, PORTAL-007, PORTAL-008, PORTAL-009, PORTAL-003, PORTAL-010, PORTAL-004, PORTAL-011, PORTAL-012, PORTAL-005, DOC-001, DOC-004, DOC-005, DOC-002, DOC-006, DOC-003, PORTAL-006 | not run |
 | BASE-SECRET-001 | No leakage | SECURE-001, VAULT-001 | not run |
@@ -51,7 +51,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 | BASE-OPS-003 | Idempotency | API-001, API-002, API-003 | not run |
 | BASE-OPS-004 | Failure is visible | none | not run |
 | BASE-OPS-005 | Audit | AUDIT-001 | not run |
-| BASE-ROLE-001 | Roles through every door | PORTAL-001, ENGAGE-001, SIGN-001, SIGN-002, AUTHZ-001, DUE-001, DUE-004, DUE-005, DUE-003, RESOLVE-001, MAIL-001, MAIL-002, MAIL-003, MSG-002, SMS-001, NOTIFY-001, NOTIFY-002, NOTIFY-003, PORTAL-002, PORTAL-007, PORTAL-008, PORTAL-009, PORTAL-003, PORTAL-010, PORTAL-004, PORTAL-011, PORTAL-012, PORTAL-005, MOBILE-001, DOC-001, DOC-004, DOC-005, FOLLOWUP-001, LEDGER-001, LEDGER-002, LEDGER-003, BILL-002, BILL-006, BILL-007, PAY-001, PAY-002, BILL-003, BILL-004, BILL-005, BILL-008, REPORT-001, REPORT-002, REPORT-003, INTEGRATE-001, INTEGRATE-002, INTEGRATE-003, INTEGRATE-004, INTEGRATE-005, INTEGRATE-006, INTEGRATE-007, INTEGRATE-008, API-001, API-002, API-003, AUTOMATE-001, MIGRATE-001, MIGRATE-002, MIGRATE-003, MIGRATE-004, MIGRATE-005, MIGRATE-006, MIGRATE-008, MIGRATE-007, ACCESS-001, ACCESS-002, ACCESS-007, ACCESS-003, ACCESS-008, ACCESS-004, ACCESS-005, ACCESS-006, ACCESS-009, SECURE-001, VAULT-001, ARCHIVE-002, ARCHIVE-003, ERASURE-002, COST-001, AI-001, AI-002, AI-003, PORTAL-006, READY-001, READY-002, RESCUE-001, LEARN-001, REVENUE-001, ONBOARD-001, ONBOARD-002, SWITCH-001, NOTICE-001, NOTICE-003 | not run |
+| BASE-ROLE-001 | Roles through every door | PORTAL-001, CRM-002, ENGAGE-001, SIGN-001, SIGN-002, AUTHZ-001, DUE-001, DUE-004, DUE-005, DUE-003, RESOLVE-001, MAIL-001, MAIL-002, MAIL-003, MSG-002, SMS-001, NOTIFY-001, NOTIFY-002, NOTIFY-003, PORTAL-002, PORTAL-007, PORTAL-008, PORTAL-009, PORTAL-003, PORTAL-010, PORTAL-004, PORTAL-011, PORTAL-012, PORTAL-005, MOBILE-001, DOC-001, DOC-004, DOC-005, DOC-003, FOLLOWUP-001, LEDGER-001, LEDGER-002, LEDGER-003, TIME-002, BILL-002, BILL-006, BILL-007, PAY-001, PAY-002, BILL-003, BILL-004, BILL-005, BILL-008, REPORT-001, REPORT-002, REPORT-003, INTEGRATE-001, INTEGRATE-002, INTEGRATE-003, INTEGRATE-004, INTEGRATE-005, INTEGRATE-006, INTEGRATE-007, INTEGRATE-008, API-001, API-002, API-003, AUTOMATE-001, MIGRATE-001, MIGRATE-002, MIGRATE-003, MIGRATE-004, MIGRATE-005, MIGRATE-006, MIGRATE-008, MIGRATE-007, ACCESS-001, ACCESS-002, ACCESS-007, ACCESS-003, ACCESS-008, ACCESS-004, ACCESS-005, ACCESS-006, ACCESS-009, SECURE-001, VAULT-001, ARCHIVE-002, ARCHIVE-003, ERASURE-002, COST-001, AI-001, AI-002, AI-003, PORTAL-006, READY-001, READY-002, RESCUE-001, LEARN-001, REVENUE-001, ONBOARD-001, ONBOARD-002, SWITCH-001, NOTICE-001, NOTICE-003 | not run |
 | BASE-AUDIT-001 | Searchable, durable audit | ENGAGE-001, SIGN-001, SIGN-002, AUTHZ-001, DUE-001, DUE-004, DUE-005, DUE-003, RESOLVE-001, MAIL-001, MAIL-002, MAIL-003, MSG-002, SMS-001, NOTIFY-001, NOTIFY-002, NOTIFY-003, PORTAL-002, PORTAL-007, PORTAL-008, PORTAL-009, PORTAL-004, PORTAL-011, PORTAL-012, PORTAL-005, MOBILE-001, DOC-001, DOC-004, DOC-005, FOLLOWUP-001, LEDGER-001, LEDGER-002, LEDGER-003, BILL-002, BILL-006, BILL-007, PAY-001, PAY-002, BILL-003, BILL-004, BILL-005, BILL-008, REPORT-001, REPORT-002, REPORT-003, INTEGRATE-001, INTEGRATE-002, INTEGRATE-003, INTEGRATE-004, INTEGRATE-005, INTEGRATE-006, INTEGRATE-007, INTEGRATE-008, API-002, API-003, AUTOMATE-001, MIGRATE-001, MIGRATE-002, MIGRATE-003, MIGRATE-004, MIGRATE-005, MIGRATE-006, MIGRATE-008, MIGRATE-007, ACCESS-002, ACCESS-007, ACCESS-003, ACCESS-008, ACCESS-005, SECURE-001, VAULT-001, ARCHIVE-002, ARCHIVE-003, ERASURE-002, AUDIT-001, COST-001, AI-001, AI-002, AI-003, READY-001, READY-002, RESCUE-001, LEARN-001, REVENUE-001, ONBOARD-001, ONBOARD-002, SWITCH-001, NOTICE-001, NOTICE-003 | not run |
 | BASE-BACKUP-001 | Independent backup, restore and rollback | ARCHIVE-001, ARCHIVE-002, ARCHIVE-003 | not run |
 | BASE-DATA-006 | Erasure respects retention and legal hold | ERASURE-001, ERASURE-002 | not run |
@@ -59,7 +59,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 | BASE-SIGNIN-002 | Native multi-factor authentication | ACCESS-001, ACCESS-002, ACCESS-007, ACCESS-003, ACCESS-008, ACCESS-004, ACCESS-005, ACCESS-006, ACCESS-009, VAULT-001 | not run |
 | BASE-INSTALL-001 | Free self-host and removal | BASE-001 | not run |
 | BASE-MAIL-001 | Truthful mail outcomes | MAIL-001, MAIL-002, MAIL-003, MSG-001, MSG-002, SMS-001, NOTIFY-001, NOTIFY-002, NOTIFY-003, PAY-001, BILL-004 | not run |
-| BASE-ACCESSIBILITY-001 | One accessibility bar | MOBILE-001 | not run |
+| BASE-ACCESSIBILITY-001 | One accessibility bar | PORTAL-005, MOBILE-001 | not run |
 | BASE-DOCS-001 | On-site docs from one contract | none | not run |
 | BASE-AGENT-001 | One MCP door per seed | none | not run |
 | BASE-AGENT-002 | The seed's jobs are tools, through the UI's own actions | SURFACE-001, SURFACE-009, SURFACE-010 | not run |
@@ -183,7 +183,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### CRM-002 — Client groups and custom fields
 
-*Tier:* Core
+*Tier:* Core · *Cites:* BASE-INPUT-001, BASE-ROLE-001
 
 **Requirement.** Group related entities and households, capture typed firm-defined fields and tags, filter a segment and apply reviewed bulk updates or work creation. Required-field validation and permissions apply to imported and API-created records too.
 
@@ -914,7 +914,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### DOC-003 — Client approval of deliverables
 
-*Tier:* Core · *Cites:* BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003
+*Tier:* Core · *Cites:* BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-ROLE-001
 
 **Requirement.** Staff send a deliverable such as a draft return copy, financial statements or a management report for client approval. The client approves, or requests changes with comments, on that exact version. An approval records the approver, the time and the document hash. Uploading a newer version resets approval, and approval can move the work item's status (WORK-007).
 
@@ -1103,7 +1103,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### TIME-002 — Timesheet approval and period locks
 
-*Tier:* Core
+*Tier:* Core · *Cites:* BASE-ROLE-001
 
 **Requirement.** Staff submit timesheets to managers, who approve or return entries with reasons. Closing a billing period locks approved time; corrections use an authorized adjustment that preserves the original. Invoice/export reservations prevent the same work being billed twice.
 
