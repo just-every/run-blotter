@@ -21,10 +21,6 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 - The Field proof register keeps real-world receipts visible without blocking repository completion.
 - ACCEPTANCE.md, docs/CLAIMS.md and summary counts are generated from this contract.
 
-## Door rules
-
-- **D-1.** Activation on practice records. Each new practice door demonstrates its own current firm/contact scope, retained source custody and source-specific recovery before activation; shared access, audit, erasure and portability duties are cited in the receiving clause.
-
 ## Shared duties (Base)
 
 | Base duty | Duty | Delta clauses | Base journey |
@@ -254,7 +250,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### ENGAGE-001 — Proposals engagement letters and signatures
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** Build service proposals and versioned engagement letters with scope, exclusions, USD fees, retainer terms, renewal and amendment rules. Send to authorized signers, collect electronic signatures with signer authority, consent, timestamps and a downloadable certificate, then launch onboarding once. Preserve declined, expired, superseded and partially signed states. IRS e-file signature authorizations (Forms 8879, 8879-S, 8879-PE, 8879-C, 8879-F and 8878) are owned by SIGN-001, which states the signers, KBA, fallback, record and retention rules; other signed documents use SIGN-002. [Capability rules](docs/contract/engage-001.md) define its record and recovery details. Under RL-12, marketing consent is never bundled into an engagement letter or signature, nor made a condition of service. Under RL-13, its signed letters and certificates join ERASURE-002's signed-engagement class with that clause's clock, holds, preview, receipt and fence, and its signing provider's copies are named outside copies; practitioner-recorded engagements keep their label.
 
@@ -268,7 +264,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### SIGN-001 — IRS e-file signature authorizations with KBA
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** Blotter collects IRS e-file signature authorizations: Forms 8879, 8879-S, 8879-PE, 8879-C, 8879-F and 8878. The practitioner attaches the final form produced by the tax software (INTEGRATE-002) to the client-year return engagement. Blotter sends it to every required signer: both spouses for married filing jointly, an officer for an 1120-S or 1120, and a partner or LLC member for a 1065. For remote signing, each signer passes knowledge-based authentication (KBA) through the identity provider, with their own credentials. A failed KBA attempt can be retried. After three failed attempts, electronic signing stops for that signer and Blotter creates a handwritten-signature task with the printable form, following the IRS e-signature rules for these forms. The record kept against the return engagement contains the signed PDF, the provider certificate and audit trail, and for each signer the name, timestamp, IP address, login ID and every KBA result. It also holds the document hash. The record is kept for at least three years from the return due date or the IRS received date, whichever is later, and ERASURE-002 cannot delete it sooner. Until every required signature is present, the work item cannot enter its ready-to-file status (WORK-007). Blotter never marks a return filed: transmitted, accepted and rejected states come only from INTEGRATE-008 evidence. FOLLOWUP-001 chases unsigned forms. [Capability rules](docs/contract/sign-001.md) define its record and recovery details. Under RL-14, its record is ERASURE-002's IRS e-file authorization class.
 
@@ -284,7 +280,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### SIGN-002 — General document signature requests
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** Staff request signatures on any firm document, for example a Form 2848 or 8821 (AUTHZ-001), a bank authorization, a management representation letter or a W-9. They place signature, initial, date and text fields on the PDF and choose one or more signers in sequential or parallel order. Signers give ESIGN Act and UETA consent, or pass KBA when the form requires it. Requests can be voided, declined with a reason and resent. FOLLOWUP-001 chases unsigned requests. The signed PDF and its certificate are filed to the client and work item with a timeline entry. [Capability rules](docs/contract/sign-002.md) define its record and recovery details. Under RL-15, marketing consent is never bundled into a signature request, nor made a condition of service. Under RL-16, sIGN-002 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence. Under RL-17, staff with full job scope freeze the original valid unencrypted PDF, signer relationships, order and signature/initial/date/text field geometry, then explicitly send through existing entity/contact-bound portal links. Under RL-18, at consent and at signing, Blotter records the connection IP and user agent.
 
@@ -299,7 +295,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### AUTHZ-001 — Taxpayer authorizations 2848 and 8821
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** Track IRS Form 2848 powers of attorney, Form 8821 tax information authorizations and state equivalents for each client. Each record holds the representative and CAF number, the tax matters, forms and periods covered, the signature date, the submission method (IRS online submission, Tax Pro Account or fax) and the recorded, rejected or withdrawn status. Blotter prepares the form from client and representative data for signature under SIGN-002 and files the signed copy. Transcript requests (INTEGRATE-006) and agency contact on notices (DUE-002) are blocked outside the scope of a recorded authorization. An alert fires before the covered periods run out for continuing engagements. [Capability rules](docs/contract/authz-001.md) define its record and recovery details.
 
@@ -513,7 +509,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### DUE-003 — Wider US obligation catalog and firm defined deadlines
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** Beyond DUE-001's five obligation types, Blotter maintains sourced deadline templates for Forms 1120, 1041, the 990 series, 940, W-2/W-3, 1099-NEC/1099-MISC, 1040-ES and 1120-W estimated payments, state withholding and unemployment returns, state annual reports and franchise taxes, and FinCEN 114 (FBAR) with its automatic extension. A firm can also define its own obligations: a fixed date, N days after period end, or the nth weekday of a month, each with a recorded source or a firm-defined label. The same approval, override, weekend/holiday and provenance rules as DUE-001 apply. [Capability rules](docs/contract/due-003.md) define its record and recovery details.
 
@@ -529,7 +525,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### RESOLVE-001 — Transcript analysis and resolution cases
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** From authorized IRS account and wage-and-income transcripts (INTEGRATE-006), Blotter builds a per-year view for each client. It shows the assessed balance and the accrued penalties and interest as of the transcript date, each transaction code with a plain explanation, unfiled years, the collection statute expiration date (CSED) for each assessment, refund statute dates, and hold, lien or levy indicators. Each figure links to its transcript line. When a new pull changes a year, the change is flagged and routed to the assigned practitioner as notice or resolution work (DUE-002). Financial information for Forms 433-A and 433-F is collected through a PORTAL-004 organizer. Derived figures are labeled with their transcript date and are never presented as advice; the practitioner chooses the resolution path. [Capability rules](docs/contract/resolve-001.md) define its record and recovery details.
 
@@ -813,7 +809,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### PORTAL-005 — Client language and accessibility
 
-*Tier:* Core · *Cites:* BASE-ACCESSIBILITY-001, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001· *Register:* R-1
+*Tier:* Core · *Cites:* BASE-ACCESSIBILITY-001, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001 · *Register:* R-1
 
 **Requirement.** The client portal, emails, organizers and signature screens are available in English and Spanish. Each contact has a language preference, and firm templates (MSG-001) keep a version per language. Before a send, staff are warned when a template has no version in the contact's language. Client flows meet WCAG 2.2 AA. [Capability rules](docs/contract/portal-005.md) define its record and recovery details. Under RL-35, the unsubscribe page and its wording appear in the contact's language. Under RL-36, pORTAL-005 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -827,7 +823,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### MOBILE-001 — Mobile client and practitioner work
 
-*Tier:* Core · *Cites:* BASE-ACCESSIBILITY-001, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001· *Register:* R-1
+*Tier:* Core · *Cites:* BASE-ACCESSIBILITY-001, BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-1, R-2
 
 **Requirement.** Responsive web and native iOS/Android apps let clients scan/crop multi-page documents, resume interrupted uploads, answer organizers, chat, sign and pay; staff triage, reassign and review work, and record time against client/job/task with manual entries and running timers (TIME-001) that continue across app restarts and sync once, with role-appropriate access. Push notifications use consent and reveal no tax details on a lock screen; offline drafts disclose sync state and revoked sessions cannot sync new work. Keyboard and assistive-technology access remain available on the web. [Capability rules](docs/contract/mobile-001.md) define its record and recovery details. Under RL-37, mOBILE-001 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -956,7 +952,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### FOLLOWUP-001 — Automatic document chasing and escalation
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** A firm-approved reminder sequence follows missing documents, organizer answers, signatures and unresolved questions through email, portal and opted-in US SMS via Twilio. Configure owner, business hours, cadence, maximum sends, pause and manager escalation. Each step's wording is a MSG-001 template rendered for the recipient at send time; a step whose placeholders cannot resolve is held and its owner is told, rather than sent. Re-evaluate outstanding items before each send, stop completed/declined items and record provider acceptance, delivery or failure separately. Respect SMS consent and STOP/HELP, firm sender registration and provider outages; an unanswered notification never resolves the blocker. [Capability rules](docs/contract/followup-001.md) define its record and recovery details. Under RL-40, follow-up sequences send engagement class only, with MSG-002's send-time recheck.
 
@@ -971,7 +967,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### LEDGER-001 — QuickBooks and Xero client ledger context
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
 
 **Requirement.** Connect QuickBooks Online/QuickBooks Online Accountant and Xero organizations to the correct clients, showing read-only transaction, balance, reconciliation and period-close context with source links, last successful sync and explicit stale/partial state. Reconnect and multi-client permission changes preserve mappings. Reading client books grants no permission to write ledger entries or access the firm's billing ledger.
 
@@ -1324,7 +1320,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-001 — Firm accounting invoice and payment exchange
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Connect the firm's QuickBooks Online or Xero billing organization separately from each client's ledger grant. Map customers, services, tax codes, invoice IDs, credits and payments to the chosen invoice authority; preview direction and conflicts before enabling writes. Reconcile provider and accounting events without duplicate invoices or silently overwriting closed periods; sync failures have an owner and repair action. [Capability rules](docs/contract/integrate-001.md) define its record and recovery details. Under RL-53, iNTEGRATE-001 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1334,7 +1330,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-002 — US tax software document and status handoff
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Support Lacerte, ProSeries, Drake, UltraTax CS and CCH Axcess through authorized connectors and desktop print/upload bridges where needed. Map client/entity/year, deliver source documents and retrieve final packets, signature requests (SIGN-001) and filing status from the source INTEGRATE-008 names for each stack. Preview unsupported fields and require practitioner confirmation for ambiguous matches; no handoff implies a return was calculated or filed. [Capability rules](docs/contract/integrate-002.md) define its record and recovery details. Under RL-54, iNTEGRATE-002 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1344,7 +1340,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-003 — Connected document storage
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Connect Google Drive, OneDrive, SharePoint and Dropbox with explicit folder/client mapping, least-scope authority and clear original/copy/link custody. Sync approved versions and metadata, preserve internal-only rules, detect moved/deleted/changed files and surface permission conflicts; never grant a portal user access to an entire external folder by accident. [Capability rules](docs/contract/integrate-003.md) define its record and recovery details. Under RL-55, connected-storage originals, copies and links appear in ERASURE-002's preview and receipt as named outside copies owned by the connected account; disconnecting never deletes them silently.
 
@@ -1354,7 +1350,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-004 — Ignition engagement onboarding
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** An authorized Ignition accepted proposal creates or links the correct client, records accepted scope/fees and launches assigned onboarding with the signed-document reference. Changes, cancellations and duplicate events create reviewed amendments or stop future work rather than duplicating engagements or silently changing signed scope. [Capability rules](docs/contract/integrate-004.md) define its record and recovery details. Under RL-56, iNTEGRATE-004 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1364,7 +1360,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-005 — Calendars and client appointment booking
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Connect Google Calendar and Outlook Calendar for staff commitments and job deadlines with configurable direction, time-zone/DST handling and private-event masking. Embed or link Calendly and Acuity Scheduling from the client portal, attach appointments to engagements and update capacity for cancellations/reschedules without duplicate events. [Capability rules](docs/contract/integrate-005.md) define its record and recovery details. Under RL-57, iNTEGRATE-005 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1375,7 +1371,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-006 — Authorized IRS transcripts
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Retrieve IRS e-Services/TDS transcripts through the authorized practitioner account and specialist integration with required taxpayer authorization, identity verification and permitted data use. Track request, pending, received, unavailable and failed states, source period and freshness; reconcile transcript differences into notice/review work. Never bypass practitioner credentials, authority restrictions or agency access rules. [Capability rules](docs/contract/integrate-006.md) define its record and recovery details. Under RL-58, iNTEGRATE-006 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1385,7 +1381,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-007 — Gusto payroll engagement context
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Connect Gusto payroll clients with permission to read payroll work items, run status and due-date evidence, route unresolved payroll requests into practice work and link the authoritative payroll record. A completed practice checklist cannot mark payroll paid, taxes remitted or a 941 filed without source evidence. [Capability rules](docs/contract/integrate-007.md) define its record and recovery details. Under RL-59, iNTEGRATE-007 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1395,7 +1391,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### INTEGRATE-008 — Return filing status source per tax stack
 
-*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-AUDIT-001, BASE-DATA-001, BASE-DATA-003, BASE-ROLE-001 · *Register:* R-5
 
 **Requirement.** Each tax stack has a named source of filing-status evidence. For CCH Axcess and UltraTax CS, it is the stack's authorized e-file status API or status export. For Lacerte, ProSeries and Drake, it is the e-file status report export. The INTEGRATE-002 desktop bridge reads the desktop stacks' exports on the practitioner's machine. When a stack exposes no status for a return, the practitioner records the IRS or state acknowledgment (submission ID, accepted or rejected, date) with the acknowledgment file, and the status is labeled practitioner-recorded. Status values are not transmitted, transmitted, accepted, rejected (with its reject code) and paper-filed with proof, each with its source and time received. A rejection reopens the work item to the firm's rework status (WORK-007). A checklist, signature or work status never implies a filing. [Capability rules](docs/contract/integrate-008.md) define its record and recovery details. Under RL-60, iNTEGRATE-008 adds its records and provider copies to ERASURE-002's classes, clocks, holds, preview, erasure, receipt and restore fence.
 
@@ -1908,7 +1904,7 @@ The primary journey: Agree scope, onboard the client, schedule recurring work, c
 
 #### PORTAL-006 — Portal sign-in on the firm custom domain
 
-*Tier:* Core · *Cites:* BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001
+*Tier:* Core · *Cites:* BASE-INPUT-003, BASE-PUBLIC-001, BASE-ROLE-001 · *Register:* R-8
 
 **Requirement.** Live sign-in on the firm's own custom domain uses host-bound cookies and a certificate. This account-blocked split from PORTAL-002 does not block installation-host authentication.
 
