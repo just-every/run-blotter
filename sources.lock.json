@@ -4444,7 +4444,7 @@
       "executable": false
     },
     "tests/blotter/harness.mjs": {
-      "sha256": "21525f009d452c6571ec651be1a1019b46c04d1edeb1561d59a2ae73aa30741e",
+      "sha256": "7bf1eed4640b19e19a11b68e8d6e0b9070d32b7dd10f679b812da35b0d0bdda4",
       "executable": false
     },
     "tests/blotter/import-mapping.test.mjs": {
@@ -4556,7 +4556,7 @@
       "executable": false
     },
     "tests/blotter/payments.test.mjs": {
-      "sha256": "16d670b647725ee21e952c066474099f4b14e32f7a2152682771ed774e6d9d16",
+      "sha256": "e8ad337c34c1515e8e0bb95e3ef15cd41166c53bb386166c7b5acd2361f332d9",
       "executable": false
     },
     "tests/blotter/pdf-text.mjs": {

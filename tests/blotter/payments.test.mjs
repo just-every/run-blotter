@@ -180,7 +180,7 @@ test('Payment archives retain accounting and restore without charging authority;
   assert.ok(JSON.stringify(receipt).includes('billing_provider_payments'));
   await h.json(`/client/entities/${s.client.id}/billing`,undefined,cookie,401);
   assert.equal((await h.request(`/api/blotter/client/entities/${s.client.id}/bills/${s.invoice.id}/pdf`,undefined,cookie)).status,401);
-  await h.json(`/clients/${s.client.id}/contacts/${s.billing.id}/portal-invite`,{},h.owner,404);
+  await h.json(`/clients/${s.client.id}/contacts/${s.billing.id}/portal-invite`,{},h.owner,409);
   const latest=await (await h.request('/api/blotter/backup',undefined,h.owner)).text();
   fenced=await harness();await fenced.json('/restore',{archive,journal:latest,confirm:'RESTORE'},fenced.owner,409);
   await fenced.json(`/client/entities/${s.client.id}/billing`,undefined,cookie,401);

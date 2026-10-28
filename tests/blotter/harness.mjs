@@ -61,7 +61,7 @@ async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhook
   const cookie=result.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ');await remember(cookie,email);return cookie;
  }
  try{
-  await mf.ready;const db=await mf.getD1Database('DB');
+  await mf.ready;let db=await mf.getD1Database('DB');
   for(const file of (await readdir('migrations/core')).filter(f=>f.endsWith('.sql')).sort())for(const sql of splitSql(await readFile(join('migrations/core',file),'utf8')))await db.prepare(sql).run();
   assert.equal((await request('/health')).status,200);
   const boot=await request('/auth/bootstrap',{token:vars.SETUP_TOKEN,displayName:'Principal'});assert.equal(boot.status,303,await boot.text());
@@ -69,6 +69,6 @@ async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhook
   if(vars.RER_DEMO)await remember(owner,vars.OWNER_EMAIL);
   // The Worker's Cron Trigger door, fired as of a chosen time.
   const scheduled=async at=>(await mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'17 * * * *'});
-  return {origin,owner,request,send,json,login,stepUp,mails,aiCalls,scheduled,db,restart:async()=>{await mf.dispose();for(let attempt=0;;attempt++){mf=new Miniflare(options);try{await mf.ready;return;}catch(e){await mf.dispose();if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=5)throw e;await new Promise(r=>setTimeout(r,250));}}},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
+  return {origin,owner,request,send,json,login,stepUp,mails,aiCalls,scheduled,get db(){return db;},restart:async()=>{await mf.dispose();for(let attempt=0;;attempt++){mf=new Miniflare(options);try{await mf.ready;db=await mf.getD1Database('DB');return;}catch(e){await mf.dispose();if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=5)throw e;await new Promise(r=>setTimeout(r,250));}}},close:async()=>{await mf.dispose();await rm(directory,{recursive:true,force:true});}};
  }catch(e){await mf.dispose();await rm(directory,{recursive:true,force:true});throw e;}
 }
