@@ -646,15 +646,15 @@ firm's other portal reads permit an optional factor. The read presents the curre
 normalized phone, contact revision, language, wording and version, latest event id
 and attributed history. Staff cannot record a choice for a contact.
 
-The write accepts `requestId`, `contactRevision`, `phone`, `language`,
+The write accepts the opaque `reviewToken` from that read, `requestId`, `contactRevision`, `phone`, `language`,
 `wordingVersion`, `lastId` and `choice` (`decline`, `opt_in` or `withdraw`).
 It retains the exact presented wording and immutable original entity, contact,
 account actor id, phone, revision, choice and time. Request ids are digest-only,
 scoped to the account; identical concurrent requests create one event and audit.
-Changed intent and stale choices are refused. A database fence invalidates earlier choices on contact edits, including imported
+Changed intent and stale choices are refused. The review token binds the presented wording, current entity revision and consent state, so a new request prepared before a merge or its undo cannot revive a choice. A database fence invalidates earlier choices on contact edits, including imported
 edits and their undo, except for a language-only edit. Native evidence preserves its client and contact during import undo.
 Merging either entity invalidates choices
-on both; undo never revives them. Matching phones, imports and email, request or
+on both. Undo invalidates choices recorded during the merge too; it never revives earlier choices. Matching phones, imports and email, request or
 marketing consent create no SMS choice. No default is changed.
 
 Authorized native staff may inspect evidence with

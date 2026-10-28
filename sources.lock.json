@@ -124,7 +124,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "c710c82024b16e14e28a1a8b5d24a2f9c76348ac69b2ebeb71cbe94aeb5f0aba",
+      "sha256": "0788dee82ff23c961ca9426b5b7d908a962426c9b0e4105555628aa6f386fc87",
       "executable": false
     },
     "base-copies.json": {
@@ -1696,7 +1696,7 @@
       "executable": false
     },
     "src/blotter/merges.ts": {
-      "sha256": "a9b88340f05a2049ffb6e5811c0d5f5b130e6b2380d659fe01f3211b87d2ef89",
+      "sha256": "9915f81a853474bc0d8de4e997edcce6ce9396a2371ef242d3431fd977b44d89",
       "executable": false
     },
     "src/blotter/messages.ts": {
@@ -1964,7 +1964,7 @@
       "executable": false
     },
     "src/blotter/sms-consent.ts": {
-      "sha256": "58523ad358911c884c02b1eb5b23aea2162c18f31fdda1fbb7298c7975b1abb3",
+      "sha256": "b3c7b4bb57d32d49be34a049739b8ef5580db4e62d46707e5202a28a4ea07e40",
       "executable": false
     },
     "src/blotter/staff-costs.ts": {
@@ -4284,7 +4284,7 @@
       "executable": false
     },
     "src/ui/sms-consent.tsx": {
-      "sha256": "d11840d19e04c08e1ea4440553e0e3c38ceed1e22adfe80c4025a4288de4d4fe",
+      "sha256": "0ba3ca317d5b0ec43710654f73cfc7656466a21c00dc7280243328115eb8aadc",
       "executable": false
     },
     "src/ui/starter-library.tsx": {
@@ -4688,7 +4688,7 @@
       "executable": false
     },
     "tests/blotter/sms-consent.test.mjs": {
-      "sha256": "0cdfbd0cdcf2c3dd4f8605c24faf8a13c7c9af6e7a1db7d925ae1aa6dc9c617c",
+      "sha256": "4f9436a31264d2d884816d67ccb60a7ac815aaeaa8c1cabb944c990ecf6b74fd",
       "executable": false
     },
     "tests/blotter/stripe-edge.mjs": {

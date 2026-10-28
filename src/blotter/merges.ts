@@ -175,6 +175,7 @@ export async function undoMerge(db: D1Database, actor: Actor, mergeId: string) {
     ...(moved.contacts ?? []).map((c: Data) => stmt(db,'UPDATE b_client_contacts SET client_id=?,email=?,active=?,revision=? WHERE id=?',m.merged_id,c.email,c.active,c.revision,c.id)),
     // The surviving contact gets back its own email consent, and the merge's marketing holds lift.
     ...(moved.consent ?? []).filter((k: Data) => k.emailConsent).map((k: Data) => stmt(db, 'UPDATE b_client_contacts SET email_consent=?,revision=? WHERE id=?', k.email_consent, k.revision, k.id)),
+    stmt(db, "UPDATE b_sms_consents SET invalidated_at=?,invalidation_reason='Entity merge undone; a fresh client choice is required' WHERE (client_id IN (?,?) OR contact_id IN (SELECT id FROM b_client_contacts WHERE client_id IN (?,?))) AND invalidated_at IS NULL", at, m.survivor_id, m.merged_id, m.survivor_id, m.merged_id),
     stmt(db, 'DELETE FROM b_marketing_merge_holds WHERE merge_id=?', m.id),
     ...(moved.relationships ?? []).map((c: Data) => stmt(db,'UPDATE b_clients SET owner_client_id=?,revision=? WHERE id=? AND owner_client_id=?',m.merged_id,id(),c.id,m.survivor_id)),
     // Records move back while the merge is still active; the triggers allow only that.

@@ -14,11 +14,12 @@ const liveSessionSql = `EXISTS(SELECT 1 FROM b_portal_sessions s JOIN b_portal_a
   AND s.recovered=0 AND a.status='active' AND a.totp_confirmed_at IS NOT NULL)`;
 async function contact(db: D1Database, client: Client, clientId: string) {
   insist(await stmt(db, `SELECT 1 WHERE ${liveSessionSql}`, client.sessionId, client.accountId, now()).first(), 'Complete your authenticator verification before recording an SMS choice', 403);
-  const c = await stmt(db, `SELECT c.* FROM b_portal_grants g JOIN b_client_contacts c ON c.id=g.contact_id
+  const c = await stmt(db, `SELECT c.*,e.revision entity_revision FROM b_portal_grants g JOIN b_client_contacts c ON c.id=g.contact_id JOIN b_clients e ON e.id=g.client_id
     WHERE g.account_id=? AND g.client_id=? AND ${liveGrantSql('g')}`, client.accountId, clientId).first<Data>();
   insist(c, 'Not found', 404);
   return c;
 }
+const reviewToken = (c: Data, event: Data | null, language: 'en' | 'es') => digest(JSON.stringify([c.client_id, c.id, c.entity_revision, c.revision, c.phone, language, VERSION, tr(language, 'sms.wording'), event?.id ?? null, event?.invalidated_at ?? null, event?.restored ?? 0]));
 const current = (event: Data | null, c: Data) => Boolean(event && event.choice === 'opt_in' && !event.invalidated_at && !event.restored && !event.erased_at
   && event.client_id === c.client_id && event.contact_id === c.id && event.contact_revision === c.revision && event.phone === c.phone);
 const evidence = (event: Data) => ({ id: event.id, clientId: event.client_id, contactId: event.contact_id, accountId: event.account_id,
@@ -29,21 +30,21 @@ const evidence = (event: Data) => ({ id: event.id, clientId: event.client_id, co
 export async function clientSmsConsent(db: D1Database, client: Client, clientId: string) {
   const c = await contact(db, client, clientId), event = await latest(db, clientId, c.id), language = isLanguage(c.language) ? c.language : 'en';
   return { contactId: c.id, contactRevision: c.revision, contactName: c.name, phone: c.phone, language, wordingVersion: VERSION,
-    wording: tr(language, 'sms.wording'), lastId: event?.id ?? null, optedIn: current(event, c), sendingAvailable: false, carrierVerified: false,
+    wording: tr(language, 'sms.wording'), reviewToken: await reviewToken(c, event, language), lastId: event?.id ?? null, optedIn: current(event, c), sendingAvailable: false, carrierVerified: false,
     history: (await rows(db, 'SELECT * FROM b_sms_consents WHERE client_id=? AND contact_id=? ORDER BY sequence DESC', clientId, c.id)).map(evidence) };
 }
 
 /** The same request can commit once; a stale or changed intent cannot overwrite a later choice. */
 export async function saveSmsConsent(db: D1Database, client: Client, clientId: string, body: Data) {
   const c = await contact(db, client, clientId);
-  insist(Object.keys(body).every(k => ['requestId','contactRevision','phone','wordingVersion','language','choice','lastId'].includes(k)), 'Only the presented SMS choice fields are accepted');
+  insist(Object.keys(body).every(k => ['reviewToken','requestId','contactRevision','phone','wordingVersion','language','choice','lastId'].includes(k)), 'Only the presented SMS choice fields are accepted');
   insist(typeof body.requestId === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(body.requestId), 'Supply a unique SMS choice request id');
   insist(['decline','opt_in','withdraw'].includes(body.choice), 'Choose whether to allow engagement texts');
   const language = isLanguage(c.language) ? c.language : 'en';
   insist(body.contactRevision === c.revision && body.phone === c.phone && body.wordingVersion === VERSION && body.language === language,
     'The contact or wording changed. Refresh and review your choice again.', 409);
   insist(c.phone || body.choice === 'withdraw', 'Ask the practice to record your current phone before choosing SMS consent', 409);
-  const key = await digest(body.requestId), payload = await digest(JSON.stringify([clientId, c.id, c.revision, c.phone, VERSION, language, body.choice, body.lastId ?? null]));
+  const key = await digest(body.requestId), payload = await digest(JSON.stringify([clientId, c.id, c.revision, c.phone, VERSION, language, body.choice, body.lastId ?? null, body.reviewToken ?? null]));
   const receipt = () => stmt(db, 'SELECT * FROM b_sms_consents WHERE account_id=? AND key_digest=?', client.accountId, key).first<Data>();
   const replay = async (saved: Data) => {
     insist(saved.payload_digest === payload, 'This SMS choice request was already used for a different choice', 409);
@@ -54,11 +55,18 @@ export async function saveSmsConsent(db: D1Database, client: Client, clientId: s
   const saved = await receipt();
   if (saved) return replay(saved);
   const before = await latest(db, clientId, c.id);
-  insist((body.lastId ?? null) === (before?.id ?? null), 'The SMS choice changed. Refresh and review it again.', 409);
+  if (body.reviewToken !== await reviewToken(c, before, language) || (body.lastId ?? null) !== (before?.id ?? null)) {
+    const winner = await receipt();
+    if (winner) return replay(winner);
+    throw new Fault('The entity or SMS consent context changed. Refresh and review your choice again.', 409);
+  }
   const [live, done] = guard(db, `${liveSessionSql} AND EXISTS(SELECT 1 FROM b_portal_grants g JOIN b_client_contacts c ON c.id=g.contact_id
     WHERE g.account_id=? AND g.client_id=? AND g.contact_id=? AND c.revision=? AND c.phone=? AND c.language=? AND ${liveGrantSql('g')})
-    AND COALESCE((SELECT id FROM b_sms_consents WHERE client_id=? AND contact_id=? ORDER BY sequence DESC LIMIT 1),'')=?`,
-    client.sessionId, client.accountId, now(), client.accountId, clientId, c.id, c.revision, c.phone, language, clientId, c.id, before?.id ?? '');
+    AND EXISTS(SELECT 1 FROM b_clients WHERE id=? AND revision=?)
+    AND COALESCE((SELECT id FROM b_sms_consents WHERE client_id=? AND contact_id=? ORDER BY sequence DESC LIMIT 1),'')=?
+    AND COALESCE((SELECT invalidated_at FROM b_sms_consents WHERE id=?),'')=?
+    AND COALESCE((SELECT restored FROM b_sms_consents WHERE id=?),0)=?`,
+    client.sessionId, client.accountId, now(), client.accountId, clientId, c.id, c.revision, c.phone, language, clientId, c.entity_revision, clientId, c.id, before?.id ?? '', before?.id ?? '', before?.invalidated_at ?? '', before?.id ?? '', before?.restored ?? 0);
   const eventId = id(), at = now(), actor = `client portal account ${client.accountId}`;
   try {
     await db.batch([live, stmt(db, `INSERT INTO b_sms_consents(id,client_id,contact_id,account_id,contact_revision,phone,wording_version,wording,language,choice,actor,at,sequence,key_digest,payload_digest)

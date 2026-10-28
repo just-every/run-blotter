@@ -13,7 +13,7 @@ const make = async (h, n, extra = {}) => {
 };
 const door = s => `/client/entities/${s.client.id}/sms-consent`;
 const read = (h, s, cookie, status = 200) => h.json(door(s), undefined, cookie, status);
-const input = (view, choice, requestId) => ({ requestId, contactRevision: view.contactRevision, phone: view.phone, language: view.language, wordingVersion: view.wordingVersion, lastId: view.lastId, choice });
+const input = (view, choice, requestId) => ({ reviewToken: view.reviewToken, requestId, contactRevision: view.contactRevision, phone: view.phone, language: view.language, wordingVersion: view.wordingVersion, lastId: view.lastId, choice });
 const save = (h, s, cookie, view, choice, requestId, status = 200) => h.json(door(s), input(view, choice, requestId), cookie, status);
 const staff = (h, s, cookie = h.owner, status = 200) => h.json(`/clients/${s.client.id}/sms-consent`, undefined, cookie, status);
 const events = async h => (await h.db.prepare('SELECT * FROM b_sms_consents ORDER BY client_id,contact_id,sequence').all()).results;
@@ -155,17 +155,26 @@ test('SMS choices require current factors, sessions, contacts and client authori
     // The survivor and moved contact both lose earlier SMS consent; original entity references do not move.
     const twinCookie = await enroll(h, twin), twinView = await read(h, twin, twinCookie);
     await save(h, twin, twinCookie, twinView, 'opt_in', 'synthetic-blotter-617');
+    const preMergeRequest = input(await read(h, s, cookie), 'opt_in', 'synthetic-blotter-629');
     const priorEvents = await events(h), comparison = await h.json(`/clients/compare?a=${s.client.id}&b=${twin.client.id}`, undefined, h.owner);
     const merge = await h.json('/clients/merge', { survivor: s.client.id, merged: twin.client.id, authority: 'Reviewed both synthetic entities',
       keep: Object.fromEntries(comparison.fields.filter(f => !f.same && f.key !== 'source').map(f => [f.key, 'survivor'])),
       contactAuthority: { [s.billing.id]: 'Same synthetic entity approved', [twin.billing.id]: 'Same synthetic entity approved' } }, h.owner);
     await read(h, twin, twinCookie, 404);
     assert.equal((await read(h, s, cookie)).optedIn, false);
+    await h.json(door(s), preMergeRequest, cookie, 409);
+    assert.equal((await events(h)).length, priorEvents.length, 'A new request prepared before the merge cannot reactivate consent');
     assert.ok((await events(h)).every(event => event.invalidated_at));
     assert.deepEqual((await events(h)).map(e => [e.id, e.client_id, e.contact_id, e.phone, e.choice, e.actor, e.at]), priorEvents.map(e => [e.id, e.client_id, e.contact_id, e.phone, e.choice, e.actor, e.at]));
     assert.equal((await staff(h, s)).events.length, priorEvents.length, 'Current survivor staff inspect both original histories');
+    const renewed = await save(h, s, cookie, await read(h, s, cookie), 'opt_in', 'synthetic-blotter-630');
+    assert.equal(renewed.optedIn, true, 'A fresh current review may record the merged entity choice');
+    const preUndoRequest = input(renewed, 'opt_in', 'synthetic-blotter-631'), beforeUndoCount = (await events(h)).length;
     await h.json(`/clients/merges/${merge.id}/undo`, { reason: 'Separate records again' }, h.owner);
     cookie = await reopen(h, s); assert.equal((await read(h, s, cookie)).optedIn, false);
+    await h.json(door(s), preMergeRequest, cookie, 409);
+    await h.json(door(s), preUndoRequest, cookie, 409);
+    assert.equal((await events(h)).length, beforeUndoCount, 'Undo invalidates the merged choice and refuses stale reactivation');
     const restoredTwinCookie = await reopen(h, twin); assert.equal((await read(h, twin, restoredTwinCookie)).optedIn, false);
     await edit(h, s, { active: false }); await read(h, s, cookie, 401);
     const prepAddress = address(618);

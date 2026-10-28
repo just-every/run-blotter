@@ -20,7 +20,7 @@ export function SmsConsent({ clientId }: { clientId: string }) {
     if (!state || busy) return;
     setBusy(true); setFailed(false); setNotice('');
     try {
-      setState(await clientCall(clientId, { requestId: crypto.randomUUID(), contactRevision: state.contactRevision, phone: state.phone,
+      setState(await clientCall(clientId, { reviewToken: state.reviewToken, requestId: crypto.randomUUID(), contactRevision: state.contactRevision, phone: state.phone,
         wordingVersion: state.wordingVersion, language: state.language, lastId: state.lastId, choice }));
       setExplicit(false); setNotice(t('sms.saved'));
     } catch { setFailed(true); setExplicit(false); } finally { setBusy(false); }
