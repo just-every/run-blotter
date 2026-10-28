@@ -30,6 +30,7 @@ export function selectors(x: Context) {
   const FR = `(SELECT f.id FROM b_files f JOIN b_requests r ON r.id=f.request_id JOIN b_jobs j ON j.id=f.job_id WHERE j.client_id=${c} AND j.status='signed_off' AND r.status='accepted')`;
   const ORG = `(SELECT id FROM b_job_organizers WHERE job_id IN ${JE})`;
   // A submitted organizer original is consumed by the signed-off job when it was submitted before sign-off.
+  // Resolution cases hold structural links only; their payloads use these organizer and file rules.
   const CONSUMED = `(SELECT s.id FROM b_organizer_submissions s JOIN b_job_organizers o ON o.id=s.organizer_id JOIN b_jobs j ON j.id=o.job_id WHERE j.status='signed_off' AND s.submitted_at<=j.signed_off_at)`;
   // Readiness decisions a signed-off job consumed.
   const RQR = `(SELECT q.id FROM b_readiness_questions q JOIN b_jobs j ON j.id=q.job_id WHERE q.status IN ('declined','resolved') AND j.status='signed_off')`;

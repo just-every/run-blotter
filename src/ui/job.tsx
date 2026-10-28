@@ -1,7 +1,7 @@
 import { SignatureRequests } from './signatures';
 import { AiAssistance } from './ai-assistance';
 import { JobDeadline } from './deadlines';
-import { OrganizerStaff } from './organizers';
+import { ResolutionCases } from './resolution-cases';
 import { DocumentPackets } from './document-packets';
 import { DocumentCustody } from './document-access';
 import { StarterJobSummary } from './starter-library';
@@ -105,7 +105,7 @@ export function JobDetail({ jobId, actor, people, back, open, run, tick }: { job
     </div></Blotter>
     <Deliverables contacts={detail.contacts} job={job} deliverables={detail.deliverables} run={run} />
     <DocumentCustody jobId={job.id} run={run} tick={tick} />
-    {job.access === 'full' && <OrganizerStaff jobId={job.id} run={run} actorRole={actor.role} />}
+    {job.access === 'full' && <ResolutionCases jobId={job.id} run={run} actor={actor} tick={tick} />}
     <JobStatus detail={detail} run={run} tick={tick} />
     <ClientLink detail={detail} run={run} />
     <Discussions detail={detail} actor={actor} run={run} tick={tick} />

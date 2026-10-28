@@ -1,3 +1,4 @@
+import { resolutionCase, createResolutionCase } from './resolution-cases';
 import { exportAccessLog } from './security-logs';
 import { startPortalPacket, portalPacketList, portalPacketStatus, appendPortalPacket, completePortalPacket, cancelPortalPacket } from './portal-packet-uploads';
 import { eraseEnterprise, enterpriseState, connectEnterprise, mapEnterprise, bindEnterprise, enterpriseToken, disconnectEnterprise } from './enterprise';
@@ -213,6 +214,8 @@ api.get(`${P}/portability/exports/:id/download`, as((a,c) => downloadTransfer(db
 api.post(`${P}/portability/imports/:id/parts`, as(async(a,c) => uploadTransferPart(db(c),a,param(c),await body(c))));
 api.post(`${P}/portability/imports/:id/finalize`, as(async(a,c) => finalizeTransfer(db(c),a,param(c),await body(c))));
 
+api.get(`${P}/jobs/:id/resolution-case`, as((a,c) => resolutionCase(db(c),a,param(c))));
+api.post(`${P}/jobs/:id/resolution-case`, as(async(a,c) => createResolutionCase(db(c),a,param(c),await body(c))));
 api.get(`${P}/jobs/:id/organizers`, as((a,c) => listOrganizers(db(c),a,param(c))));
 api.post(`${P}/jobs/:id/organizers/send/preview`, as(async(a,c) => previewOrganizerSend(db(c),a,param(c),await body(c))));
 api.post(`${P}/jobs/:id/organizers/send`, as(async(a,c) => sendOrganizer(c.env,a,param(c),await body(c))));

@@ -3,35 +3,7 @@ import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { harness } from './harness.mjs';
 
-const contact = (name, email) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true });
-const tokenOf = recipient => new URL(recipient.portalUrl).pathname.split('/').at(-1);
-const definition = {
- name: 'Ownership and bookkeeping organizer', kind: 'bookkeeping', version: 1,
- questions: [
-  { key: 'ownership', label: 'Did ownership change?', type: 'choice', options: ['Yes', 'No'], required: true, workflowQuestion: 'ownership' },
-  { key: 'owners', label: 'Describe the new owners', type: 'text', required: true, when: { question: 'ownership', values: ['Yes'] }, request: 'Ownership change evidence' },
-  { key: 'bookkeeping', label: 'Bookkeeper notes', type: 'text', required: true },
- ],
-};
-async function setup(h) {
- for (const [email, role] of [['reviewer@example.test', 'reviewer'], ['prep@example.test', 'preparer'], ['outside@example.test', 'preparer']]) {
-  await h.json('/team', { email, name: email, role }, h.owner); await h.json('/team/invite', { email }, h.owner);
- }
- const reviewer = await h.login('reviewer@example.test'), prep = await h.login('prep@example.test'), outside = await h.login('outside@example.test');
- const client = await h.json('/clients', { name: 'Cedar Lane LLC', contacts: [contact('Alex Owner', 'alex@example.test'), contact('Blair Bookkeeper', 'blair@example.test')] }, h.owner);
- const a = client.contacts.find(c => c.email === 'alex@example.test'), b = client.contacts.find(c => c.email === 'blair@example.test');
- const template = await h.json('/templates', { name: 'Monthly close with organizer', recurrence: 'monthly',
-  tasks: [{ label: 'Prepare close' }, { label: 'Inspect changed ownership', when: { question: 'ownership', equals: ['Yes'] } }],
-  questions: [{ key: 'ownership', label: 'Did ownership change?', options: ['Yes', 'No'] }], requests: ['Bank statement'], organizer: definition }, h.owner);
- const start = periodStart => h.json('/jobs', { clientId: client.id, templateId: template.id, periodStart, dueDate: '2027-04-15', dueNote: 'Recorded engagement target', preparerEmail: 'prep@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
- const job = await start('2026-01-01');
- const assignments = { ownership: a.id, owners: a.id, bookkeeping: b.id };
- const organizer = (await h.json(`/jobs/${job.id}/organizers`, undefined, h.owner)).organizers[0];
- return { reviewer, prep, outside, client, a, b, template, start, job, assignments, organizer };
-}
-const answer = (value, confirmed = true) => ({ value, confirmed });
-const portal = token => `/portal/${token}/organizers`;
-const save = (h, token, o, answers, submit = false, expected = 200) => h.json(`${portal(token)}/${encodeURIComponent(o.id)}`, { revision: o.revision, answers, submit }, undefined, expected);
+import { contact, tokenOf, definition, setup, answer, portal, save } from './organizers-fixture.mjs';
 
 test('NOTIFY-001 / PORTAL-004 / WORK-003 / MSG-001 conditional organizers: explicit multi-contact responsibility, phone resume, uploads, immutable corrections, workflow answers, versioned future work and unconfirmed carry', async () => {
  const h = await harness();

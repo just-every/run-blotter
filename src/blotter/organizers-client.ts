@@ -50,6 +50,7 @@ export async function organizerProjection(db: D1Database, organizer: Data, effec
 async function contactOrganizer(db: D1Database, token: string, organizerId: string) {
   const portal = await portalJob(db, token), organizer = await storedOrganizer(db, organizerId);
   insist(organizer.job_id === portal.job.id && organizer.sent_at && !organizer.erased_at, 'Organizer not found', 404);
+  if (organizer.definition.collectionForm) insist(await stmt(db, 'SELECT id FROM b_resolution_cases WHERE organizer_id=? AND job_id=?', organizerId, portal.job.id).first(), 'Organizer not found', 404);
   const answers = await organizerAnswers(db, organizerId);
   insist(Object.values(answers).some(a => a.contactId === portal.contact.id), 'Organizer not found', 404);
   return { ...portal, organizer, answers };

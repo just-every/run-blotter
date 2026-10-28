@@ -623,6 +623,10 @@
       "sha256": "5aa134adb02aa4daa433a436218377595260bbdd6e2a62d7465a3f332bf5cd67",
       "executable": false
     },
+    "migrations/core/0109_resolution_cases.sql": {
+      "sha256": "b96ad0726291aefb0c02cad6b558da3ae706d363ce04ecee707e39fa7058e2dc",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "0c6494a4aba09099ce7b2fc37b145c3e917dad82ee47934b6a6205d37a454632",
       "executable": false
@@ -1264,7 +1268,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "ac8b6edf0e709f1e56e762e57c72c35283f1a03d9e7143049c6a9e23ab22c1d4",
+      "sha256": "db2902afe78bdfdf593b13fee1f2b6ce31b82727b77344fabf9c57e41e637d9f",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1272,7 +1276,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "84d8cf8dcedbea33f349280154abf54bf66ccaf861b0e2767e6051c8f8a12845",
+      "sha256": "4d8a3d674e89ac46da2c2ea1fd5743a7d9f697a59743d709f96459c348a49e0c",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
@@ -1320,7 +1324,7 @@
       "executable": false
     },
     "src/blotter/bulk-organizers.ts": {
-      "sha256": "b3cc9a718032396aee79451d93a282c658e1b5ef960b518e9a68b066e2717a47",
+      "sha256": "c2fa93ba196dd74add2412b83e58507d406712b0b4506518e77e685e3eb01c48",
       "executable": false
     },
     "src/blotter/bulk.ts": {
@@ -1492,7 +1496,7 @@
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "aa7ccc5ca065c1f23da84c457243bc7a287aea0f333e51cef8ae1d038e4854a1",
+      "sha256": "a752b0d78c33ba2145ed9d8aa61780d353eb3a34076be09007fe279466e43d75",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -1500,7 +1504,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "b44991acd4431d7e510867f4048e3881a6be179f46439d611361d7f12aa26beb",
+      "sha256": "48270d7433c243a412fc05c2d2d266acc449a2c59d6a06f1085085ce5af69212",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -1736,15 +1740,15 @@
       "executable": false
     },
     "src/blotter/organizers-client.ts": {
-      "sha256": "52af41267faf38c126f1aaa497d49dcec281779eab1c57f90279c1b58fad8631",
+      "sha256": "1aff3d6e67a5f853c9e047c867194f121a6f31a4450d20a2c1d74540e37674cd",
       "executable": false
     },
     "src/blotter/organizers-definition.ts": {
-      "sha256": "1c7d4d35c93df5e12a4130b13766410f8d5c2b79df7012c2b1a977e0b094ddaf",
+      "sha256": "72234409e5df23aa3dfd3e85205ecd232b6e5bcf5db415940e268f56d5d5461b",
       "executable": false
     },
     "src/blotter/organizers-erasure.ts": {
-      "sha256": "2762f2412a720d64dc5e9e3a1bc7eee52a2f0d1bb2b2c4e60af8fdf5d35818bb",
+      "sha256": "2d7790d914fb78a4ae007884d4649fbdeb667d2626b9453daaaf0afca574e824",
       "executable": false
     },
     "src/blotter/organizers-requests.ts": {
@@ -1752,11 +1756,11 @@
       "executable": false
     },
     "src/blotter/organizers-send.ts": {
-      "sha256": "893eb3acf5cc2bede371b11c89c2a7a9c4f4d68c86799e96273460a967c6ba55",
+      "sha256": "2ecfbcbb148a83a10ae67834d3ad4dfc86f2f23e296d060c7aecf465378209a7",
       "executable": false
     },
     "src/blotter/organizers-store.ts": {
-      "sha256": "6dc03a20a2822e198f5499dbb36d8f2e77ebc2ac6ccf3136a7195c8b97c789f1",
+      "sha256": "a70ce2ef2aaa86fce13fb7ed2dc062dedbb486bc10cdfa7a3c5cce458be7cbfb",
       "executable": false
     },
     "src/blotter/organizers.ts": {
@@ -1873,6 +1877,10 @@
     },
     "src/blotter/reports.ts": {
       "sha256": "1bdd961f7d70801d34819b20d2b4fc9c7cdf1668474961cc2482991703356405",
+      "executable": false
+    },
+    "src/blotter/resolution-cases.ts": {
+      "sha256": "ee826a282f79bc49f8d651cf95e07552bd19e969d447692a53031f0c5cc653ab",
       "executable": false
     },
     "src/blotter/retained-records.ts": {
@@ -4128,7 +4136,7 @@
       "executable": false
     },
     "src/ui/job.tsx": {
-      "sha256": "349be8faeb1b87d03a7d5051accec56b57b5f6765b8d774c0ab7f4b63a82c6a2",
+      "sha256": "ee10ee3746dff007551b372023315fbcd1e5689380970808bd282c8b03636085",
       "executable": false
     },
     "src/ui/jobs.tsx": {
@@ -4160,7 +4168,7 @@
       "executable": false
     },
     "src/ui/organizers.tsx": {
-      "sha256": "b20c4b85369bd304e047dc93998526fc92922ee79177cb7c86586d149df7df59",
+      "sha256": "9c7aaf736838ec5b0f322149a5dd8d5e91e00e225b6e256f6146dd383083981d",
       "executable": false
     },
     "src/ui/pdf-worker.d.ts": {
@@ -4221,6 +4229,10 @@
     },
     "src/ui/reports.tsx": {
       "sha256": "e7daee96b63023a7c33f754f4c6ece8fe8445cd2af3cd7e42f796a1492d52ebc",
+      "executable": false
+    },
+    "src/ui/resolution-cases.tsx": {
+      "sha256": "11393aeb0f2706b43fc75438177ba657b9caebd0cb1f45011ff55b3382a96afc",
       "executable": false
     },
     "src/ui/retention.tsx": {
@@ -4499,8 +4511,12 @@
       "sha256": "2fa2cc9eb6258a7d5b075b254dc01b30d93b9fa6df806b09b21bed749c0ee979",
       "executable": false
     },
+    "tests/blotter/organizers-fixture.mjs": {
+      "sha256": "6efb3de9af5f22665ba13d6dcda0a747c502c8198427b0a9c126af3ab812fc69",
+      "executable": false
+    },
     "tests/blotter/organizers.test.mjs": {
-      "sha256": "89efdbbe957c5a8f8d05403343bd1a5018cfad04d97be3eb2c3422e7f15d13ec",
+      "sha256": "92f453a069b61dc6fb077129f597204f6a1e999ab4d14b927ea08e930ca5a4a8",
       "executable": false
     },
     "tests/blotter/payment-fixture.mjs": {
@@ -4593,6 +4609,14 @@
     },
     "tests/blotter/reports.test.mjs": {
       "sha256": "20da757bc71e4d794876ed62164b842d681d74c46029a186cbf1ed2ea13aec70",
+      "executable": false
+    },
+    "tests/blotter/resolution-cases-ui.mjs": {
+      "sha256": "e4f46f10c912b13b87fb32c6ca7efa5fa75369657b4f5b4be115440c8f876a6c",
+      "executable": false
+    },
+    "tests/blotter/resolution-cases.test.mjs": {
+      "sha256": "031da14bf799cf4d322840f0ff506075ba332813cf40f7b3acf48077f68b204c",
       "executable": false
     },
     "tests/blotter/revenue-custody.mjs": {
