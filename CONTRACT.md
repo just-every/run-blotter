@@ -311,11 +311,13 @@ The native deterministic planner grants one principal-owned live key, one active
 
 ## Status
 
-Judged from the code and tests at commit `83f849a50ea31844e903a91dad44c1ce628f1603` (27 October 2026).
+Judged from the code and tests at commit `288174d52e6669fd343d2a249f440cb2a44f2a88` (27 October 2026).
 
-That commit is the revenue candidate `7bc2dbcb01872282b30dd4bb9093cd281460d563` rebased onto the identity source baseline `254d43d34f4352a40a64c7189e0a58ec6a8a1d11`. Its REVENUE-001 proof snapshot contains the production source and all cited revenue assertions, including first-write and replay acknowledgments, and includes the fresh ct fix-round assertions for taxable and voided retainers, nonzero native receipts and attributed preparation and accounting writes. CT judged REVENUE-001 and accepted it as done.
+The prior revenue proof snapshot `83f849a50ea31844e903a91dad44c1ce628f1603` is the revenue candidate `7bc2dbcb01872282b30dd4bb9093cd281460d563` rebased onto the identity source baseline `254d43d34f4352a40a64c7189e0a58ec6a8a1d11`. Its REVENUE-001 proof snapshot contains the production source and all cited revenue assertions, including first-write and replay acknowledgments, and includes the fresh ct fix-round assertions for taxable and voided retainers, nonzero native receipts and attributed preparation and accounting writes. CT judged REVENUE-001 and accepted it as done.
 
 The identity candidate adds atomic native-deactivation fencing and isolated live-journey proof configuration to its source baseline; its exact commit and recorded runs are in the branch handoff. Guarded landing and CT judgment remain required before counting ACCESS-003.
+
+SECURE-001 is a partial native recorded-download export slice. Its implementation and original public-door proof are in the opening snapshot; final branch checks and strengthened erasure and authority assertions are recorded with the candidate handoff. No attestation or complete security-program claim is made.
 
 BILL-005 includes held-key sandbox proof from 26 October 2026; earlier judgements are retained.
 

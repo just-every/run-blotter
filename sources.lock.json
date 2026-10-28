@@ -104,7 +104,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "d47ae3903b450721646d63e7e0f708fb0d5725dffc54697f0e40382643415bea",
+      "sha256": "e741767f96b038b7d4ffc1f9f0dfe19341195622078e9349063fc9c1276fb72a",
       "executable": false
     },
     ".gitignore": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "511d0e6b3405310e35b502bdbd0ef0c37ed7d276e074cbd0c0cb59a7c775b770",
+      "sha256": "582083cd9efc6444b29dba2b30b413b31cced6c30370e6acfbd03c7b66f8fd34",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4580,7 +4580,7 @@
       "executable": false
     },
     "tests/blotter/security-logs.test.mjs": {
-      "sha256": "126ae1654719e212e9e75730fe4561761bea51bd4f8b1e5e3d732357c051b531",
+      "sha256": "16d5e76158b1c766b35b421e7edeca48a3ef873ffa9220ebfab8cae67d863490",
       "executable": false
     },
     "tests/blotter/service-agents-ui.mjs": {
