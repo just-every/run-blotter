@@ -1260,7 +1260,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "d5aa4674809dc40e7d612ab26f5ebb5cc6972de2e31e43df9b9cec420fe7d427",
+      "sha256": "85d19d8d802e08a8c2ad3d3f742535017a6d76b7d8272eff26e2fab289e5e368",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1268,7 +1268,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "f0f077cfa5304c7224ec5602c4d9f24cdfaa9285985a3547c56d01d5c4b7efb7",
+      "sha256": "0a4cdce385c4667382b59d446ea94f83214fb8a1614ca6bac4237eb7bd0d4379",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
@@ -1316,7 +1316,7 @@
       "executable": false
     },
     "src/blotter/bulk-organizers.ts": {
-      "sha256": "b3cc9a718032396aee79451d93a282c658e1b5ef960b518e9a68b066e2717a47",
+      "sha256": "c2fa93ba196dd74add2412b83e58507d406712b0b4506518e77e685e3eb01c48",
       "executable": false
     },
     "src/blotter/bulk.ts": {
@@ -1488,7 +1488,7 @@
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "64f4f3b244ab0e87909313fc82af6f216de3c5fec8c3df781a09faf74b937900",
+      "sha256": "981bfc9b64b2bf0946bbfb8c2a810e9425ae426f2452ed3fdf77c371b348c14b",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -1496,7 +1496,7 @@
       "executable": false
     },
     "src/blotter/erasure-scope.ts": {
-      "sha256": "34ab86dc859ae40e03ad026c183d40f9e0d17a37f58764f39acdd065db8b7efb",
+      "sha256": "f111a8dd3d30ac133db663fdf562302b15007ccc735054011f8b4be99c65a3e0",
       "executable": false
     },
     "src/blotter/expenses.ts": {
@@ -1728,15 +1728,15 @@
       "executable": false
     },
     "src/blotter/organizers-client.ts": {
-      "sha256": "52af41267faf38c126f1aaa497d49dcec281779eab1c57f90279c1b58fad8631",
+      "sha256": "1aff3d6e67a5f853c9e047c867194f121a6f31a4450d20a2c1d74540e37674cd",
       "executable": false
     },
     "src/blotter/organizers-definition.ts": {
-      "sha256": "1c7d4d35c93df5e12a4130b13766410f8d5c2b79df7012c2b1a977e0b094ddaf",
+      "sha256": "72234409e5df23aa3dfd3e85205ecd232b6e5bcf5db415940e268f56d5d5461b",
       "executable": false
     },
     "src/blotter/organizers-erasure.ts": {
-      "sha256": "2762f2412a720d64dc5e9e3a1bc7eee52a2f0d1bb2b2c4e60af8fdf5d35818bb",
+      "sha256": "2d7790d914fb78a4ae007884d4649fbdeb667d2626b9453daaaf0afca574e824",
       "executable": false
     },
     "src/blotter/organizers-requests.ts": {
@@ -1744,11 +1744,11 @@
       "executable": false
     },
     "src/blotter/organizers-send.ts": {
-      "sha256": "893eb3acf5cc2bede371b11c89c2a7a9c4f4d68c86799e96273460a967c6ba55",
+      "sha256": "2ecfbcbb148a83a10ae67834d3ad4dfc86f2f23e296d060c7aecf465378209a7",
       "executable": false
     },
     "src/blotter/organizers-store.ts": {
-      "sha256": "6dc03a20a2822e198f5499dbb36d8f2e77ebc2ac6ccf3136a7195c8b97c789f1",
+      "sha256": "a70ce2ef2aaa86fce13fb7ed2dc062dedbb486bc10cdfa7a3c5cce458be7cbfb",
       "executable": false
     },
     "src/blotter/organizers.ts": {
@@ -4120,7 +4120,7 @@
       "executable": false
     },
     "src/ui/job.tsx": {
-      "sha256": "349be8faeb1b87d03a7d5051accec56b57b5f6765b8d774c0ab7f4b63a82c6a2",
+      "sha256": "ee10ee3746dff007551b372023315fbcd1e5689380970808bd282c8b03636085",
       "executable": false
     },
     "src/ui/jobs.tsx": {
@@ -4152,7 +4152,7 @@
       "executable": false
     },
     "src/ui/organizers.tsx": {
-      "sha256": "b20c4b85369bd304e047dc93998526fc92922ee79177cb7c86586d149df7df59",
+      "sha256": "9c7aaf736838ec5b0f322149a5dd8d5e91e00e225b6e256f6146dd383083981d",
       "executable": false
     },
     "src/ui/pdf-worker.d.ts": {
@@ -4488,7 +4488,7 @@
       "executable": false
     },
     "tests/blotter/organizers.test.mjs": {
-      "sha256": "89efdbbe957c5a8f8d05403343bd1a5018cfad04d97be3eb2c3422e7f15d13ec",
+      "sha256": "92f453a069b61dc6fb077129f597204f6a1e999ab4d14b927ea08e930ca5a4a8",
       "executable": false
     },
     "tests/blotter/payment-fixture.mjs": {

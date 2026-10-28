@@ -10,6 +10,10 @@ export async function eraseOrganizer(db: D1Database, actor: Actor, organizerId: 
   human(actor); need(actor, 'owner');
   const organizer = await storedOrganizer(db, organizerId), j = await job(db, actor, organizer.job_id);
   insist(!organizer.erased_at, 'This organizer was already erased', 409);
+  if (organizer.definition.collectionForm) {
+    const consumed = await stmt(db, `SELECT 1 FROM b_organizer_submissions WHERE organizer_id=? AND submitted_at<=? AND erased_at IS NULL`, organizerId, j.signed_off_at ?? '').first();
+    insist(!consumed || j.status !== 'signed_off', 'Consumed resolution originals use signed-off work retention and expiry', 409);
+  }
   await refuseHeld(db, { clientIds: [String(j.client_id)], jobId: j.id, cls: 'organizer' }, 'Erasing these answers');
   insist(body.revision === organizer.revision, 'Organizer changed; refresh before erasing', 409);
   insist(body.confirm === organizer.definition.name, 'Type the organizer name to confirm erasing its answers');

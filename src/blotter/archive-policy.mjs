@@ -44,6 +44,8 @@ const inactive = (table, row) => {
 export default {
   product: 'accounting/blotter',
   excludeTables: ['b_enterprise_sessions', 'b_integration_limits', 'b_access_stepups', 'b_automation_events', 'b_document_uploads', 'b_document_upload_chunks', 'b_document_shares', 'b_intake_limits', 'b_intake_tokens', 'b_agent_keys', 'b_guard', 'b_portal_links', 'b_portal_invitations', 'b_portal_signins', 'b_portal_sessions', 'b_portal_recovery', 'b_portal_failures', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures', 'b_session_activity', 'b_file_text', 'b_vault_stepups', 'b_unsubscribe_tokens', 'b_marketing_confirmations'],
+  // Resolution case ids, job and organizer links, version and practitioner review attribution travel
+  // by table discovery. They grant no portal or agency authority and contain no answer copies.
   // Native client and time replay receipts travel by table discovery; they contain no session authority.
   // Retained rules and unsent staff alerts are history until explicitly reviewed.
   exportRow: inactive,

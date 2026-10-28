@@ -5,10 +5,11 @@ import { Fault, audit, guard, insist, now, stmt, type Actor, type Data } from '.
 
 export async function organizerAttachment(db: D1Database, jobId: string | null, contactId: string) {
   insist(jobId, 'no open job to attach the organizer to', 409);
-  const organizer = await stmt(db, `SELECT o.id,o.revision,o.erased_at,j.status,
+  const organizer = await stmt(db, `SELECT o.id,o.revision,o.erased_at,o.definition,j.status,
     EXISTS(SELECT 1 FROM b_organizer_answers a WHERE a.organizer_id=o.id AND a.contact_id=?) assigned
     FROM b_job_organizers o JOIN b_jobs j ON j.id=o.job_id WHERE o.job_id=?`, contactId, jobId).first<Data>();
   insist(organizer && !organizer.erased_at, 'no current organizer on the basis job', 409);
+  if (JSON.parse(organizer.definition).collectionForm) insist(await stmt(db, 'SELECT id FROM b_resolution_cases WHERE organizer_id=?', organizer.id).first(), '433-A organizer needs practitioner case review', 409);
   insist(organizer.status === 'open', 'the job holding the attached organizer closed', 409);
   insist(organizer.assigned, 'contact has no assigned organizer questions', 409);
   return { id: organizer.id as string, revision: organizer.revision as string };

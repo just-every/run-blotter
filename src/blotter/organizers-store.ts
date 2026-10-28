@@ -45,7 +45,7 @@ export async function writableOrganizer(db: D1Database, actor: Actor, organizerI
 
 export async function listOrganizers(db: D1Database, actor: Actor, jobId: string) {
   const j = await job(db, actor, jobId);
-  const organizers = [];
+  const organizers: Data[] = [];
   for (const row of await rows(db, 'SELECT id FROM b_job_organizers WHERE job_id=?', j.id)) {
     const organizer = await storedOrganizer(db, row.id);
     const answers = await organizerAnswers(db, row.id);
@@ -59,7 +59,8 @@ export async function listOrganizers(db: D1Database, actor: Actor, jobId: string
     const visible = visibleQuestions(organizer.definition, submitted);
     const required = organizer.definition.questions.filter(q => q.required && visible.has(q.key));
     const unresolved = required.filter(q => !submitted[q.key]?.confirmed || !submitted[q.key]?.value).map(q => ({ key: q.key, label: q.label, contactId: answers[q.key]?.contactId }));
-    organizers.push({ ...organizer, answers, submissions,
+    const resolution = organizer.definition.collectionForm ? await stmt(db, 'SELECT id FROM b_resolution_cases WHERE organizer_id=?', organizer.id).first<Data>() : null;
+    organizers.push({ ...organizer, answers, submissions, resolutionCaseId: resolution?.id ?? null,
       applicable: [...visible], completeness: { required: required.length, confirmed: required.length - unresolved.length, unresolved },
       requests: await rows(db, 'SELECT m.key,r.* FROM b_organizer_requests m JOIN b_requests r ON r.id=m.request_id WHERE m.organizer_id=? ORDER BY r.ordinal', row.id),
       deliveries: await rows(db, 'SELECT * FROM b_organizer_deliveries WHERE organizer_id=? ORDER BY sent_at,id', row.id) });

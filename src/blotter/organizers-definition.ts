@@ -3,7 +3,7 @@
 import { insist, integer, optional, text, type Data } from './model';
 
 export type OrganizerQuestion = { key: string; label: string; type: 'text' | 'choice'; options: string[]; required: boolean; when: { question: string; values: string[] } | null; request: string; workflowQuestion: string; es?: { label: string; options?: string[]; request?: string } };
-export type OrganizerDefinition = { name: string; kind: 'tax' | 'bookkeeping'; version: number; questions: OrganizerQuestion[]; es?: { name: string } };
+export type OrganizerDefinition = { name: string; kind: 'tax' | 'bookkeeping'; version: number; collectionForm?: '433-A'; questions: OrganizerQuestion[]; es?: { name: string } };
 
 export function organizerTemplate(value: unknown): OrganizerDefinition | null {
   if (value === undefined || value === null || value === '') return null;
@@ -13,6 +13,7 @@ export function organizerTemplate(value: unknown): OrganizerDefinition | null {
   insist(input && typeof input === 'object' && !Array.isArray(input), 'Supply an organizer definition');
   insist(['tax', 'bookkeeping'].includes(input.kind), 'Organizer kind: choose tax or bookkeeping');
   insist(Array.isArray(input.questions) && input.questions.length > 0 && input.questions.length <= 60, 'An organizer needs between 1 and 60 questions');
+  insist(!input.collectionForm || (input.kind === 'tax' && input.collectionForm === '433-A'), 'Collection form: choose 433-A on a tax organizer');
   const questions: OrganizerQuestion[] = [];
   for (const raw of input.questions) {
     insist(raw && typeof raw === 'object' && !Array.isArray(raw), 'Each organizer question is an object');
@@ -48,7 +49,7 @@ export function organizerTemplate(value: unknown): OrganizerDefinition | null {
       request: optional(raw.request, 'Supporting document request', 200), workflowQuestion, ...(es ? { es } : {}) });
   }
   const es = input.es?.name ? { name: text(input.es.name, 'Spanish organizer name', 120) } : undefined;
-  return { name: text(input.name, 'Organizer name', 120), kind: input.kind, version: integer(input.version ?? 1, 'Organizer version', 1, 1_000_000), questions, ...(es ? { es } : {}) };
+  return { name: text(input.name, 'Organizer name', 120), kind: input.kind, version: integer(input.version ?? 1, 'Organizer version', 1, 1_000_000), questions, ...(input.collectionForm ? { collectionForm: input.collectionForm } : {}), ...(es ? { es } : {}) };
 }
 
 export function visibleQuestions(definition: OrganizerDefinition, answers: Data): Set<string> {

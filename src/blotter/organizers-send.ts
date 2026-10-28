@@ -15,6 +15,7 @@ async function prepared(db: D1Database, actor: Actor, jobId: string, body: Data)
   const row = await stmt(db, 'SELECT id FROM b_job_organizers WHERE job_id=? AND erased_at IS NULL', jobId).first<Data>();
   insist(row, 'This job has no organizer snapshot', 404);
   const organizer = await storedOrganizer(db, row.id), answers = await organizerAnswers(db, row.id);
+  if (organizer.definition.collectionForm) insist(await stmt(db, 'SELECT id FROM b_resolution_cases WHERE organizer_id=? AND job_id=?', organizer.id, j.id).first(), 'Review this 433-A organizer on a resolution case before inviting contacts', 409);
   insist(body.revision === organizer.revision, 'Organizer changed; refresh before sending', 409);
   const assignments = body.assignments ?? Object.fromEntries(Object.entries(answers).map(([key, a]) => [key, a.contactId]));
   insist(assignments && typeof assignments === 'object' && !Array.isArray(assignments), 'Assign the questions to contacts');
