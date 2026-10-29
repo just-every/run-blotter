@@ -1,3 +1,4 @@
+import { agentCustodyHeld } from './agent-door/custody.ts';
 // Whole-practice archive and restore on Base portability, and file erasure that
 // fences older archives. Adapted from just-every/run-satchel src/satchel/archive.ts (MIT).
 import { ensureLegacyContacts } from './client-contacts';
@@ -46,6 +47,7 @@ export async function restore(db: D1Database, actor: Actor, body: Data) {
 /** Erase an uploaded file's bytes. Its name, hash and history remain; older archives are fenced. */
 export async function eraseFile(db: D1Database, actor: Actor, fileId: string, body: Data) {
   human(actor); need(actor, 'owner');
+  insist(!await agentCustodyHeld(db),'Agent evidence is retained: file erasure is held until retained decision evidence can be redacted atomically',409);
   const letter = await stmt(db, 'SELECT * FROM b_engagements WHERE id=?', fileId).first<Data>();
   if (letter) return eraseLetter(db, actor, letter, body);
   const intake = await stmt(db, 'SELECT * FROM b_prospect_files WHERE id=?', fileId).first<Data>();

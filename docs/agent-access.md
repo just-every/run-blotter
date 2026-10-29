@@ -59,3 +59,105 @@ Sign in as the person who created the key. Open **Preparations**, inspect the pr
 A revoked key or deactivated person receives `401` or `403`. Other rejected requests return JSON with an `error` message. Read context again when the job or billable items have changed; do not repeatedly submit a stale preparation.
 
 The repository's [API reference](https://github.com/just-every/run-blotter/blob/main/API.md) describes the same agent doors.
+
+## Company agent door
+
+The production Worker also serves one shared MCP endpoint at `/mcp`, with
+2026-07-28 and 2025-11-25 clients, discovery, canonical OAuth resource metadata,
+`/api/rer/agent-policy`, and the native person controls at `/agents`.
+Business tokens require consent and a signed Business-person binding to a current
+native operator id. A matching email is insufficient. The native practice role,
+MFA admission, client grants and read-only restrictions still apply. Only signed
+Business owners and mapped team administrators can fill Business policy roles;
+a local promotion never grants a Business policy role.
+
+The practice coordinator currently supports these MCP jobs:
+
+| Tool | Effect and class | Native clause |
+| --- | --- | --- |
+| `blotter.context.read` | Visible coordination metadata and internal preparation witness; standard | AGENT-001, ACCESS-001 |
+| `blotter.proposals.rollforward` | Internal roll-forward draft; standard | AGENT-001, WORK-002 |
+| `blotter.proposals.reminder` | Internal reminder draft; standard | AGENT-001, PORTAL-001 |
+| `blotter.proposals.export` | Internal billing-export draft; standard | AGENT-001, BILL-001 |
+| `blotter.readiness.read` | Source-linked request and answer evidence; sensitive | READY-001, AGENT-001 |
+| `blotter.readiness.prepare` | Source-linked question draft; standard | READY-001, AGENT-001 |
+| `blotter.learning.evidence` | Principal-only repeated review evidence; sensitive | LEARN-001, AGENT-001 |
+| `blotter.learning.prepare` | Principal-only template-improvement draft; standard | LEARN-001, AGENT-001 |
+| `blotter.learning.read` | Principal-only improvement and supporting sources; sensitive | LEARN-001, AGENT-001 |
+
+This installation declares the CORE capability families: `tools`, `policy`,
+`pause`, `audit` and `idempotency`. Events, resource reads, specialist MCP prompts
+and subscriptions are undeclared. Their listings are empty, discovery omits
+those capabilities, and calls return typed `capability_not_declared` refusals.
+`blotter.events.list` is absent from the tool registry. Native record visibility
+adapters remain internal; no resource links or resource contents are exposed.
+The read tools above provide the supported current evidence instead. Source
+text remains untrusted and never grants authority.
+
+The company policy decides autonomous, review, approval or blocked calls. No
+policy, an unanswered class, expired policy, Business/local Pause or revoked
+consent prevents the next call. Autonomous preparation creates a draft directly;
+it adds no company approval. A company approval authorizes only that exact draft
+or read, and retains its named reviewer and agent preparer. The separate native
+person decision still governs a reminder send, work roll-forward, portal question,
+template version or billing export under AGENT-001. The native SDK/key doors
+documented above retain their original preparation-only purpose; their key-bound
+supervised schedules are not a Business MCP scheduling family.
+
+Mutations require `idempotency_key`; exact retries have one effect and changed
+arguments conflict. Job tools accept the native string `expected_revision` and
+refuse stale first execution. Tools compute classes and summaries from current
+records. No direct role, credential, payment, filing or provider account action
+is exposed. There is no registered provider cost or spend authority. No declared
+MCP job reaches an outside provider; human sends and existing provider callbacks
+retain their native doors. Events, resources, prompts and subscriptions are undeclared families.
+Multi-sponsor orchestration, outbound mail and resource refresh remain unproved
+limits outside the subset switch.
+
+**Retained evidence and erasure.** Before the first admitted shared-door agent,
+Blotter places an installation-wide native custody hold. File/client erasure and
+retention expiry then remain held: deleting native records cannot remove retained
+MCP outcomes, approvals or audit. Atomic client-scoped redaction needs a future
+Base hook. The hold is conservative and cannot be cleared by an agent. Identity,
+policy, pending execution and shared door evidence never move in domain archives;
+retain installation evidence separately. This adoption makes no claim of complete
+shared-door client erasure or portability.
+
+**Runtime and verification.** The agent-door and Business settings runtime source
+is pinned to Base `114ef7a61f080da053af783c5fbe06f625d692cc`, the published
+`rer-v0.2.88` release. The installed CLI is `@runeditrun/rer@0.2.88`.
+Other maintained Base copies retain their recorded pins. No applied migration
+was replaced. Normal `rer verify` runs the production owner claim, native MFA
+enrollment and independent reviewer invitation before the specialist journey.
+The journey also proves that a native key receives only its original scopes and
+that revoking it stops the next MCP call. It explicitly replays a completed
+preparation under Pause, changed policy and removed scope, requiring refusal
+without another native effect or retained-result disclosure.
+
+**Base follow-ups.** The 0.2.88 shared runtime can return the retained result of an
+approved aggregate context read after the sponsor’s native grants narrow. Fresh
+context reads recheck native access; complete held-aggregate
+replay authority needs a Base revalidation hook before production use of that
+path. The 0.2.88 runtime enforces the same CORE declaration as the manifest;
+undeclared optional families are explicitly refused, not credited as proved.
+Atomic client-scoped retained-artifact redaction remains a Base follow-up.
+Shared-door clauses remain partial; these limits do not expand the
+coordinator's preparation-only native authority.
+
+**Contract alignment.** The read-only ct target at
+`027849901a78eb3a74755834fed19a88e5575afe` (`CONTRACT.md`, Agent surface)
+names 97 practice-coordinator action rows, nine resource templates, eleven
+classes, ten event families and five prompts. It is not merged into main.
+This CORE preparation subset has nine native tools, two classes and nine
+mandatory journey steps; zero public resources, events, subscriptions or MCP
+prompts. Internal readiness and preparation visibility adapters are retained.
+The tool table above uses the existing main clause ids without inventing
+SURFACE ids or claiming the ct target is complete.
+
+The ct delta remains partial across SURFACE-001–013: the full action registry;
+record joins and document/payment handoffs; external, money, commitment,
+accounts, gated, access, security, destructive and live effects; rescue,
+staffing, sourced deadline and revenue/onboarding execution; complete specialist
+documentation and the full engagement-week journey. AGENT-001's existing
+preparation and human-decision limit is retained. The broader AGENT-002/003,
+005–011 and 013 targets in that ct input are not claimed by this subset.
