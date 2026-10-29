@@ -7,6 +7,8 @@ import billing from '../../../docs/time-and-billing.md?raw'
 import moveIn from '../../../docs/move-in.md?raw'
 import backup from '../../../docs/backup-and-restore.md?raw'
 import agents from '../../../docs/agent-access.md?raw'
+import { PATHS, startLine } from '../../base/run-site'
+import { run } from '../run'
 
 export interface DocPage {
   path: string
@@ -33,7 +35,10 @@ function compile(slug: string, source: string, markdown: string): DocPage {
 // No Markdown renderer, network request or JavaScript is sent to the reader.
 export const docs = [
   compile('', 'README.md', index),
-  compile('getting-started', 'getting-started.md', gettingStarted),
+  compile('getting-started', 'getting-started.md', gettingStarted
+    .replace(/^```sh\n[\s\S]*?\n```/m, () => `\`\`\`sh\n${startLine(run)}\n\`\`\``)
+    .replace(/`npx -y @runeditrun\/rer dev [^`]+`/, () => `\`${run.clone}\``)
+    .replace('macOS, Linux or Windows with WSL2. git is required; rer brings Node and pnpm.', PATHS.self.requirements)),
   compile('jobs', 'jobs.md', jobs),
   compile('documents-and-review', 'documents-and-review.md', documents),
   compile('time-and-billing', 'time-and-billing.md', billing),
