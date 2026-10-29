@@ -136,10 +136,28 @@ without another native effect or retained-result disclosure.
 
 **Base follow-ups.** The 0.2.88 shared runtime can return the retained result of an
 approved aggregate context read after the sponsor’s native grants narrow. Fresh
-context reads and record resources recheck native access; complete held-aggregate
+context reads recheck native access; complete held-aggregate
 replay authority needs a Base revalidation hook before production use of that
 path. The 0.2.88 runtime enforces the same CORE declaration as the manifest;
 undeclared optional families are explicitly refused, not credited as proved.
 Atomic client-scoped retained-artifact redaction remains a Base follow-up.
 Shared-door clauses remain partial; these limits do not expand the
 coordinator's preparation-only native authority.
+
+**Contract alignment.** The read-only ct target at
+`027849901a78eb3a74755834fed19a88e5575afe` (`CONTRACT.md`, Agent surface)
+names 97 practice-coordinator action rows, nine resource templates, eleven
+classes, ten event families and five prompts. It is not merged into main.
+This CORE preparation subset has nine native tools, two classes and nine
+mandatory journey steps; zero public resources, events, subscriptions or MCP
+prompts. Internal readiness and preparation visibility adapters are retained.
+The tool table above uses the existing main clause ids without inventing
+SURFACE ids or claiming the ct target is complete.
+
+The ct delta remains partial across SURFACE-001–013: the full action registry;
+record joins and document/payment handoffs; external, money, commitment,
+accounts, gated, access, security, destructive and live effects; rescue,
+staffing, sourced deadline and revenue/onboarding execution; complete specialist
+documentation and the full engagement-week journey. AGENT-001's existing
+preparation and human-decision limit is retained. The broader AGENT-002/003,
+005–011 and 013 targets in that ct input are not claimed by this subset.
