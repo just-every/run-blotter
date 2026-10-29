@@ -244,6 +244,7 @@ client grant. No new screen or native model execution is claimed.
 | Method | Door | Behavior |
 | --- | --- | --- |
 | GET | `/api/blotter/jobs/:id/readiness` | Live document custody, checklist/answer map, latest accessible prior period, source links, drafted questions and tracked decisions/responses. |
+| GET | `/api/blotter/jobs/:id/readiness/scope?planId=<reviewed mapping id>` | Separate principal-session inspection of an explicitly selected reviewed ONBOARD-001 mapping from a completed current ordinary proposal on this same job. |
 | POST | `/api/blotter/jobs/:id/readiness/questions` | Prepare `{ "sourceKind": "request", "sourceId": "<request id>" }` or `sourceKind: "answer"` with the workflow answer key. Returns the same preparation for the same source fingerprint; sends nothing. |
 | POST | `/api/blotter/jobs/:id/readiness/questions/:question/decide` | A person supplies `decision` (`approve`, `decline`, `resolve`) and a nonempty `reason`. Approval adds one exact link-only portal to-do, without email. Source changes refuse stale approval. Only the assigned reviewer or principal resolves an approved question. |
 | GET | `/api/blotter/agent/jobs/:id/readiness` | Existing agent-key equivalent of the read door. |
@@ -258,8 +259,24 @@ does not remove a missing-document or answer judgment. Restores retain these gat
 and do not replay questions or sends. Evidence maps re-read erased-file state.
 Question records store source references and fingerprints, not document bytes or
 copied workflow answer values. Whole-client retention/erasure remains ERASURE-002.
-Signed-scope joining (ENGAGE-001), connected books (LEDGER-001), semantic conflict
-detection and ledger variance analysis remain unimplemented; READY-001 stays partial.
+The separate scope read returns this same native map plus `signedScope.source`
+(proposal family, version, predecessor, original and signed digests, completion
+time and signed-PDF download link) and `signedScope.mapping` (exact service quote,
+template, review fingerprint, principal attribution, reason, time and retained
+item selections). This is practitioner-declared mapping, never an inferred legal
+interpretation. It rechecks the current staff session and MFA, active client,
+open or in-review job, source bytes and digest, completed current proposal version,
+reviewed mapping, contact revisions and matching unchanged template on every read.
+Missing selections, foreign jobs or clients, unavailable or erased sources and
+held restored reviews are refused. A content-free attributed inspection event is
+the only write. Existing maps and all agent responses exclude the signed scope;
+agent keys and integration bearers do not authenticate this separate door.
+No question, judgment, sign-off, onboarding action, message, fee, signature or
+provider call is changed or authorized. Connected books (LEDGER-001), semantic
+conflict detection, ledger variance analysis, broader source joining, scope-bearing
+agent grants and the full engagement-agent journey remain unimplemented.
+ENGAGE-001's KBA-dependent completion and remaining lifecycle, CRM conversion
+and onboarding execution remain held; READY-001 stays partial.
 
 ## Bulk client messages and marketing consent (MSG-002, partial)
 
