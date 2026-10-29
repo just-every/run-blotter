@@ -13,6 +13,7 @@ export function enterpriseRefresh(db:D1Database,actor:Actor) {
     stmt(db,`INSERT OR IGNORE INTO b_enterprise_team_grants(team_id,email) SELECT m.team_id,i.email FROM b_enterprise_mappings m JOIN b_enterprise_group_members gm ON gm.group_id=m.group_id JOIN b_enterprise_identities i ON i.id=gm.identity_id WHERE m.team_id IS NOT NULL AND i.active=1 AND i.blocked=0 AND NOT EXISTS(SELECT 1 FROM oa_operators p WHERE p.email=i.email AND p.role='owner') AND NOT EXISTS(SELECT 1 FROM b_access_team_members x WHERE x.team_id=m.team_id AND x.email=i.email)`),
     stmt(db,`INSERT OR IGNORE INTO b_access_team_members(team_id,email) SELECT team_id,email FROM b_enterprise_team_grants`),
     stmt(db,"UPDATE oa_sessions SET revoked_at=? WHERE revoked_at IS NULL AND operator_id IN(SELECT o.id FROM oa_operators o JOIN b_enterprise_identities i ON i.email=o.email WHERE o.role<>'owner')",Date.now()),
+    stmt(db,`UPDATE b_mail_consents SET invalidated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),invalidation_reason='Enterprise authority changed; a fresh personal choice is required' WHERE invalidated_at IS NULL AND person_email IN(${managed})`),
     stmt(db,`UPDATE oa_operators SET version=version+1 WHERE email IN(${managed})`),
     stmt(db,"UPDATE b_agent_keys SET revoked=1 WHERE owner_id IN(SELECT o.id FROM oa_operators o JOIN b_enterprise_identities i ON i.email=o.email WHERE o.role<>'owner')"),
     stmt(db,'DELETE FROM b_enterprise_sessions'),

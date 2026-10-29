@@ -3,7 +3,7 @@ import { Blotter, Empty, Status, type Row, type Run, day } from './common';
 import { JobDetail } from './job';
 import { ReassignBulk } from './bulk';
 import { MyTimesheet } from './timesheet';
-import { SuggestedTime } from './suggestions';
+import { SuggestedTime, MailSuggestionSettings } from './suggestions';
 import { MyAlerts } from './discussions';
 import { MyWeek } from './plan';
 import { Calendar } from './calendar';
@@ -14,7 +14,7 @@ import { Board, statusLabel } from './statuses';
 export function Jobs({ state, jobId, open, run, tick }: { state: Row; jobId: string; open: (id: string) => void; run: Run; tick: number }) {
   if (jobId) return <JobDetail jobId={jobId} actor={state.actor} people={state.people} back={() => open('')} open={open} run={run} tick={tick} />;
   const jobs: Row[] = state.jobs;
-  if (!jobs.length) return <Blotter className="empty-sheet"><Empty>{state.actor.role === 'preparer' ? 'No jobs are assigned to you yet.' : 'No jobs yet. Add a client and a template under Clients & templates, then start a job.'}</Empty></Blotter>;
+  if (!jobs.length) return <><Blotter className="empty-sheet"><Empty>{state.actor.role === 'preparer' ? 'No jobs are assigned to you yet.' : 'No jobs yet. Add a client and a template under Clients & templates, then start a job.'}</Empty></Blotter><section className="panel"><h2>Suggested time</h2><MailSuggestionSettings run={run} tick={tick} /></section></>;
   return <JobList state={state} jobs={jobs} open={open} run={run} tick={tick} />;
 }
 
@@ -37,5 +37,5 @@ function JobList({ state, jobs, open, run, tick }: { state: Row; jobs: Row[]; op
       </tr>)}</tbody>
     </table>}
     {state.actor.role !== 'preparer' && !state.actor.accessScoped && !state.actor.readOnly && <details><summary>Reassign or reschedule in bulk</summary><ReassignBulk state={state} run={run} /></details>}
-  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} />{!state.actor.accessScoped&&<Notices actor={state.actor} run={run} tick={tick} />}<StaffSignatures run={run} tick={tick} /><MyAlerts tick={tick} open={open} />{!state.actor.accessScoped&&<><MyTimesheet actor={state.actor} people={state.people} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>}</>;
+  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} />{!state.actor.accessScoped&&<Notices actor={state.actor} run={run} tick={tick} />}<StaffSignatures run={run} tick={tick} /><MyAlerts tick={tick} open={open} />{!state.actor.accessScoped&&<><MyTimesheet actor={state.actor} people={state.people} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>}{state.actor.accessScoped && <section className="panel"><h2>Suggested time</h2><MailSuggestionSettings run={run} tick={tick} /></section>}</>;
 }

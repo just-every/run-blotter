@@ -59,6 +59,8 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
     const body = await request.clone().json() as Data;
     if (body.fileId) await requireDocument(db, actor, String(body.fileId));
   }
+  // A personal mail choice reads no client records and accepts no target identity.
+  if(path==='/time/mail-consent')return;
   if(!actor.accessScoped || factor)return;
   if(/^\/access($|\/)/.test(path)) {
     insist(actor.manageAccess && !path.startsWith('/access/delegations'),'Only the principal or a manage-access holder manages access',403);

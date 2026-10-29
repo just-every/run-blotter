@@ -120,15 +120,15 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "16d18acca9d76ed06bb27dfe2a71fa776bd68f73d2a4ec523dbd3609b508cf9f",
+      "sha256": "dbdbb87572c66ce6dffab9b39a29e6432dabde868ad9743bee721a4bee75730f",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "3bb5a7f2e3368cac43670fea214eaf9d8cfc6aba7f9a945eb47e987f7837df97",
+      "sha256": "c79fac2165ce184070692e897616f3a9207dbea1faf01c7a6b4250db9f24da5c",
       "executable": false
     },
     "API.md": {
-      "sha256": "ffa5b4b72c16fe583305cf3a3c98eb7a144ef9802f4f87dcb8c9206bc42d53c7",
+      "sha256": "c0a3b07614a953c3234262732c21cbd0dbf8990779c3387fd2e7f7ab521c799b",
       "executable": false
     },
     "base-copies.json": {
@@ -144,7 +144,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "8338b756056f4c1e85ddbf1e4f5e050d2919b250aeafd766276170ba6e140e7f",
+      "sha256": "00241b6b79a240965fa351780fd357e0f17ce1ebe84f65db4e5c3a4b251f2415",
       "executable": false
     },
     "deploy-demo.json": {
@@ -172,7 +172,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "763af37b4d38f74c90c11d8a9778b7854ff6ba2099f74fcfd2946ec8bdd8557b",
+      "sha256": "bb17e182b5eb3788109b6b008c2b82a9ef8db8b6543a1b560b905d8bce08b669",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -956,7 +956,7 @@
       "executable": false
     },
     "scripts/contract-docs.mjs": {
-      "sha256": "c68480fef87459ebb151cdfe51c9bec5958c1b2ac6769b756821690c895d2477",
+      "sha256": "e01a8115a30e4d95aed11c81c2b392abf20fe92b41309b1f0c804f00fba244d7",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {
@@ -1832,7 +1832,7 @@
       "executable": false
     },
     "src/blotter/access-gate.ts": {
-      "sha256": "15f25d1dfa60f6412dccc03751112d6dfae65a4b2e2696cf39f99974585c222a",
+      "sha256": "891d0678b521b6da659afda6126000c145462214d7d8cb13a0ede9994ba67935",
       "executable": false
     },
     "src/blotter/access-sql.ts": {
@@ -1864,7 +1864,7 @@
       "executable": false
     },
     "src/blotter/api.ts": {
-      "sha256": "72de6ff6df94baeb7f7509c4efbfc6cdb94f435480cdf229a1cdd2aebfad68cc",
+      "sha256": "c4ea5c2455ed1a6311404052cf103d9cbc6ff650ad5d813cdb19237c60a6c579",
       "executable": false
     },
     "src/blotter/archive-policy.d.mts": {
@@ -1872,7 +1872,7 @@
       "executable": false
     },
     "src/blotter/archive-policy.mjs": {
-      "sha256": "5c46228636440d9f62d5d71a70bff3644d8a2795245de5fcc741e0efa5d38ee4",
+      "sha256": "4efe53b6913151664b969f17c1e5934258c973a4335d8e74c7c26441ee6c333d",
       "executable": false
     },
     "src/blotter/archive-transfers.ts": {
@@ -2072,7 +2072,7 @@
       "executable": false
     },
     "src/blotter/enterprise-lifecycle.ts": {
-      "sha256": "0d5451b2d13a0b68141ec0dc286cd8f690b77fd837213bd16d22ac228b4c4887",
+      "sha256": "d907585be10cf96ef04a501d8a2e5eaa21b5997f4d98272f8d39329d99de578e",
       "executable": false
     },
     "src/blotter/enterprise-oidc.ts": {
@@ -2104,7 +2104,7 @@
       "executable": false
     },
     "src/blotter/erasure-registry.ts": {
-      "sha256": "ca538c6097043cf104eb93127420b69651faf5d39120f299eaaca030654a5dda",
+      "sha256": "26e48be6fa9194cea537ccb00a2f7db34af9ac3beb840f35f3849c4723c6d2c5",
       "executable": false
     },
     "src/blotter/erasure-restore.ts": {
@@ -2340,7 +2340,7 @@
       "executable": false
     },
     "src/blotter/offboarding.ts": {
-      "sha256": "326a342615689771cd28181088789dce2036136a4c28e3d89cdb46e283975d61",
+      "sha256": "1515572e00e5edd8e14a260718d185039f0a8ce68ce779d1cbe1d85739281def",
       "executable": false
     },
     "src/blotter/onboarding.ts": {
@@ -4856,7 +4856,7 @@
       "executable": false
     },
     "src/ui/jobs.tsx": {
-      "sha256": "bd0288e4ab611e2820e17e05410408a91c7e01a94b110fb175105e841fafa1e2",
+      "sha256": "c51b0487bc76f62e21aecba9a3957d72e8e89925efb1f348fd84fbec0f66de17",
       "executable": false
     },
     "src/ui/messages.tsx": {
@@ -4996,7 +4996,7 @@
       "executable": false
     },
     "src/ui/suggestions.tsx": {
-      "sha256": "3e9df762d9d9b343642d417c562c43baa63ab23850af6c369ef891504798e2b7",
+      "sha256": "fb887212a85a9384a5c97dfffa71af40f306152efe18e500a369e18ed8d111ba",
       "executable": false
     },
     "src/ui/tasks.tsx": {
