@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readArchive } from '@runeditrun/rer/modules/portability';
 import { harness } from './harness.mjs';
 import { integrationTaskJourney } from './integration-ui.mjs';
 import { enroll } from './erasure-fixture.mjs';
@@ -60,10 +61,11 @@ test('API-002 / BASE-001 integration lifecycle: principal step-up, bounded pagin
   assert.ok(audit.some(a=>a.action==='integration.read'&&a.object_id===key.id&&a.actor.includes(key.id)));
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
   assert.ok(!archive.includes(key.key));
-  const archiveRecords=archive.trim().split('\n').map(line=>JSON.parse(line));
-  // rer 0.2.86 preserves index definitions as schema metadata; excluded rate-limit data never travels.
-  assert.ok(!archiveRecords.find(record=>record.kind==='manifest').tables.some(table=>table.name==='b_integration_limits'));
-  assert.ok(!archiveRecords.filter(record=>record.kind==='part').some(record=>record.table==='b_integration_limits'||record.rows?.some(row=>row.table==='b_integration_limits')));
+  // Schema evidence names excluded tables; their inventory and rows must stay out.
+  for await (const record of readArchive(new Response(archive).body)) {
+   if(record.kind==='manifest')assert.ok(!record.tables.some(table=>table.name==='b_integration_limits'));
+   if(record.kind==='part')assert.ok(!record.items.some(item=>item.kind==='row'&&item.table==='b_integration_limits'));
+  }
   restored=await harness();await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
   const restoredKeys=await restored.json('/integration-keys',undefined,restored.owner);
   assert.equal(restoredKeys.keys.find(k=>k.id===key.id).status,'suspended');

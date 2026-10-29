@@ -5,9 +5,17 @@ name: Verify
 # file shards consume the same emitted Worker.
 on:
   push:
-    branches: [main, 'cloud/**', 'sx/**', 'hotfix/**']
+    branches: ['**']
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tier:
+        type: string
+        default: push
+      timeout:
+        type: number
+        default: 15
 
 permissions:
   contents: read
@@ -19,67 +27,54 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 1
     permissions:
       contents: read
       actions: read
     outputs:
-      skip: ${{ steps.reuse.outputs.skip }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      skip: ${{ steps.plan.outputs.skip }}
+      coverage: ${{ steps.plan.outputs.coverage }}
+      tier: ${{ steps.plan.outputs.tier }}
+      readers: ${{ steps.plan.outputs.readers }}
+      has_shards: ${{ steps.plan.outputs.has_shards }}
+      has_checks: ${{ steps.plan.outputs.has_checks }}
+      has_nightly: ${{ steps.plan.outputs.has_nightly }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 2
           persist-credentials: false
-      - id: reuse
+      - name: Check reusable workflow permissions
+        run: node scripts/verify-ci.mjs --check-workflows
+      - name: Look up complete nightly marker
+        id: nightly
+        if: ${{ github.event_name == 'schedule' || inputs.tier == 'nightly' }}
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: ${{ runner.temp }}/nightly-green
+          key: nightly-green-${{ github.sha }}
+          lookup-only: true
+      - id: plan
         env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          WF_REF: ${{ github.workflow_ref }}
-        run: |
-          set -euo pipefail
-          wf="${WF_REF%@*}"; wf="${wf##*/}"
-          # Evidence is only a push run of this workflow from this repository, never this run: a pull request
-          # tests its merge ref, a dispatch may run a subset, and a PR run of this workflow may itself be a skip.
-          # Prints "<status> <conclusion>" of the newest such run on SHA $1, or nothing (any API error: nothing).
-          newest_push() {
-            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/runs?head_sha=$1&event=push&per_page=100" \
-              --jq "[.workflow_runs[] | select(.head_repository.full_name == \"$GITHUB_REPOSITORY\" and .id != $GITHUB_RUN_ID)] | max_by(.id) | select(. != null) | \"\(.status) \(.conclusion)\"" || true
-          }
-          green() { [ "$(newest_push "$1")" = "completed success" ]; }
-          skip=false
-          # C1: main push of a SHA whose newest push run of this workflow (a branch run) is green.
-          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && green "$GITHUB_SHA"; then skip=true; fi
-          # C3 (exact): same tree as the parent, and the parent's newest push run is green (e.g. an empty commit).
-          if [ "$skip" = false ] && [ "$EVENT" = push ] && parent=$(git rev-parse -q --verify HEAD~1) \
-             && [ "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'HEAD~1^{tree}')" ] && green "$parent"; then skip=true; fi
-          # C2: same-repository PR. The lander takes any green same-repo run on the exact SHA as evidence,
-          # pull_request runs included, so this run may pass without shards only when the push run on the
-          # PR head is green: wait for it (at most 25 minutes).
-          # No push run, any other result, or the wait running out: run in full.
-          if [ "$EVENT" = pull_request ] && [ "$SAME_REPO" = true ]; then
-            for _ in $(seq 1 50); do
-              state=$(newest_push "$PR_HEAD")
-              case "$state" in
-                'completed success') skip=true; break ;;
-                ''|completed\ *) break ;;
-                *) sleep 30 ;;
-              esac
-            done
-          fi
-          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          TIER: ${{ inputs.tier || 'push' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          NIGHTLY_CACHE_HIT: ${{ steps.nightly.outputs.cache-hit }}
+        run: node scripts/ci/verification.mjs --plan
 
   checks:
+    name: shards (checks)
     needs: plan
-    if: needs.plan.outputs.skip != 'true'
+    if: needs.plan.outputs.has_checks == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: ${{ inputs.timeout || 15 }}
     env:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
+      PLAYWRIGHT_SKIP_BROWSER_GC: '1'
     steps:
+      - name: Set runner-owned browser cache
+        run: printf 'PLAYWRIGHT_BROWSERS_PATH=%s/ms-playwright\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -88,6 +83,17 @@ jobs:
           node-version: '22.20.0'
           package-manager-cache: false
       - run: npm install --global pnpm@10.12.4
+      - run: pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+      - name: Prepare runner-owned browser and apt caches
+        run: mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" "$RUNNER_TEMP/rer-apt/archives"
+      - name: Cache frozen dependencies and Chromium
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ${{ runner.temp }}/pnpm-store
+            ${{ runner.temp }}/ms-playwright
+            ${{ runner.temp }}/rer-apt/archives/*.deb
+          key: blotter-ubuntu24-temp-store-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'package.json') }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec rer check --profile first-party
       - run: node scripts/contract-docs.mjs check
@@ -95,15 +101,19 @@ jobs:
       - name: Check edition source lock freshness
         run: node scripts/edition-authoring/cli.mjs check
       - run: pnpm run build
-      - name: Install Chromium
+      - name: Install and probe Chromium before system dependencies
         run: |
           set -euo pipefail
           pnpm exec playwright install chromium
-          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
-          node scripts/ci/chromium-probe.mjs || {
-            timeout 420 pnpm exec playwright install-deps chromium
-            node scripts/ci/chromium-probe.mjs
-          }
+          probe() { node scripts/ci/chromium-probe.mjs; }
+          if probe; then
+            :
+          else
+            status=$?
+            if [ "$status" -eq 77 ]; then exit "$status"; fi
+            sudo env "PATH=$PATH" "APT_ARCHIVES=$RUNNER_TEMP/rer-apt/archives" python3 scripts/install-chromium-deps.py
+            probe
+          fi
       - run: pnpm run test:email-link
       # This unchanged test builds the run site itself.
       - run: pnpm run test:site
@@ -121,19 +131,22 @@ jobs:
           retention-days: 1
 
   shards:
+    name: shards (${{ matrix.name }})
     needs: [plan, checks]
-    if: needs.plan.outputs.skip != 'true'
+    if: needs.plan.outputs.has_shards == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: ${{ inputs.timeout || 15 }}
     env:
-      BLOTTER_TEST_SHARD: ${{ matrix.shard }}/7
+      BLOTTER_TEST_SHARD: ${{ matrix.partition }}
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
+      PLAYWRIGHT_SKIP_BROWSER_GC: '1'
     steps:
+      - name: Set runner-owned browser cache
+        run: printf 'PLAYWRIGHT_BROWSERS_PATH=%s/ms-playwright\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -142,16 +155,31 @@ jobs:
           node-version: '22.20.0'
           package-manager-cache: false
       - run: npm install --global pnpm@10.12.4
+      - run: pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+      - name: Prepare runner-owned browser and apt caches
+        run: mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" "$RUNNER_TEMP/rer-apt/archives"
+      - name: Cache frozen dependencies and Chromium
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ${{ runner.temp }}/pnpm-store
+            ${{ runner.temp }}/ms-playwright
+            ${{ runner.temp }}/rer-apt/archives/*.deb
+          key: blotter-ubuntu24-temp-store-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'package.json') }}
       - run: pnpm install --frozen-lockfile
-      - name: Install Chromium
+      - name: Install and probe Chromium before system dependencies
         run: |
           set -euo pipefail
           pnpm exec playwright install chromium
-          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
-          node scripts/ci/chromium-probe.mjs || {
-            timeout 420 pnpm exec playwright install-deps chromium
-            node scripts/ci/chromium-probe.mjs
-          }
+          probe() { node scripts/ci/chromium-probe.mjs; }
+          if probe; then
+            :
+          else
+            status=$?
+            if [ "$status" -eq 77 ]; then exit "$status"; fi
+            sudo env "PATH=$PATH" "APT_ARCHIVES=$RUNNER_TEMP/rer-apt/archives" python3 scripts/install-chromium-deps.py
+            probe
+          fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: verify-build
@@ -160,18 +188,85 @@ jobs:
         run: tar -xzf "$RUNNER_TEMP/verify-build.tgz"
       - run: pnpm run test:blotter
 
-  verify:
+  light:
+    needs: plan
+    if: ${{ needs.plan.outputs.coverage == 'light' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - run: npm install --global pnpm@10.12.4
+      - run: pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: blotter-ubuntu24-light-store-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'package.json') }}
+      - run: pnpm install --frozen-lockfile
+      - name: Run the changed files' reviewed readers and build the run site
+        env:
+          LIGHT_READERS: ${{ needs.plan.outputs.readers }}
+        run: node scripts/ci/verification.mjs --light
+
+  full-push-proof:
     needs: [plan, checks, shards]
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && needs.plan.outputs.tier == 'push' && needs.plan.outputs.coverage == 'full' && needs.checks.result == 'success' && needs.shards.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - run: test '${{ needs.checks.result }}' = success && test '${{ needs.shards.result }}' = success
+
+  nightly-proof:
+    needs: [plan, checks, shards]
+    if: ${{ needs.plan.outputs.has_nightly == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && (needs.plan.outputs.tier == 'nightly' || needs.plan.outputs.tier == 'all') && needs.plan.outputs.coverage == 'full' && needs.shards.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - name: Mark successful complete nightly coverage
+        run: mkdir -p "$RUNNER_TEMP/nightly-green" && printf '%s\n' '${{ github.sha }}' > "$RUNNER_TEMP/nightly-green/sha"
+      - uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: ${{ runner.temp }}/nightly-green
+          key: nightly-green-${{ github.sha }}
+
+  verify:
+    needs: [plan, checks, shards, light, full-push-proof, nightly-proof]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 1
     steps:
-      - name: Require the plan and every shard
+      - name: Require the selected coverage and its proof
         env:
           PLAN: ${{ needs.plan.result }}
+          CHECKS: ${{ needs.checks.result }}
+          HAS_CHECKS: ${{ needs.plan.outputs.has_checks }}
+          REQUIRE_PUSH_PROOF: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && needs.plan.outputs.tier == 'push' && needs.plan.outputs.coverage == 'full' }}
+          SHARDS: ${{ needs.shards.result }}
+          LIGHT: ${{ needs.light.result }}
+          PUSH_PROOF: ${{ needs.full-push-proof.result }}
+          NIGHTLY_PROOF: ${{ needs.nightly-proof.result }}
+          COVERAGE: ${{ needs.plan.outputs.coverage }}
+          HAS_SHARDS: ${{ needs.plan.outputs.has_shards }}
           SKIP: ${{ needs.plan.outputs.skip }}
-          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
+          set -euo pipefail
           test "$PLAN" = success
-          if [ "$SKIP" = true ]; then exit 0; fi
-          for result in $RESULTS; do test "$result" = success; done
+          if [ "$HAS_CHECKS" = true ]; then test "$CHECKS" = success; else test "$CHECKS" = skipped; fi
+          if [ "$REQUIRE_PUSH_PROOF" = true ]; then test "$PUSH_PROOF" = success; fi
+          case "$PUSH_PROOF:$NIGHTLY_PROOF" in
+            *failure*|*cancelled*) exit 1 ;;
+          esac
+          case "$COVERAGE" in
+            reuse) test "$SKIP" = true && test "$SHARDS" = skipped && test "$LIGHT" = skipped ;;
+            light) test "$SKIP" = false && test "$LIGHT" = success && test "$SHARDS" = skipped ;;
+            full) test "$LIGHT" = skipped && { test "$SHARDS" = success || { test "$HAS_SHARDS" = false && test "$SHARDS" = skipped; }; } ;;
+            *) exit 1 ;;
+          esac

@@ -7,6 +7,7 @@ Blotter keeps recurring client jobs, document requests, reviewer decisions and t
 ## Start here
 
 - [Getting started](/docs/getting-started): run Blotter locally, finish setup and add your people.
+- [Hosting](/docs/hosting): put Blotter online with help or on your own Cloudflare account.
 - [Jobs and templates](/docs/jobs): start a job and roll it into the next period.
 - [Client documents and review](/docs/documents-and-review): request files, accept them and record sign-off.
 - [Time and billing](/docs/time-and-billing): record time and approve a fixed CSV export.
