@@ -117,17 +117,6 @@
         "LEARN-001",
         "AGENT-001"
       ]
-    },
-    {
-      "name": "blotter.events.list",
-      "scope": "events:read",
-      "readOnly": true,
-      "classes": [
-        "standard"
-      ],
-      "clauses": [
-        "BASE-AGENT-010"
-      ]
     }
   ],
   "notTools": [
@@ -164,10 +153,7 @@
       "reason": "connector"
     }
   ],
-  "resources": [
-    "blotter://engagements/{id}",
-    "blotter://proposals/{id}"
-  ],
+  "resources": [],
   "witness": {
     "tool": "blotter.context.read",
     "args": {}
@@ -396,18 +382,6 @@
             "kind": "accounting",
             "measure": 2
           }
-        }
-      ]
-    },
-    {
-      "id": "events",
-      "tool": "blotter.events.list",
-      "args": {
-        "limit": 200
-      },
-      "expect": [
-        {
-          "class": "standard"
         }
       ]
     }

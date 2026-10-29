@@ -41,8 +41,19 @@ export default async function({request,origin,cookie,tool}){
  assert.equal(scoped.status,200);
  assert.equal((await scoped.json()).result.structuredContent.jobs.length,data.jobs.length,'A native key reads only its sponsor context');
  const outside=await localCall('blotter.events.list');
- assert.equal(outside.status,403,'The door never adds events scope to a native key');
- assert.equal((await outside.json()).error.data.code,'insufficient_scope');
+ assert.equal(outside.status,200);
+ assert.equal((await outside.json()).result._meta['com.runeditrun/error'].code,'capability_not_declared','Undeclared events are refused even for a valid native key');
+
+ // A native supervised-plan grant narrows this same live key immediately.
+ const price=await api('/api/blotter/costs/prices',{service:'agent_plan',included:0,unitCents:0,source:'Disposable native scope-narrowing fixture; no execution'});
+ await api('/api/blotter/costs/budget',{limitCents:0,thresholdCents:0,reason:'No execution or spending in the scope fixture'});
+ await api('/api/blotter/costs/services/agent_plan',{revision:price.revision,enabled:true,reason:'Permit a native supervised-plan grant only'});
+ await api('/api/blotter/agent-rules',{name:'Cedar scoped coordinator',clientId:before.job.client_id,keyId:local.id,trigger:'file',tool:'reminder',budget:1});
+ const narrowed=await localCall('blotter.proposals.reminder',{...args,idempotency_key:crypto.randomUUID()});
+ assert.equal(narrowed.status,403,'A supervised native key cannot bypass its original plan scope through MCP');
+ assert.equal((await narrowed.json()).error.data.code,'insufficient_scope');
+ const afterNarrowing=await tool('blotter.context.read',{});
+ assert.deepEqual(afterNarrowing.result.structuredContent.preparations,witness.result.structuredContent.preparations,'Scope refusal creates no preparation');
  await api(`/api/blotter/keys/${local.id}/revoke`,{});
  const revoked=await localCall('blotter.context.read');
  assert.equal(revoked.status,401,'Revoking the native key stops its next MCP call');

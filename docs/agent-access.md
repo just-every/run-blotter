@@ -84,13 +84,15 @@ The practice coordinator currently supports these MCP jobs:
 | `blotter.learning.evidence` | Principal-only repeated review evidence; sensitive | LEARN-001, AGENT-001 |
 | `blotter.learning.prepare` | Principal-only template-improvement draft; standard | LEARN-001, AGENT-001 |
 | `blotter.learning.read` | Principal-only improvement and supporting sources; sensitive | LEARN-001, AGENT-001 |
-| `blotter.events.list` | Shared door decision/effect history; standard | BASE-AGENT-010 |
 
-`blotter://engagements/{id}` returns native readiness evidence;
-`blotter://proposals/{id}` returns the preparing person's internal proposal.
-Fresh reads recheck current native access through company policy, approval and audit.
-Missing and restricted resources are indistinguishable. Imported/source text is
-untrusted; neither resource returns document bytes, vault values or bearer links.
+This installation declares the CORE capability families: `tools`, `policy`,
+`pause`, `audit` and `idempotency`. Events, resource reads, specialist MCP prompts
+and subscriptions are undeclared. Their listings are empty, discovery omits
+those capabilities, and calls return typed `capability_not_declared` refusals.
+`blotter.events.list` is absent from the tool registry. Native record visibility
+adapters remain internal; no resource links or resource contents are exposed.
+The read tools above provide the supported current evidence instead. Source
+text remains untrusted and never grants authority.
 
 The company policy decides autonomous, review, approval or blocked calls. No
 policy, an unanswered class, expired policy, Business/local Pause or revoked
@@ -108,8 +110,9 @@ refuse stale first execution. Tools compute classes and summaries from current
 records. No direct role, credential, payment, filing or provider account action
 is exposed. There is no registered provider cost or spend authority. No declared
 MCP job reaches an outside provider; human sends and existing provider callbacks
-retain their native doors. Custom subscriptions, multi-sponsor orchestration,
-outbound mail and resource refresh are undeclared families.
+retain their native doors. Events, resources, prompts and subscriptions are undeclared families.
+Multi-sponsor orchestration, outbound mail and resource refresh remain unproved
+limits outside the subset switch.
 
 **Retained evidence and erasure.** Before the first admitted shared-door agent,
 Blotter places an installation-wide native custody hold. File/client erasure and
@@ -121,8 +124,8 @@ retain installation evidence separately. This adoption makes no claim of complet
 shared-door client erasure or portability.
 
 **Runtime and verification.** The agent-door and Business settings runtime source
-is pinned to Base `5381ab872b5ab4de80e811bcb4b1a803dd713e0f`, the published
-`rer-v0.2.87` release. The installed CLI is `@runeditrun/rer@0.2.87`.
+is pinned to Base `114ef7a61f080da053af783c5fbe06f625d692cc`, the published
+`rer-v0.2.88` release. The installed CLI is `@runeditrun/rer@0.2.88`.
 Other maintained Base copies retain their recorded pins. No applied migration
 was replaced. Normal `rer verify` runs the production owner claim, native MFA
 enrollment and independent reviewer invitation before the specialist journey.
@@ -131,12 +134,12 @@ that revoking it stops the next MCP call. It explicitly replays a completed
 preparation under Pause, changed policy and removed scope, requiring refusal
 without another native effect or retained-result disclosure.
 
-**Base follow-ups.** The 0.2.87 shared runtime can return the retained result of an
+**Base follow-ups.** The 0.2.88 shared runtime can return the retained result of an
 approved aggregate context read after the sponsor’s native grants narrow. Fresh
 context reads and record resources recheck native access; complete held-aggregate
 replay authority needs a Base revalidation hook before production use of that
-path. This release also still advertises Base resources/subscriptions and serves
-the built-in event tool regardless of the seed's declared core capabilities.
-The subset switch and atomic client-scoped retained-artifact redaction remain
-Base follow-ups. Shared-door clauses remain partial; these limits do not expand
-the coordinator's preparation-only native authority.
+path. The 0.2.88 runtime enforces the same CORE declaration as the manifest;
+undeclared optional families are explicitly refused, not credited as proved.
+Atomic client-scoped retained-artifact redaction remains a Base follow-up.
+Shared-door clauses remain partial; these limits do not expand the
+coordinator's preparation-only native authority.

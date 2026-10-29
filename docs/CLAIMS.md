@@ -90,7 +90,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-002 — The seed's jobs are tools, through the UI's own actions
 
@@ -100,7 +100,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-003 — Records are resources
 
@@ -110,7 +110,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-004 — Business identity and short-lived, audience-bound tokens
 
@@ -120,7 +120,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.87 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.87 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
 
 ### BASE-AGENT-005 — An agent acts as a person in a role, never more
 
@@ -130,7 +130,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.87 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.87 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
 
 ### BASE-AGENT-006 — Every action declares its risk class
 
@@ -140,7 +140,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-007 — The company's policy decides, at one chokepoint
 
@@ -150,7 +150,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-008 — Truthful attribution
 
@@ -160,7 +160,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-009 — Every agent action is audited with its class and decision
 
@@ -170,7 +170,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-010 — Agents can follow changes
 
@@ -180,7 +180,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-011 — Limits are policy, and Pause stops everything
 
@@ -190,7 +190,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
 
 ### BASE-AGENT-012 — Writes are idempotent and conflict-safe
 
@@ -200,7 +200,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.87 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.87 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
 
 ### BASE-AGENT-013 — Manifest, docs and the conformance journey
 
@@ -210,4 +210,4 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (1071/1071 BASE-AGENT conformance points through the installed 0.2.87 door verifier; native signed owner and independent reviewer lifecycle, original local-key scopes, next-call revocation and current-authority replay after Pause, policy and scope changes)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Base 0.2.87 still needs the runtime/harness subset switch; declaring capabilities does not disable its built-in event tool or subscription advertisement. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: events, resources, prompts and subscriptions; Base 0.2.88 enforces typed refusals and empty optional listings under the CORE declaration. Multi-sponsor, outbound mail and resource refresh remain unproved and unscoped by the switch. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
