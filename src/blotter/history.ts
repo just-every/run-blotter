@@ -15,7 +15,7 @@ import { documentAuthority } from './permissions';
 /** Each history kind and the audit actions it covers. */
 const KINDS: Record<string, string> = {
   clients: "a.action LIKE 'client.%'",
-  documents: "a.action LIKE 'request.%' OR a.action LIKE 'file.%' OR a.action LIKE 'deliverable.%' OR a.action LIKE 'signature.%' OR a.action LIKE 'efile.%'",
+  documents: "a.action LIKE 'request.%' OR a.action LIKE 'file.%' OR a.action LIKE 'deliverable.%' OR a.action LIKE 'signature.%' OR a.action LIKE 'efile.%' OR a.action LIKE 'proposal.%'",
   assignments: "a.action IN ('job.started','job.rolled_forward','job.reassigned','job.task_access','client.merged','client.merge_undone') OR a.action LIKE 'step.%' OR a.action LIKE 'coverage.%'",
   reviews: "a.action IN ('job.submitted','job.returned','job.signed_off')",
   deadlines: "a.action LIKE 'deadline.%' OR a.action LIKE 'notice.%' OR a.action LIKE 'rule.%'",
@@ -57,7 +57,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
 /** Open items of these jobs (and, for leads, client-wide discussions), each with its owner, next action and due condition. */
 async function openItems(db: D1Database, ids: string, clientId: string | null) {
   const open = `SELECT value FROM json_each(?1)`;
-  const [requests, tasks, reviews, threads, notices, portal, coverage,invoices] = await Promise.all([
+  const [requests, tasks, reviews, threads, notices, portal, coverage,invoices,proposals] = await Promise.all([
     rows(db, `SELECT r.id,r.label,r.status,j.id job_id,j.title,j.period_label,j.preparer_email,j.due_date FROM b_requests r JOIN b_jobs j ON j.id=r.job_id
       WHERE j.id IN (${open}) AND j.status='open' AND r.organizer_active=1 AND r.status IN ('requested','received') ORDER BY j.due_date,r.ordinal`, ids),
     rows(db, `SELECT s.ordinal,s.label,s.assignee_email,s.assignee_role,j.id job_id,j.title,j.period_label,j.preparer_email,j.reviewer_email,j.manager_email,j.due_date FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
@@ -70,9 +70,11 @@ async function openItems(db: D1Database, ids: string, clientId: string | null) {
     rows(db, `SELECT k.id,k.reason,k.owner_email,j.id job_id,j.title,j.period_label,j.due_date FROM b_coverage_conflicts k JOIN b_jobs j ON j.id=k.job_id
       WHERE j.id IN (${open}) AND k.resolved_at IS NULL ORDER BY k.created_at`, ids),
     rows(db,`SELECT i.id,i.title,i.job_id,i.owner_email,i.due_date,(SELECT p.state FROM b_provider_payments p WHERE p.invoice_id=i.id AND p.state IN ('failed','returned','disputed','requires_action','held') ORDER BY p.updated_at DESC LIMIT 1) payment_issue FROM b_invoices i WHERE i.job_id IN (${open}) AND i.status='issued' AND ${invoiceBalanceSql('i')}>0`,ids),
+    rows(db,`SELECT s.id,s.title,s.job_id,s.requester_email,j.due_date FROM b_engagement_proposals p JOIN b_signatures s ON s.id=p.id JOIN b_jobs j ON j.id=s.job_id WHERE j.id IN (${open}) AND p.superseded_by IS NULL AND s.status IN ('draft','pending','declined','held')`,ids),
   ]);
   const work = (j: Data) => `${j.title} · ${j.period_label}`;
   return [
+    ...proposals.map(p=>({kind:'proposal',id:p.id,jobId:p.job_id,work:p.title,owner:p.requester_email,nextAction:'Review or complete the unsigned proposal',due:`job due ${p.due_date}`})),
     ...invoices.map(i=>({kind:'invoice',id:i.id,jobId:i.job_id,work:i.title,owner:i.owner_email,nextAction:i.payment_issue?`Resolve ${i.payment_issue.replaceAll('_',' ')} payment with the client; no automatic retry`:'Resolve the open invoice balance',due:`invoice due ${i.due_date}`})),
     ...requests.map(r => ({ kind: 'request', id: r.id, jobId: r.job_id, work: work(r), owner: r.preparer_email, nextAction: r.status === 'requested' ? `Collect “${r.label}” from the client` : `Accept or return “${r.label}”`, due: `job due ${r.due_date}` })),
     ...tasks.map(t => {
@@ -130,6 +132,11 @@ export async function changeOwner(db: D1Database, actor: Actor, clientId: string
   } else if (item.kind === 'discussion') {
     insist(await can(['reviewer']) || (j && j.preparer_email === to), `${to} cannot read this discussion`);
     change = [stmt(db, "UPDATE b_threads SET owner_email=? WHERE id=? AND status='open'", to, itemId)];
+  } else if(item.kind==='proposal'){
+    insist(await can(['reviewer']) || j!.preparer_email===to,'The proposal owner must be able to work on this job');
+    const current=await stmt(db,'SELECT revision FROM b_signatures WHERE id=?',itemId).first<Data>();
+    const [check,release]=guard(db,"EXISTS(SELECT 1 FROM b_signatures WHERE id=? AND revision=? AND requester_email=? AND status IN ('draft','pending','declined','held'))",itemId,current!.revision,item.owner);
+    change=[check,stmt(db,'UPDATE b_signatures SET requester_email=?,revision=? WHERE id=?',to,id(),itemId),release];
   } else if(item.kind==='invoice'){
     insist(await can(['reviewer']),`${to} must be an active reviewer or the principal`);
     change=[stmt(db,"UPDATE b_invoices SET owner_email=? WHERE id=? AND status='issued'",to,itemId)];

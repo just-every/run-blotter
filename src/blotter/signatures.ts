@@ -30,7 +30,7 @@ async function staffSigner(db:D1Database,actor:Actor,clientId:string,address:str
   insist(member&&await canAccessClient(db,email,clientId)&&!await stmt(db,'SELECT 1 FROM b_access_members WHERE email=? AND read_only=1',email).first(),'A staff signer must be an active member with working access to this client',409);
   return {email,name:String(member!.name||email)};
 }
-export async function createSignature(db:D1Database,actor:Actor,jobId:string,body:Data) {
+export async function prepareSignatureDraft(db:D1Database,actor:Actor,jobId:string,body:Data) {
   human(actor);need(actor,'owner','reviewer','preparer');insist(!actor.automation,'A person must approve signature requests',403);
   const j=await job(db,actor,jobId),title=text(body.title,'Document title',200),formKind=text(body.formKind??'general','Form kind',100);
   insist(body.requiresKba===undefined||typeof body.requiresKba==='boolean','Requires KBA must be true or false');
@@ -49,10 +49,15 @@ export async function createSignature(db:D1Database,actor:Actor,jobId:string,bod
   insist(!kind.eFile,'This form requires the SIGN-001 KBA provider. Electronic signing is unavailable until it is configured.',409);
   const prepared=await preparePdf(file.bytes,body.fields,people.map((c:Data)=>c.id)),requestId=id(),at=now(),revision=id();
   const contacts=people.filter((c:Data)=>!c.staff),guards=contacts.map((c:Data)=>contactGuard(db,j.client_id,c.id,'signature',c.revision)),[open,done]=openSignatureJob(db,j.id,actor);
-  await atomic(db,actor,[open,...guards.map(g=>g[0]),stmt(db,`INSERT INTO b_signatures(id,job_id,title,requester_email,original_requester,mode,status,revision,form_kind,source_name,source_sha256,source_base64,fields,pages,created_at,attestation_required) VALUES(?,?,?,?,?,?,'draft',?,?,?,?,?,?,?,?,?)`,requestId,j.id,title,actor.email,actor.email,mode,revision,formKind,file.name,await digest(file.bytes),base64(file.bytes),JSON.stringify(prepared.fields),JSON.stringify(prepared.pages),at,kind.attestation?1:0),
+  const statements=[open,...guards.map(g=>g[0]),stmt(db,`INSERT INTO b_signatures(id,job_id,title,requester_email,original_requester,mode,status,revision,form_kind,source_name,source_sha256,source_base64,fields,pages,created_at,attestation_required) VALUES(?,?,?,?,?,?,'draft',?,?,?,?,?,?,?,?,?)`,requestId,j.id,title,actor.email,actor.email,mode,revision,formKind,file.name,await digest(file.bytes),base64(file.bytes),JSON.stringify(prepared.fields),JSON.stringify(prepared.pages),at,kind.attestation?1:0),
     ...people.map((c:Data,i:number)=>stmt(db,'INSERT INTO b_signature_signers(request_id,attempt,contact_id,ordinal,contact_revision,name,email,signer_kind) VALUES(?,1,?,?,?,?,?,?)',requestId,c.id,i+1,c.revision??'',c.name,c.email,c.staff?'staff':'contact')),
-    ...signatureEvent(db,{id:requestId,job_id:j.id,attempt:1,requester_email:actor.email},'created',actor.email,'Document and PDF fields frozen'),...guards.map(g=>g[1]),done]);
-  return signatureDetail(db,actor,requestId);
+    ...signatureEvent(db,{id:requestId,job_id:j.id,attempt:1,requester_email:actor.email},'created',actor.email,'Document and PDF fields frozen'),...guards.map(g=>g[1]),done];
+  return {requestId,statements};
+}
+export async function createSignature(db:D1Database,actor:Actor,jobId:string,body:Data) {
+  const prepared=await prepareSignatureDraft(db,actor,jobId,body);
+  await atomic(db,actor,prepared.statements);
+  return signatureDetail(db,actor,prepared.requestId);
 }
 /** Invitations are claimed once with the request, before contacting the provider.
  * A lost provider result is uncertain and is never silently retried. */

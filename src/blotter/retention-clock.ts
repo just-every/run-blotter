@@ -94,7 +94,7 @@ export async function clocks(db: D1Database): Promise<Clocked[]> {
     const clock = latest(events)!;
     out.push({ kind: 'export', id: x.id, cls: 'billing', clientIds, label: x.title, clock, years: years.billing, expiry: addYears(clock, years.billing) });
   }
-  out.push(...await signatureClocks(db,tz,years.signed_documents));
+  out.push(...await signatureClocks(db,tz,years.signed_documents,years.engagement));
   out.push(...await invoiceClocks(db,tz,years.billing));
   return out;
 }
