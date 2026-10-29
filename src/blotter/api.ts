@@ -1,3 +1,4 @@
+import { mailConsent, saveMailConsent } from './mail-consent';
 import { efileAuthorization, recordEfileAuthorization, downloadEfileOriginal } from './efile-authorizations';
 import { resolutionCase, createResolutionCase } from './resolution-cases';
 import { clientProposals, proposalDetail, createProposal } from './engagement-proposals';
@@ -452,6 +453,8 @@ api.post(`${P}/time/:id/delete`, as((a, c) => deleteTime(db(c), a, param(c))));
 api.post(`${P}/jobs/:id/timer`, as(async (a, c) => startTimer(db(c), a, param(c), await body(c))));
 api.post(`${P}/timer/stop`, as((a, c) => stopTimer(db(c), a)));
 api.post(`${P}/timer/discard`, as((a, c) => discardTimer(db(c), a)));
+api.get(`${P}/time/mail-consent`, as((a,c) => mailConsent(db(c),a)));
+api.post(`${P}/time/mail-consent`, as(async(a,c) => saveMailConsent(db(c),a,await body(c,4000))));
 api.get(`${P}/time/suggestions`, as((a, c) => suggestions(db(c), a)));
 api.post(`${P}/time/suggestions/consent`, as(async (a, c) => setConsent(db(c), a, await body(c))));
 api.post(`${P}/time/suggestions/decide`, as(async (a, c) => decideSuggestion(db(c), a, await body(c))));

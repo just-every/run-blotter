@@ -693,3 +693,36 @@ The principal authors and amends proposals and explicitly sends or voids their s
 Review the generated PDF, then explicitly send through `POST /api/blotter/signatures/:id/send`. Existing SIGN-002 contact-bound portal doors collect separate electronic consent and signatures, and provide original, signed and certificate PDF downloads. Both contacts sign every replacement. Marketing consent is separate and signing changes no invoice, payment mandate or onboarding record; proposal completion does not trigger signature automation. IRS e-file forms remain refused pending SIGN-001 KBA.
 
 Completed proposal families, including partially signed prior versions, use the signed-engagement class period and its later client-work sign-off clock. Existing signature record holds, class and job holds, erasure previews, retained principal reads, explicit expiry receipts and stale-restore fences apply. Expiry clears proposal terms and PDF bytes while preserving version links and attribution. Mail invitations and staff and contact downloads are named outside copies. Unfinished restored requests stay held until an explicit fresh send; old contact links never travel. Practitioner-recorded signed letters retain their existing provenance label.
+
+## Personal mail time-suggestion choice
+
+Authenticated staff inspect their own choice through
+`GET /api/blotter/time/mail-consent`. It is initially off and returns the exact
+presented wording, `wordingVersion`, `reviewToken`, `lastId` and attributed history.
+In Suggested time, open Mail suggestion settings to allow or withdraw the choice.
+This remains separate from native-work consent and any future calendar choice.
+
+`POST /api/blotter/time/mail-consent` accepts only `choice` (`opt_in`, `withdraw`
+or `decline`), a unique `requestId`, and the presented `reviewToken`, `lastId`
+and `wordingVersion`. It takes no target person or caller-supplied attribution.
+The same current staff member must make the choice; agent and integration
+bearers have no door. Current staff status, session and required MFA are checked
+again in the atomic write. Identical concurrent requests record one choice and
+one audit; changed intent, conflicting concurrent choices and stale requests
+cannot replace a later choice. Withdrawal requires a fresh explicit opt-in to
+reverse it.
+
+Evidence retains the immutable staff operator ID, staff address, mail source
+category, exact wording and version, choice, actor and UTC time. Deactivation,
+offboarding and enterprise authority changes invalidate prior choices without
+transferring them to a successor. Reactivation requires a new sign-in and a
+fresh personal choice. These are classified staff records, independent of
+client erasure. Archives retain original attribution with `restored=1`; restored
+history is inactive even if a new account has the same address. A new choice
+belongs to the new account ID. Session credentials never travel with evidence.
+
+Mailboxes are not connected and mail-derived suggestions remain unavailable.
+This choice grants no provider access or connected-processing activation and
+creates no message, suggestion, time entry, invoice or billing effect. Scoped
+OAuth, authorized Gmail and Microsoft 365 mailbox grants, connected mail work
+and full provider-copy activation evidence remain required by MAIL-001.
