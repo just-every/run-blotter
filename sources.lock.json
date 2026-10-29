@@ -1836,7 +1836,7 @@
       "executable": false
     },
     "src/blotter/access-gate.ts": {
-      "sha256": "891d0678b521b6da659afda6126000c145462214d7d8cb13a0ede9994ba67935",
+      "sha256": "b3063ee82c09622070dbc1d2a4f4ad5f22fccbe971667fce4acfb656496ff221",
       "executable": false
     },
     "src/blotter/access-sql.ts": {
@@ -2296,7 +2296,7 @@
       "executable": false
     },
     "src/blotter/mail-consent.ts": {
-      "sha256": "50b2735fba9d6940ed5dfe4f418376dba7d0abdf5821b60324fc23c4c5576f16",
+      "sha256": "7ba69319d37892f029eedcaddd99b3d44c8e624f7d9fbf98c088fb5d8945a74d",
       "executable": false
     },
     "src/blotter/marketing-consent.ts": {
@@ -5236,11 +5236,11 @@
       "executable": false
     },
     "tests/blotter/mail-consent-ui.mjs": {
-      "sha256": "b971237b358b76dc0f23d23a1c2be0aeb8e699e0d6e30198b363bb8b17d027c0",
+      "sha256": "80ca364fe68598a6da5e4188cd5d06ba88e61c03e3748ca4a8d0c987056c74bd",
       "executable": false
     },
     "tests/blotter/mail-consent.test.mjs": {
-      "sha256": "4d97edd02a0379345a30dc9200be43805409cc8c7cadf4653bc17e24651f273a",
+      "sha256": "b64b50c8b426b57f74fdb3b28484c74a1780cd480b7e45582e84df25b332f3b8",
       "executable": false
     },
     "tests/blotter/mobile-ui.mjs": {

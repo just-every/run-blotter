@@ -38,7 +38,7 @@ export async function mailConsent(db: D1Database, actor: Actor) {
 
 export async function saveMailConsent(db: D1Database, actor: Actor, body: Data) {
   const person = await staff(db, actor);
-  insist(!actor.readOnly, 'A writable staff session is required', 403);
+  insist(!actor.readOnly || body.choice === 'withdraw', 'A writable staff session is required to grant mail consent', 403);
   insist(Object.keys(body).every(k => ['requestId','reviewToken','lastId','wordingVersion','choice'].includes(k)), 'Only your presented mail choice fields are accepted');
   insist(typeof body.requestId === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(body.requestId), 'Supply a unique mail choice request id');
   insist(['decline','opt_in','withdraw'].includes(body.choice), 'Choose whether to allow mail time suggestions');

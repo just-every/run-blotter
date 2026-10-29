@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
 // The functional journey always runs at desktop width in Verify; phone captures are local proof.
-export async function mailConsentJourney(h, cookie) {
+export async function mailConsentJourney(h, cookie, beforeWithdraw) {
   const directory = process.env.BLOTTER_MAIL_EVIDENCE;
   if (directory) await mkdir(directory, { recursive: true });
   const browser = await chromium.launch({ headless: true, ...(process.env.BLOTTER_CHROMIUM ? { executablePath: process.env.BLOTTER_CHROMIUM } : {}), args: ['--no-sandbox','--use-mock-keychain','--password-store=basic'] });
@@ -38,7 +38,8 @@ export async function mailConsentJourney(h, cookie) {
       }
       if (directory) await page.screenshot({ path: `${directory}/mail-choice-on-${width}.png`, fullPage: true });
     }
-    await page.setViewportSize({ width: 1440, height: 1000 });
+    if (beforeWithdraw) await beforeWithdraw();
+    await page.setViewportSize({ width: directory ? 390 : 1440, height: 1000 });
     await panel.getByRole('button', { name: 'Withdraw mail consent', exact: true }).focus(); await page.keyboard.press('Enter');
     await panel.getByRole('button', { name: 'Allow mail time suggestions', exact: true }).waitFor();
     panel = await open(); await panel.getByRole('status').filter({ hasText: 'Off' }).waitFor();

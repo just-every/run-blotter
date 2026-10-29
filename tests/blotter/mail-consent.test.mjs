@@ -74,7 +74,8 @@ test('Separate personal mail choice is explicit, attributed, once-only and withd
       return Promise.all(tables.map(async table => [table, (await h.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()).results]));
     };
     const before = await effects(), calls = h.mails.length;
-    await mailConsentJourney(h, prep.cookie);
+    await mailConsentJourney(h, prep.cookie, () => h.json('/access/people', { email: prep.email, readOnly: true, clientIds: [client.id] }, h.owner));
+    await h.json('/access/people', { email: prep.email, readOnly: false, clientIds: [client.id] }, h.owner);
     assert.deepEqual(await effects(), before); assert.equal(h.mails.length, calls);
     assert.deepEqual(await h.json('/time/suggestions', undefined, prep.cookie), native);
     const suggestion = native.pending[0];
@@ -87,8 +88,17 @@ test('Separate personal mail choice is explicit, attributed, once-only and withd
     const scoped = await read(h, prep.cookie);
     assert.equal((await save(h, prep.cookie, scoped, 'opt_in', 'synthetic-blotter-712')).optedIn, true, 'Scoped staff can choose for themselves without firm-wide access');
     await h.json('/access/people', { email: prep.email, readOnly: true, clientIds: [client.id] }, h.owner);
-    await save(h, prep.cookie, await read(h, prep.cookie), 'withdraw', 'synthetic-blotter-713', 403);
-    assert.equal((await read(h, prep.cookie)).optedIn, true, 'A refused write changes no evidence');
+    const readOnlyChoice = await read(h, prep.cookie);
+    const withdrawn = await save(h, prep.cookie, readOnlyChoice, 'withdraw', 'synthetic-blotter-713');
+    assert.equal(withdrawn.optedIn, false, 'Read-only client access cannot prevent personal withdrawal');
+    assert.equal(withdrawn.history.length, readOnlyChoice.history.length + 1);
+    assert.deepEqual([withdrawn.history[0].choice, withdrawn.history[0].actorId, withdrawn.history[0].personId], ['withdraw', withdrawn.personId, withdrawn.personId]);
+    assert.deepEqual(await save(h, prep.cookie, readOnlyChoice, 'withdraw', 'synthetic-blotter-713'), withdrawn);
+    const withdrawalAudits = (await h.json('/team', undefined, h.owner)).audit.filter(a => a.action === 'mail.choice_recorded' && a.object_id === withdrawn.lastId);
+    assert.equal(withdrawalAudits.length, 1); assert.equal(withdrawalAudits[0].actor, prep.email);
+    await save(h, prep.cookie, withdrawn, 'opt_in', 'synthetic-blotter-714', 403);
+    await h.json(`/jobs/${job.id}/steps`, { ordinal: 1, done: false }, prep.cookie, 403);
+    assert.deepEqual(await read(h, prep.cookie), withdrawn, 'Refused writes cannot change the withdrawn choice');
 
   } finally { await h.close(); }
 });
