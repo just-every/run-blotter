@@ -5240,7 +5240,7 @@
       "executable": false
     },
     "tests/blotter/mail-consent.test.mjs": {
-      "sha256": "b64b50c8b426b57f74fdb3b28484c74a1780cd480b7e45582e84df25b332f3b8",
+      "sha256": "2d0abc1415bba29eb8055848b8d4ddfd6683f760bbe8bf439e64f3817f2df550",
       "executable": false
     },
     "tests/blotter/mobile-ui.mjs": {

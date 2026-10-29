@@ -74,8 +74,7 @@ test('Separate personal mail choice is explicit, attributed, once-only and withd
       return Promise.all(tables.map(async table => [table, (await h.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()).results]));
     };
     const before = await effects(), calls = h.mails.length;
-    await mailConsentJourney(h, prep.cookie, () => h.json('/access/people', { email: prep.email, readOnly: true, clientIds: [client.id] }, h.owner));
-    await h.json('/access/people', { email: prep.email, readOnly: false, clientIds: [client.id] }, h.owner);
+    await mailConsentJourney(h, prep.cookie);
     assert.deepEqual(await effects(), before); assert.equal(h.mails.length, calls);
     assert.deepEqual(await h.json('/time/suggestions', undefined, prep.cookie), native);
     const suggestion = native.pending[0];
@@ -99,6 +98,10 @@ test('Separate personal mail choice is explicit, attributed, once-only and withd
     await save(h, prep.cookie, withdrawn, 'opt_in', 'synthetic-blotter-714', 403);
     await h.json(`/jobs/${job.id}/steps`, { ordinal: 1, done: false }, prep.cookie, 403);
     assert.deepEqual(await read(h, prep.cookie), withdrawn, 'Refused writes cannot change the withdrawn choice');
+    await h.json('/access/people', { email: prep.email, readOnly: false, clientIds: [client.id] }, h.owner);
+    const beforeReadOnlyUi = await effects(), mailsBeforeReadOnlyUi = h.mails.length;
+    await mailConsentJourney(h, prep.cookie, () => h.json('/access/people', { email: prep.email, readOnly: true, clientIds: [client.id] }, h.owner));
+    assert.deepEqual(await effects(), beforeReadOnlyUi); assert.equal(h.mails.length, mailsBeforeReadOnlyUi);
 
   } finally { await h.close(); }
 });
