@@ -75,4 +75,6 @@ rer dev --stop
 
 ## Use your own installation
 
+The [hosting guide](/docs/hosting) walks through putting Blotter online, with help or on your own Cloudflare account.
+
 A production installation needs your own Cloudflare account and a verified sending address with your mail provider. Before deploying, edit `vars.MAIL_PROVIDER` and `vars.MAIL_FROM` in `deploy.json`, then commit that file. The sender must use a domain verified by that provider. Required private deployment inputs are `OWNER_EMAIL`, `SESSION_SECRET`, `SETUP_TOKEN` and `MAIL_API_KEY`; `VAULT_KEY` is optional and must be retained with any encrypted vault backup. Supply those values through your private environment or secret manager. The hosted setup form also supports RER managed mail, Resend, SendGrid and Cloudflare Email Sending. Follow the repository's [deployment instructions](https://github.com/just-every/run-blotter#deploy-your-installation) and [operations guide](https://github.com/just-every/run-blotter/blob/main/OPERATIONS.md). Keep credentials in your private environment or secret manager.
