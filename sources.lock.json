@@ -128,7 +128,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "cdb44bb825b35a259c33c5441164008f492a533745bef8617b0f030f30af6e54",
+      "sha256": "958beaa6822af307b8fe90b6ecc6071fbf9451717a75dda28eec8112658aaf58",
       "executable": false
     },
     "CLAUDE.md": {
@@ -652,7 +652,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "7b9553d481f060242d57ad97490c706463398c617ae36650cdc57138c313f1dc",
+      "sha256": "ccb5eced5552b6944f3f4f3b5c45c46cd0489a79a81bd67b45e8100d20b60325",
       "executable": false
     },
     "packaging.json": {
@@ -660,7 +660,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "8a5cb5411cdeb3a9e010bf7aa71cc4e02a54cf8f5099ed100cc8b0d0d6bd8650",
+      "sha256": "73a8c244b82d76b9b2495f5b9be2d01e58f80005e06f57dc302436d44be15a72",
       "executable": false
     },
     "public/app/base.css": {
