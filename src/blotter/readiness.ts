@@ -52,7 +52,7 @@ export async function readiness(db: D1Database, actor: Actor, jobId: string) {
     questions: questions.map(q => ({ ...q, source_stamp: undefined,
       progress: q.status === 'approved' ? q.response_status === 'done' ? 'evidence_received_judgment_required' : 'awaiting_client' : q.status })),
     unresolvedJudgments: questions.filter(q => q.status === 'approved').length,
-    coverage: { signedScope: 'unavailable: ENGAGE-001', ledger: 'unavailable: LEDGER-001',
+    coverage: { signedScope: 'unavailable in this map: principal inspection requires the separate reviewed-scope door', ledger: 'unavailable: LEDGER-001',
       varianceAnalysis: 'unavailable: ledger comparison not implemented',
       interpretation: 'Native request acceptance and recorded checklist answers only. Changed answers are differences, not inferred contradictions. Client responses never validate evidence or complete review or filing.' } };
 }

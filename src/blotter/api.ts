@@ -25,6 +25,7 @@ import { billingExportPage } from './billing-read';
 import { createClientOnce } from './client-writes';
 import { createTimeOnce } from './time-writes';
 import { readiness, prepareReadiness, decideReadiness } from './readiness';
+import { readinessScope } from './readiness-scope';
 import { approveBatch, batchDetail, batches, markMisclassified, previewBatch, reviewList, runBatch, scheduleBatch } from './bulk-messages';
 import { providerEvent } from './bulk-events';
 import { confirmMarketing, consentLog, correctConsent, recordConsent } from './marketing-consent';
@@ -310,6 +311,7 @@ api.post(`${P}/templates`, as(async (a, c) => saveTemplate(db(c), a, await body(
 api.post(`${P}/jobs`, as(async (a, c) => startJob(c.env, a, await body(c))));
 api.get(`${P}/jobs/:id`, as((a, c) => jobDetail(db(c), a, param(c))));
 api.get(`${P}/jobs/:id/readiness`, as((a,c)=>readiness(db(c),a,param(c))));
+api.get(`${P}/jobs/:id/readiness/scope`, as((a,c)=>readinessScope(db(c),a,param(c),c.req.query('planId'))));
 api.post(`${P}/jobs/:id/readiness/questions`, as(async(a,c)=>prepareReadiness(db(c),a,param(c),await body(c))));
 api.post(`${P}/jobs/:id/readiness/questions/:question/decide`, as(async(a,c)=>decideReadiness(db(c),a,param(c),param(c,'question'),await body(c))));
 api.get(`${P}/agent/jobs/:id/readiness`, asAgent((a,c)=>readiness(db(c),a,param(c))));
