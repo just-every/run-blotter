@@ -119,3 +119,5 @@ Base hook. The hold is conservative and cannot be cleared by an agent. Identity,
 policy, pending execution and shared door evidence never move in domain archives;
 retain installation evidence separately. This adoption makes no claim of complete
 shared-door client erasure or portability.
+
+**Base replay follow-up.** The 0.2.86 shared runtime can return the retained result of an approved aggregate context read after the sponsor’s native grants narrow. Fresh context reads and record resources recheck native access; complete held-aggregate replay authority needs a Base revalidation hook before production use of that path. This remains a partial shared-door claim.

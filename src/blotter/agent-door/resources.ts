@@ -1,7 +1,7 @@
 import type { ResourceDefinition, ResourceContext, ToolContext } from '../../modules/agent-door/index.ts';
 import { ToolRefusal } from '../../modules/agent-door/index.ts';
 import { readiness } from '../readiness.ts';
-import { stmt, preparationOwnerSql, need, job } from '../model.ts';
+import { stmt, preparationOwnerSql, insist, need, job } from '../model.ts';
 import { nativeActor } from './people.ts';
 import { redactAccess } from '../access-gate.ts';
 import { standard, sensitive } from './native.ts';
@@ -11,7 +11,8 @@ export async function proposalRecord(ctx:ResourceContext,id:string) {
  const row=await stmt(ctx.db,`SELECT id,kind,payload,status,agent_label,for_email,decided_by,decided_at,result_id FROM b_proposals WHERE id=? AND ${preparationOwnerSql()}`,id,actor.id,actor.email).first<any>();
  if(!row)return null;
  const payload=JSON.parse(row.payload);
- if(payload.jobId)await job(ctx.db,actor,payload.jobId);else need(actor,'owner','reviewer');
+ if(payload.jobId)await job(ctx.db,actor,payload.jobId);
+ else {need(actor,'owner','reviewer');insist(!actor.accessScoped,'Preparation not found',404);}
  return {...row,payload};
 }
 const unavailable = async (read:()=>Promise<unknown>) => {

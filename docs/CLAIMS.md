@@ -128,7 +128,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (995/995 BASE-AGENT conformance points through normal rer verify; native signed owner and independent reviewer lifecycle)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.86 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
 
 ### BASE-AGENT-005 — An agent acts as a person in a role, never more
 
@@ -138,7 +138,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (995/995 BASE-AGENT conformance points through normal rer verify; native signed owner and independent reviewer lifecycle)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.86 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
 
 ### BASE-AGENT-006 — Every action declares its risk class
 
@@ -208,7 +208,7 @@ Status: **partial**.
 
 Evidence: `agent-surface.json`; `tests/agent-door/owner.mjs`; `tests/agent-door/journey.mjs` (995/995 BASE-AGENT conformance points through normal rer verify; native signed owner and independent reviewer lifecycle)
 
-Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist.
+Gap: Declared CORE preparation subset only. Undeclared families: custom events/subscriptions, multi-sponsor, outbound mail and resource refresh. Broader person-only effects remain under AGENT-001. Client-scoped retained-artifact erasure requires an atomic Base custody hook; erasure stays held when door artifacts exist. Base 0.2.86 approved aggregate-read requestState replay can return retained context after native grant narrowing; requires a Base current-read/revalidation hook before held aggregate reads can claim complete native authority.
 
 ### BASE-AGENT-013 — Manifest, docs and the conformance journey
 
