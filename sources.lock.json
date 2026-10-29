@@ -120,7 +120,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "18eed20dee08c51974a4f52d2e50fa69821f96c7ba948b479cb49cc9311919a5",
+      "sha256": "b6290808f60c62ec80f618c43891e3c993efda57b63d9a3823f10d1164c56b6f",
       "executable": false
     },
     "agent-surface.json": {
@@ -148,7 +148,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6a66fc8b1271b4022eeacaacf72f9365d292e33f54c04a5a44d0b5999e57844d",
+      "sha256": "325a611805613072666888c7b427dafeef347b67c2eacbdd54012b5c59b9d0d6",
       "executable": false
     },
     "deploy-demo.json": {
@@ -176,7 +176,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "21247f06d50326fd09c12cd0cf921a7246de91a224a3989c10342aa6cdbd2c94",
+      "sha256": "ac7157e6df48cef72fc7aa3326d667da39660eed9a819a136398a86ef0044dd5",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -224,7 +224,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "f5a72e5906a2550e59e69744eaae4846b821717e8c3b4c1aec76cc1923cb5adc",
+      "sha256": "de976d1339c8b598b179b3c62d8f096e8eecd54c7e27513ae2013f38bb1e5ae1",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -1872,7 +1872,7 @@
       "executable": false
     },
     "src/blotter/agent-door/learning.ts": {
-      "sha256": "8db96c1c959090b30edc0d852374ec5599e637fdbf55de40d473bcd033395d0d",
+      "sha256": "0523754b484352ecde19a0e6d57f1faa1ba65159246ae188e41eb2a67470bf98",
       "executable": false
     },
     "src/blotter/agent-door/native.ts": {
@@ -1884,15 +1884,15 @@
       "executable": false
     },
     "src/blotter/agent-door/proposals.ts": {
-      "sha256": "e60a780c2f43d8f9ee6db521c1ec16c36b9b96718fb307bf2bba4e6f7c06499e",
+      "sha256": "c72f09c7e29b249580a46bb0053a9534549ad90bdab1aee9ecf9294e45a7aa69",
       "executable": false
     },
     "src/blotter/agent-door/readiness.ts": {
-      "sha256": "f03ba0785febd8b3af67974d0f57ffc853202103647f085d7d3125a5009aef83",
+      "sha256": "05b6ba98b0e308ddaece1477a4a9c4aeb3d5d755246ae3d1c8e7fff00c6c9e1c",
       "executable": false
     },
     "src/blotter/agent-door/resources.ts": {
-      "sha256": "308452d6143b7a936f7a61662756646c63ffdca7675349ef52941b1ff065aac9",
+      "sha256": "b4b2fea133e2ff79587a75a992724093e96c8ca5efd8a9c36ec0d0e999b16c05",
       "executable": false
     },
     "src/blotter/agent-door/trust.ts": {
@@ -2020,7 +2020,7 @@
       "executable": false
     },
     "src/blotter/clients.ts": {
-      "sha256": "4cc09afbf827a5d37930852093381a06b1b0fe2f897cbd826211b4b9d3d62e83",
+      "sha256": "88b6acba1899ca980a98a94b3c5a7e6106c9a1b59140024c3de169afca631a7d",
       "executable": false
     },
     "src/blotter/costs.ts": {
@@ -2348,7 +2348,7 @@
       "executable": false
     },
     "src/blotter/learning.ts": {
-      "sha256": "231eb4f86bed3fdb433547bfe8270531d950aba2d4658f5822929376773e13f2",
+      "sha256": "dc140a8b23844dc82b753c06e4690a3192953b28f6a19a389827b167de901f12",
       "executable": false
     },
     "src/blotter/marketing-consent.ts": {
@@ -2372,7 +2372,7 @@
       "executable": false
     },
     "src/blotter/model.ts": {
-      "sha256": "557aca02020b09a20e76459a7011f9742b5cb93bd13daa3f0a87ee7d74aa8a22",
+      "sha256": "ba93bb7298c843d92e3a43446091e42c792aa2d60bf0900de93e9a0ab5267fe5",
       "executable": false
     },
     "src/blotter/notices.ts": {
@@ -2400,7 +2400,7 @@
       "executable": false
     },
     "src/blotter/offboarding.ts": {
-      "sha256": "326a342615689771cd28181088789dce2036136a4c28e3d89cdb46e283975d61",
+      "sha256": "901b63ed84aa6cd7739fc34d4d8201becaea0f306b19ddf56b4a1f7b52f3b76c",
       "executable": false
     },
     "src/blotter/onboarding.ts": {
@@ -2500,7 +2500,7 @@
       "executable": false
     },
     "src/blotter/proposals.ts": {
-      "sha256": "8a8ea46bc5d31fc3123078389ccd821df9b2587cb2ba0af3902946c22259c18a",
+      "sha256": "7266bb341052c27b2cd118156304f90b27f90d10b82ae97005e711d7f02ff176",
       "executable": false
     },
     "src/blotter/prospects.ts": {

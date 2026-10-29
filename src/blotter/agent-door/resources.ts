@@ -1,14 +1,14 @@
 import type { ResourceDefinition, ResourceContext, ToolContext } from '../../modules/agent-door/index.ts';
 import { ToolRefusal } from '../../modules/agent-door/index.ts';
 import { readiness } from '../readiness.ts';
-import { stmt, need, job } from '../model.ts';
+import { stmt, preparationOwnerSql, need, job } from '../model.ts';
 import { nativeActor } from './people.ts';
 import { redactAccess } from '../access-gate.ts';
 import { standard, sensitive } from './native.ts';
 const part=(uri:string)=>decodeURIComponent(new URL(uri).pathname.slice(1));
 export async function proposalRecord(ctx:ResourceContext,id:string) {
  const actor=await nativeActor(ctx);
- const row=await stmt(ctx.db,'SELECT id,kind,payload,status,agent_label,for_email,decided_by,decided_at,result_id FROM b_proposals WHERE id=? AND for_email=?',id,actor.email).first<any>();
+ const row=await stmt(ctx.db,`SELECT id,kind,payload,status,agent_label,for_email,decided_by,decided_at,result_id FROM b_proposals WHERE id=? AND ${preparationOwnerSql()}`,id,actor.id,actor.email).first<any>();
  if(!row)return null;
  const payload=JSON.parse(row.payload);
  if(payload.jobId)await job(ctx.db,actor,payload.jobId);else need(actor,'owner','reviewer');
