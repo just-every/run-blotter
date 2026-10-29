@@ -47,6 +47,7 @@ export function lines(value: unknown, label: string, max = 30) {
   return list as string[];
 }
 
+export const preparationOwnerSql = (alias='') => `(${alias}door_sponsor_id=? OR (${alias}door_sponsor_id IS NULL AND ${alias}for_email=?))`;
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export function need(actor: Actor, ...roles: Role[]) { insist(roles.includes(actor.role), 'Your role cannot perform this action', 403); }
@@ -113,7 +114,7 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
   }
   const approval: D1PreparedStatement[] = [], decision: D1PreparedStatement[] = [];
   if (actor.approval) {
-    const [pending, done] = guard(db, `EXISTS(SELECT 1 FROM b_proposals WHERE id=? AND for_email=? AND status='pending')`, actor.approval.id, actor.email);
+    const [pending, done] = guard(db, `EXISTS(SELECT 1 FROM b_proposals WHERE id=? AND ${preparationOwnerSql()} AND status='pending')`, actor.approval.id, actor.id, actor.email);
     approval.push(pending, done);
     const [live,liveDone]=guard(db,`NOT EXISTS(SELECT 1 FROM b_agent_runs WHERE proposal_id=?) OR EXISTS(SELECT 1 FROM b_agent_runs ar WHERE ar.proposal_id=? AND ${liveAgentRuleSql.replace('j.id=?','j.id=ar.job_id').replace('r.id=?','r.id=ar.rule_id').replace('? NOT LIKE',"ar.event_key NOT LIKE").replace('substr(?,6)', 'substr(ar.event_key,6)')})`,actor.approval.id,actor.approval.id);
     approval.push(live,liveDone);

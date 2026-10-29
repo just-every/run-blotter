@@ -660,6 +660,12 @@
       "name": "0117_agent_door_custody.sql",
       "sha256": "2fb36fa4a9ab3c91cded6a610d1c282b671598d43338039516c5b6958c92b1bd",
       "sql": "-- Native custody exception: no automatic cleanup or false client-erasure claim.\n-- Admission takes this durable hold before source capture. A future reviewed\n-- Base client-scoped redaction hook is required before it can be released.\nCREATE TABLE b_agent_door_custody(id INTEGER PRIMARY KEY CHECK(id=1),retained INTEGER NOT NULL CHECK(retained=1));\nCREATE TRIGGER b_agent_door_client_erasure BEFORE INSERT ON b_client_erasures\nWHEN EXISTS(SELECT 1 FROM b_agent_door_custody WHERE retained=1)\nBEGIN SELECT RAISE(ABORT,'agent evidence custody hold: client erasure requires atomic retained-artifact redaction'); END;\nCREATE TRIGGER b_agent_door_expiry BEFORE INSERT ON b_expiry_erasures\nWHEN EXISTS(SELECT 1 FROM b_agent_door_custody WHERE retained=1)\nBEGIN SELECT RAISE(ABORT,'agent evidence custody hold: retention expiry requires atomic retained-artifact redaction'); END;\nCREATE TRIGGER b_agent_door_file_erasure BEFORE UPDATE OF erased_at ON b_files\nWHEN OLD.erased_at IS NULL AND NEW.erased_at IS NOT NULL AND EXISTS(SELECT 1 FROM b_agent_door_custody WHERE retained=1)\nBEGIN SELECT RAISE(ABORT,'agent evidence custody hold: file erasure requires atomic retained-artifact redaction'); END;\nCREATE TRIGGER b_agent_door_intake_erasure BEFORE UPDATE OF erased_at ON b_prospect_files\nWHEN OLD.erased_at IS NULL AND NEW.erased_at IS NOT NULL AND EXISTS(SELECT 1 FROM b_agent_door_custody WHERE retained=1)\nBEGIN SELECT RAISE(ABORT,'agent evidence custody hold: intake erasure requires atomic retained-artifact redaction'); END;\nCREATE TRIGGER b_agent_door_letter_erasure BEFORE UPDATE OF erased_at ON b_engagements\nWHEN OLD.erased_at IS NULL AND NEW.erased_at IS NOT NULL AND EXISTS(SELECT 1 FROM b_agent_door_custody WHERE retained=1)\nBEGIN SELECT RAISE(ABORT,'agent evidence custody hold: engagement erasure requires atomic retained-artifact redaction'); END;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0118_agent_preparation_sponsors.sql",
+      "sha256": "8a5f4964b9dbca82af014cd99dac97598d4e38db0f20c275a5d8626baee8a8c7",
+      "sql": "-- Shared-door preparations retain their native sponsor id across email changes.\n-- Legacy SDK preparations keep their original native semantics.\nALTER TABLE b_proposals ADD COLUMN door_sponsor_id TEXT;\nALTER TABLE b_learning_proposals ADD COLUMN door_sponsor_id TEXT;\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
