@@ -119,6 +119,8 @@ jobs:
       - run: pnpm run test:site
       - name: Verify hosted output and hydration
         run: pnpm exec rer queue verify:hosted -- node scripts/ci/hosted-checks.mjs
+      - name: Verify the native agent door
+        run: node node_modules/@runeditrun/rer/cli/agent-door.mjs . deploy.json
       - name: Pack the shared Worker build
         run: tar -czf "$RUNNER_TEMP/verify-build.tgz" dist/server dist/client
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

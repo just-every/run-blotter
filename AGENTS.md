@@ -126,6 +126,8 @@ Pinned reference: https://github.com/runeditrun/base/blob/a06bd065124c2b45fa879e
 
 ## Lander-Regenerate
 
+Lander-Regenerate: node scripts/contract-docs.mjs write
+
 After changing a migrated CONTRACT.md status row, run
 `node scripts/contract-docs.mjs write` and then
 `node scripts/contract-docs.mjs check`. This incremental generator mirrors

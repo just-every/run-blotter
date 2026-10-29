@@ -59,3 +59,65 @@ Sign in as the person who created the key. Open **Preparations**, inspect the pr
 A revoked key or deactivated person receives `401` or `403`. Other rejected requests return JSON with an `error` message. Read context again when the job or billable items have changed; do not repeatedly submit a stale preparation.
 
 The repository's [API reference](https://github.com/just-every/run-blotter/blob/main/API.md) describes the same agent doors.
+
+## Company agent door
+
+The production Worker also serves one shared MCP endpoint at `/mcp`, with
+2026-07-28 and 2025-11-25 clients, discovery, canonical OAuth resource metadata,
+`/api/rer/agent-policy`, and the native person controls at `/agents`.
+Business tokens require consent and a signed Business-person binding to a current
+native operator id. A matching email is insufficient. The native practice role,
+MFA admission, client grants and read-only restrictions still apply. Only signed
+Business owners and mapped team administrators can fill Business policy roles;
+a local promotion never grants a Business policy role.
+
+The practice coordinator currently supports these MCP jobs:
+
+| Tool | Effect and class | Native clause |
+| --- | --- | --- |
+| `blotter.context.read` | Visible coordination metadata and internal preparation witness; standard | AGENT-001, ACCESS-001 |
+| `blotter.proposals.rollforward` | Internal roll-forward draft; standard | AGENT-001, WORK-002 |
+| `blotter.proposals.reminder` | Internal reminder draft; standard | AGENT-001, PORTAL-001 |
+| `blotter.proposals.export` | Internal billing-export draft; standard | AGENT-001, BILL-001 |
+| `blotter.readiness.read` | Source-linked request and answer evidence; sensitive | READY-001, AGENT-001 |
+| `blotter.readiness.prepare` | Source-linked question draft; standard | READY-001, AGENT-001 |
+| `blotter.learning.evidence` | Principal-only repeated review evidence; sensitive | LEARN-001, AGENT-001 |
+| `blotter.learning.prepare` | Principal-only template-improvement draft; standard | LEARN-001, AGENT-001 |
+| `blotter.learning.read` | Principal-only improvement and supporting sources; sensitive | LEARN-001, AGENT-001 |
+| `blotter.events.list` | Shared door decision/effect history; standard | BASE-AGENT-010 |
+
+`blotter://engagements/{id}` returns native readiness evidence;
+`blotter://proposals/{id}` returns the preparing person's internal proposal.
+Both recheck current native access through company policy, approval and audit.
+Missing and restricted resources are indistinguishable. Imported/source text is
+untrusted; neither resource returns document bytes, vault values or bearer links.
+
+The company policy decides autonomous, review, approval or blocked calls. No
+policy, an unanswered class, expired policy, Business/local Pause or revoked
+consent prevents the next call. Autonomous preparation creates a draft directly;
+it adds no company approval. A company approval authorizes only that exact draft
+or read, and retains its named reviewer and agent preparer. The separate native
+person decision still governs a reminder send, work roll-forward, portal question,
+template version or billing export under AGENT-001. The native SDK/key doors
+documented above retain their original preparation-only purpose; their key-bound
+supervised schedules are not a Business MCP scheduling family.
+
+Mutations require `idempotency_key`; exact retries have one effect and changed
+arguments conflict. Job tools accept the native string `expected_revision` and
+refuse stale first execution. Tools compute classes and summaries from current
+records. No direct role, credential, payment, filing or provider account action
+is exposed. There is no registered provider cost or spend authority. No declared
+MCP job reaches an outside provider; human sends and existing provider callbacks
+retain their native doors. Custom subscriptions, multi-sponsor orchestration,
+outbound mail and resource refresh are undeclared families.
+
+**Retained evidence and erasure.** Before the first admitted shared-door agent,
+Blotter places an installation-wide native custody hold. File/client erasure and
+retention expiry then remain held: deleting native records cannot remove retained
+MCP outcomes, approvals or audit. Atomic client-scoped redaction needs a future
+Base hook. The hold is conservative and cannot be cleared by an agent. Identity,
+policy, pending execution and shared door evidence never move in domain archives;
+retain installation evidence separately. This adoption makes no claim of complete
+shared-door client erasure or portability.
+
+**Base replay follow-up.** The 0.2.86 shared runtime can return the retained result of an approved aggregate context read after the sponsor’s native grants narrow. Fresh context reads and record resources recheck native access; complete held-aggregate replay authority needs a Base revalidation hook before production use of that path. This remains a partial shared-door claim.
