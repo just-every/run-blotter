@@ -4,6 +4,7 @@
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { contractPageHtml } from '../base/contract-page'
+import { hostingPageHtml } from '../base/hosting-page'
 import type { EditionIdentity } from '../base/identity'
 import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteContext } from '../base/run-site'
 import { identity } from '../identity'
@@ -50,12 +51,13 @@ function page(pageTitle: string, summary: string, body: ReactElement, styles: st
   </html>))
 }
 
-export function sitePages({ styles, contract }: SiteContext): SiteBuild {
+export function sitePages({ styles, contract, hosting }: SiteContext): SiteBuild {
   const data: RunData = run
   return {
     pages: [
       { path: '/', html: page(title, description, <Landing />, styles) },
       { path: '/run', html: usSpelling(runPageHtml(site, data, contract)) },
+      { path: '/docs/hosting', html: hostingPageHtml(site, data, hosting ?? null, contract) },
       ...(contract ? [{ path: '/contract', html: contractPageHtml(site, data, contract) }] : []),
       ...docs.map(doc => ({ path: doc.path, html: page(doc.path === '/docs' ? 'Blotter docs' : `${doc.title} · Blotter docs`, doc.description, <DocsPage page={doc} />, styles) })),
       { path: '/404', html: siteNotFoundHtml(site, data, contract) },
