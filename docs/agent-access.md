@@ -127,7 +127,9 @@ Other maintained Base copies retain their recorded pins. No applied migration
 was replaced. Normal `rer verify` runs the production owner claim, native MFA
 enrollment and independent reviewer invitation before the specialist journey.
 The journey also proves that a native key receives only its original scopes and
-that revoking it stops the next MCP call.
+that revoking it stops the next MCP call. It explicitly replays a completed
+preparation under Pause, changed policy and removed scope, requiring refusal
+without another native effect or retained-result disclosure.
 
 **Base follow-ups.** The 0.2.87 shared runtime can return the retained result of an
 approved aggregate context read after the sponsor’s native grants narrow. Fresh
