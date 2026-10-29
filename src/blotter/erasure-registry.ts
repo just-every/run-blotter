@@ -57,11 +57,15 @@ const REGISTRY = new Map<string, TableClass>([
     'b_capacity_scenarios', 'b_coverage_plans', 'b_automation_rules', 'b_report_views', 'b_report_schedules', 'b_report_runs', 'b_scheduler_runs', 'b_notification_settings', 'b_notification_defaults', 'b_notification_task_owners',
     'b_notification_job_owners', 'b_notification_events', 'b_intake_limits', 'b_intake_tokens', 'b_prospect_stages', 'b_vault_keys', 'b_vault_stepups', 'b_agent_keys'),
   ...by('staff', 'b_mail_consents', 'b_enterprise_connection','b_enterprise_identities','b_enterprise_groups','b_enterprise_group_members','b_enterprise_mappings','b_enterprise_team_grants','b_enterprise_sessions','b_staff_costs', 'b_access_policy','b_access_members','b_access_delegations','b_access_teams','b_access_team_members','b_access_stepups', 'b_members', 'b_activity_consent', 'b_session_activity', 'b_mfa_policy', 'b_mfa_factors', 'b_mfa_recovery', 'b_mfa_sessions', 'b_mfa_challenges', 'b_mfa_failures'),
+  ...by('policy','b_agent_door_custody','bs_settings','bs_overrides','bs_audit','bs_assert','agent_door_state'),
+  ...by('staff','bs_team','agent_door_agents'),
+  ...by('firm','bs_logo'),
+  ...by('derived_ai','agent_door_calls','agent_door_approvals','agent_door_reviews','agent_door_audit','agent_door_events','agent_door_usage'),
   ...by('audit', 'b_audit'),
   ...by('policy', 'b_retention_marks', 'b_retention_periods', 'b_external_copies', 'b_deletion_requests', 'b_client_erasures', 'b_client_erasure_steps', 'b_retained_identity', 'b_retained_reads', 'b_expiry_erasures'),
 ]);
 /** Columns that hold bytes or ciphertext, per table. A column of that kind not named here stops the preview. */
-const BYTES: Record<string, string[]> = {b_efile_authorizations:['original_base64'],b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
+const BYTES: Record<string, string[]> = {bs_logo:['bytes'],b_efile_authorizations:['original_base64'],b_integration_hooks:['destination_sealed','secret_sealed'],b_signatures:['source_base64','signed_base64','certificate_base64'],...INVOICE_BYTE_COLUMNS,
   b_files: ['content_base64'], b_document_chunks: ['content_base64'], b_document_upload_chunks: ['content_base64'], b_job_steps: ['attachment_base64'], b_deliverable_versions: ['content_base64'],
   b_notice_events: ['file_base64'], b_expenses: ['receipt_base64'], b_exports: ['csv'], b_prospect_files: ['content_base64'], b_vault_credentials: ['sealed'], b_engagements: ['content_base64'],
   b_msg_template_files: ['content_base64'], b_portal_accounts: ['totp_sealed', 'totp_pending_sealed'], b_portal_branding: ['logo_base64'], b_mfa_factors: ['sealed_secret'], b_retained_identity: ['sealed'],
@@ -82,5 +86,6 @@ export async function unclassified(db: D1Database) {
     const declared = new Set(BYTES[name] ?? []);
     for (const c of await rows(db, `SELECT name,type FROM pragma_table_info('${name}')`) as Data[]) if (/text|blob|^$/i.test(String(c.type)) && BYTE_LIKE.test(String(c.name)) && !DIGEST.test(String(c.name)) && !declared.has(String(c.name))) found.push(`column ${name}.${c.name}`);
   }
+  if(await db.prepare('SELECT 1 FROM b_agent_door_custody WHERE retained=1').first())found.push('agent-door retained artifacts: client-scoped atomic erasure is not supported; native custody remains held');
   return found;
 }
