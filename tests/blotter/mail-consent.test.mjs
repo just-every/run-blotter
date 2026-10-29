@@ -83,6 +83,13 @@ test('Separate personal mail choice is explicit, attributed, once-only and withd
     assert.deepEqual((await h.json('/jobs/' + job.id, undefined, prep.cookie)).time.map(t => t.id), [approved.entry.id]);
     const plan = await h.json(`/clients/${client.id}/erasure/preview`, undefined, h.owner);
     assert.ok(!plan.blockers.some(b => b.includes('Unclassified')), 'Mail evidence is classified staff data');
+    await h.json('/access/people', { email: prep.email, readOnly: false, clientIds: [client.id] }, h.owner);
+    const scoped = await read(h, prep.cookie);
+    assert.equal((await save(h, prep.cookie, scoped, 'opt_in', 'synthetic-blotter-712')).optedIn, true, 'Scoped staff can choose for themselves without firm-wide access');
+    await h.json('/access/people', { email: prep.email, readOnly: true, clientIds: [client.id] }, h.owner);
+    await save(h, prep.cookie, await read(h, prep.cookie), 'withdraw', 'synthetic-blotter-713', 403);
+    assert.equal((await read(h, prep.cookie)).optedIn, true, 'A refused write changes no evidence');
+
   } finally { await h.close(); }
 });
 
@@ -133,6 +140,16 @@ test('Live session and MFA loss, native deactivation, offboarding and restore ca
     await save(restored, restored.owner, principal, 'opt_in', 'synthetic-blotter-729', 409);
     const restoredRows = archiveRows(await (await restored.request('/api/blotter/backup', undefined, restored.owner)).text());
     assert.deepEqual(restoredRows.sort((a,b) => a.id.localeCompare(b.id)), exported.sort((a,b) => a.id.localeCompare(b.id)));
+    await restored.json('/team', { email: prep.email, name: 'Staff 721', role: 'preparer', active: true }, restored.owner);
+    await restored.json('/team/invite', { email: prep.email }, restored.owner);
+    const newStaffCookie = await restored.login(prep.email), newStaff = await read(restored, newStaffCookie);
+    assert.equal(newStaff.optedIn, false); assert.notEqual(newStaff.personId, view.personId);
+    assert.deepEqual(newStaff.history.map(event => event.id).sort(), exported.filter(row => row.person_id === view.personId).map(row => row.id).sort());
+    assert.ok(newStaff.history.every(event => event.historical && event.personId === view.personId && event.actorId === view.personId));
+    await save(restored, newStaffCookie, view, 'opt_in', 'synthetic-blotter-733', 409);
+    const reconsented = await save(restored, newStaffCookie, newStaff, 'opt_in', 'synthetic-blotter-734');
+    assert.equal(reconsented.history[0].personId, newStaff.personId); assert.equal(reconsented.history[0].historical, false);
+
     const newChoice = await save(restored, restored.owner, after, 'opt_in', 'synthetic-blotter-730');
     assert.equal(newChoice.optedIn, true); assert.notEqual(newChoice.personId, principal.personId); assert.equal(newChoice.history[0].historical, false);
   } finally { await restored?.close(); await h.close(); }
