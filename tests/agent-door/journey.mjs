@@ -30,4 +30,21 @@ export default async function({request,origin,cookie,tool}){
  assert.ok(audit.rows.every(row=>row.label.includes(' for ')),'Door attribution names agent and sponsor');
  const native=await api('/api/blotter/team');
  assert.ok(native.audit.some(row=>row.action==='proposal.prepared'&&row.actor.includes('Agent door conformance for Synthetic Base 1')),'Native proposal history retains the same agent and sponsor');
+
+ // Native keys keep their original scopes when they enter the company door.
+ const local=await api('/api/blotter/keys',{label:'Native scoped coordinator'});
+ const localCall=async(name,args={})=>request(origin+'/mcp',{method:'POST',headers:{
+  Authorization:`Bearer ${local.key}`,'Content-Type':'application/json',Accept:'application/json, text/event-stream',
+  'MCP-Protocol-Version':'2026-07-28','Mcp-Method':'tools/call','Mcp-Name':name,
+ },body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:args,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28'}}})});
+ const scoped=await localCall('blotter.context.read');
+ assert.equal(scoped.status,200);
+ assert.equal((await scoped.json()).result.structuredContent.jobs.length,data.jobs.length,'A native key reads only its sponsor context');
+ const outside=await localCall('blotter.events.list');
+ assert.equal(outside.status,403,'The door never adds events scope to a native key');
+ assert.equal((await outside.json()).error.data.code,'insufficient_scope');
+ await api(`/api/blotter/keys/${local.id}/revoke`,{});
+ const revoked=await localCall('blotter.context.read');
+ assert.equal(revoked.status,401,'Revoking the native key stops its next MCP call');
+ await revoked.body?.cancel();
 }

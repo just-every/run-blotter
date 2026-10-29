@@ -88,7 +88,7 @@ The practice coordinator currently supports these MCP jobs:
 
 `blotter://engagements/{id}` returns native readiness evidence;
 `blotter://proposals/{id}` returns the preparing person's internal proposal.
-Both recheck current native access through company policy, approval and audit.
+Fresh reads recheck current native access through company policy, approval and audit.
 Missing and restricted resources are indistinguishable. Imported/source text is
 untrusted; neither resource returns document bytes, vault values or bearer links.
 
@@ -120,4 +120,21 @@ policy, pending execution and shared door evidence never move in domain archives
 retain installation evidence separately. This adoption makes no claim of complete
 shared-door client erasure or portability.
 
-**Base replay follow-up.** The 0.2.86 shared runtime can return the retained result of an approved aggregate context read after the sponsor’s native grants narrow. Fresh context reads and record resources recheck native access; complete held-aggregate replay authority needs a Base revalidation hook before production use of that path. This remains a partial shared-door claim.
+**Runtime and verification.** The agent-door and Business settings runtime source
+is pinned to Base `5381ab872b5ab4de80e811bcb4b1a803dd713e0f`, the published
+`rer-v0.2.87` release. The installed CLI is `@runeditrun/rer@0.2.87`.
+Other maintained Base copies retain their recorded pins. No applied migration
+was replaced. Normal `rer verify` runs the production owner claim, native MFA
+enrollment and independent reviewer invitation before the specialist journey.
+The journey also proves that a native key receives only its original scopes and
+that revoking it stops the next MCP call.
+
+**Base follow-ups.** The 0.2.87 shared runtime can return the retained result of an
+approved aggregate context read after the sponsor’s native grants narrow. Fresh
+context reads and record resources recheck native access; complete held-aggregate
+replay authority needs a Base revalidation hook before production use of that
+path. This release also still advertises Base resources/subscriptions and serves
+the built-in event tool regardless of the seed's declared core capabilities.
+The subset switch and atomic client-scoped retained-artifact redaction remain
+Base follow-ups. Shared-door clauses remain partial; these limits do not expand
+the coordinator's preparation-only native authority.
