@@ -71,9 +71,13 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
     // Leave time to complete a closed month, including when the demo opens early in a new month.
     if (key === unrolled) while (at(addMonths(current, 1), 9) > clock - 4 * DAY) current = addMonths(current, -1);
     const isStuck = e.client.name === stuck && t.key === 'salesTax';
+    // A completed quarter waits for principal review even when the current
+    // date gives every other engagement an open or signed-off period.
+    const reviewExample = e.client.id === clients.cobalt.id && t.key === 'salesTax';
     const first = addMonths(current, -STEP[recurrence] * HISTORY[recurrence]);
     let previous: Row | undefined, start = first;
     for (let n = 0; ; n++, start = addMonths(start, STEP[recurrence])) {
+      if (reviewExample && previous?.status === 'review') break;
       const due = dueDate(e, start), id = fixedId(`job:${key}:${start}`), r = chance(id);
       const isCurrent = start === current, history = start < current;
       if (start > current) { if (previous?.status !== 'signed_off' || key === unrolled) break; }
@@ -84,6 +88,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       const daysLeft = Math.round((at(due) - at(today)) / DAY);
       let status: 'open' | 'review' | 'signed_off', progress: number;
       if (isStuck && start === addMonths(current, -STEP[recurrence])) { status = 'open'; progress = 0.2; }
+      else if (reviewExample && start === addMonths(current, -STEP[recurrence])) { status = 'review'; progress = 1; }
       else if (history) { status = 'signed_off'; progress = 1; }
       else if (!isCurrent) { status = 'open'; progress = 0; }
       else if (daysLeft < 0) { status = r < 0.5 ? 'signed_off' : r < 0.85 ? 'review' : 'open'; progress = status === 'open' ? 0.7 : 1; }
