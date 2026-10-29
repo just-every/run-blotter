@@ -10,7 +10,7 @@
 import {invoiceBalanceSql} from './invoices-sources';
 import { atomic, audit, email, guard, human, id, insist, need, optional, readableJobParams, readableJobSql, rows, stmt, text, type Actor, type Data } from './model';
 import { eligible } from './jobs';
-import { documentAuthority } from './permissions';
+import { canAccessClient, documentAuthority } from './permissions';
 
 /** Each history kind and the audit actions it covers. */
 const KINDS: Record<string, string> = {
@@ -51,7 +51,7 @@ export async function clientHistory(db: D1Database, actor: Actor, clientId: stri
     ORDER BY a.at DESC,a.id LIMIT 500`, ids, clientId, lead ? 1 : 0, kind, q);
   const owner = optional(query.owner, 'Owner', 254).toLowerCase();
   const unresolved = (await openItems(db, ids, lead ? clientId : null)).filter(item => !owner || item.owner === owner);
-  return { client, jobs, kinds: Object.keys(KINDS), history, unresolved };
+  return { client, jobs, kinds: Object.keys(KINDS), history:history.map(event=>{try{const source=JSON.parse(event.detail).source;return {...event,...(typeof source==='string'&&/^\/api\/blotter\/signatures\/[^/]+\/files\/(original|signed)$/.test(source)?{source}:{})};}catch{return event;}}), unresolved };
 }
 
 /** Open items of these jobs (and, for leads, client-wide discussions), each with its owner, next action and due condition. */
@@ -133,7 +133,7 @@ export async function changeOwner(db: D1Database, actor: Actor, clientId: string
     insist(await can(['reviewer']) || (j && j.preparer_email === to), `${to} cannot read this discussion`);
     change = [stmt(db, "UPDATE b_threads SET owner_email=? WHERE id=? AND status='open'", to, itemId)];
   } else if(item.kind==='proposal'){
-    insist(await can(['reviewer']) || j!.preparer_email===to,'The proposal owner must be able to work on this job');
+    insist((await can(['reviewer']) || j!.preparer_email===to)&&await canAccessClient(db,to,clientId),'The proposal owner must be able to work on this job');
     const current=await stmt(db,'SELECT revision FROM b_signatures WHERE id=?',itemId).first<Data>();
     const [check,release]=guard(db,"EXISTS(SELECT 1 FROM b_signatures WHERE id=? AND revision=? AND requester_email=? AND status IN ('draft','pending','declined','held'))",itemId,current!.revision,item.owner);
     change=[check,stmt(db,'UPDATE b_signatures SET requester_email=?,revision=? WHERE id=?',to,id(),itemId),release];

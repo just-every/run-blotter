@@ -17,7 +17,7 @@ export async function proposalDetail(db:D1Database,actor:Actor,requestId:string)
   return {...signature,proposal:{...p,terms:p.terms?JSON.parse(p.terms):null},versions:await rows(db,`SELECT p.id,p.version,p.superseded_by,s.status,s.source_sha256 FROM b_engagement_proposals p JOIN b_signatures s ON s.id=p.id WHERE p.root_id=? ORDER BY p.version`,p.root_id)};
 }
 export async function createProposal(db:D1Database,actor:Actor,jobId:string,body:Data,previousId?:string) {
-  human(actor);need(actor,'owner','reviewer','preparer');insist(!actor.automation,'A person must author proposal terms',403);
+  human(actor);need(actor,'owner');insist(!actor.automation,'A person must author proposal terms',403);
   const j=await job(db,actor,jobId),prior=previousId?await staffSignature(db,actor,previousId,true):null;
   const previous=previousId?await stmt(db,'SELECT * FROM b_engagement_proposals WHERE id=?',previousId).first<Data>():null;
   if(previousId){insist(previous&&prior?.job_id===jobId,'Proposal not found',404);insist(!previous.superseded_by&&!['completed','voided'].includes(prior!.status)&&!prior!.erased_at,'Only an available uncompleted current version can be amended',409);insist(body.revision===prior!.revision,'Proposal changed; review it again',409);}

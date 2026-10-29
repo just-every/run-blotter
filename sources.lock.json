@@ -116,15 +116,15 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "f3ed38ddc3f81402c4aaabbaf2ca4e47aeebf964448b1702c54cd5e7c64c7447",
+      "sha256": "16d18acca9d76ed06bb27dfe2a71fa776bd68f73d2a4ec523dbd3609b508cf9f",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "be269e6dba536a7f55c10cbe54c64f967c219ad935faf9dd6e36116ba4b2d0f7",
+      "sha256": "3bb5a7f2e3368cac43670fea214eaf9d8cfc6aba7f9a945eb47e987f7837df97",
       "executable": false
     },
     "API.md": {
-      "sha256": "53b34cadd0cdd41c71f2078205a5373ee80b851121f988b7a8e9a25165f79f82",
+      "sha256": "ffa5b4b72c16fe583305cf3a3c98eb7a144ef9802f4f87dcb8c9206bc42d53c7",
       "executable": false
     },
     "base-copies.json": {
@@ -140,7 +140,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f1356602851f61afcf9250f83f5b8d23d6fa722edfdbf3a1d5bf42e17d3e9f04",
+      "sha256": "8338b756056f4c1e85ddbf1e4f5e050d2919b250aeafd766276170ba6e140e7f",
       "executable": false
     },
     "deploy-demo.json": {
@@ -168,7 +168,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "44f105f495a9bb0cb1ab4b20ed61d652ed4c063d4120f8aea869901515f074ac",
+      "sha256": "763af37b4d38f74c90c11d8a9778b7854ff6ba2099f74fcfd2946ec8bdd8557b",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -944,7 +944,7 @@
       "executable": false
     },
     "scripts/contract-docs.mjs": {
-      "sha256": "c77e8761e41e81e60afaedd19b9fcc29bdfae2683addbc1b2451ed3a231a3853",
+      "sha256": "c68480fef87459ebb151cdfe51c9bec5958c1b2ac6769b756821690c895d2477",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {
@@ -1476,7 +1476,7 @@
       "executable": false
     },
     "src/blotter/engagement-proposals.ts": {
-      "sha256": "ed9467c3c44404337da0c3a03d10779270dac745acddfd87cef21752f4f15e65",
+      "sha256": "4e536966c255046f2fcb250102eeb13aec5bb5fbc89fed346d04b7f96498e900",
       "executable": false
     },
     "src/blotter/engagements.ts": {
@@ -1580,7 +1580,7 @@
       "executable": false
     },
     "src/blotter/history.ts": {
-      "sha256": "9fe7529b85d4f3aa9e941b22b916d05e55992dc0f88fa53acef57ce711f9d564",
+      "sha256": "9e975de72e33a20848204a607d0ca266dfad4a24b46a303830c3e16705668f88",
       "executable": false
     },
     "src/blotter/imports.ts": {
@@ -1960,15 +1960,15 @@
       "executable": false
     },
     "src/blotter/signatures-pdf.ts": {
-      "sha256": "13a8111481295827a69c52a917042ed852dc7c8a43eb0739b4c1a7e6ca12a832",
+      "sha256": "d8139ac895c2b8ea77d18ac54017a47c2540733bd9051d39450405010f5b2a38",
       "executable": false
     },
     "src/blotter/signatures-portal.ts": {
-      "sha256": "0e80854559bbba0c10b50ebcd5662d9845a69cd8bedb95b5cc0f353efd04598c",
+      "sha256": "f220b720946db12f91611ee67879bf602ab26f072583abbff95d91b0e4117d9f",
       "executable": false
     },
     "src/blotter/signatures-retention.ts": {
-      "sha256": "f3f5dc5b78d3ec7392c08b8cfdf12c4d4f64e14f60175f0dcc1f8e46ef0c3df3",
+      "sha256": "4747c573e7add0cb342af05a73ced9df930b108763635475fa65c90d266dfdce",
       "executable": false
     },
     "src/blotter/signatures-staff.ts": {
@@ -1976,7 +1976,7 @@
       "executable": false
     },
     "src/blotter/signatures-store.ts": {
-      "sha256": "473fbfd04b64218d6cf2e957f3e51ec826c017900e525b14b6808c3be7d92a00",
+      "sha256": "820433f9a62e89ba95108cc91636874ea18ae44b21c6edbe31fd21798f9644bf",
       "executable": false
     },
     "src/blotter/signatures.ts": {
@@ -4060,7 +4060,7 @@
       "executable": false
     },
     "src/ui/client-details.tsx": {
-      "sha256": "e0d2792fb4b15522ba3c47f19a9e0aee3d6d0788e7534455cb84df77fc98a9c7",
+      "sha256": "aeea0f71832eb91be195645cbe846c0c435854d80592ebdbcb2a925678da2b57",
       "executable": false
     },
     "src/ui/client-erasure.tsx": {
@@ -4116,7 +4116,7 @@
       "executable": false
     },
     "src/ui/engagement-proposals.tsx": {
-      "sha256": "dee1c3a5e42e641b7e0e6869275eb28aee4aa6ae743f6c97751b5af6e32eb09e",
+      "sha256": "f97e9f72a7cba9ddf3446889b3baa41dbfa4fa4cf11d5a0c1da3c5cd9dac03c1",
       "executable": false
     },
     "src/ui/enterprise.tsx": {
@@ -4144,7 +4144,7 @@
       "executable": false
     },
     "src/ui/history.tsx": {
-      "sha256": "4d0116515c8815431837379bd0d46fa506bbd7469c7327ccdb6d5c7dce8ad77b",
+      "sha256": "65005b17f2543725576038415e9a0806538e530cf414504dd3e231d5cd9c9d52",
       "executable": false
     },
     "src/ui/i18n.tsx": {
@@ -4456,11 +4456,11 @@
       "executable": false
     },
     "tests/blotter/engagement-proposals-ui.mjs": {
-      "sha256": "4736e9394188d4a39be8326d873e2b2aa9c2b066efff0cbab782a58ac625b19c",
+      "sha256": "8888f0929ba60361a2951624c8060ec334a55e5aa36cc8218fe9356a3c16fe58",
       "executable": false
     },
     "tests/blotter/engagement-proposals.test.mjs": {
-      "sha256": "0e3d60dd780a6014d0466a54483a76a3a22ebf98aecc1faa03d55721554fa758",
+      "sha256": "c4156236378c4ff46f39cd50cfe1bf021e9190cbd08f564d5d7a7dbcb7ac3f99",
       "executable": false
     },
     "tests/blotter/enterprise-live.mjs": {
