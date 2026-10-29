@@ -701,6 +701,7 @@ Authenticated staff inspect their own choice through
 presented wording, `wordingVersion`, `reviewToken`, `lastId` and attributed history.
 In Suggested time, open Mail suggestion settings to allow or withdraw the choice.
 This remains separate from native-work consent and any future calendar choice.
+Turning native-work suggestions on or off does not change the mail choice.
 
 `POST /api/blotter/time/mail-consent` accepts only `choice` (`opt_in`, `withdraw`
 or `decline`), a unique `requestId`, and the presented `reviewToken`, `lastId`
@@ -714,7 +715,8 @@ reverse it.
 
 Evidence retains the immutable staff operator ID, staff address, mail source
 category, exact wording and version, choice, actor and UTC time. Deactivation,
-offboarding and enterprise authority changes invalidate prior choices without
+offboarding, enterprise authority changes and enterprise-association erasure
+invalidate prior choices without
 transferring them to a successor. Reactivation requires a new sign-in and a
 fresh personal choice. These are classified staff records, independent of
 client erasure. Archives retain original attribution with `restored=1`; restored

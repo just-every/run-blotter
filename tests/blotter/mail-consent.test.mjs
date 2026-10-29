@@ -50,12 +50,25 @@ test('Separate personal mail choice is explicit, attributed, once-only and withd
     assert.equal(audits.length, 2); assert.ok(audits.some(a => a.object_id === event.id && a.actor === prep.email));
     assert.equal((await read(h, reviewer.cookie)).history.length, 0); assert.equal((await read(h, h.owner)).optedIn, false);
     assert.deepEqual(await h.json('/time/suggestions', undefined, prep.cookie), nativeOff);
+    // Changing the native source in either direction cannot make a mail choice.
+    await h.json('/time/suggestions/consent', { consent: true }, prep.cookie);
+    assert.deepEqual(await read(h, prep.cookie), one);
+    await h.json('/time/suggestions/consent', { consent: false }, prep.cookie);
+    assert.deepEqual(await read(h, prep.cookie), one);
     await h.json('/time/mail-consent', { ...request, choice: 'withdraw' }, prep.cookie, 409);
     await save(h, prep.cookie, shown, 'withdraw', 'synthetic-blotter-706', 409);
+    assert.deepEqual(await read(h, prep.cookie), one, 'Refused choices preserve the saved consent and its attribution');
+    await h.restart();
+    assert.deepEqual(await read(h, prep.cookie), one);
+    assert.deepEqual(await h.json('/time/mail-consent', request, prep.cookie), one, 'An identical request after restart records no second choice');
+    assert.equal((await h.json('/team', undefined, h.owner)).audit.filter(a => a.action === 'mail.choice_recorded').length, 2);
     view = await save(h, prep.cookie, one, 'withdraw', 'synthetic-blotter-707');
     assert.equal(view.optedIn, false); assert.equal(view.history[0].choice, 'withdraw');
+    await h.restart();
+    assert.deepEqual(await read(h, prep.cookie), view, 'Withdrawal and original wording survive restart');
     await h.json('/time/mail-consent', request, prep.cookie, 409);
     await save(h, prep.cookie, one, 'opt_in', 'synthetic-blotter-708', 409);
+    assert.deepEqual(await read(h, prep.cookie), view, 'Old opt-ins cannot revive a withdrawn choice after restart');
     // Two independently submitted choices from the same review cannot both commit.
     const race = await Promise.all([h.send('/api/blotter/time/mail-consent', input(view, 'opt_in', 'synthetic-blotter-709'), prep.cookie), h.send('/api/blotter/time/mail-consent', input(view, 'decline', 'synthetic-blotter-710'), prep.cookie)]);
     assert.deepEqual(race.map(r => r.status).sort(), [200, 409]);
@@ -155,8 +168,8 @@ test('Live session and MFA loss, native deactivation, offboarding and restore ca
   } finally { await restored?.close(); await h.close(); }
 });
 
-test('Entra deactivation and group removal require a new personal mail choice after fresh enterprise sign-in', async () => {
-  const provider = enterpriseProvider(), h = await harness({ bindings: provider.bindings, identityResponse: provider.response });
+test('Entra deactivation, group removal and association erasure require a new personal mail choice', async () => {
+  const provider = enterpriseProvider(), h = await harness({ bindings: provider.bindings, identityResponse: provider.response }); let stale;
   try {
     const prep = await member(h, 741, 'reviewer');
     await h.json('/enterprise', { required: true, requireMfa: true, reason: 'Synthetic firm SSO' }, h.owner);
@@ -194,5 +207,31 @@ test('Entra deactivation and group removal require a new personal mail choice af
     cookie = await signin(); const returned = await read(h, cookie); assert.equal(returned.optedIn, false);
     await save(h, cookie, fresh, 'opt_in', 'synthetic-blotter-749', 409);
     assert.equal((await read(h, h.owner)).history.length, 0);
-  } finally { await h.close(); }
+    // Erasing an association cannot turn its retained personal evidence into authority.
+    const allowed = await save(h, cookie, returned, 'opt_in', 'synthetic-blotter-750');
+    const pending = input(allowed, 'opt_in', 'synthetic-blotter-751');
+    const archive = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    await h.json('/enterprise/erase', { confirm: 'ERASE ENTERPRISE', reason: 'Synthetic association erasure' }, h.owner);
+    await read(h, cookie, 401); await h.json('/time/mail-consent', pending, cookie, 401);
+    const erased = await h.json('/enterprise', undefined, h.owner);
+    assert.equal(erased.connection, null); assert.deepEqual(erased.identities, []);
+    await h.json('/team', { email: prep.email, name: 'Staff 741', role: 'reviewer', active: true }, h.owner);
+    const nativeCookie = await h.login(prep.email), after = await read(h, nativeCookie);
+    assert.equal(after.personId, allowed.personId); assert.equal(after.optedIn, false);
+    assert.deepEqual(after.history.map(event => ({ ...event, invalidatedAt: null, invalidationReason: null })), allowed.history.map(event => ({ ...event, invalidatedAt: null, invalidationReason: null })));
+    assert.ok(after.history[0].invalidatedAt);
+    await h.json('/time/mail-consent', pending, nativeCookie, 409);
+    await save(h, nativeCookie, allowed, 'opt_in', 'synthetic-blotter-752', 409);
+    assert.deepEqual(await read(h, nativeCookie), after);
+    const journal = await (await h.request('/api/blotter/backup', undefined, h.owner)).text();
+    stale = await harness();
+    await stale.json('/restore', { archive, journal, confirm: 'RESTORE' }, stale.owner, 409);
+    assert.deepEqual((await read(stale, stale.owner)).history, []);
+    const mailsAfterErasure = h.mails.length, callsAfterErasure = provider.calls.length;
+    const renewed = await save(h, nativeCookie, after, 'opt_in', 'synthetic-blotter-753');
+    assert.equal(renewed.optedIn, true); assert.equal(renewed.history.length, after.history.length + 1);
+    assert.equal(renewed.history[0].personId, after.personId); assert.equal(renewed.history[0].actorId, after.personId);
+    assert.deepEqual([renewed.mailboxesConnected, renewed.suggestionsAvailable], [false, false]);
+    assert.equal(h.mails.length, mailsAfterErasure); assert.equal(provider.calls.length, callsAfterErasure);
+  } finally { await stale?.close(); await h.close(); }
 });
