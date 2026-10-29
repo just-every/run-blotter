@@ -423,7 +423,13 @@
         "initializer": "tests/agent-door/reviewer.mjs"
       }
     ],
-    "journey": "tests/agent-door/journey.mjs"
+    "journey": "tests/agent-door/journey.mjs",
+    "replayAdmission": {
+      "prepare": [
+        "context",
+        "reminder"
+      ]
+    }
   },
   "spend": {
     "none": true
