@@ -120,7 +120,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b6290808f60c62ec80f618c43891e3c993efda57b63d9a3823f10d1164c56b6f",
+      "sha256": "5cf82d214193ee5fa435ff9bed84a2cd0d6a489c6b78cdca97adc40ecca5ae80",
       "executable": false
     },
     "agent-surface.json": {
@@ -148,7 +148,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "325a611805613072666888c7b427dafeef347b67c2eacbdd54012b5c59b9d0d6",
+      "sha256": "2018c4511c706cd5bab4ea697dc63e0e00e4b53145178dc1b50533d4501a9ebb",
       "executable": false
     },
     "deploy-demo.json": {
@@ -164,7 +164,7 @@
       "executable": false
     },
     "docs/agent-access.md": {
-      "sha256": "1283ee8015f95c3b2b6166e392320336786972a7743369999ebfc5756bbcb0f5",
+      "sha256": "5f5846b5a3e2eb6d2d18b8e9a3f4beb58ebe9eb5f44ac5eaa9fb1acf89699ddc",
       "executable": false
     },
     "docs/ai-assistance.md": {
@@ -176,7 +176,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "ac7157e6df48cef72fc7aa3326d667da39660eed9a819a136398a86ef0044dd5",
+      "sha256": "6b78ce0e2c5fd0506ec7d31bbbbf56bc043c33a53d5c1a3c9166df50b8f58803",
       "executable": false
     },
     "docs/documents-and-review.md": {
@@ -1888,7 +1888,7 @@
       "executable": false
     },
     "src/blotter/agent-door/proposals.ts": {
-      "sha256": "c72f09c7e29b249580a46bb0053a9534549ad90bdab1aee9ecf9294e45a7aa69",
+      "sha256": "10c1ccb53376b5b22acc5e971ed7807ac14de2bda5066eda28c504c82ae45334",
       "executable": false
     },
     "src/blotter/agent-door/readiness.ts": {
@@ -1896,7 +1896,7 @@
       "executable": false
     },
     "src/blotter/agent-door/resources.ts": {
-      "sha256": "b4b2fea133e2ff79587a75a992724093e96c8ca5efd8a9c36ec0d0e999b16c05",
+      "sha256": "c72eeffdc169d094efff15847527768f7a08ad83a4546b55fc66de4012f98091",
       "executable": false
     },
     "src/blotter/agent-door/trust.ts": {
