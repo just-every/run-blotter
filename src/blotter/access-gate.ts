@@ -35,6 +35,8 @@ const exporting = (path:string) => /^\/(security\/access-log\.csv$|costs\/export
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');
   const write=!['GET','HEAD'].includes(request.method),factor=/^\/mfa($|\/)/.test(path)||path==='/access/step-up';
+  // The personal handler allows read-only staff to withdraw only their own choice.
+  if (path === '/time/calendar-consent') return;
   if(actor.readOnly && write && !factor) insist(false,'Read-only staff cannot change practice records',403);
   if((write && sensitiveAdmin(path)) || exporting(path)) await freshAccess(db,actor);
   if (write && (/^\/(payments|payment-mandates)\//.test(path) || /\/quick-collect$/.test(path))) await freshAccess(db,actor);
@@ -47,8 +49,6 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
     const resource = await stmt(db, `SELECT client_id FROM ${table} WHERE id=?`, decodeURIComponent(match[2])).first<Data>();
     insist(resource, 'AI resource not found', 404); await requireClient(db,actor,resource.client_id); return;
   }
-  // A personal calendar choice reads no client records and accepts no other person's identity.
-  if (path === '/time/calendar-consent') return;
   const parts=path.split('/');
   let fileKey=['documents','files','document-packets'].includes(parts[1])&&parts[2]?decodeURIComponent(parts[2]):'';
   if(parts[1]==='deliverables' && parts[2]==='versions')fileKey='deliverable:'+parts[3];

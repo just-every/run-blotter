@@ -696,7 +696,8 @@ A request id commits one immutable event and audit, including the exact presente
 wording, choice and time. A changed intent or an old request after a newer choice
 is refused. Current session, staff authority and the installation's per-session
 MFA rules are checked at the write boundary. Agent and integration credentials
-cannot use this door; read-only staff cannot write.
+cannot use this door. Read-only staff may withdraw their own calendar consent;
+other choices and practice-record writes remain refused.
 
 Deactivation and offboarding invalidate prior choices without transferring them
 to a successor. Staff-classified choice history travels in native archives with

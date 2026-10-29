@@ -195,8 +195,27 @@ async function calendarLifecycle(h, preparer, reviewer, client) {
   await h.json('/access/people', { email: prepEmail, clientIds: [client.id], readOnly: false, reason: 'Personal calendar choice stays independent of client scope' }, h.owner);
   assert.equal((await read(h, newSession)).optedIn, true);
   await h.json('/access/people', { email: prepEmail, clientIds: [client.id], readOnly: true, reason: 'Read-only source choice' }, h.owner);
-  await h.json(door, input(await read(h,newSession),'withdraw','synthetic-blotter-718'), newSession, 403);
+  const readOnly = await read(h, newSession);
+  assert.equal(readOnly.optedIn, true, 'The staff member opted in before becoming read-only');
+  const staleOptIn = input(readOnly, 'opt_in', 'synthetic-blotter-718');
+  await h.json(door, staleOptIn, newSession, 403);
+  await choice(h, newSession, readOnly, 'decline', 'synthetic-blotter-719', 403);
+  const withdrawal = input(readOnly, 'withdraw', 'synthetic-blotter-720');
+  await h.json(door, { ...withdrawal, staffId: (await read(h, reviewer)).staffId }, newSession, 403);
+  const clientsBefore = await h.db.prepare('SELECT count(*) n FROM b_clients').first();
+  await h.json('/clients', { name: 'Synthetic read-only refusal' }, newSession, 403);
+  assert.deepEqual(await h.db.prepare('SELECT count(*) n FROM b_clients').first(), clientsBefore);
+  assert.deepEqual(await read(h, newSession), readOnly, 'Refused attempts leave the personal choice unchanged');
+  const [withdrawn, replayed] = await Promise.all([h.json(door, withdrawal, newSession), h.json(door, withdrawal, newSession)]);
+  assert.deepEqual(replayed, withdrawn, 'Read-only withdrawal records one event under concurrent replay');
+  assert.equal(withdrawn.optedIn, false);
+  assert.deepEqual(withdrawn.history.slice(1), readOnly.history, 'Withdrawal preserves the immutable earlier choices');
+  assert.deepEqual([withdrawn.history[0].choice, withdrawn.history[0].staffId, withdrawn.history[0].actorId], ['withdraw', readOnly.staffId, readOnly.staffId]);
+  assert.equal((await h.json('/team', undefined, h.owner)).audit.filter(event => event.action === 'calendar.choice_recorded' && event.object_id === withdrawn.lastId).length, 1);
+  assert.deepEqual(await read(h, newSession), withdrawn, 'Withdrawal remains off on a fresh read');
   await h.json('/access/people', { email: prepEmail, clientIds: [client.id], readOnly: false, reason: 'Restore writable personal choice' }, h.owner);
+  await h.json(door, staleOptIn, newSession, 409);
+  assert.equal((await read(h, newSession)).optedIn, false, 'Restoring write access and replaying an old opt-in cannot reactivate consent');
   await h.request('/auth/signout', {}, newSession);
   await read(h, newSession, 401); await h.json(door, pending, newSession, 401);
 }

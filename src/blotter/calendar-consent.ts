@@ -39,7 +39,7 @@ export async function calendarConsent(db: D1Database, actor: Actor) {
 /** A compare-and-set choice and digest-only replay key commit with their audit exactly once. */
 export async function saveCalendarConsent(db: D1Database, actor: Actor, body: Data) {
   staff(actor);
-  insist(!actor.readOnly, 'Read-only staff cannot record a choice', 403);
+  insist(!actor.readOnly || body.choice === 'withdraw', 'Read-only staff can only withdraw their calendar choice', 403);
   insist(Object.keys(body).every(key => ['staffId','source','wordingVersion','choice','reviewToken','lastId','requestId'].includes(key)), 'Only your presented calendar choice fields are accepted');
   insist(body.staffId === actor.id, 'You can record only your own calendar choice', 403);
   insist(body.source === SOURCE && body.wordingVersion === VERSION, 'The calendar wording changed. Refresh and review it again.', 409);
