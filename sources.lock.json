@@ -1472,11 +1472,11 @@
       "executable": false
     },
     "src/blotter/engagement-proposal-pdf.ts": {
-      "sha256": "2268cc204776c01d88b28c7682387ea977380c2ec5f914bfd8103dd9f075c0e3",
+      "sha256": "91f002581a35926e641cae0ca1a8ee36c3dcc2567795f1c041113390a8a83080",
       "executable": false
     },
     "src/blotter/engagement-proposals.ts": {
-      "sha256": "4e536966c255046f2fcb250102eeb13aec5bb5fbc89fed346d04b7f96498e900",
+      "sha256": "426c0681dabbbe7ff76d9237cde1c58e6fda00d411a1900bd15ad7970acf3fc5",
       "executable": false
     },
     "src/blotter/engagements.ts": {
@@ -1980,7 +1980,7 @@
       "executable": false
     },
     "src/blotter/signatures.ts": {
-      "sha256": "2fdc39aa269005caab3c27d235389be25d51c64714b94ac7db53101843d00472",
+      "sha256": "dbbc802cb7e94054cb083b281c204d27a66e4c6beb3137a8f0e6db0f39d07802",
       "executable": false
     },
     "src/blotter/sms-consent.ts": {
@@ -4460,7 +4460,7 @@
       "executable": false
     },
     "tests/blotter/engagement-proposals.test.mjs": {
-      "sha256": "c4156236378c4ff46f39cd50cfe1bf021e9190cbd08f564d5d7a7dbcb7ac3f99",
+      "sha256": "7d2579d6df9d44bb33a5e49b99e7a4c90153a90ff92d20a07e6666d2223f3010",
       "executable": false
     },
     "tests/blotter/enterprise-live.mjs": {
@@ -4724,7 +4724,7 @@
       "executable": false
     },
     "tests/blotter/signatures.test.mjs": {
-      "sha256": "e2b8ba26c5a70ba9ff0fd0a4ebd55619d3be62c34e93da8c3c532f616a6dc53c",
+      "sha256": "d53254dcffe60b2e9a5c007ee5742bc6cfe36f66288bf38a33f2a9eea1086928",
       "executable": false
     },
     "tests/blotter/sms-consent-ui.mjs": {

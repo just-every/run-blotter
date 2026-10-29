@@ -10,8 +10,8 @@ export async function proposalPdf(terms:Data,version:number,contactIds:string[])
     page.drawText(value,{x:40,y,font,size:12});y-=18;
   };
   const paragraph=(value:string)=>{
-    try{font.encodeText(value);}catch{insist(false,'Proposal terms contain characters unsupported by the PDF font');}
     for(const original of value.split(/\r?\n/)){
+      try{font.encodeText(original);}catch{insist(false,'Proposal terms contain characters unsupported by the PDF font');}
       let remaining=original;
       while(remaining.length){let end=remaining.length;while(end>0&&font.widthOfTextAtSize(remaining.slice(0,end),12)>530)end--;
         insist(end>0,'Proposal text cannot be rendered');

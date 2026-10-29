@@ -120,7 +120,8 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
   // An e-file authorization named only inside the PDF is refused for SIGN-001, whatever its title and file name.
   const plain=(contentBase64,extra={})=>({title:'Engagement',formKind:'general',requiresKba:false,mode:'sequential',contactIds:[f.client.contacts[0].id],fields:fields(f).slice(0,4),file:{name:'engagement.pdf',mime:'application/pdf',contentBase64},...extra});
   for(const form of ['Form 8879 IRS e-file Signature Authorization','Form 8879-S IRS e-file Signature Authorization for Form 1120-S','Form 8878 IRS e-file Signature Authorization for Form 4868'])
-   assert.match((await h.json(`/jobs/${f.job.id}/signatures`,plain(await pdfWith([form])),f.prep,409)).error,/SIGN-001/);
+   for(const extra of [{},{documentKind:'engagement-proposal',formKind:'ordinary engagement proposal'}])
+    assert.match((await h.json(`/jobs/${f.job.id}/signatures`,plain(await pdfWith([form]),extra),f.prep,409)).error,/SIGN-001/);
   // A Form 2848 named only in its text: the client signs after a staff attestation, then the representative in session.
   const repFields=[{type:'signature',contactId:rep,page:1,x:40,y:400,width:240,height:28,label:'Representative signature'},{type:'date',contactId:rep,page:1,x:320,y:400,width:240,height:28,label:'Representative date'}];
   const poa={...plain(await pdfWith(['Form 2848 Power of Attorney and Declaration of Representative','Taxpayer: Mia Chen'])),title:'Power of attorney',contactIds:[f.client.contacts[0].id,rep],fields:[...fields(f).slice(0,4),...repFields]};

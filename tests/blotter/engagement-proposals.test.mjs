@@ -18,7 +18,7 @@ async function fixture(h){
  const contacts=['Mia Chen','Jonah Chen','Avery Lane'].map((name,i)=>({name,email:address(i+5),roles:['primary','billing'],authorized:true,signer:true,portal:true,requestConsent:true,emailConsent:true,consentNote:'Explicit synthetic entity signer authority'}));
  const client=await h.json('/clients',{name:'Cedar Lane Manufacturing',contacts},h.owner),template=await h.json('/templates',{name:'Annual scope',recurrence:'annual',steps:'Inspect evidence',requests:'Evidence'},h.owner);
  const state=await h.json('/state',undefined,h.owner),job=await h.json('/jobs',{clientId:client.id,templateId:template.id,periodStart:'2026-01-01',dueDate:'2027-04-15',dueNote:'Client agreed date',preparerEmail:staff,reviewerEmail:state.actor.email},h.owner);
- const terms={title:'Annual services agreement',scope:'Prepare the corporate return and monthly bookkeeping reports.',exclusions:'No audit or legal advice.',currency:'USD',feeCents:125000,retainerTerms:'USD 25000 cents held as a deposit only after separate invoice approval.',renewalRules:'No automatic renewal. Both contacts review a new version.',amendmentRules:'An unfinished version is superseded only by explicit practitioner amendment.',contactIds:client.contacts.slice(0,2).map(c=>c.id)};
+ const terms={title:'Annual services agreement',scope:'Prepare the corporate return.\r\n\r\nProvide monthly bookkeeping reports.\nForm 8879 is signed separately.',exclusions:'No audit or legal advice. Form 2848 services are excluded.',currency:'USD',feeCents:125000,retainerTerms:'USD 25000 cents held as a deposit only after separate invoice approval.',renewalRules:'No automatic renewal. Both contacts review a new version.',amendmentRules:'An unfinished version is superseded only by explicit practitioner amendment.',contactIds:client.contacts.slice(0,2).map(c=>c.id)};
  return {client,template,job,prep,outside,staff,terms,principal:state.actor.email};
 }
 async function seedIndependentApprovals(h,f){
@@ -70,7 +70,7 @@ test('Ordinary proposals freeze terms, supersede partial signatures atomically, 
   await h.json(`/jobs/${f.job.id}/engagement-proposals`,{...f.terms,currency:'AUD'},h.owner,400);
   await h.json(`/jobs/${f.job.id}/engagement-proposals`,{...f.terms,feeCents:1.2},h.owner,400);
   let first=await draft(h,f);await h.json(`/signatures/${first.id}/send`,{revision:first.revision},f.prep,403);await h.json(`/signatures/${first.id}/void`,{revision:first.revision,reason:'Staff has no proposal authority'},f.prep,403);const original=await file(h,first.id,'original',f.prep);
-  assert.equal(sha(original),first.source_sha256);const words=await pdfText(original);for(const value of [f.terms.scope,f.terms.exclusions,'125000','Retainer terms','Renewal rules','Amendment rules'])assert.ok(words.includes(value));
+  assert.equal(sha(original),first.source_sha256);const words=await pdfText(original);for(const value of [...f.terms.scope.split(/\r?\n/).filter(Boolean),f.terms.exclusions,'125000','Retainer terms','Renewal rules','Amendment rules'])assert.ok(words.includes(value));
   assert.deepEqual(first.proposal.terms,Object.fromEntries(Object.entries(f.terms).filter(([k])=>k!=='contactIds')));
   first=await send(h,f,first);const t1=token(first.invitations[0]),t2=token(first.invitations[1]),stale=await open(h,t2,first.id);
   const beforeSignatureMail=h.mails.length;
@@ -78,7 +78,7 @@ test('Ordinary proposals freeze terms, supersede partial signatures atomically, 
   assert.equal((await h.json('/notifications',undefined,h.owner)).filter(n=>n.kind==='signature'&&n.delivery.startsWith('not enabled')).length,1);
   await h.json('/notifications/settings',{timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']},h.owner);
   const partial=await h.json(`/engagement-proposals/${first.id}`,undefined,f.prep);
-  const amend={...f.terms,scope:'Prepare the corporate return only.',feeCents:95000,revision:partial.revision};
+  const amend={...f.terms,scope:'Prepare the corporate return only. Form 8879 is signed separately.',feeCents:95000,revision:partial.revision};
   const outcomes=await Promise.all([h.request(`/api/blotter/engagement-proposals/${first.id}/amend`,amend,h.owner),h.request(`/api/blotter/engagement-proposals/${first.id}/amend`,amend,h.owner)]);
   assert.deepEqual(outcomes.map(r=>r.status).sort(),[200,409]);let replacement=await outcomes.find(r=>r.status===200).json();
   const superseded=await h.json(`/engagement-proposals/${first.id}`,undefined,f.prep);assert.equal(superseded.status,'voided');assert.equal(superseded.proposal.superseded_by,replacement.id);assert.equal(superseded.signers[0].status,'signed');assert.equal(superseded.signers[1].status,'pending');assert.deepEqual(await file(h,first.id,'original',f.prep),original);
