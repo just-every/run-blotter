@@ -4,7 +4,7 @@ import { clientAuthority } from './permissions';
 // recorded atomically with its effect. Adapted from run-satchel (MIT).
 import type { Bindings } from '../auth.server';
 import { runtimeBindings } from '../auth.server';
-import { atomic, audit, date, guard, human, id, insist, job, need, now, optional, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, preparationOwnerSql, date, guard, human, id, insist, job, need, now, optional, stmt, text, type Actor, type Data } from './model';
 import { rollForward } from './jobs';
 import { sendReminder } from './documents';
 import { prepareExport, unbilled } from './billing';
@@ -34,7 +34,7 @@ export async function propose(db: D1Database, actor: Actor, kind: string, body: 
   }
   const payload = await payloadFor(db, actor, kind, body), proposalId = id();
   await atomic(db, actor, [
-    stmt(db, 'INSERT INTO b_proposals(id,kind,payload,for_email,agent_label,created_at) VALUES(?,?,?,?,?,?)', proposalId, kind, JSON.stringify(payload), actor.email, actor.label ?? 'Prepared by a person', now()),
+    stmt(db, 'INSERT INTO b_proposals(id,kind,payload,for_email,agent_label,created_at,door_sponsor_id) VALUES(?,?,?,?,?,?,?)', proposalId, kind, JSON.stringify(payload), actor.email, actor.label ?? 'Prepared by a person', now(), actor.doorAgent?actor.id:null),
     audit(db, actor, 'proposal.prepared', proposalId, kind),
   ]);
   return { id: proposalId, kind, status: 'pending', payload };
@@ -43,7 +43,7 @@ export async function propose(db: D1Database, actor: Actor, kind: string, body: 
 export async function decideProposal(env: Bindings, actor: Actor, proposalId: string, body: Data) {
   human(actor);
   const db = runtimeBindings(env).DB;
-  const p = await stmt(db, 'SELECT * FROM b_proposals WHERE id=? AND for_email=?', proposalId, actor.email).first<Data>();
+  const p = await stmt(db, `SELECT * FROM b_proposals WHERE id=? AND ${preparationOwnerSql()}`, proposalId, actor.id, actor.email).first<Data>();
   insist(p, 'Proposal not found', 404);
   insist(p.status === 'pending', 'This proposal was already decided', 409);
   const payload = JSON.parse(p.payload);

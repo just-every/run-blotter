@@ -110,7 +110,7 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
     stmt(db, "UPDATE b_notices SET assignee_email=? WHERE assignee_email=? AND status='open'", p.workSuccessor, leaver),
     stmt(db, "UPDATE b_threads SET owner_email=? WHERE owner_email=? AND status='open'", p.workSuccessor, leaver),
     stmt(db, "UPDATE b_portal_items SET owner_email=? WHERE owner_email=? AND status='open'", p.workSuccessor, leaver),
-    stmt(db, "UPDATE b_proposals SET for_email=? WHERE for_email=? AND status='pending'", p.reviewSuccessor, leaver),
+    stmt(db, "UPDATE b_proposals SET for_email=?,door_sponsor_id=CASE WHEN door_sponsor_id IS NULL THEN NULL ELSE (SELECT id FROM oa_operators WHERE email=? AND status='active') END WHERE for_email=? AND status='pending'", p.reviewSuccessor, p.reviewSuccessor, leaver),
     ...p.templates.map(t => stmt(db, 'UPDATE b_templates SET steps=? WHERE id=?', rewrite(t.steps), t.id)),
     // A running timer records nothing; unsubmitted time goes to reviewers as submitted on the member's behalf.
     stmt(db, 'DELETE FROM b_timers WHERE person_email=?', leaver),
