@@ -1,11 +1,10 @@
 /* run-blotter.com's frame for Base's shared /run, /contract and not-found pages. Tokens: /site/tokens.css. */
 @import url('/site/tokens.css');
 /* Base's shared pages set their heading face from --rer-font-heading; the display face is condensed and heavy. */
-body > .bar .brand, body h1, body main h1, body .step h2, body .big, body .of, body .card h2 { font-variation-settings:'wdth' 50; font-weight:900; }
+body > .bar .brand, body h1, body main h1, body .big, body .of, body .card h2 { font-variation-settings:'wdth' 50; font-weight:900; }
 body > .bar .brand { font-size:30px; }
 body h1 { letter-spacing:-.005em; }
-body > .bar .brand, body h1, body main h1, body .step h2, body .big, body .of, body .card h2 { word-spacing:.14em; }
-.step { background:var(--bl-white); border-color:var(--bl-line); }
+body > .bar .brand, body h1, body main h1, body .big, body .of, body .card h2 { word-spacing:.14em; }
 body > .bar { padding-bottom:18px; border-bottom:1px solid #dedce4; }
 body > .bar nav { color:var(--bl-ink); }
 @media (min-width:761px) { body > .bar nav { font-size:18px; } body > .bar .brand img { width:44px; height:44px; } }

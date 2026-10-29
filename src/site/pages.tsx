@@ -11,7 +11,7 @@ import { DocsPage } from './docs/DocsPage'
 import { docs } from './docs/content'
 import { Landing } from './landing/Landing'
 import { typeset } from './shell/typeset'
-import run from './run.json'
+import { run } from './run'
 
 const title = 'Blotter — Client work, ahead of every deadline'
 const description = 'Blotter schedules every client’s recurring work against federal and state deadlines, chases documents and signatures, routes the work through review and collects the fee. 100% free, open source alternative to Karbon, TaxDome and Canopy.'
