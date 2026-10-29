@@ -6,6 +6,8 @@ import { clientScopeSql, clientScopeParams } from './access-sql';
 export type Data = Record<string, any>;
 export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
+  doorAgent?: { id: string; name: string; approvers?: readonly {id:string;name:string}[] };
+  doorAuthority?: { envelope: string|null; localDocument:string|null; revision:number; businessRevision?:number };
   id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'integration'; integration?: { keyId: string; action: string }; agentKeyId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
@@ -90,7 +92,8 @@ function authority(actor: Actor) {
   };
 }
 export function audit(db: D1Database, actor: Actor, action: string, objectId: string, detail = '') {
-  const who = actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
+  if(actor.doorAgent?.approvers?.length)detail+='; company approvers: '+actor.doorAgent.approvers.map(p=>`${p.name} (${p.id})`).join(', ');
+  const who = actor.doorAgent ? `${actor.doorAgent.name} for ${actor.name} <${actor.email}>` : actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
   return stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, action, objectId, detail, now());
 }
 /** A guard row that only inserts when `sql` holds, so the whole batch fails otherwise. */
@@ -100,6 +103,9 @@ export function guard(db: D1Database, sql: string, ...params: unknown[]) {
 }
 export async function atomic(db: D1Database, actor: Actor, statements: D1PreparedStatement[]) {
   const a = authority(actor), [check, release] = guard(db, a.sql, ...a.params);
+  const door: D1PreparedStatement[] = [];
+  if(actor.doorAuthority){const snap=actor.doorAuthority;door.push(...guard(db,`EXISTS(SELECT 1 FROM agent_door_state WHERE id=1 AND local_paused=0 AND envelope IS ? AND local_document IS ? AND local_revision=? AND (envelope IS NOT NULL OR local_document IS NOT NULL) AND (envelope IS NULL OR (json_extract(envelope,'$.exp')>unixepoch() AND json_extract(envelope,'$.paused')=0))) AND EXISTS(SELECT 1 FROM agent_door_agents WHERE id=? AND revoked=0)`,snap.envelope,snap.localDocument,snap.revision,actor.doorAgent!.id));if(snap.businessRevision!==undefined)door.push(...guard(db,`EXISTS(SELECT 1 FROM bs_settings WHERE singleton=1 AND stopped=0 AND rev=? AND ((owner_id IS NOT NULL AND EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND role='owner' AND status='active')) OR EXISTS(SELECT 1 FROM bs_team WHERE operator_id=? AND state='active')))`,snap.businessRevision,actor.id,actor.id));}
+  if(actor.doorAgent&&actor.agentKeyId)door.push(...guard(db,'EXISTS(SELECT 1 FROM b_agent_keys WHERE id=? AND owner_id=? AND revoked=0)',actor.agentKeyId,actor.id));
   const integration: D1PreparedStatement[] = [];
   if (actor.integration) {
     const [live, done] = guard(db, `${liveIntegrationSql} AND EXISTS(SELECT 1 FROM b_integration_keys k,json_each(k.actions) a WHERE k.id=? AND a.value=?)`, actor.integration.keyId, actor.integration.keyId, actor.integration.action);
@@ -130,7 +136,7 @@ export async function atomic(db: D1Database, actor: Actor, statements: D1Prepare
     execution.push(allowed, finish);
     completed.push(stmt(db, "UPDATE b_automation_attempts SET status=?,outcome=?,next_action=? WHERE id=? AND status='running'", x.external ? 'dispatching' : 'succeeded', x.external ? 'Provider outcome not yet recorded' : 'Native effect committed', x.external ? 'Reconcile if interrupted; never resend blindly' : '', x.attemptId));
   }
-  try { const results = await db.batch([...approval, check, ...execution, ...integration, ...statements, ...decision, ...completed, release]); return results.slice(approval.length + 1 + execution.length + integration.length, approval.length + 1 + execution.length + integration.length + statements.length); }
+  try { const results = await db.batch([...door, ...approval, check, ...execution, ...integration, ...statements, ...decision, ...completed, release]); return results.slice(door.length + approval.length + 1 + execution.length + integration.length, door.length + approval.length + 1 + execution.length + integration.length + statements.length); }
   catch (error) {
     if (/constraint|b_guard|UNIQUE|immutable|invalid job transition|only void/i.test(String(error))) throw new Fault('The record changed or this action is no longer allowed. Refresh and try again.', 409);
     throw error;

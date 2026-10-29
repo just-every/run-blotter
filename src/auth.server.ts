@@ -15,6 +15,7 @@ import { enterpriseSessionGate } from './blotter/enterprise-policy'
 const theme = { href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor }
 
 export interface Bindings {
+ RER_BUSINESS_TRUST?: string
  STRIPE_SECRET_KEY?: string
  STRIPE_WEBHOOK_SECRET?: string
  AI_API_KEY?: string
