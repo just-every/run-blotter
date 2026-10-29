@@ -7,5 +7,7 @@ body h1 { letter-spacing:-.005em; }
 body > .bar .brand, body h1, body main h1, body .big, body .of, body .card h2 { word-spacing:.14em; }
 body > .bar { padding-bottom:18px; border-bottom:1px solid #dedce4; }
 body > .bar nav { color:var(--bl-ink); }
+/* Keep the disclosed local alternatives readable without horizontal scrolling. */
+body .chooser .self .other-ways pre code { white-space:pre-wrap; overflow-wrap:anywhere; }
 @media (min-width:761px) { body > .bar nav { font-size:18px; } body > .bar .brand img { width:44px; height:44px; } }
 @media (max-width:760px) { body > .bar .brand { font-size:26px; } body > .bar nav { gap:18px; } }
