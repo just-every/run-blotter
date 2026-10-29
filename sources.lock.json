@@ -2016,7 +2016,7 @@
       "executable": false
     },
     "src/blotter/demo/work.ts": {
-      "sha256": "76bc266c9e60915fe6d6ec87fc6675d22dec65bb89ba4e26c8ec8decbd6726bb",
+      "sha256": "61dbf608ca76386d12f5ca74143ecc0845b914bcfb8813b476271d6e8a732eca",
       "executable": false
     },
     "src/blotter/document-catalog.ts": {

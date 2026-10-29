@@ -59,8 +59,8 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
   const office = (ms: number) => { const date = localDay(ms), midnight = at(date, 0), mapped = at(date, 8.5 + (ms - midnight) / DAY * 9); return mapped < clock - 10 * 60_000 ? mapped : ms; };
   const audit = (actor: string, action: string, objectId: string, detail: string, ms: number) =>
     work.audit.push({ id: fixedId(`audit:${action}:${objectId}:${ms}`), actor, action, object_id: objectId, detail, at: iso(ms) });
-  // Two jobs that tell a story: one stuck waiting on the client, one signed off but not yet rolled forward.
-  const stuck = clients.ironbark.name, unrolled = 'Fig Tree Dental LLC:close';
+  // Distinct waiting, review and ready-to-roll stories survive calendar changes and review returns.
+  const stuck = clients.ironbark.name, unrolled = 'Fig Tree Dental LLC:close', inReview = `${clients.cobalt.name}:payroll`;
 
   for (const e of engagements) {
     const t = e.template, recurrence = t.recurrence, key = `${e.client.name}:${t.key}`;
@@ -70,6 +70,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
     while (dueDate(e, addMonths(current, -STEP[recurrence])) >= day(iso(at(today) - 6 * DAY))) current = addMonths(current, -STEP[recurrence]);
     // Leave time to complete a closed month, including when the demo opens early in a new month.
     if (key === unrolled) while (at(addMonths(current, 1), 9) > clock - 4 * DAY) current = addMonths(current, -1);
+    if (key === inReview) while (at(current, 9) > clock - 4 * DAY) current = addMonths(current, -1);
     const isStuck = e.client.name === stuck && t.key === 'salesTax';
     // A completed quarter waits for principal review even when the current
     // date gives every other engagement an open or signed-off period.
@@ -95,6 +96,7 @@ export function practiceWork(now: Date, owner: { id: string; email: string }) {
       else if (daysLeft <= 14) { status = r < 0.3 ? 'signed_off' : r < 0.6 ? 'review' : 'open'; progress = status === 'open' ? 0.45 + r * 0.4 : 1; }
       else { status = 'open'; progress = Math.max(0, Math.min(0.85, 0.15 + 0.7 * r - daysLeft / 300)); }
       if (key === unrolled && isCurrent) status = 'signed_off', progress = 1;
+      if (key === inReview && isCurrent) status = 'review', progress = 1;
       // The work window: from the period's end (payroll: its start) until review or now.
       const begin = Math.max(created + HOUR, at(t.key === 'payroll' ? start : day(iso(at(end) + DAY)), 9));
       const workEnd = clock - 45 * 60_000;
