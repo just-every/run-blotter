@@ -663,6 +663,10 @@
       "sha256": "2fb36fa4a9ab3c91cded6a610d1c282b671598d43338039516c5b6958c92b1bd",
       "executable": false
     },
+    "migrations/core/0117_agent_preparation_sponsors.sql": {
+      "sha256": "8a5f4964b9dbca82af014cd99dac97598d4e38db0f20c275a5d8626baee8a8c7",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "0c6494a4aba09099ce7b2fc37b145c3e917dad82ee47934b6a6205d37a454632",
       "executable": false
