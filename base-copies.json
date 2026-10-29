@@ -3304,6 +3304,90 @@
       "originFiles": [
         "foundation/runtime/run-data.d.mts"
       ]
+    },
+    {
+      "path": "scripts/verify-ci.mjs",
+      "originPath": "export/verify-ci.mjs",
+      "revision": "f96363bf919ea3e7ed1837daba6894810a50e4a6",
+      "files": {
+        "scripts/verify-ci.mjs": "cf1ceb8773ed276f82245fb8fb4c4bdc95bff40ecc0e8ca8ac9e776978b17340"
+      },
+      "modes": {
+        "scripts/verify-ci.mjs": "100644"
+      },
+      "originFiles": [
+        "export/verify-ci.mjs"
+      ]
+    },
+    {
+      "path": "scripts/install-chromium-deps.py",
+      "originPath": "export/install-chromium-deps.py",
+      "revision": "f96363bf919ea3e7ed1837daba6894810a50e4a6",
+      "files": {
+        "scripts/install-chromium-deps.py": "d3027108ad8e08ceeddb0ed477d967b1207e40bb6bf5ae941854c534c2cf4004"
+      },
+      "modes": {
+        "scripts/install-chromium-deps.py": "100644"
+      },
+      "originFiles": [
+        "export/install-chromium-deps.py"
+      ]
+    },
+    {
+      "path": "scripts/verify-app.mjs",
+      "originPath": "export/verify-app.mjs",
+      "revision": "f96363bf919ea3e7ed1837daba6894810a50e4a6",
+      "files": {
+        "scripts/verify-app.mjs": "4c3a87c809e2b671a555dc36171b60675f87be96362de7d2269d9f5e1c3100b6"
+      },
+      "modes": {
+        "scripts/verify-app.mjs": "100644"
+      },
+      "originFiles": [
+        "export/verify-app.mjs"
+      ]
+    },
+    {
+      "path": "scripts/verify-plan.mjs",
+      "originPath": "export/verify-plan.mjs",
+      "revision": "f96363bf919ea3e7ed1837daba6894810a50e4a6",
+      "files": {
+        "scripts/verify-plan.mjs": "45fe2ab9c5cbc72d0186bf77fab32c985605caae6ecee50676dd618612c3e78f"
+      },
+      "modes": {
+        "scripts/verify-plan.mjs": "100644"
+      },
+      "originFiles": [
+        "export/verify-plan.mjs"
+      ]
+    },
+    {
+      "path": "scripts/verify-light.mjs",
+      "originPath": "export/verify-light.mjs",
+      "revision": "f96363bf919ea3e7ed1837daba6894810a50e4a6",
+      "files": {
+        "scripts/verify-light.mjs": "f9b126130837144e43a65d10d370d602b63daad2be7ff66c93178d461a7521d9"
+      },
+      "modes": {
+        "scripts/verify-light.mjs": "100644"
+      },
+      "originFiles": [
+        "export/verify-light.mjs"
+      ]
+    },
+    {
+      "path": "scripts/verify-evidence.mjs",
+      "originPath": "export/verify-evidence.mjs",
+      "revision": "f96363bf919ea3e7ed1837daba6894810a50e4a6",
+      "files": {
+        "scripts/verify-evidence.mjs": "9224f772d6a17f043448694eca3c149df83070417b995a2840497e36a9ad0100"
+      },
+      "modes": {
+        "scripts/verify-evidence.mjs": "100644"
+      },
+      "originFiles": [
+        "export/verify-evidence.mjs"
+      ]
     }
   ]
 }
