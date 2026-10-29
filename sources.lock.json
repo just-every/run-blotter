@@ -5164,7 +5164,7 @@
       "executable": false
     },
     "tests/blotter/integration-keys.test.mjs": {
-      "sha256": "42290caf2759b4e7d33fce8d688ac93f0336be50583e851aa637f7af88700130",
+      "sha256": "c3526089edebe409757a7a05fedd7efd821ff9fa30722184f5596772befe9e9d",
       "executable": false
     },
     "tests/blotter/integration-ui.mjs": {
