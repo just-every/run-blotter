@@ -680,3 +680,33 @@ The first intake freezes original bytes and digest, the reviewed contact names a
 The principal sets `efileReady: true` when creating or editing an empty open-stage sub-status through the existing sub-status doors under Settings. The designation is permanent and survives renaming. Every status effect, including automation and bulk reassignment, refuses entry while required signature and KBA evidence is unavailable. Review and completion still use the existing review gates. A label alone confers no readiness designation. General signing refuses IRS e-file forms; no local signature completion or gate override is supported.
 
 Unsigned intake has no signed-record retention clock. Its originals and spouse roster are classified for class, job and original-file holds, preview and confirmed erasure; digest and attribution remain. Downloaded outside copies name their staff holder. Archives carry the exact record as inactive historical evidence; they grant no signing authority and cannot bypass the erasure journal fence. Genuine KBA, remote delivery, handwritten fallback, signed artifacts and release to ready to file remain unavailable.
+
+### Personal calendar time-suggestion choice
+
+`GET /api/blotter/time/calendar-consent` presents the authenticated staff member's
+optional calendar choice, exact wording and version, calendar source category,
+review token and attributed history. It starts off and remains separate from
+native work-action consent. Scoped staff see only their own choice.
+
+`POST /api/blotter/time/calendar-consent` accepts only `staffId`, `source`,
+`wordingVersion`, `reviewToken`, `lastId`, `requestId` and `choice` (`decline`,
+`opt_in` or `withdraw`) from that presentation. The staff identity and actor are
+resolved from the current native session; choosing for somebody else is refused.
+A request id commits one immutable event and audit, including the exact presented
+wording, choice and time. A changed intent or an old request after a newer choice
+is refused. Current session, staff authority and the installation's per-session
+MFA rules are checked at the write boundary. Agent and integration credentials
+cannot use this door; read-only staff cannot write.
+
+Deactivation and offboarding invalidate prior choices without transferring them
+to a successor. Staff-classified choice history travels in native archives with
+its original staff identity and attribution, always inactive after restore; a
+fresh current presentation and explicit personal choice are required. Staff
+records contain no client data and are retained under the existing staff class,
+without a client-record erasure clock or provider-copy claim.
+
+Calendars are not connected and calendar suggestions remain unavailable. This
+choice creates no calendar event, time suggestion, time entry, billing change,
+provider request or provider-access grant. Google, Outlook, Calendly and Acuity
+integration, connected-event suggestions, CRM consultation linkage and full
+connector retention and erasure evidence remain unimplemented.

@@ -34,5 +34,45 @@ export function SuggestedTime({ run, tick, open }: { run: Run; tick: number; ope
         </Form></details>
       </li>)}</ul>}
     </>}
+    <CalendarConsent run={run} tick={tick} />
+  </section>;
+}
+
+
+/** An independent personal choice. Checking the box alone records nothing. */
+export function CalendarConsent({ run, tick }: { run: Run; tick: number }) {
+  const [state, setState] = useState<Row>(), [explicit, setExplicit] = useState(false), [busy, setBusy] = useState(false);
+  useEffect(() => { api('/time/calendar-consent').then(value => { setState(value); setExplicit(false); }).catch(error => run(async () => { throw error; })); }, [tick]);
+  const save = async (choice: string) => {
+    if (!state || busy) return;
+    setBusy(true);
+    try {
+      await run(async () => {
+        setState(await api('/time/calendar-consent', { staffId: state.staffId, source: state.source, wordingVersion: state.wordingVersion,
+          reviewToken: state.reviewToken, lastId: state.lastId, choice, requestId: crypto.randomUUID() }));
+        setExplicit(false);
+      }, 'Your calendar choice was saved; calendar suggestions remain unavailable');
+    } finally { setBusy(false); }
+  };
+  return <section className="stack" aria-labelledby="calendar-choice-title" style={{ overflowWrap: 'anywhere' }}>
+    <h3 id="calendar-choice-title">Calendar time suggestions</h3>
+    <p>Calendars are not connected. Calendar suggestions are unavailable; saving a choice grants no provider access.</p>
+    {state && <>
+      <p><strong>{state.optedIn ? 'Calendar choice: on' : 'Calendar choice: off'}</strong> · Only you can change your choice.</p>
+      <details><summary>Calendar choice Settings</summary>
+        <p data-calendar-wording>{state.wording}</p>
+        <label className="check"><input type="checkbox" checked={explicit} disabled={busy} onChange={event => setExplicit(event.target.checked)} />I choose to allow calendar time suggestions</label>
+        <div className="actions">
+          <button disabled={!explicit || busy} onClick={() => save('opt_in')}>Save my calendar opt-in</button>
+          <button className="quiet" disabled={busy} onClick={() => save('decline')}>Decline calendar suggestions</button>
+          {state.history.length > 0 && <button className="quiet" disabled={busy} onClick={() => save('withdraw')}>Withdraw calendar consent</button>}
+        </div>
+      </details>
+      {state.history.length > 0 && <details><summary>My calendar choice history</summary><ul className="list">{state.history.map((event: Row) => <li key={event.id} data-calendar-event={event.id}>
+        <strong>{event.choice === 'opt_in' ? 'Opted in' : event.choice === 'withdraw' ? 'Withdrawn' : 'Declined'}</strong> · {event.actor} · {when(event.at)}
+        <p>{event.wording}</p>
+        {(event.historical || event.invalidatedAt) && <p>Historical evidence; a fresh personal choice is required. {event.invalidationReason}</p>}
+      </li>)}</ul></details>}
+    </>}
   </section>;
 }

@@ -57,3 +57,19 @@ Status: **partial**.
 Evidence: `src/blotter/efile-authorizations.ts`; `src/blotter/statuses.ts`; `migrations/core/0111_efile_authorizations.sql`; `tests/blotter/efile-authorizations.test.mjs` — “Unsigned 8879 intake through HTTP and browser” (exact original and spouse roster, identity substitutions, concurrent replay, current authority, direct and board moves, checklist and generic signature exclusions, renamed designation, automation and bulk refusal); “Unsigned 8879 custody” (classification, unsigned clock boundary, scoped holds, preview, erasure receipts, archive equality and inactive or stale restore); `tests/blotter/efile-authorizations-ui.mjs` — efileJourney (native intake and readiness refusal; 1440 and 390 screens)
 
 Gap: Missing KBA identity-proofing provider account and authorized provider test edge; document and selfie identity checking is not KBA. Authorized INTEGRATE-002 tax-software handoff and source proof, other supported authorization forms, remote delivery, per-signer provider credentials and KBA attempts, retry and three-failure handwritten fallback, wet-signature completion after that fallback, successful ready-to-file release, signed PDF and provider certificate with complete IP, login and KBA audit evidence, the signed-record three-year floor from the later due date or IRS-received date, FOLLOWUP-001 unsigned-form chasing, INTEGRATE-008 filing evidence, and remaining full BASE-001 and ERASURE-002 activation proof remain unbuilt or unproved. This native slice establishes no signed, transmitted, accepted or filed state.
+
+## INTEGRATE-005 — Calendars and client appointment booking
+
+Status: **partial**.
+
+Evidence: `src/blotter/calendar-consent.ts`; `migrations/core/0112_calendar_consent.sql`; `src/ui/suggestions.tsx`; `tests/blotter/calendar-consent.test.mjs` (TIME-001 activity suggestions: independent calendar consent, concurrent and stale replay refusal, staff identity, current sessions and MFA, deactivation, offboarding, successor isolation and inactive attributed restore); `tests/blotter/calendar-consent-ui.mjs` (calendarConsentJourney: explicit keyboard choice, withdrawal and state after reload, invoked by push Verify).
+
+Gap: Native personal calendar-choice evidence only; calendars are not connected, suggestions remain unavailable and this choice grants no provider access. Full completion needs licensed Microsoft 365 Outlook calendar, Calendly and Acuity accounts and grants, plus authorized Google configuration and user grants. Google and Outlook connections and synchronization, configurable direction, time zones and DST, private-event masking; Calendly and Acuity portal booking, engagement links, cancellation and reschedule capacity updates and deduplication; CRM-005 consultation linkage and idempotent conversion; actual connected-event time suggestions with source links, private-event and withdrawn-consent exclusions and individual human approval; and complete connector and provider-copy BASE-001 and ERASURE-002 classification, clocks, holds, preview, erasure, receipts and restore evidence remain omitted. No account hold or integration prerequisite is released.
+
+## TIME-001 — Time budgets and activity suggestions
+
+Status: **done**.
+
+Evidence: `src/blotter/billing.ts`; `src/blotter/timers.ts`; `src/blotter/suggestions.ts`; `src/blotter/timesheets.ts`; `migrations/core/0031_timers.sql`; `migrations/core/0032_billable_time.sql`; `migrations/core/0033_activity_suggestions.sql`; `migrations/core/0034_time_tasks.sql`; `src/ui/timer.tsx`; `src/ui/suggestions.tsx`; `tests/blotter/flows.test.mjs`; `tests/blotter/calendar-consent.test.mjs` (TIME-001 activity suggestions, moved intact from the flows journey and extended with separate calendar choice proof)
+
+Gap:

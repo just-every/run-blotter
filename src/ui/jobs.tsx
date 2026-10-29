@@ -3,7 +3,7 @@ import { Blotter, Empty, Status, type Row, type Run, day } from './common';
 import { JobDetail } from './job';
 import { ReassignBulk } from './bulk';
 import { MyTimesheet } from './timesheet';
-import { SuggestedTime } from './suggestions';
+import { CalendarConsent, SuggestedTime } from './suggestions';
 import { MyAlerts } from './discussions';
 import { MyWeek } from './plan';
 import { Calendar } from './calendar';
@@ -37,5 +37,5 @@ function JobList({ state, jobs, open, run, tick }: { state: Row; jobs: Row[]; op
       </tr>)}</tbody>
     </table>}
     {state.actor.role !== 'preparer' && !state.actor.accessScoped && !state.actor.readOnly && <details><summary>Reassign or reschedule in bulk</summary><ReassignBulk state={state} run={run} /></details>}
-  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} />{!state.actor.accessScoped&&<Notices actor={state.actor} run={run} tick={tick} />}<StaffSignatures run={run} tick={tick} /><MyAlerts tick={tick} open={open} />{!state.actor.accessScoped&&<><MyTimesheet actor={state.actor} people={state.people} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>}</>;
+  </section></Blotter><MyWeek state={state} open={open} run={run} tick={tick} />{!state.actor.accessScoped&&<Notices actor={state.actor} run={run} tick={tick} />}<StaffSignatures run={run} tick={tick} /><MyAlerts tick={tick} open={open} />{state.actor.accessScoped && <section className="panel"><CalendarConsent run={run} tick={tick} /></section>}{!state.actor.accessScoped&&<><MyTimesheet actor={state.actor} people={state.people} run={run} tick={tick} /><SuggestedTime run={run} tick={tick} open={open} /></>}</>;
 }

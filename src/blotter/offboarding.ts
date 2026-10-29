@@ -1,3 +1,4 @@
+import { invalidateCalendarConsent } from './calendar-consent';
 import {pendingSignatures,transferSignatures} from './signatures';
 // Staff offboarding (ACCESS-006). The principal previews everything a member
 // owns, names a work successor and a review successor, and commits one batch
@@ -126,6 +127,7 @@ export async function commitOffboarding(db: D1Database, actor: Actor, body: Data
 /** Deactivating a member revokes every session and agent key they hold; reactivation needs a new sign-in and new keys. */
 export function deactivation(db: D1Database, address: string) {
   return [
+    invalidateCalendarConsent(db, address),
     stmt(db,'UPDATE b_enterprise_identities SET active=0,blocked=1 WHERE email=?',address),
     stmt(db,'DELETE FROM b_enterprise_group_members WHERE identity_id IN(SELECT id FROM b_enterprise_identities WHERE email=?)',address),
     stmt(db, 'UPDATE b_members SET active=0 WHERE email=?', address),

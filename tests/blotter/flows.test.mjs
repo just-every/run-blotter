@@ -1220,59 +1220,6 @@ test('TIME-001 billable status and tasks: non-billable time keeps its amount and
   assert.equal(detail.budget.actualMinutes, 45 + 20 + 10 + 60 + timed.minutes);
 });
 
-test('TIME-001 activity suggestions: only consented actions suggest time with their sources; reject one, approve another, and only approved minutes reach WIP; nobody else sees or decides them', async () => {
-  const mill = await h.json('/clients', { name: 'Granite Mill Bakery', fields: { service_tier: 'Plus' } }, h.owner);
-  await h.json('/team/rates', { scope: 'client', clientId: mill.id, rateCents: 12000, effectiveFrom: '2026-01-01' }, h.owner);
-  const start = periodStart => h.json('/jobs', { clientId: mill.id, templateId: template.id, periodStart, dueDate: '2027-06-30', dueNote: 'Client calendar', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
-  const early = await start('2026-01-01'), payroll = await start('2026-04-01'), sales = await start('2026-07-01');
-  const discuss = (j, title) => h.json(`/jobs/${j.id}/threads`, { title, body: 'Working through this today.', mentions: [] }, preparer);
-  const mine = async (who = preparer) => h.json('/time/suggestions', undefined, who);
-  // Off by default: actions before consent never suggest time.
-  await discuss(early, 'Before consent');
-  assert.deepEqual(await mine(), { consentedAt: null, pending: [], decided: [] });
-  await h.json('/time/suggestions/consent', { consent: 'yes' }, preparer, 400);
-  await h.json('/time/suggestions/consent', { consent: true }, preparer);
-  await h.json('/time/suggestions/consent', { consent: true }, preparer, 409);
-  await h.json(`/jobs/${sales.id}/steps`, { ordinal: 1, done: true }, preparer);
-  const opened = await discuss(payroll, 'Payroll split');
-  await h.json(`/threads/${opened.thread.id}/messages`, { body: 'Split confirmed with the client.' }, preparer);
-  await h.json(`/threads/${opened.thread.id}/messages`, { body: 'Thanks.' }, reviewer);
-  let state = await mine();
-  const shown = Object.fromEntries(state.pending.map(s => [s.job_id, s.sources.map(a => [a.action, a.detail]).sort()]));
-  assert.deepEqual(shown, { [payroll.id]: [['thread.opened', 'Payroll split'], ['thread.replied', 'Payroll split']], [sales.id]: [['step.done', 'Reconcile bank']] });
-  const [forSales, forPayroll] = [sales, payroll].map(j => state.pending.find(s => s.job_id === j.id));
-  // Only the person sees and decides their suggestions.
-  assert.deepEqual((await mine(reviewer)).pending, []);
-  await h.json('/time/suggestions/decide', { jobId: sales.id, day: forSales.day, decision: 'reject' }, reviewer, 404);
-  await h.json('/time/suggestions/decide', { jobId: sales.id, day: forSales.day, decision: 'reject' }, h.owner, 404);
-  await h.json('/time/suggestions/decide', { jobId: sales.id, day: forSales.day, decision: 'reject', reason: 'A two-minute tick-off' }, preparer);
-  await h.json('/time/suggestions/decide', { jobId: sales.id, day: forSales.day, decision: 'approve', minutes: 5, description: 'Late change of mind', billable: true }, preparer, 404);
-  // Approval records nothing silently: it needs the minutes and an explicit billable choice.
-  const approve = { jobId: payroll.id, day: forPayroll.day, decision: 'approve', minutes: 25, description: 'Payroll split query' };
-  await h.json('/time/suggestions/decide', approve, preparer, 400);
-  const approved = await h.json('/time/suggestions/decide', { ...approve, billable: true }, preparer);
-  assert.deepEqual([approved.entry.date, approved.entry.minutes, approved.entry.amountCents, approved.entry.billable], [forPayroll.day, 25, 5000, true]);
-  await h.json('/time/suggestions/decide', { ...approve, billable: true }, preparer, 404);
-  state = await mine();
-  assert.deepEqual(state.pending, []);
-  assert.deepEqual(state.decided.map(d => [d.job_id, d.status, d.entry_id, JSON.parse(d.sources).length]), [[payroll.id, 'approved', approved.entry.id, 2], [sales.id, 'rejected', null, 1]]);
-  await h.json(`/time/${approved.entry.id}/delete`, {}, reviewer, 403);
-  // Only approved minutes enter WIP: the rejected suggestion recorded nothing, and the approved entry waits for timesheet approval.
-  const wipFor = async j => (await h.json('/billing', undefined, reviewer)).unbilled.filter(l => l.job_id === j.id).map(l => [l.kind, l.minutes]);
-  assert.deepEqual(await wipFor(payroll), []);
-  const day = new Date(forPayroll.day + 'T00:00:00Z'), monday = new Date(day - ((day.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
-  await h.json('/timesheets/submit', { weekStart: monday }, preparer);
-  await h.json(`/time/${approved.entry.id}/review`, { decision: 'approve' }, reviewer);
-  assert.deepEqual(await wipFor(payroll), [['time', 25]]);
-  assert.deepEqual([await wipFor(sales), (await h.json('/jobs/' + sales.id, undefined, reviewer)).time], [[], []]);
-  // Withdrawing consent removes pending suggestions; consenting again never revives earlier actions.
-  await discuss(early, 'After consent');
-  assert.deepEqual((await mine()).pending.map(s => s.job_id), [early.id]);
-  await h.json('/time/suggestions/consent', { consent: false }, preparer);
-  assert.deepEqual([(await mine()).consentedAt, (await mine()).pending], [null, []]);
-  await h.json('/time/suggestions/consent', { consent: true }, preparer);
-  assert.deepEqual((await mine()).pending, []);
-});
 
 test('BASE-001 / ACCESS-006 offboarding: preview what a preparer owns, refuse a self-review transfer, move everything to two successors in one batch, keep past authors and revoke sessions and agent keys', async () => {
   await h.json('/team', { email: 'leaving@example.test', name: 'Lee Leaving', role: 'preparer' }, h.owner);

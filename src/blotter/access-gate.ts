@@ -47,6 +47,8 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
     const resource = await stmt(db, `SELECT client_id FROM ${table} WHERE id=?`, decodeURIComponent(match[2])).first<Data>();
     insist(resource, 'AI resource not found', 404); await requireClient(db,actor,resource.client_id); return;
   }
+  // A personal calendar choice reads no client records and accepts no other person's identity.
+  if (path === '/time/calendar-consent') return;
   const parts=path.split('/');
   let fileKey=['documents','files','document-packets'].includes(parts[1])&&parts[2]?decodeURIComponent(parts[2]):'';
   if(parts[1]==='deliverables' && parts[2]==='versions')fileKey='deliverable:'+parts[3];
