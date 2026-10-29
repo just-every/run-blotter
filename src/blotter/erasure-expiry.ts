@@ -1,3 +1,4 @@
+import { agentCustodyHeld } from './agent-door/custody.ts';
 import {signatureExpiryEffects} from './signatures-retention';
 import { invoiceExpiryEffects } from './invoices-erasure';
 import { invoiceOpenBalances,noInvoiceOpenBalanceSql } from './invoices-sources';
@@ -50,6 +51,7 @@ async function confirmed(db: D1Database) { return new Set((await rows(db, 'SELEC
 /** Every retained record past its date that no hold preserves, with what confirming it removes. */
 export async function readyToErase(db: D1Database, actor: Actor) {
   human(actor); need(actor, 'owner');
+  const agentHold=!!await agentCustodyHeld(db);
   const today = await firmToday(db), done = await confirmed(db), ready: Data[] = [], skipped: Data[] = [];
   for (const c of await clocks(db)) {
     if (done.has(`${c.kind}:${c.id}`)) continue;
@@ -61,6 +63,7 @@ export async function readyToErase(db: D1Database, actor: Actor) {
     const row = { kind: c.kind, id: c.id, class: c.cls, clientIds: c.clientIds, client: (await rows(db, 'SELECT name FROM b_clients WHERE id=?', c.clientIds[0]))[0]?.name ?? null, label: c.label, clock: c.clock, years: c.years, expiry: c.expiry, retainedUntil: until, effective };
     if (effective >= today) continue;
     if(c.kind==='invoice' && (await invoiceOpenBalances(db,c.clientIds[0])).length){skipped.push({...row,heldBy:[{id:'open-balance',reason:'Open invoice balance or unapplied credit/deposit',owner:'Principal'}]});continue;}
+    if(agentHold){skipped.push({...row,heldBy:[{id:'agent-evidence-custody',reason:'Retained agent decision evidence requires atomic redaction',owner:'Principal'}]});continue;}
     if (holds.length) { skipped.push({ ...row, heldBy: holds.map(h => ({ id: h.id, reason: h.reason, owner: h.owner })) }); continue; }
     const counts = [];
     for (const e of effects(c, now(), today)) counts.push({ table: e.table, label: e.label, count: Number((await stmt(db, `SELECT count(*) n FROM ${e.table} WHERE ${e.where}`).first<Data>())?.n ?? 0) });
