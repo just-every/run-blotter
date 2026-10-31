@@ -18,6 +18,7 @@ function proposal(output: Data, field: string): string {
 /** Every decision is inert except a separately accepted internal file copy. */
 export async function decideAiDraft(db: D1Database, actor: Actor, draftId: string, body: Data) {
   const draft = await readAiDraft(db, actor, draftId), field = text(body.field, 'Proposal', 50);
+  insist(field !== 'reply', 'Review the exact wording, recipients and attachments through the reply review door');
   const proposed = proposal(draft.output, field);
   insist(typeof proposed === 'string' && proposed.length > 0, 'This draft has no such proposal');
   insist(['accept','reject'].includes(body.decision), 'Accept or reject this one proposal');
