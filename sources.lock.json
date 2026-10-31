@@ -1956,7 +1956,7 @@
       "executable": false
     },
     "src/blotter/archive.ts": {
-      "sha256": "264541ed627e0af25afb43bdf1e4876e165cb23fb29c357460c1612f7926636d",
+      "sha256": "60b0e35e09377cc27aa9ff56aa6bfd1cc25daa0b08b618bd738d41d3dfec2a13",
       "executable": false
     },
     "src/blotter/authorization-pdf.ts": {
@@ -5628,7 +5628,7 @@
       "executable": false
     },
     "tests/blotter/ai.test.mjs": {
-      "sha256": "9d22da7da1d30ca486a6a3251dcfd00ac6d72ca84b3192b368abd659a1b62be5",
+      "sha256": "a02bfbe283620dc6df9667175547cfb716ecca8e3a75c711f9a02b82d715b667",
       "executable": false
     },
     "tests/blotter/api-billing.test.mjs": {
