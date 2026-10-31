@@ -36,6 +36,8 @@ const exporting = (path:string) => /^\/(security\/access-log\.csv$|costs\/export
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');
   const write=!['GET','HEAD'].includes(request.method),factor=/^\/mfa($|\/)/.test(path)||path==='/access/step-up';
+  if (path === '/rescue-context')
+    insist(actor.channel === 'person' && actor.role === 'owner' && !actor.automation && !actor.doorAgent, 'Only the principal can inspect deadline-risk context', 403);
   if (/^\/jobs\/[^/]+\/readiness\/scope$/.test(path))
     insist(actor.channel === 'person' && actor.role === 'owner' && !actor.automation, 'Only the principal can inspect readiness scope', 403);
   if(actor.readOnly && write && !factor) insist(false,'Read-only staff cannot change practice records',403);

@@ -25,6 +25,7 @@ import { billingExportPage } from './billing-read';
 import { createClientOnce } from './client-writes';
 import { createTimeOnce } from './time-writes';
 import { readiness, prepareReadiness, decideReadiness } from './readiness';
+import { rescueContext } from './rescue-context';
 import { readinessScope } from './readiness-scope';
 import { approveBatch, batchDetail, batches, markMisclassified, previewBatch, reviewList, runBatch, scheduleBatch } from './bulk-messages';
 import { providerEvent } from './bulk-events';
@@ -380,6 +381,7 @@ api.get(`${P}/v1/billing/exports`, as((a,c)=>billingExportPage(db(c),a,c.req.que
 api.get(`${P}/v1/clients`, as((a,c)=>clientPage(db(c),a,c.req.query())));
 api.get(`${P}/queue`, as((a, c) => queue(db(c), a, c.req.query())));
 api.get(`${P}/reports/status-time`, as((a, c) => statusReport(db(c), a, c.req.query())));
+api.get(`${P}/rescue-context`, as((a, c) => rescueContext(db(c), a, c.req.query())));
 api.get(`${P}/capacity`, as((a, c) => capacity(db(c), a, c.req.query())));
 api.post(`${P}/capacity/people`, as(async (a, c) => setCapacity(db(c), a, await body(c))));
 api.post(`${P}/capacity/blocks`, as(async (a, c) => addBlock(db(c), a, await body(c))));

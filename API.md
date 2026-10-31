@@ -745,3 +745,38 @@ This choice grants no provider access or connected-processing activation and
 creates no message, suggestion, time entry, invoice or billing effect. Scoped
 OAuth, authorized Gmail and Microsoft 365 mailbox grants, connected mail work
 and full provider-copy activation evidence remain required by MAIL-001.
+
+## Principal deadline-risk inspection (RESCUE-001 partial)
+
+`GET /api/blotter/rescue-context?week=2026-10-12&clients=CLIENT_ID,OTHER_CLIENT_ID`
+requires a current native principal session and its completed MFA checks. No
+agent, integration bearer, delegated staff or automation action is added.
+Select one Monday-to-Sunday week and between 1 and 10 distinct active,
+unerased clients. The read includes up to 50 open jobs with working dates in
+or before the week, or statutory, internal or applicable extension dates in
+it. Larger selections fail with 409; missing selections or a non-Monday date
+fail with 400. Inactive, merged or erased selected clients fail with 404;
+unavailable or changed deadline sources and erased document sources fail
+with 409 rather than being reinterpreted as missing evidence.
+
+The live projection returns selected clients, jobs, distinct statutory,
+original business-day, internal, extension, relief and working dates, and
+exact obligation IDs, approved rule versions and official source links.
+An unrecorded extension is identified as not applicable. An override changes
+only the working date. Current unmet task and job dependencies and active
+unaccepted document requests keep their native source identifiers and links.
+Assigned people's recorded skills, weekly hours, leave and commitments are
+shown beside current weekly demand; demand includes competing firm work,
+while other clients' job details are excluded. Default hours, unrecorded
+skills, absent assignees and insufficient estimates are explicit unknowns.
+Past-due work is shown separately from weekly capacity demand.
+
+This is native context for human inspection. LEDGER-001 context is
+unavailable; request acceptance is practitioner judgment, and no
+source-complete feasible plan, cost or filing outcome is established. Each
+read records `rescue.context_inspected` with actor and selected identifiers;
+no aggregate or source payload is saved. It changes no assignments, dates,
+requests, messages, fees, filing evidence, grants or provider state. Existing
+source retention, portability and erasure remain authoritative; an archive
+older than the supplied erasure journal is refused by the existing restore
+door. The Capacity screen exposes this read only to the principal.
