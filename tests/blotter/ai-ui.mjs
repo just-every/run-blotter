@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import {chromium} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import {noticeText} from './ai-fixture.mjs';
+import {replyFixture,sha256} from './ai-reply-fixture.mjs';
 
 export async function aiJourney(h,s) {
  const evidence=process.env.BLOTTER_AI_EVIDENCE;
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']});
  try {
+  const f=await replyFixture(h,s);
   await h.json(`/jobs/${s.j.id}/portal/messages`,{body:noticeText},s.prep);
   await h.json(`/requests/${s.d.requests[0].id}/decide`,{decision:'return',note:'Please provide the requested-period original.'},s.prep);
   const portal=await h.json(`/jobs/${s.j.id}/reminders`,{message:'Synthetic fixture access to the client portal'},s.prep);
@@ -28,17 +30,33 @@ export async function aiJourney(h,s) {
    const ref=settings.getByLabel('Recorded attestation reference',{exact:true});
    await ref.fill('synthetic-blotter-5: fictional provider no-training and no-retention attestation');await ref.blur();
    await settings.getByLabel('Document review confidence threshold',{exact:true}).fill('0.95');await settings.getByLabel('Document review confidence threshold',{exact:true}).blur();
+   await settings.getByLabel('Maximum requests under this approval',{exact:true}).fill('4');await settings.getByLabel('Maximum requests under this approval',{exact:true}).blur();
    await settings.getByRole('checkbox').check();await page.getByRole('status').filter({hasText:'Saved'}).first().waitFor();
    assert.equal(h.aiCalls.length,before);await capture('ai-settings-enabled',settings);
    await page.goto(h.origin+`/app?job=${s.j.id}`);
    const ai=page.locator('details').filter({has:page.locator(':scope > summary').getByText('AI assistance',{exact:true})});
    await ai.locator(':scope > summary').click();await ai.getByLabel('Source',{exact:true}).waitFor();
    await ai.getByLabel('Source',{exact:true}).selectOption('portal:'+s.j.id);assert.equal(h.aiCalls.length,before);
-   const confirmation=ai.getByRole('checkbox');await confirmation.check();await ai.getByRole('button',{name:'Process selected source',exact:true}).click();
+   const confirmation=ai.getByRole('checkbox',{name:/I confirm that masked text/});await confirmation.check();await ai.getByRole('button',{name:'Process selected source',exact:true}).click();
    const review=ai.getByRole('region',{name:'AI proposals'});await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();
    await review.getByLabel('Reply draft',{exact:true}).fill('Reviewed by the principal; please confirm the discrepancy.');await capture('ai-summary-unsaved',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
-   await review.getByRole('button',{name:'Accept reply draft',exact:true}).click();await review.getByText('Accepted',{exact:true}).first().waitFor();await capture('ai-summary-saved',review);
+   const reply=review.getByRole('group',{name:'Review reply recipients and attachments',exact:true});
+   await reply.getByRole('checkbox',{name:new RegExp(f.primary.name)}).check();
+   await reply.getByRole('checkbox',{name:new RegExp(f.second.name)}).check();
+   await reply.getByRole('checkbox',{name:new RegExp('synthetic-blotter-attachment.txt')}).check();
+   assert.equal(await reply.getByRole('button',{name:'Accept reply draft',exact:true}).isEnabled(),false);
+   await reply.getByRole('checkbox',{name:/I reviewed this exact wording/}).focus();await page.keyboard.press('Space');
+   await reply.getByRole('button',{name:'Accept reply draft',exact:true}).click();await reply.getByText('Accepted',{exact:true}).waitFor();
+   assert.ok((await reply.innerText()).includes(sha256('Reviewed by the principal; please confirm the discrepancy.')));
+   const recorded=(await h.db.prepare('SELECT * FROM b_ai_reply_reviews ORDER BY rowid DESC LIMIT 1').first());
+   assert.deepEqual(JSON.parse(recorded.recipients).map(c=>c.id).sort(),[f.primary.id,f.second.id].sort());
+   assert.deepEqual(JSON.parse(recorded.attachments).map(a=>a.id),[f.file.id]);
+   await capture('ai-summary-saved',review);
+   await confirmation.check();await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();
+   await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
+   const rejectedReply=review.getByRole('group',{name:'Review reply recipients and attachments',exact:true});
+   await rejectedReply.getByRole('button',{name:'Reject reply draft',exact:true}).click();await rejectedReply.getByText('Rejected',{exact:true}).waitFor();await capture('ai-reply-rejected',review);
    await ai.getByLabel('Preparation',{exact:true}).selectOption('document');await ai.getByLabel('Source',{exact:true}).selectOption('document:'+s.file.id);await confirmation.check();
    await ai.getByRole('button',{name:'Process selected source',exact:true}).click();await review.getByRole('heading',{name:'Unsaved proposals'}).waitFor();assert.ok((await review.innerText()).includes('Below threshold: needs manual review.'));await capture('ai-document-proposals',review);
    await review.getByRole('button',{name:'Save draft',exact:true}).click();await review.getByRole('heading',{name:'Saved draft',exact:true}).waitFor();
@@ -63,7 +81,7 @@ export async function aiJourney(h,s) {
    await page.goto(portal.portalUrl);await page.getByText('Firm disclosure',{exact:true}).click();await page.getByText(/Firm staff may use an AI provider/).waitFor();await capture('ai-portal-disclosure');
    await page.goto(h.origin+'/client');await page.getByText('Firm disclosure',{exact:true}).click();await page.getByText(/Firm staff may use an AI provider/).waitFor();await capture('ai-account-disclosure');
    await page.goto(h.origin+'/client?lang=es');await page.getByText('Información de la firma',{exact:true}).click();await page.getByText(/El personal de la firma puede utilizar/).waitFor();await capture('ai-account-disclosure-spanish');
-   assert.equal(h.aiCalls.length,before+3);await context.close();
+   assert.equal(h.aiCalls.length,before+4,'The original three preparations and one additional rejected reply are the only provider requests');await context.close();
   }
  } finally {await browser.close();}
 }

@@ -91,7 +91,7 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
       <div>
         <h3>Proposals for review</h3>
         {result.output.summary && proposal('summary', 'Summary', output.summary)}
-        {result.output.reply && proposal('reply', 'Reply draft', output.reply)}
+        {result.output.reply && (saved ? <AiReplyReview draftId={result.savedId} value={output.reply} writable={writable} busy={busy} act={act} legacyDecision={decisions.find(item => item.field === 'reply')} /> : proposal('reply', 'Reply draft', output.reply))}
         {(output.conflicts ?? []).length > 0 && <><h3>Unresolved conflicts</h3><ul>{output.conflicts.map((text: string, index: number) => <li key={index}>{text}</li>)}</ul></>}
         {(output.questions ?? []).map((text: string, index: number) => proposal(`question:${index}`, 'Client question', text))}
         {(output.validation ?? []).map((text: string, index: number) => proposal(`validation:${index}`, 'Document validation', text))}
@@ -108,6 +108,55 @@ function AiReview({ result, writable, targets, busy, act, changed }: { result: R
       </div>
     </div>
   </section>;
+}
+
+function AiReplyReview({ draftId, value, writable, busy, act, legacyDecision }: { draftId: string; value: string; writable: boolean; busy: boolean; act: Act; legacyDecision?: Row }) {
+  const [state, setState] = useState<Row>(), [wording, setWording] = useState(value), [error, setError] = useState('');
+  const [recipients, setRecipients] = useState<string[]>([]), [attachments, setAttachments] = useState<string[]>([]), [confirmed, setConfirmed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api(`/ai/drafts/${draftId}/reply-review`).then(data => { if (active) setState(data); }).catch(error => { if (active) setError(error.message); });
+    return () => { active = false; };
+  }, [draftId]);
+  const review = state?.review;
+  const toggle = (id: string, selected: string[], changed: (values: string[]) => void) => { changed(selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id]); setConfirmed(false); };
+  const decide = (decision: string) => act(async () => {
+    const bytes = new TextEncoder().encode(wording.trim()), hash = await crypto.subtle.digest('SHA-256', bytes);
+    const textSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+    const selectedContacts = decision === 'accept' ? state!.recipients.filter((c: Row) => recipients.includes(c.id)).map((c: Row) => ({ id: c.id, revision: c.revision })) : [];
+    const selectedFiles = decision === 'accept' ? state!.attachments.filter((f: Row) => attachments.includes(f.id)).map((f: Row) => ({ id: f.id, sha256: f.sha256, accessRevision: f.accessRevision })) : [];
+    const result = await api(`/ai/drafts/${draftId}/reply-review`, { decision, value: wording, textSha256, sourceFingerprint: state!.sourceFingerprint, recipients: selectedContacts, attachments: selectedFiles });
+    setState(current => ({ ...current, review: result.review }));
+  }, decision === 'accept' ? 'Reply review recorded; nothing sent' : 'Reply rejected; nothing sent');
+  return <fieldset disabled={busy}>
+    <legend>Review reply recipients and attachments</legend>
+    <p>This records your review only. Nothing is sent, shared or granted, and this record cannot authorize sending later.</p>
+    <Field label="Reply draft" name="reviewedReply"><textarea rows={4} maxLength={1200} value={review?.value ?? wording} readOnly={!writable || !!review || !!legacyDecision} onChange={event => { setWording(event.target.value); setConfirmed(false); }} /></Field>
+    {error && <p role="alert">{error}</p>}
+    {!state && !error && <p>Loading review choices…</p>}
+    {review ? <>
+      <p>{review.decision === 'accept' ? 'Accepted' : 'Rejected'}</p>
+      <p>Recorded by {review.reviewed_by} at {review.reviewed_at}.{review.historical && ' Restored historical evidence; replay is unavailable.'}</p>
+      <p>Reviewed wording digest: <span style={{ overflowWrap: 'anywhere' }}>{review.text_sha256}</span></p>
+      <p>Source fingerprint: <span style={{ overflowWrap: 'anywhere' }}>{review.source_fingerprint}</span></p>
+      <ul>{review.recipients.map((c: Row) => <li key={c.id}>Recipient: {state.recipients.find((item: Row) => item.id === c.id)?.name ?? c.id} · revision {c.revision}</li>)}</ul>
+      <ul>{review.attachments.map((f: Row) => <li key={f.id} style={{ overflowWrap: 'anywhere' }}>Attachment: {state.attachments.find((item: Row) => item.id === f.id)?.name ?? f.id} · original digest {f.sha256}</li>)}</ul>
+    </> : legacyDecision ? <p>Earlier text-only decision: {legacyDecision.decision}. Prepare a fresh draft to review exact recipients and attachments.</p> : state && writable && <>
+      {!state.sourceFingerprint ? <p>This older draft has no source fingerprint. Prepare and save a fresh draft before reviewing recipients.</p> : <>
+        <fieldset><legend>Intended recipients</legend>
+          {!state.recipients.length && <p>No current consented contacts are available.</p>}
+          {state.recipients.map((c: Row) => <label className="check" key={c.id}><input type="checkbox" checked={recipients.includes(c.id)} onChange={() => toggle(c.id, recipients, setRecipients)} /> {c.name} · {c.email}</label>)}
+        </fieldset>
+        <fieldset><legend>Original attachments</legend>
+          <p>Only originals with existing explicit contact access appear. Each intended recipient must already have access to every selected file.</p>
+          {!state.attachments.length && <p>No eligible attachments. You may review a reply without attachments.</p>}
+          {state.attachments.map((f: Row) => <label className="check" key={f.id} style={{ overflowWrap: 'anywhere' }}><input type="checkbox" checked={attachments.includes(f.id)} onChange={() => toggle(f.id, attachments, setAttachments)} /> {f.name} · {f.sha256}</label>)}
+        </fieldset>
+        <label className="check"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /> I reviewed this exact wording, intended recipients and selected original attachments.</label>
+        <div className="actions"><button className="quiet" disabled={!confirmed || !recipients.length || !wording.trim()} onClick={() => decide('accept')}>Accept reply draft</button><button className="quiet" disabled={!wording.trim()} onClick={() => decide('reject')}>Reject reply draft</button></div>
+      </>}
+    </>}
+  </fieldset>;
 }
 
 function AiProposal({ field, label, value, quote, notice, editable, saved, busy, targets, decision, decide, edit }: {
