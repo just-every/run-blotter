@@ -6,7 +6,21 @@ import { refuseHeld } from './client-retention';
 import { requireAcknowledgement, withReport } from './erasure-restore';
 import { createPortability, readArchive } from '@runeditrun/rer/modules/portability';
 import policy from './archive-policy.mjs';
-import { atomic, audit, human, insist, job, need, now, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, guard, human, insist, job, need, now, rows, stmt, text, type Actor, type Data } from './model';
+
+// Source erasure cascades through drafts, decisions and reply reviews. A held
+// selected attachment must preserve that evidence even when the source is separate.
+const heldSourceDrafts = `SELECT m.id,m.reason,m.owner FROM b_ai_drafts d
+  JOIN b_ai_requests r ON r.id=d.request_id
+  LEFT JOIN b_ai_reply_reviews v ON v.draft_id=d.id
+  JOIN b_retention_marks m ON m.kind='hold' AND m.released_at IS NULL
+  WHERE r.source_kind='document' AND r.source_id=? AND (
+    (m.scope='client' AND m.client_id=d.client_id)
+    OR (m.scope='class' AND m.class='derived_ai' AND (m.client_id IS NULL OR m.client_id=d.client_id))
+    OR (m.scope='job' AND m.target_id=d.job_id)
+    OR (m.scope='file' AND m.target_id=r.source_id)
+    OR EXISTS(SELECT 1 FROM json_each(v.attachments) a JOIN b_files f ON f.id=json_extract(a.value,'$.id')
+      WHERE (m.scope='file' AND m.target_id=f.id) OR (m.scope='job' AND m.target_id=f.job_id)))`;
 
 export async function backup(db: D1Database, actor: Actor) {
   human(actor); need(actor, 'owner');
@@ -64,9 +78,13 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
   }
   if (regular && await stmt(db, 'SELECT 1 FROM b_efile_authorizations WHERE file_id=? AND erased_at IS NULL', file.id).first())
     await refuseHeld(db, { clientIds: [String((await stmt(db, 'SELECT client_id FROM b_jobs WHERE id=?', file.job_id).first<Data>())?.client_id)], jobId: file.job_id, fileId: file.id, cls: 'efile_auth' }, 'Erasing this unsigned 8879 original');
+  const heldDrafts = await rows(db, heldSourceDrafts, file.id);
+  insist(!heldDrafts.length, `Erasing this file is refused: derived AI evidence is inside ERASURE-002 ${heldDrafts.map(m => `hold ${String(m.id).slice(0,8)} (${m.reason}; owner ${m.owner})`).join('; ')}. Release the hold first.`, 409);
   insist(body.confirm === file.name, 'Type the file name to confirm erasing its bytes');
   const reason = text(body.reason, 'Erasure reason', 1000), service = await createPortability({ db, policy });
+  const [unheld, release] = guard(db, `NOT EXISTS(${heldSourceDrafts})`, file.id);
   await atomic(db, actor, [
+    unheld,
     regular ? stmt(db, 'UPDATE b_files SET content_base64=NULL,erased_at=?,erased_by=?,erase_reason=? WHERE id=? AND erased_at IS NULL', now(), actor.email, reason, file.id)
       : stmt(db, 'UPDATE b_prospect_files SET content_base64=NULL,erased_at=? WHERE id=? AND erased_at IS NULL', now(), file.id),
     stmt(db, 'DELETE FROM b_file_text WHERE file_id=?', file.id),
@@ -74,6 +92,7 @@ export async function eraseFile(db: D1Database, actor: Actor, fileId: string, bo
     stmt(db, "DELETE FROM b_ai_drafts WHERE request_id IN (SELECT id FROM b_ai_requests WHERE source_kind='document' AND source_id=?)", file.id),
     ...await service.redactionStatements(), ...await service.invalidateTransfersStatements(),
     audit(db, actor, 'file.erased', file.id, reason),
+    release,
   ]);
   return { id: file.id, erased: true };
 }
