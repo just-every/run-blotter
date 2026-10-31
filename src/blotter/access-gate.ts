@@ -44,6 +44,7 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   if (write && path === '/ai/settings') await freshAccess(db,actor);
   if (path.startsWith('/ai/')) {
     if (path === '/ai/settings') return;
+    insist(actor.channel === 'person' && !actor.automation, 'AI review requires a human staff session', 403);
     const match = path.match(/^\/ai\/(requests|drafts)\/([^/]+)/);
     insist(match, 'AI resource not found', 404);
     const table = match[1] === 'requests' ? 'b_ai_requests' : 'b_ai_drafts';

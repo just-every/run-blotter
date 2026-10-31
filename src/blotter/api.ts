@@ -12,6 +12,7 @@ import { onboardingContext, previewOnboarding, reviewOnboarding, onboardingPlan,
 import { aiSettings, saveAiSettings } from './ai-settings';
 import { aiState, requestAi, saveAiDraft, readAiDraft } from './ai-assistance';
 import { decideAiDraft } from './ai-decisions';
+import { replyReviewState, reviewAiReply } from './ai-reply-reviews';
 import { agentRules, saveAgentRule, stopAgentRule, runAgentRules, pendingAgentPlans, fillAgentPlan } from './scheduled-agents';
 import { costState, exportCosts, savePrice, setService, saveBudget, estimateCosts, reconcileCost } from './costs';
 import { signatureRoutes } from './signature-routes';
@@ -153,6 +154,8 @@ api.get(`${P}/jobs/:id/ai`, as((a,c) => aiState(db(c),a,c.env,param(c))));
 api.post(`${P}/jobs/:id/ai`, as(async(a,c) => requestAi(c.env,a,param(c),await body(c,5000))));
 api.post(`${P}/ai/requests/:id/draft`, as(async(a,c) => saveAiDraft(db(c),a,param(c),await body(c,35_000))));
 api.get(`${P}/ai/drafts/:id`, as((a,c) => readAiDraft(db(c),a,param(c))));
+api.get(`${P}/ai/drafts/:id/reply-review`, as((a,c) => replyReviewState(db(c),a,param(c))));
+api.post(`${P}/ai/drafts/:id/reply-review`, as(async(a,c) => reviewAiReply(db(c),a,param(c),await body(c,40_000))));
 api.post(`${P}/ai/drafts/:id/decisions`, as(async(a,c) => decideAiDraft(db(c),a,param(c),await body(c,10_000))));
 api.get(`${P}/agent/plans`,asAgent((a,c)=>pendingAgentPlans(db(c),a)));
 api.post(`${P}/agent/plans/:id`,asAgent(async(a,c)=>fillAgentPlan(db(c),a,param(c),await body(c))));

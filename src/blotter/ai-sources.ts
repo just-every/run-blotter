@@ -31,7 +31,7 @@ export async function aiSources(db: D1Database, actor: Actor, jobId: string) {
 }
 export async function aiSource(db: D1Database, actor: Actor, jobId: string, kind: string, sourceId: string) {
   const j = await aiJob(db, actor, jobId);
-  let value = '', label = '', href = '', ids: string[] = [], requestLabel = '';
+  let value = '', label = '', href = '', ids: string[] = [], requestLabel = '', originalSha256 = '';
   if (kind === 'portal') {
     insist(sourceId === jobId, 'Select this job’s portal conversation', 404);
     const messages = await rows(db, "SELECT id,body,response,created_at FROM b_portal_items WHERE job_id=? AND kind IN ('message','question') ORDER BY created_at,id", jobId);
@@ -41,6 +41,7 @@ export async function aiSource(db: D1Database, actor: Actor, jobId: string, kind
   } else {
     insist(kind === 'document', 'Choose a document or portal conversation');
     const f = await staffFile(db, actor, sourceId);
+    originalSha256 = f.sha256;
     insist(f.job_id === jobId && f.kind === 'file', 'Select an uploaded document on this job', 404);
     insist(Number(f.size) <= 1_048_576, 'This document is too large for AI assistance; select a readable document of at most 1 MiB', 422);
     value = await documentText(f.mime, f.name, await documentBytes(db, f));
@@ -50,6 +51,6 @@ export async function aiSource(db: D1Database, actor: Actor, jobId: string, kind
   }
   insist(value.length <= 24_000, 'The selected source is too long; choose a shorter source. Nothing was sent.', 422);
   const client = await stmt(db,'SELECT name FROM b_clients WHERE id=?',j.client_id).first<Data>();
-  return { id: sourceId, kind, label, text: value, href, ids, hash: await digest(value), clientId: j.client_id,
+  return { id: sourceId, kind, label, text: value, href, ids, hash: await digest(value), originalSha256, clientId: j.client_id,
     expected: {client:client!.name,period:j.period_label,request:requestLabel} };
 }

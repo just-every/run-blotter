@@ -63,7 +63,9 @@ export function steps(x: Context, audited: { where: string; set: string } | null
   const text = (col: string) => `${col}=CASE WHEN ${col} IS NULL OR ${col}='' THEN ${col} ELSE '${MARK}' END`;
   const opaque = (prefix: string) => `${lit(prefix)}||lower(hex(randomblob(4)))`;
   const aiDrafts = `(SELECT d.id FROM b_ai_drafts d JOIN b_ai_requests r ON r.id=d.request_id WHERE d.job_id IN ${s.JE}
-    AND NOT (r.source_kind='document' AND r.source_id IN ${s.HF}))`;
+    AND NOT (r.source_kind='document' AND r.source_id IN ${s.HF})
+    AND NOT EXISTS(SELECT 1 FROM b_ai_reply_reviews v,json_each(v.attachments) a WHERE v.draft_id=d.id
+      AND (json_extract(a.value,'$.id') IN ${s.HF} OR EXISTS(SELECT 1 FROM b_files f WHERE f.id=json_extract(a.value,'$.id') AND f.job_id IN ${s.HJ}))))`;
   const integrationFamily=integrationFamilySql(s.c);
   const all: Step[] = [
     {cls:'efile_auth',table:'b_efile_authorizations',action:'redact',label:'Unsigned 8879 originals and reviewed spouse roster (digest and attribution stay; no signed-record clock)',
@@ -74,6 +76,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     {cls:'link',table:'b_integration_keys',action:'redact',label:'Integration keys suspended when no client scope will remain',where:`status='active' AND id IN (SELECT key_id FROM b_integration_clients WHERE client_id IN ${integrationFamily}) AND NOT EXISTS(SELECT 1 FROM b_integration_clients other WHERE other.key_id=b_integration_keys.id AND other.client_id NOT IN ${integrationFamily})`,set:`status='suspended'`},
     {cls:'link',table:'b_integration_clients',action:'delete',label:'Integration key client scopes removed',where:`client_id IN ${integrationFamily}`},
     {cls:'api',table:'b_integration_writes',action:'delete',label:'Integration task replay receipts',where:`client_id IN ${integrationFamily}`},
+    {cls:'derived_ai',table:'b_ai_reply_reviews',action:'delete',label:'Inert reply review membership and digests',where:`draft_id IN ${aiDrafts}`},
     {cls:'derived_ai',table:'b_ai_decisions',action:'cascade',label:'AI proposal decisions and reviewed values',where:`draft_id IN ${aiDrafts}`},
     {cls:'derived_ai',table:'b_ai_drafts',action:'delete',label:'Saved AI drafts and extracted values with source references',where:`id IN ${aiDrafts}`},
     {cls:'link',table:'b_agent_rules',action:'redact',label:'Scheduled agent grants revoked',where:`client_id=${s.c} AND status<>'revoked'`,set:`status='revoked'`},
@@ -171,7 +174,7 @@ export function steps(x: Context, audited: { where: string; set: string } | null
 export const unheld = (x: Context, audited: { where: string; set: string } | null) => {
   const free = steps({ ...x, held: { client: false, classes: [], jobs: x.held.jobs, files: x.held.files } }, audited);
   const aiFree = steps({ ...x, held: { client: false, classes: [], jobs: [], files: [] } }, audited);
-  return free.map(step => ['b_ai_drafts','b_ai_decisions','b_efile_authorizations'].includes(step.table) ? aiFree.find(candidate=>candidate.table===step.table)! : step);
+  return free.map(step => ['b_ai_drafts','b_ai_decisions','b_ai_reply_reviews','b_efile_authorizations'].includes(step.table) ? aiFree.find(candidate=>candidate.table===step.table)! : step);
 };
 
 /** Named exceptions: what stays, why, and who owns it. Counts only; the clock lists come from retention-clock. */

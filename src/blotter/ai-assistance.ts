@@ -49,9 +49,9 @@ export async function requestAi(env: Bindings, actor: Actor, jobId: string, body
   insist(used<settings.request_limit,'The approved AI request budget is exhausted; the principal must review and approve a new budget',409);
   const [live, release] = guard(db, 'EXISTS(SELECT 1 FROM b_ai_settings s WHERE id=1 AND enabled=1 AND revision=? AND request_limit>(SELECT COUNT(*) FROM b_ai_requests r WHERE r.settings_revision=s.revision))', settings.revision);
   const [scope, scopeDone] = aiScope(db,actor,jobId,source.kind,source.id);
-  await atomic(db, actor, [live, scope, stmt(db, `INSERT INTO b_ai_requests VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  await atomic(db, actor, [live, scope, stmt(db, `INSERT INTO b_ai_requests VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     requestId, jobId, source.clientId, purpose, source.kind, source.id, JSON.stringify(source.ids), await digest(masked),
-    aiProvider(), aiModel(env), inputBytes, actor.email, at, settings.attestation_ref, settings.revision, 'requested'),
+    aiProvider(), aiModel(env), inputBytes, actor.email, at, settings.attestation_ref, settings.revision, 'requested', source.hash),
     audit(db, actor, 'ai.request', requestId, JSON.stringify({ sourceIds: source.ids, provider: aiProvider(), model: aiModel(env), bytes: inputBytes, at })), scopeDone, release]);
   try {
     const result = await runAiProvider({ ...env, AI_MODEL: aiModel(env), AI_ENABLED: 'true' }, purpose as 'summary'|'document'|'notice', masked);
@@ -76,6 +76,7 @@ export async function aiRequest(db: D1Database, actor: Actor, requestId: string)
   insist(r, 'AI request not found', 404);
   if (r.purpose === 'notice') need(actor, 'owner', 'reviewer');
   const source = await aiSource(db, actor, r.job_id, r.source_kind, r.source_id);
+  insist(!r.source_fingerprint || source.hash === r.source_fingerprint, 'The source changed; process it again before using the draft', 409);
   insist(await digest(maskAiText(source.text)) === r.input_hash, 'The source changed; process it again before using the draft', 409);
   return { r, source };
 }
@@ -96,7 +97,7 @@ export async function readAiDraft(db: D1Database, actor: Actor, draftId: string)
   insist(d, 'AI draft not found', 404);
   const { r, source } = await aiRequest(db, actor, d.request_id);
   return { ...d, output: JSON.parse(d.output), purpose: r.purpose, source_id: r.source_id, source_kind: r.source_kind,
-    source, provider: r.provider, model: r.model, decisions: await rows(db, 'SELECT * FROM b_ai_decisions WHERE draft_id=? ORDER BY decided_at', draftId),
+    source, source_fingerprint: r.source_fingerprint, provider: r.provider, model: r.model, decisions: await rows(db, 'SELECT * FROM b_ai_decisions WHERE draft_id=? ORDER BY decided_at', draftId),
     ...(r.purpose==='document'?{review:await documentReview(db,JSON.parse(d.output).confidence)}:{}),
     ...(r.purpose==='notice'?{noticeContext:await noticeContext(db,source.clientId)}:{}) };
 }

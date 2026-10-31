@@ -29,7 +29,7 @@ type TableClass = ClientClass | typeof OTHER[number];
 
 const by = (cls: TableClass, ...tables: string[]) => tables.map(t => [t, cls] as const);
 const REGISTRY = new Map<string, TableClass>([
-  ...by('derived_ai', 'b_revenue_proposals', 'b_ai_drafts', 'b_ai_decisions'),
+  ...by('derived_ai', 'b_revenue_proposals', 'b_ai_drafts', 'b_ai_decisions', 'b_ai_reply_reviews'),
   ...by('structure', 'b_ai_requests', 'b_resolution_cases'),
   ...by('firm', 'b_ai_settings'),
   ...by('billing',...INVOICE_BILLING_TABLES),...by('link',...INVOICE_LINK_TABLES),...by('firm',...INVOICE_FIRM_TABLES),
