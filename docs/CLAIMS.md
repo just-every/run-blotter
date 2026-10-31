@@ -90,6 +90,14 @@ Evidence: `src/blotter/scheduled-agents.ts`; `src/blotter/scheduled-agent-gate.t
 
 Gap: 
 
+## RESCUE-001 — Coordinate a deadline rescue
+
+Status: **partial**.
+
+Evidence: `src/blotter/jobs.ts`; `src/blotter/proposals.ts`; `tests/blotter/flows.test.mjs`; `tests/blotter/rescue-context.test.mjs` — “Principal inspects live source-linked deadline risks without execution, with current authority and erasure fencing” (selected two-client week, exact sourced US obligation and rule versions, separate statutory and working dates, active missing-document requests, unmet task and job dependencies, leave, skills, weekly demand, explicit unknowns, current updates, principal and session MFA checks, staff and agent and integration refusals, active-client and erased-source refusal, attributed reads, portable source equality, stale-restore fencing and unchanged product records and provider counts); `tests/blotter/rescue-context-ui.mjs` — rescueContextJourney (Capacity inspection, explicit client selection, source links, risk and unavailable-input labels, keyboard access and tooltip checks at 1440; candidate screens at 1440 and 390)
+
+Gap: Human-entered sourced dates and approved roll-forward and reminder proposals remain available. Principal-only native deadline-risk inspection now joins selected clients and one bounded week without a saved aggregate, copied source payload, new agent context or execution authority. Practitioner-linked readiness evidence remains context only (ct 20 Oct 09:58Z); RESCUE-001 stays PARTIAL pending LEDGER-001. Missing authorized QBO and Xero company grants: XERO_REFRESH_TOKEN is unavailable, and INTEGRATE-001 and LEDGER-001 require both providers. Authorized ledger readiness, comprehensive document and evidence judgment, client-response-history coordination, source-complete smallest-feasible rescue plans and costs, agent preparation under grants and budgets, partner-approved staffing changes, messages, extensions and deadline overrides, execution, outcome tracking, missed-response escalation of exact blockers, and complete agent and provider BASE-001 and ERASURE-002 activation proof remain unbuilt or unproved.
+
 ### BASE-AGENT-001 — One MCP door per seed
 
 Status: **partial**.
