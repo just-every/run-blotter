@@ -40,11 +40,27 @@ export default async function({request,origin,cookie,tool}){
  const scoped=await localCall('blotter.context.read');
  assert.equal(scoped.status,200);
  assert.equal((await scoped.json()).result.structuredContent.jobs.length,data.jobs.length,'A native key reads only its sponsor context');
- const outside=await localCall('blotter.events.list');
- assert.equal(outside.status,403,'The door never adds events scope to a native key');
+ // The released door subset omits the optional events capability: its typed refusal answers before any scope and returns no event data.
+ const events=await localCall('blotter.events.list'),eventsBody=await events.json();
+ assert.equal(events.status,200);
+ assert.equal(eventsBody.result._meta['com.runeditrun/error'].code,'capability_not_declared');
+ assert.equal(eventsBody.result.structuredContent,undefined,'The omitted events capability exposes no event data');
+ // A supervised native key keeps its limited native scopes: the plan grant never adds proposals:write.
+ const price=await api('/api/blotter/costs/prices',{service:'agent_plan',included:0,unitCents:25,basisPoints:0,source:'synthetic-blotter-1: native plan cost estimate'});
+ await api('/api/blotter/costs/budget',{limitCents:1000,thresholdCents:1000,reason:'Explicit lifetime optional-action budget'});
+ await api('/api/blotter/costs/services/agent_plan',{revision:price.revision,enabled:true,reason:'Approve this native plan estimate'});
+ const rule=await api('/api/blotter/agent-rules',{name:'Native scoped plans',clientId:before.job.client_id,keyId:local.id,trigger:'file',tool:'reminder',budget:5});
+ const jobBefore=await api('/api/blotter/jobs/'+open.id),preparationsBefore=(await tool('blotter.context.read',{})).result.structuredContent.preparations.length;
+ const outside=await localCall('blotter.proposals.reminder',{jobId:open.id,message:'Outside native key scope',idempotency_key:crypto.randomUUID()});
+ assert.equal(outside.status,403,'A limited native key cannot prepare outside its native scopes');
  assert.equal((await outside.json()).error.data.code,'insufficient_scope');
+ assert.equal((await tool('blotter.context.read',{})).result.structuredContent.preparations.length,preparationsBefore,'The refused key creates no preparation');
+ const afterRefusal=await api('/api/blotter/jobs/'+open.id);
+ assert.equal(afterRefusal.job.revision,jobBefore.job.revision,'The refused key leaves native work unchanged');
+ assert.equal(afterRefusal.reminders.length,jobBefore.reminders.length);
  await api(`/api/blotter/keys/${local.id}/revoke`,{});
  const revoked=await localCall('blotter.context.read');
  assert.equal(revoked.status,401,'Revoking the native key stops its next MCP call');
  await revoked.body?.cancel();
+ await api(`/api/blotter/agent-rules/${rule.id}/revoke`,{});
 }

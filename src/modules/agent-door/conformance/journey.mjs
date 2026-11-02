@@ -1,3 +1,4 @@
+import { offers } from '../capabilities.mjs';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { classIds, subset, errorCode, APPROVAL } from './protocol.mjs';
@@ -6,6 +7,7 @@ import { schemaErrors } from './schema.mjs';
 import { checkTarget } from './target.mjs';
 import { nativeStepHook } from './step-hooks.mjs';
 import { injectionArgs } from './injection.mjs';
+import { erasedStep } from './erasure.mjs';
 
 export function checkClasses(c, step, answer, phase) {
  const actual = answer.decision?.classes;
@@ -16,8 +18,23 @@ function checkOutput(c, step, answer, phase) {
  const errors = schema === undefined ? ['missing outputSchema'] : schemaErrors(schema, answer.result?.structuredContent);
  c.add(`BASE-AGENT-002.2.${phase}.${step.id}`, errors.length === 0, `${step.tool} output does not validate: ${errors.slice(0, 8).join('; ')}.`);
 }
-async function checkResources(c, step, answer, phase, held) {
+function fixtureLink(c, template, uri) {
+ if (typeof uri !== 'string') return false;
+ try {
+  const parsed = new URL(uri), declared = new URL(template);
+  if (parsed.protocol !== declared.protocol || parsed.host !== declared.host || parsed.username || parsed.password) return false;
+  if (['http:', 'https:'].includes(parsed.protocol) && parsed.origin !== c.origin) return false;
+  const pattern = template.split(/\{[^}]+\}/).map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^/?#]+');
+  return new RegExp(`^${pattern}$`).test(uri);
+ } catch { return false; }
+}
+async function checkResources(c, step, answer, phase, held, outputs) {
  const links = answer.result?.content?.filter(item => item.type === 'resource_link') ?? [];
+ const fixture = offers(c.surface.capabilities, 'resources') && step.resource;
+ const expected = fixture && c.resolve(fixture.state, outputs);
+ const matching = fixture ? links.filter(link => fixtureLink(c, fixture.uriTemplate, link.uri)) : [];
+ if (fixture) c.add(`BASE-AGENT-003.4.links.${phase}.${step.id}`, matching.length > 0, `${step.tool} must return a resource_link matching its native fixture URI template.`);
+ let written = false, withheld = false;
  for (const [i, link] of links.entries()) {
   const read = await c.mcp('resources/read', { uri: link.uri }, step.client === undefined ? {} : { client: step.client });
   const classes = read.decision?.classes, needsApproval = held && classes?.some(item => item.class !== 'standard');
@@ -25,6 +42,13 @@ async function checkResources(c, step, answer, phase, held) {
   c.add(`BASE-AGENT-003.4.${phase}.${step.id}.${i}`, read.status === 200 && (needsApproval
    ? errorCode(read) === 'approval_required' && read.decision?.disposition === 'approval' && !read.result?.contents?.length
    : !read.message?.error && read.decision?.disposition === (held ? 'review' : 'autonomous') && Array.isArray(read.result?.contents) && read.result.contents.length > 0), `${step.tool} resource_link ${link.uri} must ${needsApproval ? 'withhold content pending approval' : 'read back under the current policy'}.`);
+  if (fixture && matching.includes(link)) {
+   withheld ||= needsApproval;
+   written ||= read.status === 200 && !read.message?.error && !errorCode(read) && read.result?.contents?.some(content => {
+    if (content.uri !== link.uri || typeof content.text !== 'string') return false;
+    try { return subset(JSON.parse(content.text), expected); } catch { return false; }
+   });
+  }
   if (needsApproval) {
    const pending = read.body?.error?.data?.approval;
    c.add(`BASE-AGENT-007.5.resource.${phase}.${step.id}.${i}`, pending?.id && typeof pending.url === 'string' && new URL(pending.url, c.origin).origin === c.origin && Number.isFinite(Date.parse(pending.expires_at)), `${link.uri} must expose a pending approval on the native person door.`);
@@ -34,6 +58,8 @@ async function checkResources(c, step, answer, phase, held) {
    }
   }
  }
+ // Approval-gated content must remain withheld; autonomous reads prove its state.
+ if (fixture && !withheld) c.add(`BASE-AGENT-003.4.state.${phase}.${step.id}`, written, `${step.tool} resource_link must read back the fixture's written state through this door's resources/read.`);
 }
 export async function runJourney(c, phase, { held = false, injections = false, replay = false } = {}) {
  const outputs = new Map(); let replayed = false;
@@ -56,6 +82,11 @@ export async function runJourney(c, phase, { held = false, injections = false, r
     } else proof = await c.proof(step.tool, args, undefined, step.client);
    }
    let answer = await c.stepTool(step, args, proof);
+   if (answer.erasure) {
+    const value = await erasedStep(c, step, args, answer, phase, outputs);
+    await nativeStepHook(c, 'afterStep', phase, step, args, outputs, value);
+    continue;
+   }
    checkClasses(c, step, answer, phase);
    await checkTarget(c, step, outputs, answer, phase);
    const expectedDisposition = held ? needsApproval ? 'approval' : 'review' : 'autonomous';
@@ -66,18 +97,31 @@ export async function runJourney(c, phase, { held = false, injections = false, r
     const after = await c.witness();
     c.add(`BASE-AGENT-007.5.no-effect.${step.id}`, isDeepStrictEqual(before, after), `${step.tool} changed native state before approval.`);
     if (!approval?.id) continue;
-    const approved = await c.decideApproval(answer);
+    const heldDecision = answer.decision, approved = await c.decideApproval(answer);
     await checkTarget(c, step, outputs, answer, phase, true);
     c.add(`BASE-AGENT-008.5.approver.${step.id}`, approved.ok, `Signed-in sponsor approval returned HTTP ${approved.status}.`);
     answer = await c.stepTool(step, args, { ...proof, requestState: answer.result.requestState });
-    checkClasses(c, step, answer, `${phase}.approved`);
-    c.add(`BASE-AGENT-007.5.receipt.${step.id}`, !answer.result?.isError && answer.result?.resultType !== 'input_required' && Boolean(answer.result?._meta?.['com.runeditrun/receipt']) && answer.decision?.disposition === 'approval', 'The approved retry must complete with an approval receipt.');
+    if (answer.erasure) {
+     c.add(`BASE-AGENT-007.5.receipt.${step.id}.erased`, approved.erasure?.decision === 'approval' && isDeepStrictEqual(approved.erasure.tombstone, answer.erasure.tombstone)
+      && approved.body.approval.code === 'subject_erased' && isDeepStrictEqual(approved.body.approval.summary, {}) && approved.body.approval.summary_sha256 === '', 'An approved erasure must redact its exact saved approval and refuse payload replay with the matching tombstone.');
+     const value = await erasedStep(c, step, args, answer, phase, outputs);
+     await nativeStepHook(c, 'afterStep', phase, step, args, outputs, value);
+     continue;
+    }
+    const receipt = answer.result?._meta?.['com.runeditrun/receipt'];
+    // Older receipts carry only the original id; their current decision's
+    // computed facts may change after the effect.
+    const hasDecision = receipt && Object.hasOwn(receipt, 'decision');
+    const approvedDecision = hasDecision ? receipt.decision : answer.decision;
+    const originalEvidence = hasDecision ? isDeepStrictEqual(approvedDecision, heldDecision) : receipt?.decision_id === heldDecision.id;
+    checkClasses(c, step, { decision: approvedDecision }, `${phase}.approved`);
+    c.add(`BASE-AGENT-007.5.receipt.${step.id}`, !answer.result?.isError && answer.result?.resultType !== 'input_required' && receipt && approvedDecision?.disposition === 'approval' && originalEvidence && answer.decision?.revision === c.revision && answer.decision?.disposition === 'approval' && isDeepStrictEqual(answer.decision.classes, approvedDecision.classes), 'The approved retry must retain its exact original approval evidence and pass current policy admission.');
    }
    c.add(`BASE-AGENT-013.4.${phase}.${step.id}`, answer.status === 200 && answer.result && !answer.result.isError && answer.result.resultType !== 'input_required', `${step.tool} did not complete (${errorCode(answer) ?? answer.status}).`);
    if (answer.result?.isError || answer.result?.structuredContent === undefined) continue;
    outputs.set(step.id, answer.result.structuredContent);
    checkOutput(c, step, answer, phase);
-   await checkResources(c, step, answer, phase, held);
+   await checkResources(c, step, answer, phase, held, outputs);
    if (narrowing) {
     const witnessArgs = c.resolve(narrowing.witness.args, outputs);
     c.add(`BASE-AGENT-005.narrowing.${step.tool}.target`, narrowingTargets(declared).every(target => isDeepStrictEqual(witnessArgs[target], args[target])), `${step.tool} must witness every identifier of the same targeted subject.`);
@@ -87,15 +131,20 @@ export async function runJourney(c, phase, { held = false, injections = false, r
     const smuggled = await c.stepTool(step, { ...args, idempotency_key: randomUUID(), grant_to_add: 'admin' });
     c.add(`BASE-AGENT-005.narrowing.${step.tool}.undeclared`, errorCode(smuggled) === 'invalid_arguments' && isDeepStrictEqual(beforeInjection, await c.witness()), `${step.tool} must refuse an undeclared widening argument without an effect.`);
    }
-   if (!c.surface.tools.find(tool => tool.name === step.tool)?.readOnly) {
+   if (offers(c.surface.capabilities, 'events') && !c.surface.tools.find(tool => tool.name === step.tool)?.readOnly) {
     const snapshot = await c.tool(`${c.surface.seed}.events.list`, { limit: 200 }, { client: step.client });
     if (!Array.isArray(snapshot.result?.structuredContent?.events)) throw new Error('Post-effect events.list must return events');
     (c.effectEvents ??= []).push(...snapshot.result.structuredContent.events);
    }
    if (injections && step.inject) {
-    const injected = await injectionArgs(c, step, outputs);
+    const injected = await injectionArgs(c, step, outputs, args);
+    const inputSchema = c.listed.get(step.tool)?.inputSchema ?? declared.inputSchema;
+    const undeclaredNarrowing = declared.widens === false && Object.keys(injected).some(key => key !== 'idempotency_key' && !Object.hasOwn(inputSchema?.properties ?? {}, key));
+    // A cached mutation still rejects undeclared narrowing input before replay.
+    const beforeInjection = undeclaredNarrowing ? await c.witness() : undefined;
     const checked = await c.stepTool(step, injected, proof);
-    c.add(`BASE-AGENT-005.5.${phase}.${step.id}`, isDeepStrictEqual(checked.decision?.classes, answer.decision?.classes) && checked.decision?.disposition === answer.decision?.disposition && !checked.result?.isError, `${step.tool} changed class, facts or decision for additional arguments.`);
+    if (undeclaredNarrowing) c.add(`BASE-AGENT-005.5.${phase}.${step.id}`, errorCode(checked) === 'invalid_arguments' && isDeepStrictEqual(beforeInjection, await c.witness()), `${step.tool} must refuse undeclared narrowing arguments as invalid_arguments without changing native state, including on replay.`);
+    else c.add(`BASE-AGENT-005.5.${phase}.${step.id}`, isDeepStrictEqual(checked.decision?.classes, answer.decision?.classes) && checked.decision?.disposition === answer.decision?.disposition && !checked.result?.isError, `${step.tool} changed class, facts or decision for additional arguments.`);
    }
    if (replay && !replayed && !c.surface.tools.find(tool => tool.name === step.tool)?.readOnly) {
     replayed = true;
