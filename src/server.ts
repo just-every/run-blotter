@@ -1,3 +1,4 @@
+import { agentResponse } from './blotter/agent-door/index.ts'
 import { enterpriseScim } from './blotter/enterprise-scim'
 import { runAgentRules } from './blotter/scheduled-agents'
 import { runInvoiceSchedules } from './blotter/invoices-retainers'
@@ -45,6 +46,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (unsubscribe) return rejectedResponse(request, unsubscribe)
     const scim = await enterpriseScim(request,runtimeBindings(env))
     if(scim)return scim
+    const door = await agentResponse(request, env)
+    if (door) return door
     const auth = await authResponse(request, env)
     if (auth) return auth
     // The installed variant: the Lobby at / and the public claim state it reads.

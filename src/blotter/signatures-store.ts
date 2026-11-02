@@ -7,6 +7,7 @@ export async function signatureRecord(db:D1Database,requestId:string) {
 export async function staffSignature(db:D1Database,actor:Actor,requestId:string,write=false) {
   need(actor,'owner','reviewer','preparer');if(write){human(actor);insist(!actor.automation,'A person must approve signature requests',403);}
   const r=await signatureRecord(db,requestId);await job(db,actor,r.job_id);
+  if(write&&r.retention_class==='engagement')need(actor,'owner');
   // Erased-client retained evidence has a separate principal-only door.
   if(r.client_erased_at)need(actor,'owner');return r;
 }
@@ -21,7 +22,7 @@ export function openSignatureJob(db:D1Database,jobId:string,actor:Actor) {
 export function signatureEvent(db:D1Database,r:Data,action:string,actor:string,detail:string,contactId:string|null=null,at=now()) {
   const eventId=id();
   return [stmt(db,'INSERT INTO b_signature_events(id,request_id,attempt,action,actor,contact_id,detail,at) VALUES(?,?,?,?,?,?,?,?)',eventId,r.id,r.attempt,action,actor,contactId,detail,at),
-    stmt(db,'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)',id(),actor,'signature.'+action,r.job_id,JSON.stringify({requestId:r.id,attempt:r.attempt,contactId,detail}),at),
+    stmt(db,'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)',id(),actor,'signature.'+action,r.job_id,JSON.stringify({requestId:r.id,attempt:r.attempt,contactId,detail,source:`/api/blotter/signatures/${r.id}/files/${action==='completed'?'signed':'original'}`}),at),
     // The established notification dispatcher applies live job authority, event
     // preferences, quiet hours and deduplication to this safe summary.
     ...(['signed','declined','completed'].includes(action)?[stmt(db,`INSERT OR IGNORE INTO b_notifications(id,to_email,kind,job_id,summary,delivery,created_at)

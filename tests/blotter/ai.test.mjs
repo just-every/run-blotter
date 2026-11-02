@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {harness} from './harness.mjs';
 import {aiBindings,aiEdge,aiFixture,noticeText,invoiceText,statementText} from './ai-fixture.mjs';
 import {aiJourney} from './ai-ui.mjs';
+import {replyFixture,replyReviewJourney,sha256} from './ai-reply-fixture.mjs';
 const archiveRows=(text,table)=>text.trim().split('\n').map(JSON.parse).flatMap(p=>p.items??[]).filter(x=>x.table===table).map(x=>x.row);
 
 test('AI assistance requires owner enablement, an authorized explicit click and masked selected source, retaining metadata and only human-saved output',async()=>{
@@ -28,9 +29,10 @@ test('AI assistance requires owner enablement, an authorized explicit click and 
   const audits=(await h.json('/team',undefined,h.owner)).audit.filter(a=>a.action==='ai.request');assert.equal(audits.length,1);assert.equal(audits[0].actor,'prep@example.test');assert.ok(!JSON.stringify(audits).includes('CP2000'));
   const draft=await h.json(`/ai/requests/${r.requestId}/draft`,{output:{...r.output,reply:'My reviewed reply, still a draft.'}},s.prep);
   assert.equal(draft.output.reply,'My reviewed reply, still a draft.');assert.equal(h.mails.length,before);
-  await h.json(`/ai/drafts/${draft.id}/decisions`,{field:'reply',decision:'reject'},s.prep);assert.equal(h.mails.length,before);
+  await h.json(`/ai/drafts/${draft.id}/reply-review`,{decision:'reject',value:draft.output.reply,textSha256:sha256(draft.output.reply),sourceFingerprint:draft.source_fingerprint,recipients:[],attachments:[]},s.prep);assert.equal(h.mails.length,before);
   await s.request('summary',s.prep,{},409);assert.equal(h.aiCalls.length,1,'Exhausted approval never sends another request');
   await s.enable(false);await s.request('summary',s.prep,{},403);assert.equal(h.aiCalls.length,1);
+  await replyReviewJourney(h,s);
  }finally{await h.close();}
 });
 
@@ -111,12 +113,18 @@ test('Revoking firm enablement during a provider request discards its result and
 
 test('AI drafts travel with attributed history, restore disabled, honor holds and erasure, and fence stale restores',async()=>{
  const h=await harness({bindings:aiBindings,aiResponse:aiEdge}),copies=[];try{
-  const s=await aiFixture(h);await s.enable();const r=await s.request('document'),draft=await h.json(`/ai/requests/${r.requestId}/draft`,{output:r.output},s.prep);
+  const s=await aiFixture(h);await s.enable();const f=await replyFixture(h,s),draft=await f.prepare(),r={output:draft.output};
+  const intent=await f.intent(draft);intent.attachments=intent.attachments.filter(a=>a.id===f.file.id);
+  const review=(await f.review(draft,intent)).review;
   const download=await h.request('/api/blotter/backup',undefined,h.owner),archive=await download.text();assert.equal(download.status,200,archive.slice(0,1000));
   const restored=await harness({bindings:aiBindings,aiResponse:aiEdge});copies.push(restored);
   await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
   assert.equal((await restored.json('/ai/settings',undefined,restored.owner)).enabled,false);
   assert.equal((await restored.json(`/ai/drafts/${draft.id}`,undefined,restored.owner)).output.summary,r.output.summary);
+  const historical=(await restored.json(`/ai/drafts/${draft.id}/reply-review`,undefined,restored.owner)).review;
+  assert.deepEqual(historical,{...review,restored:1,historical:true});
+  await restored.json(`/ai/drafts/${draft.id}/reply-review`,intent,restored.owner,409);
+  assert.deepEqual(archiveRows(await(await restored.request('/api/blotter/backup',undefined,restored.owner)).text(),'b_ai_reply_reviews'),archiveRows(archive,'b_ai_reply_reviews'));
   await restored.json(`/jobs/${s.j.id}/ai`,{purpose:'summary',sourceKind:'document',sourceId:s.file.id,confirm:true},restored.owner,403);assert.equal(restored.aiCalls.length,0);
   assert.deepEqual(archiveRows(await(await restored.request('/api/blotter/backup',undefined,restored.owner)).text(),'b_ai_requests'),archiveRows(archive,'b_ai_requests'));
   let d=await s.detail(s.j.id);await h.json(`/requests/${d.requests[0].id}/decide`,{decision:'accept'},s.prep);await h.json(`/jobs/${s.j.id}/steps`,{ordinal:1,done:true},s.prep);
@@ -124,14 +132,39 @@ test('AI drafts travel with attributed history, restore disabled, honor holds an
   const hold=await h.json(`/clients/${s.client.id}/retention`,{scope:'class',class:'derived_ai',kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Retain draft during review'},h.owner);
   await h.json(`/clients/${s.client.id}/lifecycle`,{revision:(await h.json(`/clients/${s.client.id}/detail`,undefined,h.owner)).revision,lifecycle:'archived'},h.owner);
   let preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.classes.find(c=>c.class==='derived_ai').held>0);assert.ok(preview.externalCopies.some(c=>c.source==='ai-provider'));
+  assert.ok(preview.held.some(e=>e.table==='b_ai_reply_reviews'&&e.count===1));
+  await h.json(`/files/${s.file.id}/erase`,{confirm:'synthetic-blotter-notice.txt',reason:'Attempt source erasure while its review class is held'},h.owner,409);
   await h.json(`/retention/${hold.id}/release`,{reason:'Review complete'},h.owner);
   const fileHold=await h.json(`/clients/${s.client.id}/retention`,{scope:'file',targetId:s.file.id,kind:'hold',owner:'owner@example.test',reviewDate:'2999-01-01',reason:'Preserve notice-derived evidence'},h.owner);
   preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.ok(preview.held.some(e=>e.table==='b_ai_drafts'&&e.count===1));
   await h.json(`/retention/${fileHold.id}/release`,{reason:'Source review complete'},h.owner);
+  const principal=(await h.db.prepare("SELECT email FROM oa_operators WHERE role='owner'").first()).email;
+  const attachmentHold=await h.json(`/clients/${s.client.id}/retention`,{scope:'file',targetId:f.file.id,kind:'hold',owner:principal,reviewDate:'2999-01-01',reason:'Preserve reviewed original membership'},h.owner);
+  preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);
+  assert.ok(preview.held.some(e=>e.table==='b_ai_reply_reviews'&&e.count===1));
+  assert.ok(preview.held.some(e=>e.table==='b_ai_drafts'&&e.count===1));
+  const heldArchive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const refused=await h.json(`/files/${s.file.id}/erase`,{confirm:'synthetic-blotter-notice.txt',reason:'Attempt separate source erasure while the selected attachment is held'},h.owner,409);
+  assert.ok(refused.error.includes(attachmentHold.id.slice(0,8)),'Refusal names the attachment hold');
+  assert.equal(await(await h.request(`/api/blotter/documents/${s.file.id}/file`,undefined,h.owner)).text(),noticeText);
+  assert.equal(await(await h.request(`/api/blotter/documents/${f.file.id}/file`,undefined,h.owner)).text(),'synthetic-blotter-8: original attachment bytes');
+  const afterRefusal=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  for(const table of ['b_ai_reply_reviews','b_ai_drafts','b_ai_decisions','b_files'])assert.deepEqual(archiveRows(afterRefusal,table),archiveRows(heldArchive,table),table);
+  assert.equal((await h.json(`/clients/${s.client.id}/retention`,undefined,h.owner)).marks.find(m=>m.id===attachmentHold.id).released_at,null);
+  await h.json(`/retention/${attachmentHold.id}/release`,{reason:'Attachment review complete'},h.owner);
   preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.equal(preview.eligible,true,JSON.stringify(preview.blockers));assert.ok(preview.erase.some(e=>e.table==='b_ai_drafts'&&e.count===1));
   const receipt=await h.json(`/clients/${s.client.id}/erasure`,{planHash:preview.planHash,confirm:s.client.name,reason:'Erase derived drafts'},h.owner);assert.ok(receipt.steps.some(e=>e.table==='b_ai_drafts'&&e.count===1));
+  assert.ok(receipt.steps.some(e=>e.table==='b_ai_reply_reviews'&&e.count===1));
+  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_reply_reviews').first()).n,0);
   assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM b_ai_drafts').first()).n,0);await h.json(`/ai/drafts/${draft.id}`,undefined,h.owner,404);
   const later=await(await h.request('/api/blotter/backup',undefined,h.owner)).text(),denied=await harness();copies.push(denied);await denied.json('/restore',{archive,journal:later,confirm:'RESTORE'},denied.owner,409);
+  const restoredHold=await restored.json(`/clients/${s.client.id}/retention`,{scope:'file',targetId:f.file.id,kind:'hold',owner:principal,reviewDate:'2999-01-01',reason:'Preserve historical reviewed attachment'},restored.owner);
+  await restored.json(`/files/${s.file.id}/erase`,{confirm:'synthetic-blotter-notice.txt',reason:'Attempt source erasure with historical held evidence'},restored.owner,409);
+  assert.deepEqual((await restored.json(`/ai/drafts/${draft.id}/reply-review`,undefined,restored.owner)).review,historical);
+  await restored.json(`/retention/${restoredHold.id}/release`,{reason:'Historical review complete'},restored.owner);
+  await restored.json(`/files/${s.file.id}/erase`,{confirm:'synthetic-blotter-notice.txt',reason:'Erase an unheld source and its historical derived review'},restored.owner);
+  await restored.json(`/ai/drafts/${draft.id}`,undefined,restored.owner,404);
+  assert.equal(archiveRows(await(await restored.request('/api/blotter/backup',undefined,restored.owner)).text(),'b_ai_reply_reviews').length,0);
  }finally{await h.close();for(const copy of copies)await copy.close();}
 });
 

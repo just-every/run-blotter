@@ -2,7 +2,7 @@
 // approves a new immutable version and its explicitly selected client uses.
 import { organizerTemplate, validateOrganizerWorkflow } from './organizers-definition';
 import { templateWork } from './tasks';
-import { atomic, audit, guard, human, id, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
+import { atomic, audit, preparationOwnerSql, guard, human, id, insist, need, now, rows, stmt, text, type Actor, type Data } from './model';
 import { learningClientIds, learningComparison, learningIds, learningJobEvidence, learningStampSql, supportingLearningRefs, type LearningJobEvidence } from './learning-evidence';
 export { learningEvidence } from './learning-evidence';
 
@@ -15,7 +15,7 @@ async function sourceTemplate(db: D1Database, templateId: string) {
 }
 async function ownedProposal(db: D1Database, actor: Actor, proposalId: string) {
   need(actor, 'owner');
-  const p = await stmt(db, 'SELECT * FROM b_learning_proposals WHERE id=? AND for_email=?', proposalId, actor.email).first<Data>();
+  const p = await stmt(db, `SELECT * FROM b_learning_proposals WHERE id=? AND ${preparationOwnerSql()}`, proposalId, actor.id, actor.email).first<Data>();
   insist(p, 'Learning proposal not found', 404); return p;
 }
 async function sourceEvidence(db: D1Database, actor: Actor, proposalId: string) {
@@ -58,10 +58,10 @@ export async function prepareLearning(db: D1Database, actor: Actor, body: Data) 
   const checks = freshnessStatements(db, template.id, templateState(template), sourceState, clients);
   await atomic(db, actor, [
     ...checks,
-    stmt(db, `INSERT INTO b_learning_proposals(id,source_template_id,title,expected_benefit,exceptions,assumptions,improvement,template_state,source_state,client_state,for_email,agent_label,created_channel,created_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, proposalId, template.id, text(body.title, 'Improvement title', 120),
+    stmt(db, `INSERT INTO b_learning_proposals(id,source_template_id,title,expected_benefit,exceptions,assumptions,improvement,template_state,source_state,client_state,for_email,agent_label,created_channel,created_at,door_sponsor_id)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, proposalId, template.id, text(body.title, 'Improvement title', 120),
       text(body.expectedBenefit, 'Expected benefit', 2000), text(body.exceptions, 'Exceptions', 2000), text(body.assumptions, 'Original assumptions', 2000),
-      JSON.stringify(improvement), JSON.stringify(templateState(template)), JSON.stringify(sourceState), JSON.stringify(clients), actor.email, actor.label ?? 'Prepared by a person', actor.channel, at),
+      JSON.stringify(improvement), JSON.stringify(templateState(template)), JSON.stringify(sourceState), JSON.stringify(clients), actor.email, actor.label ?? 'Prepared by a person', actor.channel, at, actor.doorAgent?actor.id:null),
     ...jobIds.map(jobId => stmt(db, 'INSERT INTO b_learning_sources(proposal_id,job_id) VALUES(?,?)', proposalId, jobId)),
     ...refs.map(ref => stmt(db, 'INSERT INTO b_learning_refs(id,proposal_id,kind,audit_id,question_id,request_id) VALUES(?,?,?,?,?,?)',
       id(), proposalId, ref.kind, ref.kind === 'review_return' ? ref.id : null, ref.kind === 'portal_question' ? ref.id : null, ref.kind === 'missing_request' ? ref.id : null)),
@@ -86,7 +86,7 @@ export async function decideLearning(db: D1Database, actor: Actor, proposalId: s
   insist(proposal.status === 'pending', 'This learning proposal was already decided', 409);
   insist(body.decision === 'approve' || body.decision === 'decline', 'Choose approve or decline');
   const reason = text(body.reason, 'Decision reason', 2000), at = now();
-  const [pending, done] = guard(db, "EXISTS(SELECT 1 FROM b_learning_proposals WHERE id=? AND for_email=? AND status='pending')", proposalId, actor.email);
+  const [pending, done] = guard(db, `EXISTS(SELECT 1 FROM b_learning_proposals WHERE id=? AND ${preparationOwnerSql()} AND status='pending')`, proposalId, actor.id, actor.email);
   if (body.decision === 'decline') {
     await atomic(db, actor, [pending,
       stmt(db, "UPDATE b_learning_proposals SET status='declined',decided_by=?,decided_at=?,decision_note=? WHERE id=?", actor.email, at, reason, proposalId),

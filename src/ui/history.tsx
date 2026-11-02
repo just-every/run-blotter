@@ -28,6 +28,7 @@ export function ClientHistory({ clientId, people, run, open }: { clientId: strin
     </Form>
     {!data.history.length ? <Empty>No history matches.</Empty> : <ul className="list">{data.history.map((e: Row) => <li key={e.id}>
       <small className="muted">{when(e.at)} · {who(people, e.actor)}</small> {e.action.replaceAll('.', ' ').replaceAll('_', ' ')}{e.detail && ` · ${prose(e.detail)}`}
+      {e.source && <> · <a href={e.source}>Read source document</a></>}
       {e.job_id && <> · <button className="quiet text-action" onClick={() => open(e.job_id)}>open job</button></>}</li>)}</ul>}
   </div>;
 }

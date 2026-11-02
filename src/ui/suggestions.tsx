@@ -17,6 +17,7 @@ export function SuggestedTime({ run, tick, open }: { run: Run; tick: number; ope
   const consent = (value: boolean) => run(() => api('/time/suggestions/consent', { consent: value }), value ? 'Suggestions on: your work actions from now on suggest time' : 'Suggestions off: pending suggestions removed');
   return <section className="panel">
     <h2>Suggested time</h2>
+    <MailSuggestionSettings run={run} tick={tick} />
     {!data.consentedAt ? <>
       <p className="muted">With your consent, Blotter suggests a time entry for each job and day on which you completed tasks, decided documents, posted in discussions or worked on notices but recorded no time. Only you see your suggestions, and nothing is recorded until you approve one. Email and calendar activity are not used.</p>
       <button onClick={() => consent(true)}>Turn on suggestions</button>
@@ -35,4 +36,29 @@ export function SuggestedTime({ run, tick, open }: { run: Run; tick: number; ope
       </li>)}</ul>}
     </>}
   </section>;
+}
+
+
+/** Mail is a separate, optional staff choice; it never activates a connection. */
+export function MailSuggestionSettings({ run, tick }: { run: Run; tick: number }) {
+  const [data, setData] = useState<Row>(), [busy, setBusy] = useState(false);
+  useEffect(() => { api('/time/mail-consent').then(setData).catch(e => run(async () => { throw e; })); }, [tick]);
+  if (!data) return null;
+  const choose = async (choice: string) => {
+    setBusy(true);
+    try {
+      await run(async () => { setData(await api('/time/mail-consent', { choice, requestId: crypto.randomUUID(), reviewToken: data.reviewToken, lastId: data.lastId, wordingVersion: data.wordingVersion })); }, choice === 'opt_in' ? 'Mail choice saved; mail suggestions remain unavailable' : 'Mail choice withdrawn');
+    } finally { setBusy(false); }
+  };
+  return <details className="mail-consent-settings"><summary>Mail suggestion settings</summary>
+    <p>{data.wording}</p>
+    <p role="status">Mail choice: <strong>{data.optedIn ? 'On' : 'Off'}</strong>. Mail suggestions unavailable.</p>
+    <button disabled={busy} onClick={() => choose(data.optedIn ? 'withdraw' : 'opt_in')}>{data.optedIn ? 'Withdraw mail consent' : 'Allow mail time suggestions'}</button>
+    {data.history.length > 0 && <details><summary>My mail choice history</summary><ul className="list">{data.history.map((event: Row) => <li key={event.id}>
+      <strong>{event.choice === 'opt_in' ? 'Allowed' : event.choice === 'withdraw' ? 'Withdrawn' : 'Declined'}</strong> · {when(event.at)} · {event.actor}
+      {event.historical && <p>Restored historical choice; inactive. Review the wording above to make a fresh choice.</p>}
+      {event.invalidatedAt && <p>{event.invalidationReason}</p>}
+      <details><summary>Recorded consent wording</summary><p>{event.wording}</p><p>Version {event.wordingVersion} · Source: mail</p></details>
+    </li>)}</ul></details>}
+  </details>;
 }

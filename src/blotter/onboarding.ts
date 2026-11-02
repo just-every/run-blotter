@@ -137,6 +137,29 @@ export async function onboardingPlan(db: D1Database, actor: Actor, clientId: str
     execution: 'Review record only. No invitation, request, access grant, work schedule, signature, connection or billing action is executed.' };
 }
 
+/** Reuse a reviewed mapping only while its source and reviewed context are current. */
+export async function reviewedOnboardingMapping(db: D1Database, actor: Actor, clientId: string, planId: string) {
+  const review = await onboardingPlan(db, actor, clientId, planId);
+  insist(review.status === 'reviewed', 'Restored scope reviews are held; select a current reviewed mapping', 409);
+  const record = (await stmt(db, 'SELECT plan FROM b_onboarding_plans WHERE id=? AND client_id=?', planId, clientId).first<Data>())!;
+  const plan = JSON.parse(record.plan);
+  const source = await signedSource(db, clientId, { source: { kind: review.source.kind, id: review.source.id } });
+  insist(source.record.sha256 === review.source.sha256, 'Signed scope changed; the mapping is stale', 409);
+  const client = await stmt(db, 'SELECT revision FROM b_clients WHERE id=?', clientId).first<Data>();
+  const contacts = await rows(db, 'SELECT id,revision FROM b_client_contacts WHERE client_id=? AND active=1 ORDER BY id', clientId);
+  insist(client?.revision === plan.clientRevision && contacts.map(c => c.id + ':' + c.revision).join(',') === plan.contactStamp,
+    'Client or contact authority changed; the scope mapping is stale', 409);
+  for (const service of plan.services) {
+    const current = await stmt(db, 'SELECT id,name,recurrence,steps,requests,questions FROM b_templates WHERE id=?', service.template.id).first<Data>();
+    insist(current && ['id','name','recurrence','steps','requests','questions'].every(key =>
+      (['steps','requests','questions'].includes(key) ? JSON.stringify(JSON.parse(current[key])) : current[key]) ===
+      (typeof service.template[key] === 'object' ? JSON.stringify(service.template[key]) : service.template[key])),
+    'Work template changed; the scope mapping is stale', 409);
+    insist(source.words.includes(service.scope.quote), 'The mapped quote is unavailable in the signed source', 409);
+  }
+  return { review, services: plan.services as Data[], source };
+}
+
 /** Human-entered progress is an observation, never provider verification. */
 export async function recordOnboardingProgress(db: D1Database, actor: Actor, clientId: string, planId: string, body: Data) {
   const plan = await onboardingPlan(db, actor, clientId, planId);

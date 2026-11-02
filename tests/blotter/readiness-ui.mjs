@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 
 // READY-001: the approved question uses the existing client portal, at both widths.
 export async function readinessPortalJourney(h, token) {
-  const browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain','--password-store=basic'] });
+  const browser = await chromium.launch({ headless: true, ...(process.env.BLOTTER_CHROMIUM ? { executablePath: process.env.BLOTTER_CHROMIUM } : {}), args: ['--no-sandbox','--use-mock-keychain','--password-store=basic'] });
   const evidence = process.env.BLOTTER_READINESS_EVIDENCE;
   if (evidence) await mkdir(evidence, { recursive: true });
   try {

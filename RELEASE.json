@@ -93,7 +93,8 @@
     "migrations/core/0099_bulk_language_erasure.sql",
     "migrations/core/0100_service_costs.sql",
     "migrations/core/0101_scheduled_agents.sql",
-    "migrations/core/0102_external_agent_plans.sql"
+    "migrations/core/0102_external_agent_plans.sql",
+    "migrations/core/0112_engagement_proposals.sql"
   ],
   "breaking": false,
   "agentUpdateInstructions": "Use the committed deployment specification and setup manifest. Retain the vault key and latest erasure journal when moving an existing practice."
