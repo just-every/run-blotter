@@ -5708,7 +5708,7 @@
       "executable": false
     },
     "tests/agent-door/journey.mjs": {
-      "sha256": "486b3f7e60f77063b57329389596647531ba4a2a68c09fbf690dc861b02842ba",
+      "sha256": "ca40dd5046cde1a200d5ee88f028532366b90d5b4de2663f469d551b77376ec3",
       "executable": false
     },
     "tests/agent-door/owner.mjs": {
