@@ -9,6 +9,7 @@ export const tokenOf = recipient => new URL(recipient.portalUrl).pathname.split(
 export const SENTINEL = { organizer: 'Sentinel organizer answer', thread: 'Sentinel thread text', engagement: 'Signed engagement letter bytes', intake: 'Sentinel bank statement bytes', note: 'Sentinel request note',
   credential: 'sentinel-password-1', accepted: 'Accepted return bytes', todo: 'Sentinel readiness response' };
 export const IDENTITY = { name: 'Cedar Lane LLC', ein: '123456789', address: '14 Cedar Lane, Columbus OH 43004' };
+const consentAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
 const organizer = { name: 'Close organizer', kind: 'bookkeeping', version: 1, questions: [{ key: 'notes', label: 'Bookkeeper notes', type: 'text', required: true }] };
 
 const totp = (secret, offset = 0) => {
@@ -77,7 +78,7 @@ export async function build(h) {
   const pending = await prepare(d.requests[0].id), decided = await prepare(d.requests[1].id);
   await h.json(`/jobs/${open.id}/readiness/questions/${decided.id}/decide`, { decision: 'decline', reason: 'Reviewed the cited evidence and current client response' }, s.reviewer);
   // Marketing: the contact withdrew; the same address belongs to another client's contact.
-  await h.json('/marketing-consents', { contactId: alex.id, kind: 'withdraw', source: 'staff_reply', actedAt: '2026-10-01T10:00:00Z', evidence: 'Replied: please stop' }, h.owner);
+  await h.json('/marketing-consents', { contactId: alex.id, kind: 'withdraw', source: 'staff_reply', actedAt: consentAt, evidence: 'Replied: please stop' }, h.owner);
   // An agent's rollforward plan for the signed job, decided by a person (its output and decision stay as ids).
   const roll = await h.json('/agent/prepare-rollforward', { jobId: signed.id, dueDate: '2027-04-28', dueNote: 'Next period' }, '', 200, auth);
   const attempted = await h.json(`/proposals/${roll.id}/decide`, { decision: 'decline', reason: 'Not needed' }, h.owner);

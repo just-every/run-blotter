@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { harness } from './harness.mjs';
 import { languageJourney } from './language-ui.mjs';
 
+const consentAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
 const acknowledge = 'erasure history unverified: supply your latest erasure journal';
 const person = (name, email, language, extra = {}) => ({ name, email, language, roles: ['primary'], authorized: true, signer: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
 const tokenOf = r => new URL(r.portalUrl).pathname.split('/').at(-1);
@@ -164,7 +165,7 @@ test('PORTAL-005 / MSG-001 / PORTAL-004 / SIGN-002 / MSG-002 / BASE-001: a Spani
     await h.json('/firm/settings', { name: 'Cardinal Tax & Books', ein: '12-3456789', entity: 'LLC', address: '100 Main Street', city: 'Raleigh', state: 'NC', zip: '27601', fiscalYearEnd: '12-31', services: 'Individual tax', currency: 'USD', timeZone: 'America/New_York', notificationStart: '08:00', notificationEnd: '18:00', calendars: [] }, h.owner);
     const news = await h.json('/messages/templates', { scope: 'firm', name: 'Seminar news', class: 'marketing', subject: 'News from {{firm_name}}', body: 'Hi {{contact_first_name}}, our spring seminar is open.' }, h.owner);
     await h.json(`/messages/templates/${news.id}/translations`, { language: 'es', subject: 'Novedades de {{firm_name}}', body: 'Hola {{contact_first_name}}, nuestro seminario de primavera está abierto.' }, h.owner);
-    await h.json('/marketing-consents', { contactId: maria.id, kind: 'grant', actedAt: '2026-10-01T15:00:00Z', wording: 'Sí, envíenme invitaciones a seminarios y novedades por correo electrónico.', wordingVersion: 'v1-es', evidence: 'Signed Spanish sign-up sheet at the October seminar' }, h.owner);
+    await h.json('/marketing-consents', { contactId: maria.id, kind: 'grant', actedAt: consentAt, wording: 'Sí, envíenme invitaciones a seminarios y novedades por correo electrónico.', wordingVersion: 'v1-es', evidence: 'Signed Spanish sign-up sheet at the October seminar' }, h.owner);
     const newsBatch = await h.json('/bulk-messages/preview', { class: 'marketing', templateId: news.id, entityType: 'business', topic: 'other', idempotencyKey: 'news-es' }, h.owner);
     assert.deepEqual([newsBatch.recipients.map(r => r.address), newsBatch.untranslated], [['maria@example.test'], []]);
     await h.json(`/bulk-messages/${newsBatch.batch.id}/approve`, { fingerprint: newsBatch.batch.fingerprint }, h.owner);

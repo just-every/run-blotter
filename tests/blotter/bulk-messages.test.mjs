@@ -4,6 +4,7 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { harness } from './harness.mjs';
 import { bulkFailureJourney } from './bulk-failure-ui.mjs';
 
+const consentAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
 const pdf = (name, text) => ({ name, mime: 'application/pdf', contentBase64: Buffer.from(text).toString('base64') });
 const key = randomBytes(24), contact = (name, email, extra = {}) => ({ name, email, roles: ['primary'], authorized: true, portal: true, requestConsent: true, emailConsent: true, ...extra });
 // The provider edge is faked: events are signed exactly as Resend (Svix) signs them.
@@ -111,7 +112,7 @@ test('MSG-002 / NOTIFY-001 / BASE-001 bulk engagement and marketing messages: se
     assert.ok(!(await h.json(`/clients/${clients[2].id}/history?kind=messages`, undefined, h.owner)).history.some(e => e.action === 'bulk.bounced'));
 
     // Marketing consent: staff-recorded grants with evidence; preparers cannot record; a typed unsubscribe withdraws an address.
-    const grant = (contactId, extra = {}) => ({ contactId, kind: 'grant', actedAt: '2026-10-01T15:00:00Z', wording: 'Yes, send me seminar invitations and newsletters by email.', wordingVersion: 'v1', evidence: 'Signed sign-up sheet at the October seminar', ...extra });
+    const grant = (contactId, extra = {}) => ({ contactId, kind: 'grant', actedAt: consentAt, wording: 'Yes, send me seminar invitations and newsletters by email.', wordingVersion: 'v1', evidence: 'Signed sign-up sheet at the October seminar', ...extra });
     await h.json('/marketing-consents', grant(clients[0].contacts[0].id), prep, 403);
     await h.json('/marketing-consents', grant(clients[0].contacts[0].id, { evidence: '' }), h.owner, 400);
     const grants = [];
@@ -317,7 +318,7 @@ test('MSG-002 / CRM-005 / ACCESS-006 / CRM-004 consent carriers and attached req
     const pair = (name, extra) => h.json('/clients', { name, tags: ['merge'], contacts: [contact('Robin Dup', 'robin@dup.example'), contact('Sam Dup', 'sam@dup.example', { roles: ['tax'], ...extra })] }, h.owner);
     const survivor = await pair('Dup Holdings LLC'), copy = await pair('Dup Holdings', { emailConsent: false });
     const robin = survivor.contacts.find(c => c.email === 'robin@dup.example');
-    await h.json('/marketing-consents', { contactId: robin.id, kind: 'grant', actedAt: '2026-10-01T15:00:00Z', wording: 'Yes, send me seminar invitations by email.', wordingVersion: 'v1', evidence: 'Signed seminar sheet' }, h.owner);
+    await h.json('/marketing-consents', { contactId: robin.id, kind: 'grant', actedAt: consentAt, wording: 'Yes, send me seminar invitations by email.', wordingVersion: 'v1', evidence: 'Signed seminar sheet' }, h.owner);
     const contacts = async () => [await h.json(`/clients/${survivor.id}/contacts`, undefined, h.owner), await h.json(`/clients/${copy.id}/contacts`, undefined, h.owner)];
     const state = async () => Object.fromEntries((await h.json(`/marketing-consents?clientId=${survivor.id}`, undefined, h.owner)).contacts.map(c => [c.email, [c.email_consent, c.marketing]]));
     const before = await contacts();

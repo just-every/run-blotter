@@ -8,6 +8,7 @@ import { harness } from './harness.mjs';
 import { retentionJourney } from './erasure-ui.mjs';
 import { build, contact, finishOpenWork, approvedExport, signedOff, team, SENTINEL, IDENTITY, b64, enroll, totp } from './erasure-fixture.mjs';
 
+const consentAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
 const file = (h, id, who = h.owner) => h.request('/api/blotter/files/' + id, undefined, who);
 const rowsOf = archive => archive.trim().split('\n').map(JSON.parse).filter(p => p.kind === 'part').flatMap(p => p.items).filter(i => i.kind === 'row');
 const years = n => new Date(Date.now() - n * 365 * 864e5).toISOString();
@@ -156,12 +157,12 @@ test('ERASURE-002 / BASE-001 / policy journey: principal-only doors, clocks and 
     assert.ok(creds.reveals.length >= 1 && creds.reveals.every(r => /^Credential [0-9a-f]{8}$/.test(r.label) && r.actor === 'prep@example.test'), 'The reveal log stays under opaque labels');
     const marketing = await h.json(`/marketing-consents?clientId=${s.other.id}`, undefined, h.owner);
     assert.ok(JSON.stringify(marketing).includes('withdraw'), 'The withdrawal carried to the other client contact');
-    await h.json('/marketing-consents', { contactId: s.other.contacts[0].id, kind: 'grant', source: 'staff_evidence', actedAt: '2026-10-02T10:00:00Z', evidence: 'Asked at the front desk', wording: 'Email me offers', wordingVersion: 'v1' }, h.owner, 409);
+    await h.json('/marketing-consents', { contactId: s.other.contacts[0].id, kind: 'grant', source: 'staff_evidence', actedAt: consentAt, evidence: 'Asked at the front desk', wording: 'Email me offers', wordingVersion: 'v1' }, h.owner, 409);
 
     // The mapped marketing import consults the erased withdrawals too: only an opt-in captured after the erasure could be mapped.
     const fields = ['client_id', 'client_name', 'entity_type', 'contact_name', 'contact_email', 'contact_roles', 'authorized', 'email_consent', 'tags', 'marketing_opt_in', 'marketing_captured_at', 'marketing_wording', 'marketing_wording_version', 'marketing_language', 'marketing_evidence'];
     const grant = (n, email) => ({ client_id: 'mapped-' + n, client_name: 'Mapped client ' + n, entity_type: 'individual', contact_name: 'Mapped ' + n, contact_email: email, contact_roles: 'primary', authorized: 'true', email_consent: 'true', tags: 'tax',
-      marketing_opt_in: 'true', marketing_captured_at: '2026-10-01T10:00:00-04:00', marketing_wording: 'Yes email me the newsletter.', marketing_wording_version: 'v1', marketing_language: 'en', marketing_evidence: 'Signed consent record' });
+      marketing_opt_in: 'true', marketing_captured_at: consentAt, marketing_wording: 'Yes email me the newsletter.', marketing_wording_version: 'v1', marketing_language: 'en', marketing_evidence: 'Signed consent record' });
     const csv = rows => [fields.join(','), ...rows.map(r => fields.map(k => JSON.stringify(String(r[k] ?? ''))).join(','))].join('\n');
     const mapped = rows => h.json('/import/preview', { csv: csv(rows), filename: 'Consent.csv', mapping: Object.fromEntries(fields.map(k => [k, k])) }, h.owner);
     assert.ok((await mapped([grant(1, 'alex@example.test')])).summary.errors.some(e => /withdrew consent before a client erasure/.test(e)));
