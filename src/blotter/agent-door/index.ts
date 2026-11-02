@@ -10,7 +10,7 @@ import { nativeTrust } from './trust.ts';
 
 export function blotterAgentDoor(original:Bindings) {
  const env=runtimeBindings(original);
- return createAgentDoor({seed:'blotter',name:'Blotter',specialist:'practice coordinator',db:env.DB,origin:env.AUTH_ORIGIN,trust:nativeTrust(env),people:people(env),
+ return createAgentDoor({capabilities:['tools','policy','pause','audit','idempotency'],seed:'blotter',name:'Blotter',specialist:'practice coordinator',db:env.DB,origin:env.AUTH_ORIGIN,trust:nativeTrust(env),people:people(env),
   tools:[...proposalTools,...readinessTools,...learningTools],resources,
   localCredentials:request=>localCredential(request,env),
   currentScopes:principal=>principal.clientId?.startsWith('blotter-key:')?keyScopes(env.DB,principal.clientId.slice(12)):Promise.resolve(principal.scopes),
@@ -21,7 +21,7 @@ export function blotterAgentDoor(original:Bindings) {
 }
 export async function agentResponse(request:Request,original:Bindings) {
  const path=new URL(request.url).pathname;
- if(!['/mcp','/api/rer/agent-policy','/api/rer/business-settings','/agents','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'].includes(path)&&!path.startsWith('/agents/'))return null;
+ if(!['/mcp','/api/rer/agent-policy','/api/rer/agent-decisions','/api/rer/business-settings','/agents','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'].includes(path)&&!path.startsWith('/agents/'))return null;
  try {
   const settings=await businessSettings(runtimeBindings(original)).handle(request);
   return settings??await blotterAgentDoor(original).handle(request);
