@@ -301,7 +301,7 @@ test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile t
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-11' } }); let restored;
   let calendarDay;
   const day = n => new Date(Date.parse(calendarDay + 'T12:00:00.000Z') + n * 86_400_000).toISOString().slice(0, 10);
-  const monthAt = n => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 7); };
+  const monthAt = n => { const d = new Date(calendarDay + 'T12:00:00.000Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 7); };
   try {
     const s = await fixture(h);
     calendarDay = (await h.json('/firm/time', undefined, h.owner)).localDate;
@@ -317,8 +317,10 @@ test('BILL-003 / BASE-001: WIP, aging, realization and profitability reconcile t
     const fixed = await authorize(h, s, { amountCents: 20000 });
     const a = await draft(h, { ...terms, title: 'Fixed fee, hours and filing', issueDate: day(-60), dueDate: day(-45), jobId: s.job.id, sourceKeys: [fixed.sourceKey, `time:${hourly.id}`, `adj:${adjustment.id}`, `exp:${expense.id}`], contactId: s.billing.id });
     await issue(h, a);
-    const rule = await h.json('/invoice-retainers', { ...terms, jobId: s.job.id, title: 'Monthly bookkeeping retainer', startMonth: monthAt(-2), amountCents: 12000, billDay: 1, dueDays: 14, contactId: s.billing.id, authorization: 'Client agreement authorizes a monthly fee' }, h.owner);
-    const earned = await h.json(`/invoice-retainers/${rule.id}/generate`, { period: monthAt(-2) }, h.owner), deferred = await h.json(`/invoice-retainers/${rule.id}/generate`, { period: monthAt(2) }, h.owner);
+    // Three months back keeps the retainer due more than 60 days ago even on the
+    // first of a short month; only invoice a belongs in the 31-60 day bucket.
+    const rule = await h.json('/invoice-retainers', { ...terms, jobId: s.job.id, title: 'Monthly bookkeeping retainer', startMonth: monthAt(-3), amountCents: 12000, billDay: 1, dueDays: 14, contactId: s.billing.id, authorization: 'Client agreement authorizes a monthly fee' }, h.owner);
+    const earned = await h.json(`/invoice-retainers/${rule.id}/generate`, { period: monthAt(-3) }, h.owner), deferred = await h.json(`/invoice-retainers/${rule.id}/generate`, { period: monthAt(2) }, h.owner);
     await issue(h, earned); await issue(h, deferred);
     // A partial payment (a recorded bank receipt) and a credit memo discharge part of the first invoice.
     const receipt = await h.json('/invoice-credits', { clientId: s.client.id, kind: 'deposit', reference: 'BANK-RECEIPT-B3-1', amountCents: 10000, reason: 'Client paid part by bank transfer; receipt supplied' }, h.owner);
@@ -571,23 +573,25 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
   const h = await harness({ bindings: { MAIL_API_KEY: 'synthetic-blotter-9',STRIPE_SECRET_KEY:'synthetic-blotter-10' },stripeResponse:edge.respond }); let restored;
   try {
     const s = await fixture(h);
+    const calendarDay = (await h.json('/firm/time', undefined, h.owner)).localDate;
+    const day = n => new Date(Date.parse(calendarDay + 'T12:00:00Z') + n * 86_400_000).toISOString().slice(0, 10);
     await h.json('/invoices/authority', { authority: 'blotter', reason: 'Native invoice authority selected' }, h.owner);
     const other = await h.json('/clients', { name: 'Harbor Studio LLC', contacts: [contact('Robin Harbor', 'robin@example.test')] }, h.owner);
     const otherJob = await h.json('/jobs', { clientId: other.id, templateId: s.template.id, periodStart: '2026-11-01', dueDate: '2026-12-15', dueNote: 'Recorded engagement date', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
     let robin = (await h.json(`/clients/${other.id}/contacts`, undefined, h.owner)).find(c => c.email === 'robin@example.test');
     const issueOne = async (job, contactId, reference, dueDate, amountCents) => {
       const e = await h.json('/invoice-entitlements', { jobId: job.id, kind: 'milestone', reference, description: `Milestone ${reference}`, amountCents, authorization: `Client accepted ${reference}` }, h.owner);
-      const d = await draft(h, { ...terms, title: `Invoice ${reference}`, issueDate: '2026-11-20', dueDate, jobId: job.id, sourceKeys: [e.sourceKey], contactId });
+      const d = await draft(h, { ...terms, title: `Invoice ${reference}`, issueDate: day(-11), dueDate, jobId: job.id, sourceKeys: [e.sourceKey], contactId });
       await issue(h, d); return d;
     };
-    const a = await issueOne(s.job, s.billing.id, 'MS-1', '2026-12-01', 10000), b = await issueOne(s.job, s.billing.id, 'MS-2', '2026-12-10', 20000);
-    const c = await issueOne(s.job, s.billing.id, 'MS-3', '2026-12-20', 30000), d = await issueOne(otherJob, robin.id, 'MS-4', '2026-12-01', 5000);
+    const a = await issueOne(s.job, s.billing.id, 'MS-1', day(0), 10000), b = await issueOne(s.job, s.billing.id, 'MS-2', day(9), 20000);
+    const c = await issueOne(s.job, s.billing.id, 'MS-3', day(19), 30000), d = await issueOne(otherJob, robin.id, 'MS-4', day(0), 5000);
     // PORTAL-005: a billing contact who reads Spanish gets the invoice mail and the reminders in Spanish.
     const cedro = await h.json('/clients', { name: 'Cedro Taller LLC', contacts: [{ ...contact('Lucía Ríos', 'lucia@example.test'), language: 'es' }] }, h.owner);
     const cedroJob = await h.json('/jobs', { clientId: cedro.id, templateId: s.template.id, periodStart: '2026-11-01', dueDate: '2026-12-15', dueNote: 'Recorded engagement date', preparerEmail: 'preparer@example.test', reviewerEmail: 'reviewer@example.test' }, h.owner);
-    const lucia = (await h.json(`/clients/${cedro.id}/contacts`, undefined, h.owner))[0], e = await issueOne(cedroJob, lucia.id, 'MS-5', '2026-12-01', 7000);
+    const lucia = (await h.json(`/clients/${cedro.id}/contacts`, undefined, h.owner))[0], e = await issueOne(cedroJob, lucia.id, 'MS-5', day(0), 7000);
     const toLucia = await h.json(`/invoices/${e.id}/delivery-preview`, { contactId: lucia.id }, h.owner), mailed = await h.json(`/invoices/${e.id}/send`, { contactId: lucia.id, previewHash: toLucia.previewHash }, h.owner);
-    assert.match(h.mails.find(m => m.subject === toLucia.subject).text, /^Hola Lucía Ríos,\n\nAdjuntamos la factura INV-\d+\. Importe a pagar: USD 70\.00\. Fecha de vencimiento: 2026-12-01\.\n\nPortal de facturas: https:\/\/\S+\nEste enlace privado vence el /);
+    assert.match(h.mails.find(m => m.subject === toLucia.subject).text, new RegExp(String.raw`^Hola Lucía Ríos,\n\nAdjuntamos la factura INV-\d+\. Importe a pagar: USD 70\.00\. Fecha de vencimiento: ${day(0)}\.\n\nPortal de facturas: https:\/\/\S+\nEste enlace privado vence el `));
     assert.equal((await h.json('/invoice-portal/' + new URL(mailed.portalUrl).pathname.split('/').at(-1))).language, 'es');
     const template = await h.json('/messages/templates', { name: 'Invoice reminder', scope: 'firm', subject: 'Reminder: {{invoice_amount}} due {{invoice_due_date}}', body: 'Hello {{contact_first_name}}, {{client_name}} owes {{invoice_amount}} by {{invoice_due_date}}. {{firm_name}}' }, h.owner);
     const newsletter = await h.json('/messages/templates', { name: 'Newsletter', scope: 'firm', class: 'marketing', subject: 'News', body: 'Hello {{contact_first_name}}' }, h.owner);
@@ -602,29 +606,29 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     assert.deepEqual((await h.json('/invoices/reminders', undefined, h.owner)).warnings, []);
     await h.json(`/clients/${other.id}/invoice-reminders`, { mode: 'off', reason: 'Client pays by standing order' }, h.owner);
     const sent = () => h.mails.filter(m => /^Reminder:/.test(m.subject)).map(m => [m.to[0], m.subject]);
-    await h.scheduled('2026-11-28T15:00:00Z');
-    assert.deepEqual(sent(), [['alex@example.test', 'Reminder: USD 100.00 due 2026-12-01']]);
+    await h.scheduled(day(-3) + 'T15:00:00Z');
+    assert.deepEqual(sent(), [['alex@example.test', `Reminder: USD 100.00 due ${day(0)}`]]);
     assert.equal(h.mails.find(m => /^Reminder:/.test(m.subject)).attachments.length, 1, 'The reminder carries the numbered PDF');
     const spanishReminder = h.mails.filter(m => /^Recordatorio:/.test(m.subject));
-    assert.deepEqual(spanishReminder.map(m => [m.to[0], m.subject]), [['lucia@example.test', 'Recordatorio: USD 70.00 vence el 2026-12-01']]); assert.match(spanishReminder[0].text, /^Hola Lucía, Cedro Taller LLC debe USD 70\.00 antes del 2026-12-01\./);
+    assert.deepEqual(spanishReminder.map(m => [m.to[0], m.subject]), [['lucia@example.test', `Recordatorio: USD 70.00 vence el ${day(0)}`]]); assert.match(spanishReminder[0].text, new RegExp(String.raw`^Hola Lucía, Cedro Taller LLC debe USD 70\.00 antes del ${day(0)}\.`));
     // A provider-confirmed card payment settles the first invoice between reminder steps.
     const collection=await h.json(`/invoices/${a.id}/payment-link`,{amountCents:10000},h.owner);
     const payment=await h.json(`/payments/${collection.paymentId}/reconcile`,{},h.owner);
     assert.equal(payment.state,'settled');assert.equal(payment.net_cents,10000);
     await h.json(`/invoices/${c.id}/collection`, { hold: 'disputed', note: 'Client disputes the milestone scope' }, h.owner);
-    await h.scheduled('2026-12-01T15:00:00Z');
+    await h.scheduled(day(0) + 'T15:00:00Z');
     assert.equal(sent().length, 1, 'A paid invoice is not reminded');
     // The opted-out client returns to the firm schedule, but its billing contact withdrew email consent: held, never sent.
     await h.json(`/clients/${other.id}/invoice-reminders`, { mode: 'firm', reason: 'Standing order ended' }, h.owner);
     robin = (await h.json(`/clients/${other.id}/contacts`, undefined, h.owner)).find(x => x.id === robin.id);
     await h.json(`/clients/${other.id}/contacts`, { id: robin.id, revision: robin.revision, emailConsent: false, consentNote: 'Client withdrew email consent' }, h.owner);
-    await h.scheduled('2026-12-08T15:00:00Z'); await h.scheduled('2026-12-10T15:00:00Z'); await h.scheduled('2026-12-10T16:00:00Z');
-    await h.restart(); await h.scheduled('2026-12-10T17:00:00Z'); await h.scheduled('2026-12-27T15:00:00Z');
-    assert.deepEqual(sent(), [['alex@example.test', 'Reminder: USD 100.00 due 2026-12-01'], ...Array(3).fill(['alex@example.test', 'Reminder: USD 200.00 due 2026-12-10'])]);
+    await h.scheduled(day(7) + 'T15:00:00Z'); await h.scheduled(day(9) + 'T15:00:00Z'); await h.scheduled(day(9) + 'T16:00:00Z');
+    await h.restart(); await h.scheduled(day(9) + 'T17:00:00Z'); await h.scheduled(day(26) + 'T15:00:00Z');
+    assert.deepEqual(sent(), [['alex@example.test', `Reminder: USD 100.00 due ${day(0)}`], ...Array(3).fill(['alex@example.test', `Reminder: USD 200.00 due ${day(9)}`])]);
     const steps = async invoice => (await h.json(`/invoices/${invoice.id}`, undefined, h.owner)).reminders.map(r => [r.step, r.scheduled_on, r.status]);
-    assert.deepEqual(await steps(b), [[-3, '2026-12-07', 'accepted'], [0, '2026-12-10', 'accepted'], [7, '2026-12-17', 'accepted']]);
-    assert.deepEqual(await steps(a), [[-3, '2026-11-28', 'accepted']]); assert.deepEqual(await steps(c), []);
-    assert.deepEqual(await steps(d), [[-3, '2026-11-28', 'skipped'], [0, '2026-12-01', 'skipped'], [7, '2026-12-08', 'held']]);
+    assert.deepEqual(await steps(b), [[-3, day(6), 'accepted'], [0, day(9), 'accepted'], [7, day(16), 'accepted']]);
+    assert.deepEqual(await steps(a), [[-3, day(-3), 'accepted']]); assert.deepEqual(await steps(c), []);
+    assert.deepEqual(await steps(d), [[-3, day(-3), 'skipped'], [0, day(0), 'skipped'], [7, day(7), 'held']]);
     assert.match((await h.json(`/invoices/${d.id}`, undefined, h.owner)).reminders[2].delivery, /email consent withdrawn/);
     const history = await h.json(`/clients/${s.client.id}/history?kind=billing`, undefined, h.owner);
     assert.equal(history.history.filter(e => e.action === 'invoice.reminder_sent' && e.object_id === b.id).length, 3, 'Every reminder is in the client history');
@@ -635,14 +639,14 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     const resent = await h.json('/invoices/resend', { ...resend, previewHash: preview.previewHash }, h.owner);
     assert.deepEqual(resent.results.map(r => r.status), ['accepted', 'accepted']); assert.equal(h.mails.length, before + 2);
     // The statement lists open invoices with aging and recorded credits, and reconciles to open balances.
-    const statement = await h.json(`/clients/${s.client.id}/statement?asOf=2026-12-27`, undefined, h.owner);
+    const statement = await h.json(`/clients/${s.client.id}/statement?asOf=${day(26)}`, undefined, h.owner);
     const open = (await h.json('/invoices', undefined, h.owner)).invoices.filter(i => i.client_id === s.client.id && i.status === 'issued').reduce((n, i) => n + i.balance_cents, 0);
     assert.equal(statement.totals.openCents, open); assert.equal(open, 50000);
     assert.deepEqual(statement.invoices.map(i => [i.balanceCents, i.aging, i.hold]), [[20000, '1-30 days', null], [30000, '1-30 days', 'disputed']]);
     assert.deepEqual(statement.credits,[]);
     assert.deepEqual(statement.payments.map(p=>[p.provider_id,p.state,p.net_cents]),[[payment.provider_id,'settled',10000]]);
-    const csv = await (await h.request(`/api/blotter/clients/${s.client.id}/statement/csv?asOf=2026-12-27`, undefined, h.owner)).text();
-    assert.match(csv, /"Total","","Cedar Lane LLC statement as of 2026-12-27","","","","","","","500.00"/);
+    const csv = await (await h.request(`/api/blotter/clients/${s.client.id}/statement/csv?asOf=${day(26)}`, undefined, h.owner)).text();
+    assert.match(csv, new RegExp(String.raw`"Total","","Cedar Lane LLC statement as of ${day(26)}","","","","","","","500.00"`));
     assert.match((await h.json(`/invoices/${b.id}/quick-collect`, {}, h.owner, 409)).error, /PAY-001/);
     await collectionsJourney(h, s);
     // A restore brings the schedule back paused and without its consent.
@@ -664,15 +668,15 @@ test('BILL-004 / MSG-002 / CRM-003: consented reminders run on schedule only for
     assert.ok(localizedSchedule.warnings.some(w => w.contactId === s.billing.id && w.kind === 'no_translation' && /English text/.test(w.message)));
     await collectionsJourney(h, s);
     let translatedMailCount = h.mails.length;
-    await h.scheduled('2027-01-09T15:00:00Z');
-    assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Reminder: USD 200.00 due 2026-12-10');
+    await h.scheduled(day(39) + 'T15:00:00Z');
+    assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, `Reminder: USD 200.00 due ${day(9)}`);
     await h.json(`/messages/templates/${fallbackTemplate.id}/translations`, { language: 'es', subject: 'Recordatorio: {{invoice_amount}} vence {{invoice_due_date}}', body: 'Hola {{contact_first_name}}, {{client_name}} debe {{invoice_amount}} antes del {{invoice_due_date}}.' }, h.owner);
     assert.deepEqual((await h.json('/invoices/reminders', undefined, h.owner)).warnings, []);
-    translatedMailCount = h.mails.length; await h.scheduled('2027-01-10T15:00:00Z');
-    assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, 'Recordatorio: USD 200.00 vence 2026-12-10');
+    translatedMailCount = h.mails.length; await h.scheduled(day(40) + 'T15:00:00Z');
+    assert.equal(h.mails.length, translatedMailCount + 1); assert.equal(h.mails.at(-1).subject, `Recordatorio: USD 200.00 vence ${day(9)}`);
     await h.json(`/messages/templates/${fallbackTemplate.id}`,{subject:'Changed reminder {{invoice_amount}}',body:'Hello {{contact_first_name}}, {{client_name}} owes {{invoice_amount}}.'},h.owner);
     const paused=(await h.json('/invoices/reminders',undefined,h.owner)).policy;assert.equal(paused.status,'paused');assert.equal(paused.consenter_id,null);
-    const afterEdit=h.mails.length;await h.scheduled('2027-01-11T15:00:00Z');assert.equal(h.mails.length,afterEdit,'A template edit revokes consent before the next step');
+    const afterEdit=h.mails.length;await h.scheduled(day(41) + 'T15:00:00Z');assert.equal(h.mails.length,afterEdit,'A template edit revokes consent before the next step');
 
   } finally { await restored?.close(); await h.close(); }
 });

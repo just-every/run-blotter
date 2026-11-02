@@ -5,6 +5,7 @@ import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
 import {pdfText} from './pdf-text.mjs';
 import {authorizationJourney,authorizationLifecycleJourney,signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
+const verifiedOn = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
@@ -129,7 +130,7 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
   const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep);assert.equal(r.invitations.length,1,'The staff representative gets no portal invitation');
   const t=token(r.invitations[0]);let v=await open(h,t,r.id);assert.equal(v.attestationRequired,true);assert.equal(v.canSign,false);
   assert.match((await sign(h,t,r.id,v,409)).error,/remote-authentication attestation/);
-  const attest={contactId:f.client.contacts[0].id,method:'photo_id_video',verifier:'Pat Harper',verifiedOn:'2026-10-21',items:['name','ssn_or_itin','address','date_of_birth'],secondaryDocument:'Utility bill matching name and address'};
+  const attest={contactId:f.client.contacts[0].id,method:'photo_id_video',verifier:'Pat Harper',verifiedOn,items:['name','ssn_or_itin','address','date_of_birth'],secondaryDocument:'Utility bill matching name and address'};
   await h.json(`/signatures/${r.id}/attestations`,{...attest,items:['name']},f.prep,400);
   await h.json(`/signatures/${r.id}/attestations`,attest,f.outside,404);
   await h.json(`/signatures/${r.id}/attestations`,attest,f.prep);await h.json(`/signatures/${r.id}/attestations`,attest,f.prep,409);
@@ -179,7 +180,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.outside,404);
   const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},h.owner),t=token(r.invitations[0]);
   await sign(h,t,r.id,await open(h,t,r.id),409);
-  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
+  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn,items:[],note:'Long-standing client met in person each year'},f.prep);
   await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
   const signedForm=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).arrayBuffer());
   for(const signer of [client.name,'Pat Harper'])assert.ok((await pdfText(signedForm)).includes(signer));

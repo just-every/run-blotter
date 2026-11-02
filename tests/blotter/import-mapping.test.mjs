@@ -59,16 +59,19 @@ const marketingMapping = { client_id: 'client_id', client_name: 'client_name', e
 const marketingHeader = Object.keys(marketingMapping);
 const consentCsv = records => [marketingHeader.join(','), ...records.map(r=>marketingHeader.map(k=>JSON.stringify(String(r[k]??''))).join(','))].join('\n');
 const importedContact = (i, extra={}) => ({client_id:`consent-${i}`,client_name:`Consent client ${String(i).padStart(2,'0')}`,entity_type:'individual',contact_name:`Contact ${i}`,contact_email:`consent-${i}@example.test`,contact_roles:'primary',authorized:'true',email_consent:'true',tags:'tax',...extra});
-const sourceGrant = { marketing_opt_in:'true',marketing_captured_at:'2026-10-01T10:00:00-04:00',marketing_wording:'Yes email me the practice tax newsletter.',marketing_wording_version:'newsletter-v1',marketing_language:'en',marketing_evidence:'Signed newsletter consent record 27' };
+// Consent must predate the live clock; retain the explicit offset-normalization assertion.
+const consentNow = Date.now();
+const consentDay = daysAgo => new Date(consentNow - daysAgo * 86_400_000).toISOString().slice(0, 10);
+const sourceGrant = { marketing_opt_in:'true',marketing_captured_at:consentDay(32) + 'T10:00:00-04:00',marketing_wording:'Yes email me the practice tax newsletter.',marketing_wording_version:'newsletter-v1',marketing_language:'en',marketing_evidence:'Signed newsletter consent record 27' };
 
 test('MSG-002 / IMPORT-001 / BASE-001: separately reviewed mapped opt-ins require principal attestation; withdrawals win firm-wide, subscribed alone grants nothing, exact replay/resume and undo retain attributed consent, and restore holds marketing', async()=>{
  const h=await harness();let restored;
  try {
   const native=await h.json('/clients',{name:'Existing shared address',contacts:[{name:'Existing contact',email:'withdrawn@example.test',roles:['primary'],authorized:true,emailConsent:true}]},h.owner);
-  await h.json('/marketing-consents',{contactId:native.contacts[0].id,kind:'grant',actedAt:'2026-09-01T00:00:00Z',wording:'Send me tax newsletters',wordingVersion:'v1',evidence:'Existing written grant'},h.owner);
+  await h.json('/marketing-consents',{contactId:native.contacts[0].id,kind:'grant',actedAt:consentDay(62) + 'T00:00:00Z',wording:'Send me tax newsletters',wordingVersion:'v1',evidence:'Existing written grant'},h.owner);
   const records=Array.from({length:45},(_,i)=>importedContact(i));
   records[0]=importedContact(0,sourceGrant);records[1]=importedContact(1,{marketing_status:'subscribed'});
-  records[2]=importedContact(2,{contact_email:'withdrawn@example.test',marketing_status:'unsubscribed',marketing_captured_at:'2026-10-02T00:00:00Z'});
+  records[2]=importedContact(2,{contact_email:'withdrawn@example.test',marketing_status:'unsubscribed',marketing_captured_at:consentDay(31) + 'T00:00:00Z'});
   records[3]=importedContact(3,{...sourceGrant,marketing_status:'bounced'});
   records[4]=importedContact(4,{marketing_status:'complained'});
   records[5]=importedContact(5,{...sourceGrant,email_consent:'false'});
@@ -81,11 +84,11 @@ test('MSG-002 / IMPORT-001 / BASE-001: separately reviewed mapped opt-ins requir
   assert.deepEqual(review.summary.errors,[]);assert.equal(review.marketing.filter(e=>e.kind==='grant').length,3);assert.equal(review.marketing.filter(e=>e.kind==='withdraw').length,3);
   assert.equal(review.marketing.find(e=>e.client==='Consent client 01').kind,'not_granted');
   assert.equal(review.marketing.find(e=>e.client==='Consent client 03').kind,'withdraw','A withdrawal beats a simultaneous source opt-in');
-  assert.equal(review.marketing.find(e=>e.client==='Consent client 00').actedAt,'2026-10-01T14:00:00.000Z');
+  assert.equal(review.marketing.find(e=>e.client==='Consent client 00').actedAt,consentDay(32) + 'T14:00:00.000Z');
   assert.deepEqual(await log(),before,'Preview creates no consent or client records');
   await h.json('/import/commit',{...body,fingerprint:review.fingerprint},h.owner,409);
   await h.json('/import/commit',{...body,fingerprint:review.fingerprint,marketingAttested:'true'},h.owner,409);
-  for (const changes of [{marketing_captured_at:''},{marketing_wording:''},{marketing_evidence:''},{marketing_opt_in:'yes'},{marketing_captured_at:'2026-10-01'}]) {
+  for (const changes of [{marketing_captured_at:''},{marketing_wording:''},{marketing_evidence:''},{marketing_opt_in:'yes'},{marketing_captured_at:consentDay(32)}]) {
     const invalid={...body,csv:consentCsv([importedContact('bad',{...sourceGrant,...changes})])};
     const bad=await h.json('/import/preview',invalid,h.owner);assert.ok(bad.summary.errors.length);await h.json('/import/commit',{...invalid,fingerprint:bad.fingerprint,marketingAttested:true},h.owner,409);
   }
@@ -180,7 +183,7 @@ test('MSG-002 / ERASURE-002 / IMPORT-001: an erasure between import chunks refus
  try {
   const address='synthetic-blotter-390@example.test';
   const native=async name=>h.json('/clients',{name,contacts:[{name:'Synthetic contact',email:address,roles:['primary'],authorized:true,emailConsent:true}]},h.owner);
-  const withdraw=async c=>h.json('/marketing-consents',{contactId:c.contacts[0].id,kind:'withdraw',source:'staff_reply',actedAt:'2026-09-01T00:00:00Z',evidence:'Synthetic contact requested withdrawal'},h.owner);
+  const withdraw=async c=>h.json('/marketing-consents',{contactId:c.contacts[0].id,kind:'withdraw',source:'staff_reply',actedAt:consentDay(62) + 'T00:00:00Z',evidence:'Synthetic contact requested withdrawal'},h.owner);
   const erase=async c=>{
    const d=await h.json(`/clients/${c.id}/detail`,undefined,h.owner);
    await h.json(`/clients/${c.id}/lifecycle`,{lifecycle:'archived',revision:d.revision},h.owner);
