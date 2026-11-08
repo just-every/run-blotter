@@ -592,6 +592,9 @@ test('NOTIFY-001 / COLLAB-001 review alerts and internal threads: mention, corre
 });
 
 test('BASE-001 / agent keys only prepare; a person approves or declines and the decision is recorded', async () => {
+  const auditRows = async () => (await (await h.request('/api/blotter/backup', undefined, h.owner)).text()).trim().split('\n')
+    .map(line => JSON.parse(line)).flatMap(part => part.items ?? []).filter(item => item.table === 'b_audit').map(item => item.row);
+  const historical = await auditRows(), sponsor = (await h.json('/state', undefined, h.owner)).actor;
   const key = await h.json('/keys', { label: 'Practice assistant' }, h.owner), auth = { authorization: 'Bearer ' + key.key };
   await h.json('/keys', { label: 'Nope' }, preparer, 403);
   const context = await h.json('/agent/context', undefined, '', 200, auth);
@@ -599,6 +602,7 @@ test('BASE-001 / agent keys only prepare; a person approves or declines and the 
   await h.json('/state', undefined, '', 401, auth);
   const roll = await h.json('/agent/prepare-rollforward', { jobId: nextJob.id, dueDate: '2027-04-28', dueNote: 'ATO lodgement program' }, '', 200, auth);
   assert.equal(roll.status, 'pending');
+  assert.equal((await h.json('/state', undefined, h.owner)).proposals.find(p => p.id === roll.id).agent_label, 'Practice assistant');
   await h.json(`/proposals/${roll.id}/decide`, { decision: 'approve' }, '', 401, auth);
   const approved = await h.json(`/proposals/${roll.id}/decide`, { decision: 'approve' }, h.owner);
   assert.equal(approved.result.period_start, '2027-01-01');
@@ -616,8 +620,23 @@ test('BASE-001 / agent keys only prepare; a person approves or declines and the 
   const prep = await h.json('/agent/prepare-export', { title: 'Agent prepared', sourceKeys: unbilled.length ? unbilled : ['time:none'] }, '', 200, auth);
   const declined = await h.json(`/proposals/${prep.id}/decide`, { decision: 'decline', reason: 'Bill next month' }, h.owner);
   assert.equal(declined.status, 'declined');
+  const prepared = (await auditRows()).filter(row => row.action === 'proposal.prepared' && [roll.id, remind.id, prep.id].includes(row.object_id));
+  assert.equal(prepared.length, 3);
+  for (const row of prepared) {
+    assert.equal(row.actor, `Practice assistant for ${sponsor.name} <${sponsor.email}>`);
+    assert.equal(JSON.parse(row.detail).keyId, key.id); assert.equal(JSON.parse(row.detail).ruleId, null);
+  }
+  const reads = (await h.json('/team', undefined, h.owner)).audit.filter(row => row.action === 'agent.read' && JSON.parse(row.detail).keyId === key.id);
+  assert.equal(reads.length, 1); assert.equal(reads[0].actor, prepared[0].actor);
+  const declinedAudit = (await auditRows()).find(row => row.action === 'proposal.declined' && row.object_id === prep.id);
+  assert.equal(declinedAudit.actor, sponsor.email);
   await h.json(`/keys/${key.id}/revoke`, {}, h.owner);
   await h.json('/agent/context', undefined, '', 401, auth);
+  await h.json('/agent/prepare-reminder', { jobId: nextJob.id }, '', 401, auth);
+  const retained = await auditRows();
+  for (const row of [...historical, ...prepared, ...reads, declinedAudit]) assert.deepEqual(retained.find(copy => copy.id === row.id), row);
+  assert.equal((await h.json('/state', undefined, h.owner)).proposals.filter(p => [roll.id, remind.id, prep.id].includes(p.id)).length, 3);
+  console.log('PROBE BASE-AGENT-008 6: native preparation, Team activity and backup -> named agent for sponsor, stable key and proposal IDs, human decision and unchanged history after revocation');
 });
 
 test('BASE-001 / IMPORT-001 legacy client list move-in: dry run, exact commit, journal, replay and undo that keeps clients with jobs', async () => {

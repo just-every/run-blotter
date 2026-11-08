@@ -8,7 +8,7 @@ export type Role = 'owner' | 'reviewer' | 'preparer';
 export type Actor = {
   doorAgent?: { id: string; name: string; approvers?: readonly {id:string;name:string}[] };
   doorAuthority?: { envelope: string|null; localDocument:string|null; revision:number; businessRevision?:number };
-  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'integration'; integration?: { keyId: string; action: string }; agentKeyId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
+  id: string; email: string; name: string; role: Role; channel: 'person' | 'agent' | 'integration'; integration?: { keyId: string; action: string }; agentKeyId?: string; agentRuleId?: string; sessionId?: string; sessionStartedAt?: number; readOnly?: boolean; accessScoped?: boolean; accessRevision?: string; manageAccess?: boolean; financial?: boolean;
   automation?: { ruleId: string; attemptId: string; jobId: string; revision: string; external: boolean }; label?: string; approval?: { id: string; resultId: string };
 };
 
@@ -94,7 +94,15 @@ function authority(actor: Actor) {
 }
 export function audit(db: D1Database, actor: Actor, action: string, objectId: string, detail = '') {
   if(actor.doorAgent?.approvers?.length)detail+='; company approvers: '+actor.doorAgent.approvers.map(p=>`${p.name} (${p.id})`).join(', ');
-  const who = actor.doorAgent ? `${actor.doorAgent.name} for ${actor.name} <${actor.email}>` : actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.email} (agent: ${actor.label ?? 'agent'})` : actor.email;
+  // Snapshot native attribution at the act; later key revocation or restore must
+  // never relabel historical activity. IDs are references, never key material.
+  if (actor.channel === 'agent' && !actor.doorAgent) {
+    let original: unknown;
+    try { original = JSON.parse(detail); } catch { original = detail; }
+    const fields = original && typeof original === 'object' && !Array.isArray(original) ? original : { detail };
+    detail = JSON.stringify({ ...fields, keyId: actor.agentKeyId ?? null, ruleId: actor.agentRuleId ?? null });
+  }
+  const who = actor.doorAgent ? `${actor.doorAgent.name} for ${actor.name} <${actor.email}>` : actor.integration ? `${actor.email} (integration: ${actor.integration.keyId})` : actor.automation ? `${actor.email} (automation: ${actor.automation.ruleId})` : actor.channel === 'agent' ? `${actor.label ?? 'agent'} for ${actor.name} <${actor.email}>` : actor.email;
   return stmt(db, 'INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)', id(), who, action, objectId, detail, now());
 }
 /** A guard row that only inserts when `sql` holds, so the whole batch fails otherwise. */

@@ -67,6 +67,8 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     AND NOT EXISTS(SELECT 1 FROM b_ai_reply_reviews v,json_each(v.attachments) a WHERE v.draft_id=d.id
       AND (json_extract(a.value,'$.id') IN ${s.HF} OR EXISTS(SELECT 1 FROM b_files f WHERE f.id=json_extract(a.value,'$.id') AND f.job_id IN ${s.HJ}))))`;
   const integrationFamily=integrationFamilySql(s.c);
+  const auditRuleId = `CASE WHEN json_valid(detail) THEN json_extract(detail,'$.ruleId') END`;
+  const auditRuleName = `(SELECT name FROM b_agent_rules WHERE id=(${auditRuleId}) AND client_id=${s.c})`;
   const all: Step[] = [
     {cls:'efile_auth',table:'b_efile_authorizations',action:'redact',label:'Unsigned 8879 originals and reviewed spouse roster (digest and attribution stay; no signed-record clock)',
       where:`job_id IN ${s.JE} AND file_id NOT IN ${s.HF} AND erased_at IS NULL`,
@@ -80,6 +82,11 @@ export function steps(x: Context, audited: { where: string; set: string } | null
     {cls:'derived_ai',table:'b_ai_decisions',action:'cascade',label:'AI proposal decisions and reviewed values',where:`draft_id IN ${aiDrafts}`},
     {cls:'derived_ai',table:'b_ai_drafts',action:'delete',label:'Saved AI drafts and extracted values with source references',where:`id IN ${aiDrafts}`},
     {cls:'link',table:'b_agent_rules',action:'redact',label:'Scheduled agent grants revoked',where:`client_id=${s.c} AND status<>'revoked'`,set:`status='revoked'`},
+    // Snapshot rule labels are derived client text too. Redact before the rule
+    // name changes; retain the sponsor suffix and stable audit references.
+    {cls:'derived_ai',table:'b_audit',action:'redact',label:'Scheduled agent names in activity (sponsor and stable references stay)',
+      where:`${auditRuleId} IN (SELECT id FROM b_agent_rules WHERE client_id=${s.c}) AND substr(actor,1,length(${auditRuleName})+5)=${auditRuleName}||' for '`,
+      set:`actor='${MARK}'||substr(actor,length(${auditRuleName})+1)`},
     {cls:'derived_ai',table:'b_agent_rules',action:'redact',label:'Agent rule names and due-date notes',where:`client_id=${s.c}`,set:`name='[erased]',due_note='[erased]',provider_name='[erased]',model_name='[erased]',data_use='[erased]',provider_retention='[erased]',model_policy='[erased]'`},...signatureErasureSteps(x),...invoiceErasureSteps(x),
     {cls:'signed_documents',table:'b_authorizations',action:'redact',label:'Taxpayer authorizations: representative, CAF number and reasons (form, years, dates and status stay)',where:`client_id=${s.c}`,set:`representative='${MARK}',representative_email=NULL,caf_number=NULL,status_reason=NULL`},
     {cls:'link',table:'b_access_grants',action:'delete',label:'Staff client grants',where:`client_id=${s.c}`},

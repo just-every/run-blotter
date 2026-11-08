@@ -3,12 +3,17 @@ import {chromium} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 export async function serviceAgentsJourney(h,s,key,job,width){
  const evidence=process.env.BLOTTER_SERVICE_EVIDENCE;
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']});
+ const browser=await chromium.launch({headless:true,...(process.env.BLOTTER_CHROMIUM?{executablePath:process.env.BLOTTER_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']});
  try{
   const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width,height:1000}});
   await context.addCookies(h.owner.split('; ').map(c=>{const at=c.indexOf('=');return{name:c.slice(0,at),value:c.slice(at+1),url:h.origin};}));
   const page=await context.newPage();await page.goto(h.origin+'/app');if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup'}).click();}
   const navigation=page.getByRole('navigation',{name:'Workspace'});
+  const sponsor=(await h.json('/state',undefined,h.owner)).actor,auth={authorization:'Bearer '+key.key};
+  const native=await h.json('/agent/prepare-reminder',{jobId:job.id},'',200,auth),mailBefore=h.mails.length;
+  assert.equal(h.mails.length,mailBefore);
+  await h.json(`/proposals/${native.id}/decide`,{decision:'approve'},h.owner);assert.equal(h.mails.length,mailBefore+1);
+
   const capture=async(panel,name)=>{for(const size of [width]){await page.setViewportSize({width,height:1000});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(evidence){await mkdir(evidence,{recursive:true});await panel.screenshot({path:`${evidence}/${name}-${width}.png`,mask:[page.getByRole('textbox',{name:'Agent key',exact:true})]});}}};
   await navigation.getByRole('button',{name:'Team & safety',exact:true}).click();
   const keys=page.locator('section').filter({has:page.getByRole('heading',{name:'Agent keys',exact:true})});
@@ -62,6 +67,30 @@ export async function serviceAgentsJourney(h,s,key,job,width){
   await capture(preview,'external-draft-review');
   const before=h.mails.length;await preview.getByText('Decline',{exact:true}).first().click();await preview.getByLabel('Reason',{exact:true}).fill('Do not send this wording');await preview.getByRole('button',{name:'Decline',exact:true}).click();await preview.getByText('Declined',{exact:true}).waitFor();assert.equal(h.mails.length,before);assert.equal((await h.json('/agent-rules',undefined,h.owner)).runs.find(r=>r.proposal_id===drafted.id).decision,'declined');
   assert.ok((await preview.innerText()).includes('Do not send this wording'));await capture(preview,'external-declined');
+  // A named schedule uses its own name, even when it shares a differently named key.
+  const scheduled=await h.json('/agent-rules',{name:'Browser scheduled planner',keyId:key.id,clientId:s.client.id,trigger:'schedule',startsAt:'2188-01-01T00:00:00Z',everyHours:24,tool:'reminder',budget:1},h.owner);
+  const beforeSchedule=h.mails.length;await h.scheduled('2188-01-01T00:00:00Z');await h.scheduled('2188-01-01T00:00:00Z');
+  const scheduleState=await h.json('/agent-rules',undefined,h.owner),scheduleRuns=scheduleState.runs.filter(run=>run.rule_id===scheduled.id);
+  assert.equal(scheduleRuns.length,1);assert.equal(scheduleState.rules.find(rule=>rule.id===scheduled.id).used,1);assert.equal(h.mails.length,beforeSchedule);
+  const activityBefore=(await h.json('/team',undefined,h.owner)).audit;
+  const nativeAct=activityBefore.find(row=>row.action==='proposal.prepared'&&row.object_id===native.id),scheduleAct=activityBefore.find(row=>row.action==='agent.plan_prepared'&&row.object_id===scheduleRuns[0].id);
+  assert.equal(nativeAct.actor,`Browser agent for ${sponsor.name} <${sponsor.email}>`);assert.equal(JSON.parse(nativeAct.detail).keyId,key.id);
+  assert.equal(scheduleAct.actor,`Browser scheduled planner for ${sponsor.name} <${sponsor.email}>`);
+  assert.equal(JSON.parse(scheduleAct.detail).ruleId,scheduled.id);assert.equal(JSON.parse(scheduleAct.detail).keyId,key.id);assert.equal(JSON.parse(scheduleAct.detail).proposalId,scheduleRuns[0].proposal_id);
+  const humanAct=activityBefore.find(row=>row.action==='reminder.sent'&&row.object_id===job.id);assert.equal(humanAct.actor,sponsor.email);
+  await h.json(`/keys/${key.id}/revoke`,{},h.owner);await h.json('/agent/prepare-reminder',{jobId:job.id},'',401,auth);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const portable=archive.trim().split('\n').map(line=>JSON.parse(line)).flatMap(part=>part.items??[]).filter(item=>item.table==='b_audit').map(item=>item.row);
+  for(const row of [nativeAct,scheduleAct,humanAct])assert.deepEqual(portable.find(copy=>copy.id===row.id),row);
+  assert.ok(!archive.includes(key.key));assert.equal(h.mails.length,beforeSchedule);
+  await navigation.getByRole('button',{name:'Team & safety',exact:true}).click();
+  const activity=page.locator('section').filter({has:page.getByRole('heading',{name:'Audit log',exact:true})});
+  for(const row of [nativeAct,scheduleAct,humanAct]){
+   const entry=activity.getByRole('listitem').filter({hasText:row.detail}).filter({hasText:row.action});await entry.waitFor();
+   assert.ok((await entry.innerText()).includes(row.actor));
+  }
+  await capture(activity,'native-agent-activity');
+  console.log(`PROBE BASE-AGENT-008 6: Team activity at ${width} and backup -> exact key and named schedule attribution, distinct human approval, stable identifiers after revocation`);
   // Every icon-only control visible on this screen, at both release widths.
   for(const size of [width]){
    await page.setViewportSize({width,height:1000});await page.evaluate(()=>scrollTo(0,0));
