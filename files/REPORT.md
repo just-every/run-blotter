@@ -75,3 +75,7 @@ PROBE BASE-AGENT-008 6: Team activity at 1440 and backup -> exact key and named 
 PROBE BASE-AGENT-008 6: Team activity at 390 and backup -> exact key and named schedule attribution, distinct human approval, stable identifiers after revocation
 
 CLAIM BASE-AGENT-008 PARTIAL points=6 tests=tests/blotter/flows.test.mjs#BASE-001 / agent keys only prepare; a person approves or declines and the decision is recorded; tests/blotter/service-agents.test.mjs#AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore schedules and service grants inactive, and erased sources fence old restores; tests/blotter/service-agents.test.mjs#COST-001 / AI-003: operator estimates and supervised-agent screens at 1440 and 390, with keyboard and delayed hover tooltips
+
+Terminal custody: remote product ref checked by git ls-remote and equals 7c365d0b606430a862368de1ade6cc96e50342d7. Verify 42497299056 remains in_progress with no conclusion on that exact SHA at the permitted 300-second poll. Three GitHub API calls used; no dispatch or rerun. The cloud handoff follows the brief's maintained lander route; no CI success, main equality, scan result or Run site on the candidate is claimed.
+
+POST lanes/sx/INBOX.md: sx-blotter-c-f21 BASE-AGENT-008 native point 6 attribution slice complete; PARTIAL remains PARTIAL; counts 63 DONE / 37 PARTIAL / 21 MISSING unchanged; head=7c365d0b606430a862368de1ade6cc96e50342d7 Verify=42497299056 in_progress; local 50 touched tests and exact-SHA three-journey follow-up pass; retained Base and provider holds in report.

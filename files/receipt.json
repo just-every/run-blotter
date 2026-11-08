@@ -10,7 +10,9 @@
     "status": "pushed",
     "attempt": 1,
     "forced": false,
-    "default_branch_modified": false
+    "default_branch_modified": false,
+    "terminal_remote_ref": "refs/heads/cloud/sx-blotter-c-f21",
+    "terminal_remote_head": "7c365d0b606430a862368de1ade6cc96e50342d7"
   },
   "identity": {
     "author_name": "Run Edit Run fleet",
@@ -205,5 +207,14 @@
       "sha256": "18332f76eaab89d25393395d76a772fd16c48fa5729ef3843671c85941915e5f",
       "head": "7c365d0b606430a862368de1ade6cc96e50342d7"
     }
-  ]
+  ],
+  "candidate_ci_latest": {
+    "run_id": 42497299056,
+    "event": "push",
+    "conclusion": null,
+    "head_sha": "7c365d0b606430a862368de1ade6cc96e50342d7",
+    "html_url": "https://github.com/just-every/run-blotter/actions/runs/42497299056",
+    "status": "in_progress"
+  },
+  "github_api_calls": 3
 }
