@@ -1,0 +1,12 @@
+# sx-blotter-c-f19 implementation plan and scope
+
+Repository: just-every/run-blotter. Product branch: cloud/sx-blotter-c-f19.
+
+1. Inspect the live BASE-AGENT-013 requirement, acceptance sentences and Status row; map the current native registry, normalization, CORE declaration, transport and signed owner fixture. Preserve the current status and all holds. The selected work closes only the on-site catalogue portion of point 1. No other campaign target is authorized.
+2. Share the current agent options with the MCP door. Build the catalogue from Base's existing registry normalization and describeTool projection, on the server. Serialize only public metadata. Do not edit copied Base files or evaluate client-reading callbacks.
+3. Add the installation route and a screen using existing Blotter tokens and controls. Show jobs, exact tool names, descriptions, declared classes, scopes and normalized input and output schemas; show the current empty resource-template exposure, preparation-only authority and all unavailable capability families. Use labelled native schema disclosure controls and keyboard-scrollable schema regions.
+4. Extend the existing signed native owner lifecycle with a disposable native discovery credential. Invoke the new documentation journey from the existing journey's beforeStep hook under complete autonomous and held policies. Compare built browser content with actual authenticated MCP discovery; prove private-value exclusion, declaration-only generation, absent optional exposure, keyboard navigation and scrolling, unchanged native state and no catalogue provider request. Run assertions at 1440; exercise both viewport layouts and retain candidate screen proof at 1440 and 390.
+5. Run the touched agent-door verifier, typecheck and first-party check. Generate and check contract views, then restore them from origin/main. Refresh the source lock last and check it. Inspect candidate identities and trailers. Push the first save with skip CI and the final candidate through the fleet guard. Merge current main after the save, without rewriting published history.
+6. Discover exact-head Verify through REST within the shared API budget. Publish this report, actual receipt, logs and browser proof only through the separate evidence ref. Leave publication scanning, main landing and the subsequent Run site run to the maintained lander. Report partial coverage and the complete held remainder honestly.
+
+All six implementation steps are complete locally. CI and publication custody are reported separately in REPORT.md and RECEIPT.json.

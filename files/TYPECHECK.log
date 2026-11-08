@@ -1,0 +1,4 @@
+
+> @accounting/blotter@0.1.0 typecheck /home/agent/rer-consolidation/work/sx-blotter-c-f19/repo
+> tsc --build --incremental
+

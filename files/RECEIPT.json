@@ -1,0 +1,192 @@
+{
+  "agentDoor": {
+    "passed": 1237,
+    "policies": [
+      "autonomous",
+      "held"
+    ],
+    "resourceTemplates": 0,
+    "tools": 9,
+    "total": 1237
+  },
+  "base": "2d1c7a2c4c325a0b5dfa5fa6d0c82f964381b526",
+  "branch": "cloud/sx-blotter-c-f19",
+  "checks": [
+    {
+      "check": "build",
+      "command": "cloud_run npx -y @runeditrun/rer build",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": "BUILD.log",
+      "log_sha256": "5a151fc6f4484bc2ca9acf95551a19f63552b85e8860fc27c51331e5e5544657"
+    },
+    {
+      "check": "agent-door",
+      "command": "cloud_run timeout 1200 node node_modules/@runeditrun/rer/cli/agent-door.mjs . deploy.json",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": "AGENT-DOOR.log",
+      "log_sha256": "7d771556853643aa33e4e70116e3d8eb484d1725c0d1dbb70b981c2d764b3c8b"
+    },
+    {
+      "check": "typecheck",
+      "command": "pnpm typecheck",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": "TYPECHECK.log",
+      "log_sha256": "e52c79be4831cdbfff7f16d5ba58f58bfc9f184fe12a0df8182e3b19d4468f09"
+    },
+    {
+      "check": "first-party",
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": null
+    },
+    {
+      "check": "views-write",
+      "command": "node scripts/contract-docs.mjs write",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": "VIEWS-WRITE.log",
+      "log_sha256": "64977be7d3b046064040c78d11177b262770deaea85db8f68013e53a1b2ef1ed"
+    },
+    {
+      "check": "views-check",
+      "command": "node scripts/contract-docs.mjs check",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": "VIEWS-CHECK.log",
+      "log_sha256": "fc26a6308bb8d37675688d028da5bc7365a169dd1c3ebdb30bedcc0a0d850144"
+    },
+    {
+      "check": "source-lock",
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0,
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "log": null
+    }
+  ],
+  "chromium": "/usr/bin/chromium",
+  "ci": [
+    {
+      "conclusion": null,
+      "event": "push",
+      "head_sha": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "html_url": "https://github.com/just-every/run-blotter/actions/runs/42492562181",
+      "id": 42492562181,
+      "name": "Verify",
+      "run_attempt": 1,
+      "status": "in_progress"
+    }
+  ],
+  "ciFinalObservation": {
+    "conclusion": null,
+    "head_sha": "686c2b4a41fc684df10727c97f53dbead829533e",
+    "html_url": "https://github.com/just-every/run-blotter/actions/runs/42492562181",
+    "observedUtc": "2026-11-08T15:07:07.041235+00:00",
+    "runId": 42492562181,
+    "status": "in_progress"
+  },
+  "contract": {
+    "after": {
+      "done": 63,
+      "missing": 21,
+      "partial": 37
+    },
+    "before": {
+      "done": 63,
+      "missing": 21,
+      "partial": 37
+    },
+    "statusAfter": "PARTIAL",
+    "statusBefore": "PARTIAL",
+    "statusCellsChanged": false,
+    "target": "BASE-AGENT-013"
+  },
+  "finalMechanicalRecheck": {
+    "contractDiff": "empty",
+    "first-party": 0,
+    "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+    "lock": 0,
+    "newEmailLiteralFindings": 0,
+    "typecheck": 0,
+    "utc": "2026-11-08T15:04:14.781973+00:00",
+    "worktree": "clean"
+  },
+  "fullHistory": true,
+  "githubCalls": 3,
+  "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+  "limitations": [
+    "PARTIAL claim only",
+    "Complete publication scan deferred to Mac lander",
+    "Candidate Run site exists only after a guarded main landing",
+    "No policy or capability hold released"
+  ],
+  "mechanical": {
+    "generatedViewsCommitted": false,
+    "lockFresh": true,
+    "migrationLedger": "not applicable; no migration",
+    "viewsRestoredFromMain": true
+  },
+  "node": "22.20.0",
+  "probe": {
+    "catalogueProviderRequests": 0,
+    "clause": "BASE-AGENT-013",
+    "door": "/docs/agents",
+    "keyboard": "sections, disclosure controls, schema scrolling",
+    "noNativeEffects": true,
+    "point": 1,
+    "policies": [
+      "autonomous",
+      "held"
+    ],
+    "resourceTemplates": 0,
+    "result": "pass",
+    "tools": 9,
+    "viewports": [
+      1440,
+      390
+    ]
+  },
+  "productPreservation": {
+    "cleanWorktree": true,
+    "remoteBranch": "cloud/sx-blotter-c-f19",
+    "remoteHead": "686c2b4a41fc684df10727c97f53dbead829533e",
+    "sourceLockFresh": true
+  },
+  "productPush": {
+    "attempts": 1,
+    "guard": "cloud-push.py",
+    "status": "pushed"
+  },
+  "publicationScan": {
+    "complete": null,
+    "findings": null,
+    "historyScanned": null,
+    "status": "deferred to maintained Mac lander"
+  },
+  "repository": "just-every/run-blotter",
+  "schema": 1,
+  "screenshots": [
+    {
+      "file": "agent-docs-1440.png",
+      "sha256": "4bd29a058d1ecb75a142baba63b0d92a7350ee03a8e6d08e8acbb83518058980"
+    },
+    {
+      "file": "agent-docs-390.png",
+      "sha256": "569f9f3ce59c8d35d53431dacb0a37f4c6c96b7006960ff65b6ebde812e931b2"
+    },
+    {
+      "file": "agent-schema-1440.png",
+      "sha256": "3b1d4102c34dc5ef03b37c12f4708f13b7f119454581a38f73bca2457c68c0fc"
+    },
+    {
+      "file": "agent-schema-390.png",
+      "sha256": "338fc768934e10c4198a8238f3bf96b5949233c3de9103340b65a6e7f5aa5727"
+    }
+  ],
+  "tag": "sx-blotter-c-f19",
+  "terminalCustody": "PUSHED; exact-SHA Verify still in progress at last permitted observation; no green claim",
+  "utc": "2026-11-08T15:03:14.192294+00:00"
+}
