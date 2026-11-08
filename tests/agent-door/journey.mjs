@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { http } from './http.mjs';
+import { agentDocsJourney } from './docs.mjs';
+export async function beforeStep(context){
+ if(context.step.id==='context' && ['autonomous','held'].includes(context.phase))await agentDocsJourney(context);
+}
 export default async function({request,origin,cookie,tool}){
  const api=http(request,origin,cookie);
  const ctx=await tool('blotter.context.read',{}),data=ctx.result.structuredContent;

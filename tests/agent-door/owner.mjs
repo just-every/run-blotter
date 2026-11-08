@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { http, cookies, totp } from './http.mjs';
+export const catalogueFixtures = new Map();
 export default async function({request,origin,email,displayName,claim,reviewers}){
  const response=await request(origin+claim.path,{method:'POST',redirect:'manual',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({token:claim.token,displayName,returnTo:'/app'})});
  assert.equal(response.status,303,'Signed native owner claim completes');
@@ -26,5 +27,7 @@ export default async function({request,origin,email,displayName,claim,reviewers}
   detail=await submit();
   await review(`/api/blotter/jobs/${job.id}/review`,{revision:detail.job.revision,decision:'signoff',note:'Independent reviewer checked the merchant reconciliation'});
  }
+ const credential=await api('/api/blotter/keys',{label:'synthetic-blotter-1: catalogue discovery fixture'});
+ catalogueFixtures.set(origin,{credential,secrets:[credential.key,factor.secret,...enrolled.recoveryCodes,cookie]});
  return response;
 }

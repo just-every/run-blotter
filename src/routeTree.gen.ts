@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ClientRouteImport } from './routes/client'
+import { Route as DocsAgentsRouteImport } from './routes/docs.agents'
 import { Route as InvoiceTokenRouteImport } from './routes/invoice.$token'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 
@@ -22,6 +23,11 @@ const AppRoute = AppRouteImport.update({
 const ClientRoute = ClientRouteImport.update({
   id: '/client',
   path: '/client',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsAgentsRoute = DocsAgentsRouteImport.update({
+  id: '/docs/agents',
+  path: '/docs/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvoiceTokenRoute = InvoiceTokenRouteImport.update({
@@ -38,12 +44,14 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/app': typeof AppRoute
   '/client': typeof ClientRoute
+  '/docs/agents': typeof DocsAgentsRoute
   '/invoice/$token': typeof InvoiceTokenRoute
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRoutesByTo {
   '/app': typeof AppRoute
   '/client': typeof ClientRoute
+  '/docs/agents': typeof DocsAgentsRoute
   '/invoice/$token': typeof InvoiceTokenRoute
   '/portal/$token': typeof PortalTokenRoute
 }
@@ -51,20 +59,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRoute
   '/client': typeof ClientRoute
+  '/docs/agents': typeof DocsAgentsRoute
   '/invoice/$token': typeof InvoiceTokenRoute
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/app' | '/client' | '/invoice/$token' | '/portal/$token'
+  fullPaths:
+    '/app' | '/client' | '/docs/agents' | '/invoice/$token' | '/portal/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/app' | '/client' | '/invoice/$token' | '/portal/$token'
-  id: '__root__' | '/app' | '/client' | '/invoice/$token' | '/portal/$token'
+  to: '/app' | '/client' | '/docs/agents' | '/invoice/$token' | '/portal/$token'
+  id:
+    | '__root__'
+    | '/app'
+    | '/client'
+    | '/docs/agents'
+    | '/invoice/$token'
+    | '/portal/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   ClientRoute: typeof ClientRoute
+  DocsAgentsRoute: typeof DocsAgentsRoute
   InvoiceTokenRoute: typeof InvoiceTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
 }
@@ -83,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/client'
       fullPath: '/client'
       preLoaderRoute: typeof ClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/agents': {
+      id: '/docs/agents'
+      path: '/docs/agents'
+      fullPath: '/docs/agents'
+      preLoaderRoute: typeof DocsAgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invoice/$token': {
@@ -105,6 +129,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
   ClientRoute: ClientRoute,
+  DocsAgentsRoute: DocsAgentsRoute,
   InvoiceTokenRoute: InvoiceTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
 }
