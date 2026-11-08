@@ -94,7 +94,7 @@ test('AI-003 / BASE-001: scoped file and scheduled plans de-duplicate, refuse un
   ])await h.json(door,body,'',403,{authorization:'Bearer '+key.key});
   assert.deepEqual(await h.json('/agent-rules',undefined,h.owner),denialBefore.rules);assert.deepEqual(await h.json('/costs',undefined,h.owner),denialBefore.costs);assert.deepEqual(await h.json('/state',undefined,h.owner),denialBefore.state);assert.equal(h.mails.length,denialBefore.mail);
   await upload(h,s,j,'second.txt');await h.json('/agent-rules/run',{},h.owner);state=await h.json('/agent-rules',undefined,h.owner);assert.ok(state.runs.some(r=>r.status==='refused'&&/budget/.test(r.outcome)));
-  const schedule=await rule(h,s,key,{trigger:'schedule',startsAt:'2027-01-02T09:00:00-05:00',everyHours:6,budget:5,tool:'rollforward',dueDate:'2028-04-15',dueNote:'Synthetic annual scope'});
+  const schedule=await rule(h,s,key,{name:'Cedar six-hour planner',trigger:'schedule',startsAt:'2027-01-02T09:00:00-05:00',everyHours:6,budget:5,tool:'rollforward',dueDate:'2028-04-15',dueNote:'Synthetic annual scope'});
   await h.scheduled('2027-01-02T13:59:59Z');assert.equal((await h.json('/agent-rules',undefined,h.owner)).runs.filter(r=>r.rule_id===schedule.id).length,0);
   await h.scheduled('2027-01-02T14:00:00Z');await h.scheduled('2027-01-02T14:00:00Z');state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.runs.filter(r=>r.rule_id===schedule.id).length,1);
   await h.scheduled('2027-01-02T19:59:59Z');await h.scheduled('2027-01-02T20:00:00Z');await h.scheduled('2027-01-04T08:00:00Z');await h.scheduled('2027-01-04T08:00:00Z');
@@ -109,6 +109,14 @@ test('AI-003 / BASE-001: scoped file and scheduled plans de-duplicate, refuse un
   await h.json('/agent/context',undefined,'',401,{authorization:'Bearer '+key.key});await h.scheduled('2027-01-03T14:00:00Z');state=await h.json('/agent-rules',undefined,h.owner);assert.ok(state.runs.some(r=>r.rule_id===schedule.id&&r.status==='refused'&&/revoked/.test(r.outcome)));
   await h.json(`/proposals/${pending.proposal_id}/decide`,{decision:'decline',reason:'Key revoked during review'},h.owner);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/agent.plan_prepared/);assert.match(archive,/Cedar supervised plans/);assert.ok(!archive.includes(key.key));
+  const audit=archivedRows(archive,'b_audit'),sponsor=(await h.json('/state',undefined,h.owner)).actor;
+  const prepared=audit.filter(row=>row.action==='agent.plan_prepared'&&JSON.parse(row.detail).ruleId===schedule.id);
+  assert.equal(prepared.length,3);assert.equal(state.rules.find(r=>r.id===schedule.id).used,3);
+  for(const row of prepared){const detail=JSON.parse(row.detail);assert.equal(row.actor,`Cedar six-hour planner for ${sponsor.name} <${sponsor.email}>`);assert.equal(detail.keyId,key.id);assert.ok(state.runs.some(run=>run.id===row.object_id&&run.proposal_id===detail.proposalId));}
+  const approved=archivedRows(archive,'b_proposals').find(p=>p.id===roll.proposal_id);assert.equal(approved.agent_label,'Cedar six-hour planner');assert.equal(approved.decided_by,sponsor.email);
+  const activity=(await h.json('/team',undefined,h.owner)).audit;
+  for(const row of prepared)assert.deepEqual(activity.find(entry=>entry.id===row.id),row);
+  console.log('PROBE BASE-AGENT-008 6: scheduled preparation and backup -> named rule for sponsor, stable key, rule, run and proposal IDs; three budgeted slots, one human-approved roll-forward and revoked-key refusal');
  }finally{await h.close();}
 });
 
@@ -132,8 +140,17 @@ test('AI-003 / BASE-001: question and completed-task events prepare once, human 
 
 test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore schedules and service grants inactive, and erased sources fence old restores',async()=>{
  const h=await harness(),copies=[];try{
-  const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Portable agent'},h.owner);await price(h);await rule(h,s,key);const f=await upload(h,s,j);await h.json('/agent-rules/run',{},h.owner);
+  const s=await automationFixture(h),j=await s.start(),key=await h.json('/keys',{label:'Portable agent'},h.owner);await price(h);await rule(h,s,key,{name:'Cedar portable schedule',trigger:'schedule',startsAt:'2027-01-01T00:00:00Z',everyHours:24});const f=await upload(h,s,j);await h.scheduled('2027-01-01T00:00:00Z');
   const pending=(await h.json('/agent-rules',undefined,h.owner)).runs[0];await h.json(`/proposals/${pending.proposal_id}/decide`,{decision:'decline',reason:'Retain this reviewed decision'},h.owner);
+  const sponsor=(await h.json('/state',undefined,h.owner)).actor;
+  // Historical fixture predates named attribution. Restore must retain its exact bytes.
+  const legacy={id:'synthetic-blotter-240',actor:`${sponsor.email} (agent: scheduled rule ${pending.rule_id})`,action:'agent.plan_prepared',object_id:'synthetic-blotter-241',detail:'  { "historical": true }  ',at:'2026-01-01T00:00:00.000Z'};
+  await h.db.prepare('INSERT INTO b_audit(id,actor,action,object_id,detail,at) VALUES(?,?,?,?,?,?)').bind(...Object.values(legacy)).run();
+  const beforeRevocation=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const originalAudit=archivedRows(beforeRevocation,'b_audit');assert.deepEqual(originalAudit.find(row=>row.id===legacy.id),legacy);
+  const prepared=originalAudit.find(row=>row.action==='agent.plan_prepared'&&row.object_id===pending.id);
+  assert.equal(prepared.actor,`Cedar portable schedule for ${sponsor.name} <${sponsor.email}>`);assert.equal(JSON.parse(prepared.detail).keyId,key.id);
+  await h.json(`/keys/${key.id}/revoke`,{},h.owner);await h.json('/agent/context',undefined,'',401,{authorization:'Bearer '+key.key});
   const source=await h.json('/agent-rules',undefined,h.owner),sourceCosts=await h.json('/costs',undefined,h.owner);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();const restored=await harness();copies.push(restored);
   await restored.json('/restore',{archive,confirm:'RESTORE',acknowledge:'erasure history unverified: supply your latest erasure journal'},restored.owner);
@@ -142,6 +159,9 @@ test('AI-003 / COST-001 / BASE-001: archives retain plans and costs, restore sch
   const restoredCosts=await restored.json('/costs',undefined,restored.owner);assert.deepEqual(restoredCosts.usage,sourceCosts.usage);assert.deepEqual(restoredCosts.priceVersions,sourceCosts.priceVersions);assert.deepEqual(restoredCosts.prices,sourceCosts.prices.map(price=>({...price,enabled:0})));
   const restoredArchive=await(await restored.request('/api/blotter/backup',undefined,restored.owner)).text();
   for(const table of ['b_agent_rules','b_agent_runs','b_proposals','b_service_usage'])assert.deepEqual(archivedRows(restoredArchive,table),archivedRows(archive,table));
+  for(const row of originalAudit)assert.deepEqual(archivedRows(restoredArchive,'b_audit').find(copy=>copy.id===row.id),row);
+  const restoredActivity=(await restored.json('/team',undefined,restored.owner)).audit;
+  assert.deepEqual(restoredActivity.find(row=>row.id===prepared.id),prepared);assert.deepEqual(restoredActivity.find(row=>row.id===legacy.id),legacy);
   const attribution=archivedRows(archive,'b_audit').filter(row=>row.action.startsWith('agent.')||row.action==='proposal.declined');for(const row of attribution)assert.deepEqual(archivedRows(restoredArchive,'b_audit').find(copy=>copy.id===row.id),row);
   assert.deepEqual((await restored.json('/team',undefined,restored.owner)).keys,[]);
   await restored.json('/agent/context',undefined,'',401,{authorization:'Bearer '+key.key});
@@ -170,7 +190,12 @@ test('AI-003 / BASE-001: client erasure revokes scheduled grants, removes derive
   const preview=await h.json(`/clients/${s.client.id}/erasure/preview`,undefined,h.owner);assert.equal(preview.eligible,true,JSON.stringify(preview.blockers));assert.ok(preview.erase.some(x=>x.table==='b_agent_rules'));
   const receipt=await h.json(`/clients/${s.client.id}/erasure`,{planHash:preview.planHash,confirm:s.client.name,reason:'Erase client-derived preparations'},h.owner);assert.ok(receipt.steps.some(x=>x.table==='b_agent_rules'&&x.count>0));
   state=await h.json('/agent-rules',undefined,h.owner);assert.equal(state.rules[0].status,'revoked');assert.equal(state.rules.find(r=>r.client_id===s.client.id).name,'[erased]');assert.equal(state.runs.length,1);
-  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.ok(!archive.includes('synthetic-blotter-5 private rule text'));assert.ok(!archive.includes('synthetic-blotter-201 private policy'));assert.ok(!archive.includes('synthetic-blotter-202 derived draft'));assert.equal(state.runs[0].preparation_hash,null);assert.match(archive,/agent.plan_prepared/);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,1);
+  const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();
+  const erasedActs=archivedRows(archive,'b_audit').filter(row=>['agent.plan_prepared','agent.plan_filled'].includes(row.action));assert.equal(erasedActs.length,2);
+  const sponsor=(await h.json('/state',undefined,h.owner)).actor;
+  for(const row of erasedActs){assert.equal(row.actor,`[erased] for ${sponsor.name} <${sponsor.email}>`);assert.equal(JSON.parse(row.detail).keyId,key.id);assert.ok(JSON.parse(row.detail).ruleId);}
+  assert.ok(receipt.steps.some(step=>step.table==='b_audit'&&step.count===2));
+  assert.ok(!archive.includes('synthetic-blotter-5 private rule text'));assert.ok(!archive.includes('synthetic-blotter-201 private policy'));assert.ok(!archive.includes('synthetic-blotter-202 derived draft'));assert.equal(state.runs[0].preparation_hash,null);assert.match(archive,/agent.plan_prepared/);assert.equal((await h.json('/costs',undefined,h.owner)).usage.length,1);
  }finally{await h.close();}
 });
 
@@ -230,6 +255,13 @@ test('AI-003 / BASE-001: keyed external plans enforce client, tool, immutable re
   const second=plans.plans[1];const pending=await h.json('/agent/plans/'+second.id,{message:'Needs review'},'',200,auth);await h.json('/agent-rules/'+scheduled.id+'/revoke',{},h.owner);await h.json('/agent-rules/'+r.id+'/revoke',{},h.owner);await h.json('/proposals/'+pending.id+'/decide',{decision:'approve'},h.owner,409);assert.deepEqual((await h.json('/agent/plans',undefined,'',200,auth)).plans,[]);assert.equal(h.mails.length,before);
   const archive=await(await h.request('/api/blotter/backup',undefined,h.owner)).text();assert.match(archive,/agent.plan_filled/);for(const secret of privateKeyMaterial)assert.ok(!archive.includes(secret));assert.match(archive,/No training under owner contract/);
   const audit=archivedRows(archive,'b_audit');for(const id of [r.id,scheduled.id])for(const action of ['agent.rule_approved','agent.rule_revoked']){const entries=audit.filter(row=>row.action===action&&row.object_id===id);assert.equal(entries.length,1);assert.equal(entries[0].actor,'owner@example.test');assert.ok(Number.isFinite(Date.parse(entries[0].at)));}
+  const sponsor=(await h.json('/state',undefined,h.owner)).actor;
+  for(const [plan,proposal] of [[run,filled],[second,pending]]){
+   const entries=audit.filter(row=>row.action==='agent.plan_filled'&&row.object_id===plan.id);assert.equal(entries.length,1);
+   assert.equal(entries[0].actor,`Cedar supervised plans for ${sponsor.name} <${sponsor.email}>`);
+   assert.deepEqual(JSON.parse(entries[0].detail),{clientId:s.client.id,keyId:key.id,proposalId:proposal.id,ruleId:rules.runs.find(entry=>entry.id===plan.id).rule_id});
+  }
+  assert.equal(audit.find(row=>row.action==='proposal.declined'&&row.object_id===filled.id).actor,sponsor.email);
  }finally{await h.close();}
 });
 

@@ -44,7 +44,7 @@ export async function runAgentRules(env:Bindings,at=new Date()) {
    const runId=id();await stmt(db,"INSERT OR IGNORE INTO b_agent_runs(id,rule_id,event_key,job_id,created_at) VALUES(?,?,?,?,?)",runId,r.id,e.source,e.job_id,now()).run();
    const run=await stmt(db,'SELECT * FROM b_agent_runs WHERE rule_id=? AND event_key=? AND job_id=?',r.id,e.source,e.job_id).first<Data>();
    if(!run||!['pending','blocked'].includes(run.status))continue;
-   const actor:Actor={id:r.supervisor_id,email:r.supervisor_email,name:supervisor?.display_name??'',role:'owner',channel:'agent',label:'scheduled rule '+r.id};
+   const actor:Actor={id:r.supervisor_id,email:r.supervisor_email,name:supervisor?.display_name??'',role:'owner',channel:'agent',label:r.name,agentKeyId:r.key_id,agentRuleId:r.id};
    try {
     insist(supervisor && await stmt(db,`SELECT 1 WHERE ${liveAgentRuleSql}`,e.job_id,r.id,e.source,e.source).first(),'Agent grant, source or supervisor authority was revoked',409);
     const rule=await stmt(db,'SELECT * FROM b_agent_rules WHERE id=?',r.id).first<Data>();insist(rule&&rule.used<rule.budget,'Lifetime plan budget exhausted; supervisor review required',409);
@@ -97,7 +97,7 @@ export async function fillAgentPlan(db:D1Database,a:Actor,runId:string,b:Data) {
  insist(r.status==='awaiting_agent','This event is not waiting for a preparation',409);
  const j=await job(db,a,r.job_id),proposalId=id(),body={...payload,agentRunId:r.id,source:{event:r.event_key,jobRevision:j.revision}};
  const [live,done]=guard(db,`${liveAgentRuleSql} AND EXISTS(SELECT 1 FROM b_agent_runs WHERE id=? AND status='awaiting_agent' AND preparation_hash IS NULL) AND EXISTS(SELECT 1 FROM b_agent_rules WHERE id=? AND key_id=?)`,j.id,r.rule_id,r.event_key,r.event_key,r.id,r.rule_id,a.agentKeyId);
- const attributed={...a,label:'scheduled rule '+r.rule_id};
+ const attributed={...a,label:r.name,agentRuleId:r.rule_id};
  await atomic(db,attributed,[live,
   stmt(db,'INSERT INTO b_proposals(id,kind,payload,for_email,agent_label,created_at) VALUES(?,?,?,?,?,?)',proposalId,r.tool,JSON.stringify(body),a.email,r.name,now()),
   stmt(db,"UPDATE b_agent_runs SET status='prepared',proposal_id=?,preparation_hash=?,outcome='External agent preparation awaits human decision; no effect' WHERE id=?",proposalId,hash,r.id),
