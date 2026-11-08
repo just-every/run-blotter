@@ -1,0 +1,76 @@
+{
+  "tag": "sx-blotter-c-f20",
+  "repository": "just-every/run-blotter",
+  "branch": "cloud/sx-blotter-c-f20",
+  "head": "a0131731d85f1c6e2f20956a8e380eb0caa5ad3c",
+  "recorded_at": "2026-11-08T15:26:38.209056+00:00",
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": "pnpm run typecheck",
+      "exit": 0
+    },
+    {
+      "name": "first-party",
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0
+    },
+    {
+      "name": "source-lock",
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0
+    },
+    {
+      "name": "agent-door",
+      "command": "cloud_run timeout 1200 env BLOTTER_CHROMIUM=/usr/bin/chromium BLOTTER_AGENT_DOCS_EVIDENCE=<packet> node node_modules/@runeditrun/rer/cli/agent-door.mjs . deploy.json",
+      "exit": 0,
+      "points_passed": 1237,
+      "points_total": 1237,
+      "catalogue_policies": [
+        "autonomous",
+        "held"
+      ],
+      "catalogue_tools": 9,
+      "catalogue_resource_templates": 0
+    },
+    {
+      "name": "views-generation",
+      "command": "node scripts/contract-docs.mjs write && node scripts/contract-docs.mjs check; git checkout origin/main -- ACCEPTANCE.md docs/CLAIMS.md",
+      "exit": 0
+    }
+  ],
+  "product_push": "succeeded",
+  "verify_run": 42494765955,
+  "verify_status": "completed",
+  "publication_scan": "pending guarded Mac lander",
+  "run_site": "pending guarded Mac lander",
+  "browser_proof": {
+    "widths": [
+      1440,
+      390
+    ],
+    "inspected": true,
+    "findings": "Names, scopes, descriptions and schemas are readable; long schema stays within its card and keyboard focus is visible; narrow layout wraps text without clipped controls; no icon-only controls."
+  },
+  "counts_before": {
+    "done": 63,
+    "partial": 37,
+    "missing": 21
+  },
+  "counts_after": {
+    "done": 63,
+    "partial": 37,
+    "missing": 21
+  },
+  "clause_status_before": "PARTIAL",
+  "clause_status_after": "PARTIAL",
+  "test_restored_exactly_to_head": true,
+  "post_probe_lock_check_exit": 0,
+  "negative_outbound_probe": "guard failed as expected with exit 1 under both complete policies",
+  "packet_secret_check": "pass; no injected secret values or credential-shaped tokens found",
+  "product_tree_clean": true,
+  "verify_conclusion": "success",
+  "github_api_calls": 4,
+  "negative_privacy_probe": "guard failed as expected with exit 1 under both complete policies",
+  "verify_url": "https://github.com/just-every/run-blotter/actions/runs/42494765955"
+}

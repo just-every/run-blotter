@@ -1,0 +1,15 @@
+{
+  "command": "gh api repos/just-every/run-blotter/actions/runs?head_sha=a0131731d85f1c6e2f20956a8e380eb0caa5ad3c&per_page=100",
+  "runs": [
+    {
+      "id": 42494765955,
+      "name": "Verify",
+      "status": "queued",
+      "conclusion": null,
+      "head_sha": "a0131731d85f1c6e2f20956a8e380eb0caa5ad3c",
+      "html_url": "https://github.com/just-every/run-blotter/actions/runs/42494765955",
+      "event": "push",
+      "created_at": "2026-11-08T15:25:50Z"
+    }
+  ]
+}

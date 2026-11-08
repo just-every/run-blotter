@@ -1,0 +1,118 @@
+{
+  "files": [
+    {
+      "blob": "7f9fa01f154b596f2abf2f77b6cc436399c89f5c",
+      "bytes": 2343,
+      "path": "PLAN.txt",
+      "sha256": "8af952b9cd9be57092105aa72ab65e71353e7e17cb3e396d0221219b09ece6f4"
+    },
+    {
+      "blob": "88c16e33df23d7604ecb14dd951851b469d45b3d",
+      "bytes": 12098,
+      "path": "REPORT.md",
+      "sha256": "7a09829c43d630cb7918a0cb92c5395c474b71f66f6c837215766bb344650f83"
+    },
+    {
+      "blob": "974dc98f6203c5cb7f6ccab23571a20f6f53d320",
+      "bytes": 473749,
+      "path": "agent-docs-1440.png",
+      "sha256": "39cddefc2669bace767d5b37b728d9dc72ac432a7ac630008107a62428813384"
+    },
+    {
+      "blob": "c9110a521898ac64b5a1e43a263fac056d65eae8",
+      "bytes": 446871,
+      "path": "agent-docs-390.png",
+      "sha256": "119d9d82f9d0e693f8db51c40f7b598a74968dbc7437780ed3c2b384c831fdee"
+    },
+    {
+      "blob": "8dd730404af37247d70735601c1a8ea4e150dcef",
+      "bytes": 51071,
+      "path": "agent-door.txt",
+      "sha256": "07e723f2f93b0a26626cceeaefdbd61e7c45d775fab5180ef7468eb3cd4111dc"
+    },
+    {
+      "blob": "d971550dce4daf95e1227ae61ad118de074aeab0",
+      "bytes": 57497,
+      "path": "agent-schema-1440.png",
+      "sha256": "f2d1ccc1ddbb5341ccb24774e02ecc2e37c7c2bf52278574825a60b38667fcb3"
+    },
+    {
+      "blob": "b46e5abe2db67e19c02f80a36502302128a8d898",
+      "bytes": 51416,
+      "path": "agent-schema-390.png",
+      "sha256": "2f3e4d6281e3c41841eb1069b86d627003a349fdfe229b582cd277bd3574bc2a"
+    },
+    {
+      "blob": "ff180a910a85b3a6a1dd14e9c68ecf39e880d764",
+      "bytes": 477,
+      "path": "ci-discovery.json",
+      "sha256": "7f9d8a8be2785953fb6db9921a2029e2732c8a03e4c0d3779ee1fa223b8d41f1"
+    },
+    {
+      "blob": "dfc9dbed3b8cc27c83c4c081be2fab846c978e81",
+      "bytes": 453,
+      "path": "ci-final.json",
+      "sha256": "e4ba4690247ba4a9fc422392b5b3fa50a530a52781c28cb7c005fe4de9bf91a9"
+    },
+    {
+      "blob": "34ca84a4fdac225f2c471847db06525fa910986c",
+      "bytes": 173,
+      "path": "first-party.txt",
+      "sha256": "f1a72dc4210db0e198c2d7797c794e282997ad70d042d7073584d461a4f2ed8f"
+    },
+    {
+      "blob": "fe1a15909706c7b28e4c963dd41c8454ff5ff1a8",
+      "bytes": 1209,
+      "path": "outbound-mutation.json",
+      "sha256": "55191ab8a0525bdac1cdab28dc081b8e35596827905da2cf03591b77d6ae2118"
+    },
+    {
+      "blob": "37cfecd56300799a44b89edcfe43004961ff16f9",
+      "bytes": 1207,
+      "path": "privacy-mutation.json",
+      "sha256": "bfac66e15d18023caaa1dbeab000f9f2a105d594e1baa6b834c8067db0c9315c"
+    },
+    {
+      "blob": "471241638a46a74cf6579118456b67fc1e8d9412",
+      "bytes": 1338,
+      "path": "product-provenance.json",
+      "sha256": "fa537fd4ab6168608a15c2117572d2d436393db98101af2ea0c4180ee7ec0c79"
+    },
+    {
+      "blob": "7ef47cf6dd01e32f012792966abad871446f34c0",
+      "bytes": 816,
+      "path": "product-push.txt",
+      "sha256": "81d9427c565194e57cfa636c033e80a748973985ba78022ee04a702790bb7a16"
+    },
+    {
+      "blob": "a32b7e881945226bec48e11696de6bff15fdd259",
+      "bytes": 2501,
+      "path": "receipt.json",
+      "sha256": "94d9431652cf3e1adba9fedc0f9be6d72ee463d24adf4068462b692a584b3501"
+    },
+    {
+      "blob": "fc6cbd4e79cf2a3681d434efd6901adb78f72e91",
+      "bytes": 146,
+      "path": "source-lock.txt",
+      "sha256": "8f5f42674418b7a1757b2c591d8819f3529252171dac90282fb5ddc30e355203"
+    },
+    {
+      "blob": "b2b16485308ae9e639dd7f61b2349b96977017e4",
+      "bytes": 388,
+      "path": "typecheck.txt",
+      "sha256": "fbace44c28caf966e1e1bce0d3386ba02201feb8cad3211a64b7f8ecfed6b01d"
+    },
+    {
+      "blob": "37c574eab4bcdf9ad0db43fa981125ab4124c9cd",
+      "bytes": 521,
+      "path": "views.txt",
+      "sha256": "6f06c42ecd6e2d7d3024853744294139a1dd4a38ddb2dbe09ae7a8bfda428022"
+    }
+  ],
+  "product_branch": "cloud/sx-blotter-c-f20",
+  "product_head": "a0131731d85f1c6e2f20956a8e380eb0caa5ad3c",
+  "ref": "refs/heads/evidence/sx-blotter-c-f20",
+  "repository": "just-every/run-blotter",
+  "schema": 1,
+  "tag": "sx-blotter-c-f20"
+}

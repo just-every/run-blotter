@@ -1,0 +1,40 @@
+{
+  "repository": "just-every/run-blotter",
+  "branch": "cloud/sx-blotter-c-f20",
+  "head": "a0131731d85f1c6e2f20956a8e380eb0caa5ad3c",
+  "main_base": "2d1c7a2c4c325a0b5dfa5fa6d0c82f964381b526",
+  "shallow": "false",
+  "ancestor_main": true,
+  "product_status": "",
+  "candidate_commits": [
+    {
+      "head": "a0131731d85f1c6e2f20956a8e380eb0caa5ad3c",
+      "identity": "fleet author and committer validated",
+      "trailers": "absent",
+      "subject": "Assert hydrated agent catalogue privacy and outbound isolation"
+    },
+    {
+      "head": "686c2b4a41fc684df10727c97f53dbead829533e",
+      "identity": "fleet author and committer validated",
+      "trailers": "absent",
+      "subject": "Prove agent catalogue parity and safe keyboard schema access"
+    },
+    {
+      "head": "f668553872457a87ee2f952843b8ad6d3fa8a07e",
+      "identity": "fleet author and committer validated",
+      "trailers": "absent",
+      "subject": "Add registry-derived agent catalogue and policy journey [skip ci]"
+    }
+  ],
+  "changed_files": [
+    "sources.lock.json",
+    "src/blotter/agent-door/catalog.ts",
+    "src/blotter/agent-door/index.ts",
+    "src/routeTree.gen.ts",
+    "src/routes/docs.agents.tsx",
+    "src/ui/agent-docs.tsx",
+    "tests/agent-door/docs.mjs",
+    "tests/agent-door/journey.mjs",
+    "tests/agent-door/owner.mjs"
+  ]
+}

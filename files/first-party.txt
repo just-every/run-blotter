@@ -1,0 +1,4 @@
+Head: a0131731d85f1c6e2f20956a8e380eb0caa5ad3c
+Command: pnpm exec rer check --profile first-party
+Exit: 0
+rer toolchain: node v24.19.0 pnpm 10.12.4 (pins 22.20.0 / 10.12.4)

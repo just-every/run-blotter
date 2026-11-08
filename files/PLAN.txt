@@ -1,0 +1,20 @@
+sx-blotter-c-f20 plan
+Repository: just-every/run-blotter
+Branch: cloud/sx-blotter-c-f20
+Target: BASE-AGENT-013, PARTIAL catalogue slice of acceptance point 1 only.
+
+1. Read launcher and seed instructions, full target requirement and acceptance, current status and the inline rulings and DONE riders.
+2. Continue the specified f19 candidate, preserving its product implementation and main's status judgments. Check current main ancestry before publication.
+3. Map the existing registry-generated catalogue and native owner journey to the requested slice. Close proof gaps within the existing journey, without adding capabilities or touching copied Base code.
+4. Run the native agent-door verifier with authenticated MCP discovery under complete autonomous and held policies, typecheck and first-party check. Capture the changed page and long schema at 1440 and 390. Inspect privacy, keyboard operation, authority disclosures and overflow.
+5. Generate contract views and check them, then restore main's views. Regenerate and check the source lock last. Inspect candidate identities, trailers and changed text before each guarded product push.
+6. Push only the named branch, discover its exact-SHA Verify via REST, retain honest CI provenance and publish the explicit non-secret evidence packet on the separate evidence ref. Keep BASE-AGENT-013 PARTIAL and preserve all capability, Base custody, aggregate-read replay and erasure holds.
+
+Acceptance mapping before work:
+Point 1: f19 implements the on-site list, compared with populated authenticated MCP tools/list and empty resource template discovery by agentDocsJourney in tests/agent-door/docs.mjs. Discovery-generated server instructions remain outside this slice.
+Point 2: declared classes shown, but comprehensive computed-class fixtures and tests are omitted.
+Point 3: existing installed conformance verifier covers its declared subset only; complete Core and remaining inherited acceptance are held or omitted.
+Point 4: catalogue parity is exercised under both complete policies; full acceptance under both is not established.
+Point 5: stranger-agent specialist completion remains omitted.
+
+No contract row or plan row will be edited. No DONE claim is authorized for the full clause. No account, outbound message, optional capability, person-only effect or hold clearance is authorized.

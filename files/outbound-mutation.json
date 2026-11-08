@@ -1,0 +1,15 @@
+{
+  "head": "a0131731d85f1c6e2f20956a8e380eb0caa5ad3c",
+  "mutation": "Browser attempts a denied off-site fetch after loading the built catalogue",
+  "command": ". /tmp/rer-cloud-toolchain.sh\ncloud_run timeout 1200 env BLOTTER_CHROMIUM=/usr/bin/chromium node node_modules/@runeditrun/rer/cli/agent-door.mjs . deploy.json",
+  "exit": 1,
+  "diagnostic": [
+    "FAIL BASE-AGENT-013.phase2: Native verification journey failed; no captured mail or fixture values are logged.",
+    "FAIL BASE-AGENT-013.phase3: Native verification journey failed; no captured mail or fixture values are logged.",
+    "Agent door conformance: 895/897 points passed.",
+    "Agent docs journey: The page attempts no outbound request, native action or provider door at agentDocsJourney (file:///home/agent/rer-consolidation/work/sx-blotter-c-f20/run-blotter/tests/agent-door/docs.mjs:106:10)",
+    "Agent docs journey: The page attempts no outbound request, native action or provider door at agentDocsJourney (file:///home/agent/rer-consolidation/work/sx-blotter-c-f20/run-blotter/tests/agent-door/docs.mjs:106:10)"
+  ],
+  "guard_failed": true,
+  "restored_sha256": "4bd5eebd600c2dcd19aa1e52b59a927bc60a17577e92d32c36e51be9d34a6985"
+}
