@@ -32,8 +32,8 @@ export function AgentDocs({ catalog }: { catalog: AgentCatalog }) {
    {catalog.tools.map(tool => <article key={tool.name} data-tool={tool.name} aria-labelledby={`tool-${tool.name}`}>
     <h3 id={`tool-${tool.name}`}>{tool.title}</h3><p><code data-field="name">{tool.name}</code></p><p data-field="description">{tool.description}</p>
     <dl><dt>Declared classes</dt><dd data-field="classes">{tool._meta['com.runeditrun/classes'].join(', ')}</dd><dt>Required scope</dt><dd><code data-field="scope">{tool._meta['com.runeditrun/scope']}</code></dd><dt>Operation</dt><dd>{tool.annotations.readOnlyHint ? 'Read permitted context' : 'Prepare an internal proposal'}</dd></dl>
-    <details><summary>Input schema for {tool.name}</summary><pre data-field="inputSchema">{JSON.stringify(tool.inputSchema,null,2)}</pre></details>
-    <details><summary>Output schema for {tool.name}</summary><pre data-field="outputSchema">{JSON.stringify(tool.outputSchema,null,2)}</pre></details>
+    <details><summary>Input schema for {tool.name}</summary><pre tabIndex={0} role="region" aria-label={`Input schema for ${tool.name}`} data-field="inputSchema">{JSON.stringify(tool.inputSchema,null,2)}</pre></details>
+    <details><summary>Output schema for {tool.name}</summary><pre tabIndex={0} role="region" aria-label={`Output schema for ${tool.name}`} data-field="outputSchema">{JSON.stringify(tool.outputSchema,null,2)}</pre></details>
    </article>)}
   </section>
   <section id="resources" aria-labelledby="resources-title"><h2 id="resources-title">Resource templates</h2>

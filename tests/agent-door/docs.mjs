@@ -3,10 +3,11 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { http } from './http.mjs';
 import { catalogueFixtures } from './owner.mjs';
+import { agentCatalog } from '../../src/blotter/agent-door/catalog.ts';
 
 // Both complete company policies reach this helper through the native journey.
 // Only authenticated MCP discovery supplies the expected public tool metadata.
-export async function agentDocsJourney({ request, origin, cookie, phase }) {
+export async function agentDocsJourney({ request, origin, cookie, phase, tool, mail }) {
  const fixture=catalogueFixtures.get(origin);
  assert.ok(fixture,'The signed native owner lifecycle supplies the discovery credential');
  const api=http(request,origin,cookie);
@@ -19,10 +20,12 @@ export async function agentDocsJourney({ request, origin, cookie, phase }) {
  assert.ok(listed.tools.length>0,'Compare populated native tool discovery');
  assert.deepEqual(resources.resourceTemplates,[],'The declared subset exposes no resource templates');
  const state=await api('/agents/api/state');
- assert.ok(state.document.rules.some(rule=>rule.class==='*'&&rule.do===(phase==='held'?'approval':'autonomous')),'The actual complete company policy is in force');
- if(phase==='held')assert.ok(state.document.rules.some(rule=>rule.class==='standard'&&rule.do==='review'));
- const snapshot=async()=>({jobs:await api('/api/blotter/jobs'),team:await api('/api/blotter/team')});
+ assert.equal(state.policy.complete,true,'The actual company policy answers all declared classes');
+ const witness=await tool('blotter.context.read',{});
+ assert.equal(witness.decision.disposition,phase==='held'?'review':'autonomous','The real MCP witness confirms the policy phase');
+ const snapshot=async()=>({jobs:await Promise.all(witness.result.structuredContent.jobs.map(job=>api('/api/blotter/jobs/'+job.id))),team:await api('/api/blotter/team'),costs:await api('/api/blotter/costs'),mail:mail.read({limit:20})});
  const before=await snapshot();
+ assertMetadataIsolation(listed.tools,capabilitiesOf(discovery),origin);
  const response=await request(origin+'/docs/agents');
  assert.equal(response.status,200,'The installation serves public catalogue metadata without a session');
  const html=await response.text();
@@ -76,6 +79,10 @@ export async function agentDocsJourney({ request, origin, cookie, phase }) {
   assert.ok((await schema.locator('pre').innerText()).length>1000,'Exercise the populated long schema');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'The desktop page has no horizontal overflow');
   assert.ok(await schema.locator('pre').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=13));
+  const schemaBody=schema.locator('pre');
+  await page.keyboard.press('Tab');assert.equal(await schemaBody.evaluate(el=>el===document.activeElement),true,'Keyboard reaches the scrollable schema');
+  await page.keyboard.press('End');await page.waitForFunction(()=>document.activeElement.scrollTop>0);
+  await schemaBody.evaluate(el=>el.scrollTop=0);await summary.focus();
   await page.keyboard.press('Space');assert.equal(await schema.getAttribute('open'),null,'Keyboard closes schema details');
   await page.keyboard.press('Enter');
   // Assertions run at desktop width; candidate proof captures the changed screen
@@ -95,4 +102,31 @@ export async function agentDocsJourney({ request, origin, cookie, phase }) {
  }finally{await browser.close();}
  assert.deepEqual(await snapshot(),before,'Catalogue reads leave native work, preparations, audit and account state unchanged');
  console.log(`Agent docs catalogue: ${phase}; ${listed.tools.length} tools; ${resources.resourceTemplates.length} templates; keyboard and long-schema proof at 1440 and 390`);
+}
+
+const capabilitiesOf=discovery=>discovery._meta['com.runeditrun/capabilities'];
+function assertMetadataIsolation(tools,capabilities,origin){
+ const denied=()=>{throw new Error('Catalogue evaluated a private runtime dependency');};
+ const privateRuntime=new Proxy({}, {get:denied});
+ const raw=tools.map(tool=>{
+  const inputSchema=structuredClone(tool.inputSchema);
+  const revisionType=inputSchema.properties.expected_revision?.type;
+  delete inputSchema.properties.idempotency_key;delete inputSchema.properties.expected_revision;
+  inputSchema.required=inputSchema.required.filter(name=>name!=='idempotency_key');
+  return {name:tool.name,title:tool.title,description:tool.description,inputSchema,outputSchema:tool.outputSchema,
+   scope:tool._meta['com.runeditrun/scope'],classes:tool._meta['com.runeditrun/classes'],clauses:tool._meta['com.runeditrun/clauses'],readOnly:tool.annotations.readOnlyHint,
+   classify:denied,run:denied,summary:denied,target:denied,...(revisionType?{revisionType,revision:denied}:{})};
+ });
+ let providerRequests=0;const fetch=globalThis.fetch;
+ globalThis.fetch=()=>{providerRequests++;return denied();};
+ let catalogue;
+ try{catalogue=agentCatalog({seed:'blotter',name:'Blotter',specialist:'practice coordinator',origin,capabilities:capabilities.declared,tools:raw,
+  db:privateRuntime,people:privateRuntime,trust:privateRuntime,localCredentials:denied,currentScopes:denied,
+  resources:[{uriTemplate:'blotter://private/{id}',name:'synthetic-blotter-1: private record',classes:['sensitive'],classify:denied,read:denied}],
+  prompts:[{name:'synthetic-blotter-1',description:'Private callback',messages:denied}],
+ });}finally{globalThis.fetch=fetch;}
+ assert.equal(providerRequests,0,'Catalogue generation makes no provider request');
+ assert.deepEqual(catalogue.tools,tools,'Metadata normalization neither evaluates native callbacks nor reads runtime bindings');
+ assert.deepEqual(catalogue.resourceTemplates,[],'Undeclared resource readers are never evaluated or exposed');
+ assert.ok(!JSON.stringify(catalogue).includes('Private callback'),'Callback implementations and undeclared prompt content are not serialized');
 }
