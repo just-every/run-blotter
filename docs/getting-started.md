@@ -4,13 +4,13 @@ Run Blotter on your computer and set up the people who will prepare and review t
 
 ## Run Blotter
 
-You need macOS, Linux or Windows with WSL2. [Run Blotter](/run) has the same line. It installs rer, which brings its own Node if you have none, then starts Blotter:
+[Run Blotter](/run) has the same line. Paste it into your terminal to start Blotter:
 
 ```sh
 curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-blotter
 ```
 
-Git is required; rer brings Node and pnpm. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-blotter` does the same. If the installer prints a line that puts rer on your PATH, run that line too. To start Blotter again later, run the same line from the same folder, or `cd run-blotter && rer dev`.
+macOS, Linux or Windows with WSL2. git is required; rer brings Node and pnpm. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-blotter` does the same. To start Blotter again later, run the same line from the same folder.
 
 The first launch installs the locked dependencies, selects the project's pinned runtime, prepares a local database and starts the app on a free port. It can take several minutes. If interrupted, run `rer dev` again to resume.
 
@@ -74,5 +74,7 @@ rer dev --stop
 ```
 
 ## Use your own installation
+
+The [hosting guide](/docs/hosting) walks through putting Blotter online, with help or on your own Cloudflare account.
 
 A production installation needs your own Cloudflare account and a verified sending address with your mail provider. Before deploying, edit `vars.MAIL_PROVIDER` and `vars.MAIL_FROM` in `deploy.json`, then commit that file. The sender must use a domain verified by that provider. Required private deployment inputs are `OWNER_EMAIL`, `SESSION_SECRET`, `SETUP_TOKEN` and `MAIL_API_KEY`; `VAULT_KEY` is optional and must be retained with any encrypted vault backup. Supply those values through your private environment or secret manager. The hosted setup form also supports RER managed mail, Resend, SendGrid and Cloudflare Email Sending. Follow the repository's [deployment instructions](https://github.com/just-every/run-blotter#deploy-your-installation) and [operations guide](https://github.com/just-every/run-blotter/blob/main/OPERATIONS.md). Keep credentials in your private environment or secret manager.

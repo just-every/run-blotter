@@ -8,7 +8,7 @@ import { atomic, audit, Fault, guard, id, insist, now, rows, stmt, text, type Ac
 
 async function portalSignature(db:D1Database,token:string,requestId:string) {
   const p=await portalJob(db,token),r=await signatureRecord(db,requestId);
-  insist(r.job_id===p.job.id&&r.status!=='draft'&&!r.erased_at,'Signature request not found',404);
+  insist(r.job_id===p.job.id&&r.status!=='draft'&&r.sent_at&&!r.erased_at,'Signature request not found',404);
   const signers=await signerRows(db,r),s=signers.find(s=>s.contact_id===p.contact.id);
   insist(s&&s.contact_revision===p.contact.revision&&p.contact.signer,'Signature request not found or signer authority changed',404);
   return {...p,r,s,signers};
@@ -29,7 +29,7 @@ export async function portalSignatures(db:D1Database,token:string) {
   const p=await portalJob(db,token);
   return rows(db,`SELECT r.id,r.title,r.status,r.mode,r.attempt,r.completed_at,r.revision,s.status signer_status FROM b_signatures r
     JOIN b_signature_signers s ON s.request_id=r.id AND s.attempt=r.attempt
-    WHERE r.job_id=? AND s.contact_id=? AND s.contact_revision=? AND r.status<>'draft' AND r.erased_at IS NULL AND ?=1 ORDER BY r.created_at,r.id`,p.job.id,p.contact.id,p.contact.revision,p.contact.signer);
+    WHERE r.job_id=? AND s.contact_id=? AND s.contact_revision=? AND r.status<>'draft' AND r.sent_at IS NOT NULL AND r.erased_at IS NULL AND ?=1 ORDER BY r.created_at,r.id`,p.job.id,p.contact.id,p.contact.revision,p.contact.signer);
 }
 export async function portalSignatureDetail(db:D1Database,token:string,requestId:string) {
   const p=await portalSignature(db,token,requestId),[check,done]=portalFence(db,p);
@@ -68,7 +68,7 @@ export async function recordSignature(db:D1Database,x:{r:Data;s:Data;signers:Dat
   await guardedBatch(db,[check,current[0],authorities[0],staff[0],attested[0],stmt(db,`UPDATE b_signature_signers SET status='signed',values_json=?,consent_text=?,consent_version=?,signed_at=?,portal_link_id=?,connection_ip=?,connection_user_agent=? WHERE request_id=? AND attempt=? AND contact_id=?`,signed.values_json,consent.text,consent.version,at,x.evidence,connection.ip,connection.userAgent,r.id,r.attempt,s.contact_id),
     stmt(db,'UPDATE b_signatures SET status=?,revision=?,completed_at=?,signed_base64=?,signed_sha256=?,certificate_base64=?,certificate_sha256=? WHERE id=?',complete?'completed':'pending',id(),complete?at:null,output?.signed??null,output?.signedHash??null,output?.certificate??null,output?.certificateHash??null,r.id),
     ...signatureEvent(db,r,'signed',x.actor,`${s.name} signed with explicit ${consent.version} consent`,s.contact_id,at),
-    ...(complete?[...signatureEvent(db,r,'completed',x.actor,'Signed PDF and certificate filed to client and work',null,at),stmt(db,"INSERT INTO b_automation_events(source,job_id,kind,at) VALUES(?,?,'signature_complete',?)",'signature:'+r.id+':'+r.attempt,r.job_id,at)]:[]),attested[1],staff[1],authorities[1],current[1],done]);
+    ...(complete?[...signatureEvent(db,r,'completed',x.actor,'Signed PDF and certificate filed to client and work',null,at),...(r.retention_class==='engagement'?[]:[stmt(db,"INSERT INTO b_automation_events(source,job_id,kind,at) VALUES(?,?,'signature_complete',?)",'signature:'+r.id+':'+r.attempt,r.job_id,at)])]:[]),attested[1],staff[1],authorities[1],current[1],done]);
   return {id:r.id,status:complete?'completed':'pending'};
 }
 export async function signSignature(db:D1Database,token:string,requestId:string,body:Data,connection:Connection) {

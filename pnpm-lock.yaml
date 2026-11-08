@@ -9,6 +9,11 @@ overrides:
   undici: 7.29.1
   source-map-js: 1.2.2
 
+patchedDependencies:
+  miniflare@5.20260907.0-alpha:
+    hash: 9751f9c5ed79171ed70eb94667e6bb26ba08a0d5392f86d09a6ae7ad4819ddeb
+    path: patches/miniflare@5.20260907.0-alpha.patch
+
 importers:
 
   .:
@@ -45,8 +50,8 @@ importers:
         specifier: 1.63.0
         version: 1.63.0
       '@runeditrun/rer':
-        specifier: 0.2.80
-        version: 0.2.80
+        specifier: 0.2.96
+        version: 0.2.96
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
@@ -65,6 +70,9 @@ importers:
       marked:
         specifier: 17.0.1
         version: 17.0.1
+      miniflare:
+        specifier: 5.20260907.0-alpha
+        version: 5.20260907.0-alpha(patch_hash=9751f9c5ed79171ed70eb94667e6bb26ba08a0d5392f86d09a6ae7ad4819ddeb)(@types/node@22.20.5)
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -727,8 +735,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@runeditrun/rer@0.2.80':
-    resolution: {integrity: sha512-ZyuCv5DFElXDn78EL03hTLzwoB7z7wDGsUDUd3WDSYE8C6BJODx4oj0nkZwqVa20/1G7h+cWwIQUku6z8Ngxlw==}
+  '@runeditrun/rer@0.2.96':
+    resolution: {integrity: sha512-ti4il1iYkambLWUA8rR/1xjcwi5D93RYl+vo/Rje748bQY855DK54sLjR7lYvodDG7AnBj+BzFUDN0GHy5axXQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1535,7 +1543,7 @@ snapshots:
   '@cloudflare/vite-plugin@1.54.5(@types/node@22.20.5)(vite@8.2.2(@types/node@22.20.5)(esbuild@0.28.1)(jiti@2.7.0))(wrangler@4.129.1(@cloudflare/workers-types@5.20260908.1)(@types/node@22.20.5))':
     dependencies:
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260907.1)
-      miniflare: 5.20260907.0-alpha(@types/node@22.20.5)
+      miniflare: 5.20260907.0-alpha(patch_hash=9751f9c5ed79171ed70eb94667e6bb26ba08a0d5392f86d09a6ae7ad4819ddeb)(@types/node@22.20.5)
       unenv: 2.0.0-rc.24
       vite: 8.2.2(@types/node@22.20.5)(esbuild@0.28.1)(jiti@2.7.0)
       workerd: 1.20260907.1
@@ -1918,7 +1926,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@runeditrun/rer@0.2.80': {}
+  '@runeditrun/rer@0.2.96': {}
 
   '@sindresorhus/is@7.2.0': {}
 
@@ -2336,7 +2344,7 @@ snapshots:
 
   marked@17.0.1: {}
 
-  miniflare@5.20260907.0-alpha(@types/node@22.20.5):
+  miniflare@5.20260907.0-alpha(patch_hash=9751f9c5ed79171ed70eb94667e6bb26ba08a0d5392f86d09a6ae7ad4819ddeb)(@types/node@22.20.5):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.35.5(@types/node@22.20.5)
@@ -2550,7 +2558,7 @@ snapshots:
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260907.1)
       blake3-wasm: 2.1.5
       esbuild: 0.28.1
-      miniflare: 5.20260907.0-alpha(@types/node@22.20.5)
+      miniflare: 5.20260907.0-alpha(patch_hash=9751f9c5ed79171ed70eb94667e6bb26ba08a0d5392f86d09a6ae7ad4819ddeb)(@types/node@22.20.5)
       path-to-regexp: 6.3.0
       unenv: 2.0.0-rc.24
       workerd: 1.20260907.1

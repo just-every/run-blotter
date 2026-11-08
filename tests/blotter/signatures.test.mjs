@@ -5,6 +5,7 @@ import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {harness} from './harness.mjs';
 import {pdfText} from './pdf-text.mjs';
 import {authorizationJourney,authorizationLifecycleJourney,signatureAppJourney,signatureAuthorityJourney,signatureOwnerJourney} from './signatures-ui.mjs';
+const verifiedOn = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 const prepEmail='synthetic-blotter-1@example.test',successorEmail='synthetic-blotter-2@example.test',outsideEmail='synthetic-blotter-3@example.test';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeSettings={timeZone:'UTC',quietStart:'00:00',quietEnd:'00:00',digestTime:'07:00',digestEnabled:false,leadDays:1,emailKinds:['signature']};
@@ -120,7 +121,8 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
   // An e-file authorization named only inside the PDF is refused for SIGN-001, whatever its title and file name.
   const plain=(contentBase64,extra={})=>({title:'Engagement',formKind:'general',requiresKba:false,mode:'sequential',contactIds:[f.client.contacts[0].id],fields:fields(f).slice(0,4),file:{name:'engagement.pdf',mime:'application/pdf',contentBase64},...extra});
   for(const form of ['Form 8879 IRS e-file Signature Authorization','Form 8879-S IRS e-file Signature Authorization for Form 1120-S','Form 8878 IRS e-file Signature Authorization for Form 4868'])
-   assert.match((await h.json(`/jobs/${f.job.id}/signatures`,plain(await pdfWith([form])),f.prep,409)).error,/SIGN-001/);
+   for(const extra of [{},{documentKind:'engagement-proposal',formKind:'ordinary engagement proposal'}])
+    assert.match((await h.json(`/jobs/${f.job.id}/signatures`,plain(await pdfWith([form]),extra),f.prep,409)).error,/SIGN-001/);
   // A Form 2848 named only in its text: the client signs after a staff attestation, then the representative in session.
   const repFields=[{type:'signature',contactId:rep,page:1,x:40,y:400,width:240,height:28,label:'Representative signature'},{type:'date',contactId:rep,page:1,x:320,y:400,width:240,height:28,label:'Representative date'}];
   const poa={...plain(await pdfWith(['Form 2848 Power of Attorney and Declaration of Representative','Taxpayer: Mia Chen'])),title:'Power of attorney',contactIds:[f.client.contacts[0].id,rep],fields:[...fields(f).slice(0,4),...repFields]};
@@ -128,7 +130,7 @@ test('SIGN-002: Form 2848 needs a staff remote-authentication attestation, the r
   const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},f.prep);assert.equal(r.invitations.length,1,'The staff representative gets no portal invitation');
   const t=token(r.invitations[0]);let v=await open(h,t,r.id);assert.equal(v.attestationRequired,true);assert.equal(v.canSign,false);
   assert.match((await sign(h,t,r.id,v,409)).error,/remote-authentication attestation/);
-  const attest={contactId:f.client.contacts[0].id,method:'photo_id_video',verifier:'Pat Harper',verifiedOn:'2026-10-21',items:['name','ssn_or_itin','address','date_of_birth'],secondaryDocument:'Utility bill matching name and address'};
+  const attest={contactId:f.client.contacts[0].id,method:'photo_id_video',verifier:'Pat Harper',verifiedOn,items:['name','ssn_or_itin','address','date_of_birth'],secondaryDocument:'Utility bill matching name and address'};
   await h.json(`/signatures/${r.id}/attestations`,{...attest,items:['name']},f.prep,400);
   await h.json(`/signatures/${r.id}/attestations`,attest,f.outside,404);
   await h.json(`/signatures/${r.id}/attestations`,attest,f.prep);await h.json(`/signatures/${r.id}/attestations`,attest,f.prep,409);
@@ -178,7 +180,7 @@ test('AUTHZ-001 / SIGN-002 / DUE-002: prepare official IRS forms, sign and attes
   await h.json(`/clients/${f.client.id}/transcript-requests`,{form:'1040',year:2024},f.outside,404);
   const r=await h.json(`/signatures/${d.id}/send`,{revision:d.revision},h.owner),t=token(r.invitations[0]);
   await sign(h,t,r.id,await open(h,t,r.id),409);
-  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn:'2026-10-20',items:[],note:'Long-standing client met in person each year'},f.prep);
+  await h.json(`/signatures/${r.id}/attestations`,{contactId:client.id,method:'personal_knowledge',verifier:'Pat Harper',verifiedOn,items:[],note:'Long-standing client met in person each year'},f.prep);
   await sign(h,t,r.id,await open(h,t,r.id));await h.json(`/signatures/${r.id}/staff-sign`,signBody(await h.json(`/signatures/${r.id}/signing`,undefined,f.prep)),f.prep);
   const signedForm=Buffer.from(await(await h.request(`/api/blotter/signatures/${r.id}/files/signed`,undefined,h.owner)).arrayBuffer());
   for(const signer of [client.name,'Pat Harper'])assert.ok((await pdfText(signedForm)).includes(signer));

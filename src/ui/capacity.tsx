@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, Empty, Field, Form, today, type Row, type Run, day } from './common';
 import { Coverage } from './coverage';
+import { RescueContext } from './rescue-context';
 import { Forecast } from './forecast';
 
 const monday = (day: string) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
@@ -45,6 +46,7 @@ export function Capacity({ state, run, tick, open }: { state: Row; run: Run; tic
         {view.pastDue.length > 0 && <><h3>Past due, not counted</h3><ul className="list">{view.pastDue.map((u: Row) => <li key={u.jobId + u.label}><button className="quiet text-action" onClick={() => open(u.jobId)}>{u.work}</button> <small className="muted">{u.label} · {u.owner} · due {day(u.due)}</small></li>)}</ul></>}
       </>}
     </section>
+    {owner && <RescueContext state={state} week={filter.week} tick={tick} run={run} open={open} />}
     {state.actor.role !== 'preparer' && <Coverage state={state} open={open} run={run} tick={tick} />}
     {state.actor.role !== 'preparer' && <Forecast state={state} run={run} tick={tick} />}
     {owner && <section className="panel">

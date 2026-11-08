@@ -85,7 +85,7 @@ export async function signatureAuthorityJourney(h,f,poa){
   const panel=staff.locator('section.panel').filter({has:staff.getByRole('heading',{name:'Document signatures',exact:true})});await panel.waitFor();
   await panel.getByRole('button',{name:'Browser power of attorney',exact:true}).click();
   const form=panel.locator('form').filter({hasText:'Items checked against a secondary document'});
-  await form.getByLabel('Verified by',{exact:true}).fill('Pat Harper');await form.getByLabel('Verification date',{exact:true}).fill('2026-10-21');
+  await form.getByLabel('Verified by',{exact:true}).fill('Pat Harper');await form.getByLabel('Verification date',{exact:true}).fill(new Date(Date.now() - 86_400_000).toISOString().slice(0, 10));
   for(const item of ['Name','SSN or ITIN','Address','Date of birth'])await form.getByLabel(item,{exact:true}).check();
   await form.getByLabel('Secondary document checked',{exact:true}).fill('Utility bill matching name and address');await capture(staff,panel,'staff-2848-attestation');
   await form.getByRole('button',{name:`Record remote authentication for ${f.client.contacts[0].name}`,exact:true}).click();

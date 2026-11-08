@@ -244,6 +244,7 @@ client grant. No new screen or native model execution is claimed.
 | Method | Door | Behavior |
 | --- | --- | --- |
 | GET | `/api/blotter/jobs/:id/readiness` | Live document custody, checklist/answer map, latest accessible prior period, source links, drafted questions and tracked decisions/responses. |
+| GET | `/api/blotter/jobs/:id/readiness/scope?planId=<reviewed mapping id>` | Separate principal-session inspection of an explicitly selected reviewed ONBOARD-001 mapping from a completed current ordinary proposal on this same job. |
 | POST | `/api/blotter/jobs/:id/readiness/questions` | Prepare `{ "sourceKind": "request", "sourceId": "<request id>" }` or `sourceKind: "answer"` with the workflow answer key. Returns the same preparation for the same source fingerprint; sends nothing. |
 | POST | `/api/blotter/jobs/:id/readiness/questions/:question/decide` | A person supplies `decision` (`approve`, `decline`, `resolve`) and a nonempty `reason`. Approval adds one exact link-only portal to-do, without email. Source changes refuse stale approval. Only the assigned reviewer or principal resolves an approved question. |
 | GET | `/api/blotter/agent/jobs/:id/readiness` | Existing agent-key equivalent of the read door. |
@@ -258,8 +259,24 @@ does not remove a missing-document or answer judgment. Restores retain these gat
 and do not replay questions or sends. Evidence maps re-read erased-file state.
 Question records store source references and fingerprints, not document bytes or
 copied workflow answer values. Whole-client retention/erasure remains ERASURE-002.
-Signed-scope joining (ENGAGE-001), connected books (LEDGER-001), semantic conflict
-detection and ledger variance analysis remain unimplemented; READY-001 stays partial.
+The separate scope read returns this same native map plus `signedScope.source`
+(proposal family, version, predecessor, original and signed digests, completion
+time and signed-PDF download link) and `signedScope.mapping` (exact service quote,
+template, review fingerprint, principal attribution, reason, time and retained
+item selections). This is practitioner-declared mapping, never an inferred legal
+interpretation. It rechecks the current staff session and MFA, active client,
+open or in-review job, source bytes and digest, completed current proposal version,
+reviewed mapping, contact revisions and matching unchanged template on every read.
+Missing selections, foreign jobs or clients, unavailable or erased sources and
+held restored reviews are refused. A content-free attributed inspection event is
+the only write. Existing maps and all agent responses exclude the signed scope;
+agent keys and integration bearers do not authenticate this separate door.
+No question, judgment, sign-off, onboarding action, message, fee, signature or
+provider call is changed or authorized. Connected books (LEDGER-001), semantic
+conflict detection, ledger variance analysis, broader source joining, scope-bearing
+agent grants and the full engagement-agent journey remain unimplemented.
+ENGAGE-001's KBA-dependent completion and remaining lifecycle, CRM conversion
+and onboarding execution remain held; READY-001 stays partial.
 
 ## Bulk client messages and marketing consent (MSG-002, partial)
 
@@ -680,6 +697,99 @@ The first intake freezes original bytes and digest, the reviewed contact names a
 The principal sets `efileReady: true` when creating or editing an empty open-stage sub-status through the existing sub-status doors under Settings. The designation is permanent and survives renaming. Every status effect, including automation and bulk reassignment, refuses entry while required signature and KBA evidence is unavailable. Review and completion still use the existing review gates. A label alone confers no readiness designation. General signing refuses IRS e-file forms; no local signature completion or gate override is supported.
 
 Unsigned intake has no signed-record retention clock. Its originals and spouse roster are classified for class, job and original-file holds, preview and confirmed erasure; digest and attribution remain. Downloaded outside copies name their staff holder. Archives carry the exact record as inactive historical evidence; they grant no signing authority and cannot bypass the erasure journal fence. Genuine KBA, remote delivery, handwritten fallback, signed artifacts and release to ready to file remain unavailable.
+
+## Ordinary engagement proposal versions
+
+The principal authors and amends proposals and explicitly sends or voids their signing requests. Other staff with current working access to the job may read versions and downloads. This is the standing conservative owner-only authority default; delegated proposal authority remains unbuilt. Person and session MFA checks apply; integration bearers and agent keys have no proposal authority.
+
+- `GET /api/blotter/clients/:id/engagement-proposals` lists visible proposal versions.
+- `POST /api/blotter/jobs/:id/engagement-proposals` freezes a new ordinary proposal. Supply `title`, `scope`, `exclusions`, explicit `currency: "USD"`, integer `feeCents`, `retainerTerms`, `renewalRules`, `amendmentRules` and two distinct authorized contact IDs in `contactIds`.
+- `GET /api/blotter/engagement-proposals/:id` returns the frozen terms, signing evidence and version chain.
+- `POST /api/blotter/engagement-proposals/:id/amend` takes the same complete terms and the current signature `revision`. A single transaction creates the next version and voids the prior signing authority. Stale or concurrent completion refuses on the same revision; a completed or superseded version cannot be amended. Partial earlier signatures and exact source bytes remain evidence.
+
+Review the generated PDF, then explicitly send through `POST /api/blotter/signatures/:id/send`. Existing SIGN-002 contact-bound portal doors collect separate electronic consent and signatures, and provide original, signed and certificate PDF downloads. Both contacts sign every replacement. Marketing consent is separate and signing changes no invoice, payment mandate or onboarding record; proposal completion does not trigger signature automation. IRS e-file forms remain refused pending SIGN-001 KBA.
+
+Completed proposal families, including partially signed prior versions, use the signed-engagement class period and its later client-work sign-off clock. Existing signature record holds, class and job holds, erasure previews, retained principal reads, explicit expiry receipts and stale-restore fences apply. Expiry clears proposal terms and PDF bytes while preserving version links and attribution. Mail invitations and staff and contact downloads are named outside copies. Unfinished restored requests stay held until an explicit fresh send; old contact links never travel. Practitioner-recorded signed letters retain their existing provenance label.
+
+## Personal mail time-suggestion choice
+
+Authenticated staff inspect their own choice through
+`GET /api/blotter/time/mail-consent`. It is initially off and returns the exact
+presented wording, `wordingVersion`, `reviewToken`, `lastId` and attributed history.
+In Suggested time, open Mail suggestion settings to allow or withdraw the choice.
+This remains separate from native-work consent and any future calendar choice.
+Turning native-work suggestions on or off does not change the mail choice.
+
+`POST /api/blotter/time/mail-consent` accepts only `choice` (`opt_in`, `withdraw`
+or `decline`), a unique `requestId`, and the presented `reviewToken`, `lastId`
+and `wordingVersion`. It takes no target person or caller-supplied attribution.
+The same current staff member must make the choice; agent and integration
+bearers have no door. Current staff status, session and required MFA are checked
+again in the atomic write. Identical concurrent requests record one choice and
+one audit; changed intent, conflicting concurrent choices and stale requests
+cannot replace a later choice. Withdrawal requires a fresh explicit opt-in to
+reverse it.
+
+Evidence retains the immutable staff operator ID, staff address, mail source
+category, exact wording and version, choice, actor and UTC time. Deactivation,
+offboarding, enterprise authority changes and enterprise-association erasure
+invalidate prior choices without
+transferring them to a successor. Reactivation requires a new sign-in and a
+fresh personal choice. These are classified staff records, independent of
+client erasure. Archives retain original attribution with `restored=1`; restored
+history is inactive even if a new account has the same address. A new choice
+belongs to the new account ID. Session credentials never travel with evidence.
+
+Mailboxes are not connected and mail-derived suggestions remain unavailable.
+This choice grants no provider access or connected-processing activation and
+creates no message, suggestion, time entry, invoice or billing effect. Scoped
+OAuth, authorized Gmail and Microsoft 365 mailbox grants, connected mail work
+and full provider-copy activation evidence remain required by MAIL-001.
+
+## Principal deadline-risk inspection (RESCUE-001 partial)
+
+`GET /api/blotter/rescue-context?week=2026-10-12&clients=CLIENT_ID,OTHER_CLIENT_ID`
+requires a current native principal session and its completed MFA checks. No
+agent, integration bearer, delegated staff or automation action is added.
+Select one Monday-to-Sunday week and between 1 and 10 distinct active,
+unerased clients. The read includes up to 50 open jobs with working dates in
+or before the week, or statutory, internal or applicable extension dates in
+it. Larger selections fail with 409; missing selections or a non-Monday date
+fail with 400. Inactive, merged or erased selected clients fail with 404;
+unavailable or changed deadline sources and erased document sources fail
+with 409 rather than being reinterpreted as missing evidence.
+
+The live projection returns selected clients, jobs, distinct statutory,
+original business-day, internal, extension, relief and working dates, and
+exact obligation IDs, approved rule versions and official source links.
+An unrecorded extension is identified as not applicable. An override changes
+only the working date. Current unmet task and job dependencies and active
+unaccepted document requests keep their native source identifiers and links.
+Assigned people's recorded skills, weekly hours, leave and commitments are
+shown beside current weekly demand; demand includes competing firm work,
+while other clients' job details are excluded. Default hours, unrecorded
+skills, absent assignees and insufficient estimates are explicit unknowns.
+Past-due work is shown separately from weekly capacity demand.
+
+This is native context for human inspection. LEDGER-001 context is
+unavailable; request acceptance is practitioner judgment, and no
+source-complete feasible plan, cost or filing outcome is established. Each
+read records `rescue.context_inspected` with actor and selected identifiers;
+no aggregate or source payload is saved. It changes no assignments, dates,
+requests, messages, fees, filing evidence, grants or provider state. Existing
+source retention, portability and erasure remain authoritative; an archive
+older than the supplied erasure journal is refused by the existing restore
+door. The Capacity screen exposes this read only to the principal.
+
+## Saved AI reply review
+
+`GET /api/blotter/ai/drafts/:id/reply-review` returns current consented contacts, eligible original attachments, the saved source fingerprint and any historical review. The caller needs a current human staff session, its required second factor and the saved draft's client and source access.
+
+`POST /api/blotter/ai/drafts/:id/reply-review` records one human acceptance or rejection of an already saved reply. Supply `decision`, edited `value` (at most 1,200 characters), `textSha256` of the trimmed wording, `sourceFingerprint`, explicit `recipients` containing contact `id` and `revision`, and `attachments` containing original `id`, `sha256` and `accessRevision`. Acceptance requires at least one selected contact; an empty attachment list explicitly means no attachments. Rejection requires both lists empty. The old proposal-decision door refuses reply decisions so text-only acceptance cannot bypass this review. Older saved requests without a source fingerprint require a fresh preparation.
+
+Every selected contact must still belong to this active client and retain entity, portal, request and email consent. Every attachment must be an unerased original upload on that client, readable by the staff member, with existing explicit document access for every selected contact. Foreign originals, internal-only files, changed revisions, changed bytes and changed selected-source content refuse. Current session, factor, staff authority, source state and recipient and document grants are checked inside the same atomic batch as the attributed review and decision. Identical concurrent requests from the same actor return the one record; different wording or membership and other actors refuse replay.
+
+This evidence is inert: acceptance never sends mail, invokes a provider, creates a share link, changes a document grant, signs a document or changes billing. It grants no reusable sending authority. Review evidence belongs to the derived AI class: it is erased with the draft when eligible, with client, class, job, source-file and selected-attachment holds preserving it. Derived AI records have no separate statutory clock; original documents retain their existing clocks. Preview and erasure receipts name the review table. Archives retain exact wording, digests, membership and attribution with reviews marked historical and replay refused. Enablement remains off after restore, and the existing newer-erasure-journal fence applies. Connected mailboxes, staff-voice and signed-scope grounding, delivery and complete provider-copy activation evidence remain unavailable under AI-001.
 
 ### Personal calendar time-suggestion choice
 

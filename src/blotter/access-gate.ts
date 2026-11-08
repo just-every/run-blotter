@@ -19,6 +19,7 @@ const resources:Record<string,string>={
   notices:'SELECT client_id FROM b_notices WHERE id=?',
   credentials:'SELECT client_id FROM b_vault_credentials WHERE id=?',
   rules:'SELECT client_id FROM b_recurrence_rules WHERE id=?',
+  'engagement-proposals':'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   signatures:'SELECT j.client_id FROM b_signatures s JOIN b_jobs j ON j.id=s.job_id WHERE s.id=?',
   invoices:'SELECT client_id FROM b_invoices WHERE id=?',
   payments:'SELECT client_id FROM b_provider_payments WHERE id=?',
@@ -35,6 +36,10 @@ const exporting = (path:string) => /^\/(security\/access-log\.csv$|costs\/export
 export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   const path=new URL(request.url).pathname.replace(/^\/api\/blotter/,'').replace(/^\/agent/,'');
   const write=!['GET','HEAD'].includes(request.method),factor=/^\/mfa($|\/)/.test(path)||path==='/access/step-up';
+  if (path === '/rescue-context')
+    insist(actor.channel === 'person' && actor.role === 'owner' && !actor.automation && !actor.doorAgent, 'Only the principal can inspect deadline-risk context', 403);
+  if (/^\/jobs\/[^/]+\/readiness\/scope$/.test(path))
+    insist(actor.channel === 'person' && actor.role === 'owner' && !actor.automation, 'Only the principal can inspect readiness scope', 403);
   // The personal handler allows read-only staff to withdraw only their own choice.
   if (path === '/time/calendar-consent') return;
   if(actor.readOnly && write && !factor) insist(false,'Read-only staff cannot change practice records',403);
@@ -43,6 +48,7 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
   if (write && path === '/ai/settings') await freshAccess(db,actor);
   if (path.startsWith('/ai/')) {
     if (path === '/ai/settings') return;
+    insist(actor.channel === 'person' && !actor.automation, 'AI review requires a human staff session', 403);
     const match = path.match(/^\/ai\/(requests|drafts)\/([^/]+)/);
     insist(match, 'AI resource not found', 404);
     const table = match[1] === 'requests' ? 'b_ai_requests' : 'b_ai_drafts';
@@ -60,6 +66,8 @@ export async function accessGate(db:D1Database,actor:Actor,request:Request) {
     const body = await request.clone().json() as Data;
     if (body.fileId) await requireDocument(db, actor, String(body.fileId));
   }
+  // A personal mail choice reads no client records and accepts no target identity.
+  if(path==='/time/mail-consent')return;
   if(!actor.accessScoped || factor)return;
   if(/^\/access($|\/)/.test(path)) {
     insist(actor.manageAccess && !path.startsWith('/access/delegations'),'Only the principal or a manage-access holder manages access',403);
