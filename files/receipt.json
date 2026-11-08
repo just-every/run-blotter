@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "tag": "sx-blotter-c-f21",
+  "repository": "just-every/run-blotter",
+  "branch": "cloud/sx-blotter-c-f21",
+  "head": "7c365d0b606430a862368de1ade6cc96e50342d7",
+  "baseline": "686c2b4a41fc684df10727c97f53dbead829533e",
+  "generated_at": "2026-11-08T15:58:25.267174+00:00",
+  "product_push": {
+    "status": "pushed",
+    "attempt": 1,
+    "forced": false,
+    "default_branch_modified": false
+  },
+  "identity": {
+    "author_name": "Run Edit Run fleet",
+    "author_email": "fleet@runeditrun.com",
+    "committer_name": "Run Edit Run fleet",
+    "committer_email": "fleet@runeditrun.com",
+    "trailers": []
+  },
+  "contract": {
+    "clause": "BASE-AGENT-008",
+    "before": "partial",
+    "after": "partial",
+    "proven_points_in_selected_native_slice": [
+      6
+    ],
+    "status_table_unchanged": true,
+    "before_counts": {
+      "done": 63,
+      "partial": 37,
+      "missing": 21
+    },
+    "after_counts": {
+      "done": 63,
+      "partial": 37,
+      "missing": 21
+    },
+    "count_delta": {
+      "done": 0,
+      "partial": 0,
+      "missing": 0
+    }
+  },
+  "mechanical": [
+    {
+      "name": "views-write",
+      "command": [
+        "node",
+        "scripts/contract-docs.mjs",
+        "write"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "views-check",
+      "command": [
+        "node",
+        "scripts/contract-docs.mjs",
+        "check"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "views-restore",
+      "command": [
+        "git",
+        "checkout",
+        "origin/main",
+        "--",
+        "ACCEPTANCE.md",
+        "docs/CLAIMS.md"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "lock",
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "lock"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "lock-check",
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "check"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "first-party",
+      "command": [
+        "npx",
+        "-y",
+        "@runeditrun/rer",
+        "check",
+        "--profile",
+        "first-party"
+      ],
+      "exit": 0
+    }
+  ],
+  "ledger": {
+    "command": null,
+    "exit": 0,
+    "reason": "No migration added or edited"
+  },
+  "validation": [
+    {
+      "command": "cloud_run npx -y @runeditrun/rer build",
+      "exit": 0
+    },
+    {
+      "command": "cloud_run pnpm typecheck",
+      "exit": 0
+    },
+    {
+      "command": "cloud_run node --test --test-concurrency=2 tests/blotter/flows.test.mjs tests/blotter/service-agents.test.mjs",
+      "exit": 0,
+      "tests": 48,
+      "passed": 48
+    },
+    {
+      "command": "cloud_run node --test tests/blotter/erasure-policy.test.mjs",
+      "exit": 0,
+      "tests": 2,
+      "passed": 2
+    },
+    {
+      "command": "cloud_run node --test --test-name-pattern='archives retain plans and costs|keyed external plans' tests/blotter/service-agents.test.mjs",
+      "exit": 0,
+      "tests": 2,
+      "passed": 2
+    },
+    {
+      "command": "cloud_run env BLOTTER_CHROMIUM=/usr/bin/chromium BLOTTER_CHROMIUM_PATH=/usr/bin/chromium BLOTTER_SERVICE_EVIDENCE=<packet>/screens perl -e 'alarm 1200; exec @ARGV' -- node --test --test-name-pattern='archives retain plans and costs|keyed external plans|operator estimates' tests/blotter/service-agents.test.mjs",
+      "exit": 0,
+      "tests": 3,
+      "passed": 3,
+      "head": "7c365d0b606430a862368de1ade6cc96e50342d7",
+      "browser_widths": [
+        1440,
+        390
+      ]
+    }
+  ],
+  "source_hashes": {
+    "src/blotter/model.ts": "01663e0918003349d00caf9c06135a1af7bb4d071b89bd7dcba6e0e9f334a726",
+    "src/blotter/scheduled-agents.ts": "a3ac2cabda3ad2043877ebe1ea5bc0fe4f50d0330617b143b6a15dff51126ebf",
+    "src/blotter/erasure-scope.ts": "1f1445c3e0c1fbe8ec0a6737d42f5eca9077fdff9327c6f86b91ab63a639219c",
+    "tests/blotter/flows.test.mjs": "08c6849867bb797061b842c6b70069209063659a0a4201280b650a33aeaab94a",
+    "tests/blotter/service-agents.test.mjs": "bd6e12ec9c5552cb49521074583e2238221a6d8f1f4707e5a9b6734d1b17acfa",
+    "tests/blotter/service-agents-ui.mjs": "bc817533a135afd895e41e46a373e9d4dcaffe9657de620412bae9a69a8e0b28",
+    "sources.lock.json": "27636b461e76e83f0d725804a0e12ce4720ddafeb6d7fdf31cf74307e5287d76"
+  },
+  "candidate_ci": {
+    "runs": [
+      {
+        "conclusion": null,
+        "event": "push",
+        "head_sha": "7c365d0b606430a862368de1ade6cc96e50342d7",
+        "html_url": "https://github.com/just-every/run-blotter/actions/runs/42497299056",
+        "id": 42497299056,
+        "name": "Verify",
+        "status": "in_progress"
+      }
+    ]
+  },
+  "publication_scan": {
+    "status": "not-run-in-cloud",
+    "complete": null,
+    "historyScanned": null,
+    "findings": null,
+    "owner": "guarded fleet lander"
+  },
+  "landing": {
+    "status": "branch-only",
+    "main_equals_candidate": false,
+    "run_site": null
+  },
+  "held_boundaries": [
+    "Base runtime and harness CORE subset switch",
+    "Base retained-artifact erasure custody hook",
+    "aggregate-read replay and native authority holds",
+    "other clause acceptance outside selected native attribution slice"
+  ],
+  "exact_sha_typecheck": {
+    "command": "cloud_run pnpm typecheck",
+    "exit": 0,
+    "head": "7c365d0b606430a862368de1ade6cc96e50342d7"
+  },
+  "screens": [
+    {
+      "path": "screens/native-agent-activity-1440.png",
+      "sha256": "f001202e5dcc909c4969348994b7297815be8bd266959256004b5e076c5c22ad",
+      "head": "7c365d0b606430a862368de1ade6cc96e50342d7"
+    },
+    {
+      "path": "screens/native-agent-activity-390.png",
+      "sha256": "18332f76eaab89d25393395d76a772fd16c48fa5729ef3843671c85941915e5f",
+      "head": "7c365d0b606430a862368de1ade6cc96e50342d7"
+    }
+  ]
+}
