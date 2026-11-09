@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { http } from './http.mjs';
 import { agentDocsJourney } from './docs.mjs';
+import { agentActivityJourney } from './activity.mjs';
 export async function beforeStep(context){
  if(context.step.id==='context' && ['autonomous','held'].includes(context.phase)){
   try{await agentDocsJourney(context);}
   catch(error){console.error('Agent docs journey:',error.message.split('\n')[0],error.stack?.split('\n').find(line=>line.includes('/docs.mjs:'))?.trim()??'');throw error;}
+ }
+}
+export async function afterStep(context){
+ if(context.step.id==='learning' && ['autonomous','held'].includes(context.phase)){
+  try{await agentActivityJourney(context);}
+  catch(error){console.error('Agent activity journey:',error.message.split('\n')[0],error.stack?.split('\n').find(line=>line.includes('/activity.mjs:'))?.trim()??'');throw error;}
  }
 }
 export default async function({request,origin,cookie,tool}){

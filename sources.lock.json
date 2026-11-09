@@ -5188,7 +5188,7 @@
       "executable": false
     },
     "src/routeTree.gen.ts": {
-      "sha256": "596571fc19d43a1d1e04cd33114e3c1f9e052a02be7af0cdc95b7024f317106d",
+      "sha256": "7fb09430d677855b1d8790f535a79fc74a4b4de0b5d7e27d8640cc1d8b76a189",
       "executable": false
     },
     "src/server.dev.ts": {
@@ -5712,7 +5712,7 @@
       "executable": false
     },
     "src/ui/workspace.tsx": {
-      "sha256": "2e043a4c62507931b984ac171364da5b3159c3625008d534b7a94624b68b77d6",
+      "sha256": "f7c0653759a7cebca925754d5a91aab66a9d8e9c186927780214f246953aa23b",
       "executable": false
     },
     "STRIPE.md": {
@@ -5732,11 +5732,11 @@
       "executable": false
     },
     "tests/agent-door/journey.mjs": {
-      "sha256": "da05e57c0d562123c04aca2a60c568c313d89846a42756a9e3ce278b609fc563",
+      "sha256": "3eb788a55916534adb40a32f12f33b9d552d167e234824dc98fae9674ab32e04",
       "executable": false
     },
     "tests/agent-door/owner.mjs": {
-      "sha256": "4f69e3ba84fc0ed738ffc38eecaacad0de4336145b6ba7e0977362e0d56db6c9",
+      "sha256": "8118fb94c7464a15c7350875f2c33acdc32e6189eef3ddb78d2816fdb05511ac",
       "executable": false
     },
     "tests/agent-door/reviewer.mjs": {

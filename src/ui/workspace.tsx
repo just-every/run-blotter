@@ -72,7 +72,7 @@ export function Workspace() {
         {tab === 'Time & billing' && <><Invoices actor={state.actor} jobs={state.jobs} clients={state.clients} run={run} tick={tick}/><Reports state={state} run={run} tick={tick} open={open}/><Billing actor={state.actor} people={state.people} run={run} tick={tick} /></>}
         {tab === 'Preparations' && <Proposals state={state} run={run} open={open} tick={tick} />}
         {tab === 'Move in' && <MoveIn run={run} tick={tick} />}
-        {tab === 'Team & safety' && <Team state={state} run={run} tick={tick} />}
+        {tab === 'Team & safety' && <><p><a href="/agent-activity">Inspect shared agent activity</a></p><Team state={state} run={run} tick={tick} /></>}
       </fieldset>}
       <p className="boundary">Time and fees in their stored currency, USD by default. No filing, tax calculation or advice.</p>
     </main>

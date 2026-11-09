@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AgentActivityRouteImport } from './routes/agent-activity'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ClientRouteImport } from './routes/client'
 import { Route as DocsAgentsRouteImport } from './routes/docs.agents'
 import { Route as InvoiceTokenRouteImport } from './routes/invoice.$token'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 
+const AgentActivityRoute = AgentActivityRouteImport.update({
+  id: '/agent-activity',
+  path: '/agent-activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
@@ -42,6 +48,7 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/agent-activity': typeof AgentActivityRoute
   '/app': typeof AppRoute
   '/client': typeof ClientRoute
   '/docs/agents': typeof DocsAgentsRoute
@@ -49,6 +56,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRoutesByTo {
+  '/agent-activity': typeof AgentActivityRoute
   '/app': typeof AppRoute
   '/client': typeof ClientRoute
   '/docs/agents': typeof DocsAgentsRoute
@@ -57,6 +65,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/agent-activity': typeof AgentActivityRoute
   '/app': typeof AppRoute
   '/client': typeof ClientRoute
   '/docs/agents': typeof DocsAgentsRoute
@@ -66,11 +75,23 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/app' | '/client' | '/docs/agents' | '/invoice/$token' | '/portal/$token'
+    | '/agent-activity'
+    | '/app'
+    | '/client'
+    | '/docs/agents'
+    | '/invoice/$token'
+    | '/portal/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/app' | '/client' | '/docs/agents' | '/invoice/$token' | '/portal/$token'
+  to:
+    | '/agent-activity'
+    | '/app'
+    | '/client'
+    | '/docs/agents'
+    | '/invoice/$token'
+    | '/portal/$token'
   id:
     | '__root__'
+    | '/agent-activity'
     | '/app'
     | '/client'
     | '/docs/agents'
@@ -79,6 +100,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AgentActivityRoute: typeof AgentActivityRoute
   AppRoute: typeof AppRoute
   ClientRoute: typeof ClientRoute
   DocsAgentsRoute: typeof DocsAgentsRoute
@@ -88,6 +110,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/agent-activity': {
+      id: '/agent-activity'
+      path: '/agent-activity'
+      fullPath: '/agent-activity'
+      preLoaderRoute: typeof AgentActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -127,6 +156,7 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  AgentActivityRoute: AgentActivityRoute,
   AppRoute: AppRoute,
   ClientRoute: ClientRoute,
   DocsAgentsRoute: DocsAgentsRoute,
