@@ -5167,6 +5167,10 @@
       "sha256": "54e67d44f91677550eee760f2ab84a82309cc08802f414cad3a3b6ddba47fafb",
       "executable": false
     },
+    "src/routes/agent-activity.tsx": {
+      "sha256": "8f84e1baf2abe495bb9ead8906dfdda65a7e932d0e23f74e01ea624a22cc1b19",
+      "executable": false
+    },
     "src/routes/app.tsx": {
       "sha256": "cffdc68613303b5c6c188e2baf3818d8ae75cf1b6a6e3fc247ffe6df2949b7f1",
       "executable": false
@@ -5353,6 +5357,14 @@
     },
     "src/ui/account.tsx": {
       "sha256": "125736a240b6982b5d7cfff49188ed52d63bd8a96a8f93cddf1abae87994cee3",
+      "executable": false
+    },
+    "src/ui/agent-activity-pages.ts": {
+      "sha256": "006af0d36a55da4967e75ccf213b505708148cb886ccf6c03e2638f658661ee7",
+      "executable": false
+    },
+    "src/ui/agent-activity.tsx": {
+      "sha256": "3ca5978957d56e9ce3af30d26b6e7c99891515dd2b80669b33a8ab96ec00dd21",
       "executable": false
     },
     "src/ui/agent-docs.tsx": {
@@ -5721,6 +5733,10 @@
     },
     "test-budget.json": {
       "sha256": "8ce239223e24ca472868140b2453e54f97579dfcafcb6b3f50dfc3712383e377",
+      "executable": false
+    },
+    "tests/agent-door/activity.mjs": {
+      "sha256": "19359404be058835d1e7f8388b16a2d275b1df43c85d85c1530f4b59443243e4",
       "executable": false
     },
     "tests/agent-door/docs.mjs": {

@@ -67,7 +67,7 @@ export function AgentActivity() {
    <button type="button" disabled={busy || exporting || !!error} onClick={exportRows}>{exporting ? 'Preparing download…' : 'Download matching JSON'}</button>
   </div>
   {error && <p role="alert" className="error">{error} <a href="/signin">Open sign in</a></p>}
-  <p role="status" aria-live="polite">{busy ? 'Loading matching actions…' : error ? '' : notice || `${rows.length} matching actions`}</p>
+  <p role="status" aria-live="polite">{busy ? 'Loading matching actions…' : error ? '' : notice || `${rows.length} matching ${rows.length === 1 ? 'action' : 'actions'}`}</p>
   <section aria-label="Matching actions" aria-busy={busy || exporting}>
    {!busy && !error && !rows.length && <p className="activity-empty">No matching actions. Try another agent or class.</p>}
    <ol className="activity-list">{rows.map(row => <li key={row.sequence ?? row.id} className="activity-row" data-audit-id={row.id}>

@@ -20,7 +20,9 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
  };
  // Raw windows contain 200 rows. Place a new distinguishable agent beyond a
  // complete window of other real MCP reads, without touching the database.
- for(let i=0;i<201;i++){
+ // Reuse existing conformance activity rather than flooding its review feed.
+ const rawBefore=await api('/agents/api/audit?after=0');
+ for(let i=0;i<Math.max(1,201-rawBefore.rows.length);i++){
   const result=await call(padding.key,'blotter.context.read');
   assert.ok(result.structuredContent.jobs.length,'Padding is actual admitted work context');
  }
@@ -61,7 +63,7 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
  const token=messages.at(-1).text.match(/\/auth\/confirm\?token=([^\s"&<]+)/)?.[1];
  assert.ok(token,'The disposable owner mailbox receives its real login proof');
  const confirmed=await request(origin+'/auth/confirm',{method:'POST',redirect:'manual',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({token})});
- assert.equal(confirmed.status,303);const fresh=cookies(confirmed);await confirmed.body?.cancel();
+ assert.equal(confirmed.status,303);const fresh=cookies(confirmed);assert.notEqual(fresh,cookie);await confirmed.body?.cancel();
  const freshApi=http(request,origin,fresh);
  await freshApi('/api/blotter/mfa/verify',{recoveryCode:fixture.recoveryCodes.shift()});
  const setup=await request(origin+'/setup',{method:'POST',redirect:'manual',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:'confirm=yes'});
@@ -92,10 +94,12 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
   const page=await context.newPage();page.on('pageerror',()=>pageErrors.push('Activity browser error'));page.on('download',item=>downloads.push(item));
   await page.goto(origin+'/app');
   await page.getByRole('button',{name:'Team & safety',exact:true}).click();
+  const storage=()=>page.evaluate(async()=>({local:Object.entries(localStorage),session:Object.entries(sessionStorage),databases:typeof indexedDB.databases==='function'?(await indexedDB.databases()).map(item=>item.name):[]}));
   const link=page.getByRole('link',{name:'Inspect shared agent activity'});await link.focus();await page.keyboard.press('Enter');
   await page.waitForURL(origin+'/agent-activity');
   const ready=()=>page.getByRole('button',{name:'Download matching JSON',exact:true}).waitFor({state:'visible'}).then(()=>page.waitForFunction(()=>!document.querySelector('.activity-filters button:last-child').disabled));
   await ready();traffic.length=0;
+  const storedBefore=await storage();
   const rendered=async expected=>{
    await ready();
    const actual=await page.locator('[data-audit-fields]').allTextContents();
@@ -115,7 +119,9 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
    for(const row of JSON.parse(data))for(const field of ['evidence','saved','result','aliases','replay_aliases'])assert.equal(Object.hasOwn(row,field),false,'No private capture or replay alias is exported');
    await file.delete();await ready();
   };
-  await rendered((await allRows()).rows);
+  const initial=(await allRows()).rows;await rendered(initial);
+  const stored=JSON.stringify(storedBefore);
+  assert.ok(initial.every(row=>!stored.includes(row.id)),'Initial loading persists no audit content');
   for(const [agent,cls] of [[targetId,''],['','sensitive'],[paddingId,'standard'],[targetId,'sensitive']]){
    await select(agent,cls);
    const expected=(await allRows({...agent?{agent}:{},...cls?{class:cls}:{}})).rows;
@@ -153,6 +159,8 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
   await page.getByLabel('Class',{exact:true}).focus();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');await ready();
   assert.equal(await page.getByLabel('Class',{exact:true}).inputValue(),'standard','Keyboard selects the class filter');
   await rendered(expected);
+  const visibleDetails=page.locator('[data-audit-id]').first().locator('details');
+  if(await visibleDetails.getAttribute('open')===null){await visibleDetails.locator('summary').focus();await page.keyboard.press('Enter');}
   const directory=process.env.BLOTTER_AGENT_ACTIVITY_EVIDENCE;
   if(directory)await mkdir(directory,{recursive:true});
   for(const width of [1440,390]){
@@ -170,7 +178,12 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
   await page.getByText('No matching actions. Try another agent or class.',{exact:true}).waitFor();await download([]);
   if(directory&&phase==='autonomous')for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`${directory}/agent-activity-empty-${width}.png`,fullPage:true});}
   await page.setViewportSize({width:1440,height:1000});
-  assert.deepEqual(await page.evaluate(async()=>({local:Object.keys(localStorage),session:Object.keys(sessionStorage),databases:typeof indexedDB.databases==='function'?(await indexedDB.databases()).map(item=>item.name):[]})),{local:[],session:[],databases:[]},'No audit cache is persisted by the view');
+  const storedAfter=await storage();
+  // The existing router persists scroll coordinates as the keyboard moves.
+  // Its navigation state is allowed; audit content and new caches are not.
+  const withoutScroll=value=>({...value,session:value.session.filter(([key])=>!key.startsWith('tsr-scroll-restoration-'))});
+  assert.deepEqual(withoutScroll(storedAfter),withoutScroll(storedBefore),'Activity creates no persistent audit cache');
+  assert.ok(initial.every(row=>!JSON.stringify(storedAfter).includes(row.id)),'Even router storage contains no audit content');
   assert.deepEqual(pageErrors,[]);
   assert.ok(traffic.every(item=>item.method==='GET'&&(!item.path.startsWith('/api/')&&!item.path.startsWith('/agents/api/')&&item.path!=='/mcp'||['/agents/api/agents','/agents/api/audit'].includes(item.path))),'Activity controls consume only the existing signed-person reads');
   assert.deepEqual(await snapshot(),before,'View and export leave preparations, policy, grants, costs, provider mail, work and custody hold records unchanged');
@@ -197,6 +210,7 @@ export async function agentActivityJourney({request,origin,cookie,email,phase,ou
    assert.equal(await page.locator('[data-audit-id]').count(),0);
    assert.equal(await page.getByRole('button',{name:'Download matching JSON',exact:true}).isDisabled(),true,'Denied callers cannot export');
   }
+  assert.deepEqual(await snapshot(),before,'Interrupted exports and denied reads leave native effects and authority unchanged');
   if(phase==='held'){
    await api('/api/blotter/team',{email:fixture.reviewer.email,name:'Riley Reviewer',role:'reviewer',active:false});
    await refused({Cookie:fixture.reviewer.cookie},401);
