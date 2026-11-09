@@ -1,0 +1,135 @@
+{
+  "branch": "cloud/sx-blotter-c-f22",
+  "broaderHoldsCleared": false,
+  "browser": {
+    "assertionsConditional": false,
+    "criticalAxeFindings": 0,
+    "seriousAxeFindings": 0,
+    "widths": [
+      1440,
+      390
+    ]
+  },
+  "candidateCI": {
+    "conclusion": null,
+    "event": "push",
+    "head": "4e18475e9bfd57e90da8141a1d6de13efa3f2231",
+    "run": 42670710657,
+    "status": "in_progress"
+  },
+  "checks": [
+    {
+      "command": "cloud_run npx -y @runeditrun/rer build",
+      "exit": 0,
+      "log": "BUILD.log",
+      "name": "build",
+      "sha256": "2fcb0efef9390553a521c5a47345afae9502ac677bc698db9756a5580d66efd2"
+    },
+    {
+      "command": "BLOTTER_CHROMIUM=/usr/bin/chromium cloud_run perl -e 'alarm 1200; exec @ARGV' -- node node_modules/@runeditrun/rer/cli/agent-door.mjs . deploy.json",
+      "exit": 0,
+      "log": "NATIVE-JOURNEY.log",
+      "name": "nativeJourney",
+      "sha256": "1dabe207040d7b9754af1202ee3ab4a0b96172b975a89eadf4a7ed6f3a9c51a5"
+    },
+    {
+      "command": "pnpm run typecheck",
+      "exit": 0,
+      "log": "TYPECHECK.log",
+      "name": "typecheck",
+      "sha256": "f4fe0915a207f6d629a576aa57f7129b3d8ae6085a0f00bcab99ba1cc393aca5"
+    },
+    {
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0,
+      "log": "FIRST-PARTY.log",
+      "name": "firstParty",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "node scripts/contract-docs.mjs write",
+      "exit": 0,
+      "log": "VIEWS-WRITE.log",
+      "name": "viewsWrite",
+      "sha256": "64977be7d3b046064040c78d11177b262770deaea85db8f68013e53a1b2ef1ed"
+    },
+    {
+      "command": "node scripts/contract-docs.mjs check",
+      "exit": 0,
+      "log": "VIEWS-CHECK.log",
+      "name": "viewsCheck",
+      "sha256": "fc26a6308bb8d37675688d028da5bc7365a169dd1c3ebdb30bedcc0a0d850144"
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0,
+      "log": "LOCK-CHECK.json",
+      "name": "lockCheck",
+      "sha256": "4afddc575166b33e1904b324d9067c023a9b9b0eef08d75b912f717fcac325d3"
+    }
+  ],
+  "clause": {
+    "after": "PARTIAL",
+    "before": "PARTIAL",
+    "id": "BASE-AGENT-009",
+    "provenPoints": [
+      5
+    ]
+  },
+  "contractJudgmentsChanged": false,
+  "countsAfter": {
+    "done": 63,
+    "missing": 21,
+    "partial": 37
+  },
+  "countsBefore": {
+    "done": 63,
+    "missing": 21,
+    "partial": 37
+  },
+  "head": "4e18475e9bfd57e90da8141a1d6de13efa3f2231",
+  "mainCI": {
+    "head": "43da1e7f3312fc5463844e08b220eeff746c7902",
+    "runSite": 42500270923,
+    "runSiteConclusion": "success",
+    "verify": 42500271075,
+    "verifyConclusion": "success"
+  },
+  "mainEqualsCandidate": false,
+  "mechanical": {
+    "generatedViewsCommitted": false,
+    "lockCheckExit": 0,
+    "lockWriteExit": 0,
+    "migrationsChanged": false,
+    "viewsCheckExit": 0,
+    "viewsWriteExit": 0
+  },
+  "nativeChecks": {
+    "exactCommittedCandidate": true,
+    "passed": 1237,
+    "policies": [
+      "autonomous",
+      "held"
+    ],
+    "total": 1237
+  },
+  "productPushed": true,
+  "providerProofClaimed": false,
+  "publicationScan": {
+    "complete": false,
+    "findings": null,
+    "historyScanned": null,
+    "responsibility": "guarded Mac lander",
+    "status": "NOT_RUN_CLOUD"
+  },
+  "recordedAt": "2026-11-09T18:08:23.850964+00:00",
+  "remoteRefs": {
+    "refs/heads/cloud/sx-blotter-c-f22": "4e18475e9bfd57e90da8141a1d6de13efa3f2231",
+    "refs/heads/main": "43da1e7f3312fc5463844e08b220eeff746c7902"
+  },
+  "repository": "just-every/run-blotter",
+  "schema": 1,
+  "sourceLockSha256": "fee3ab80e776b50d7a79eb9daa19af4282e3ed145afeeaf32612ad1b645ad94a",
+  "tag": "sx-blotter-c-f22",
+  "workingTreeClean": true
+}
