@@ -2,9 +2,10 @@
 // Only paid mail, AI and payment provider boundaries may be replaced; routes and D1 stay real.
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {mkdtemp,readFile,readdir,realpath,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,readdir,realpath,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
+import {dirname,join,parse,relative,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
 import {randomBytes} from 'node:crypto';
 const require=createRequire(await realpath('node_modules/wrangler/package.json'));
@@ -19,13 +20,21 @@ export async function harness(settings={}){
   catch(e){if(e?.code!=='ERR_ADDRESS_IN_USE'||attempt>=3)throw e;}
  }
 }
-async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhookResponse,identityResponse}={}){
+// The emitted Worker, optionally behind a wrapper that meters every D1 statement's rows read (d1-budget.test.mjs).
+async function workerModules(config,directory,meter){
+ const assets=(await readdir('dist/server/assets')).filter(f=>f.endsWith('.js')).map(f=>resolve('dist/server/assets',f));
+ if(!meter)return {modulesRoot:resolve('dist/server'),modules:[resolve('dist/server',config.main),...assets].map(path=>({type:'ESModule',path}))};
+ const wrapper=join(directory,'meter.mjs'),worker=fileURLToPath(new URL('./d1-meter-worker.mjs',import.meta.url)),entry=resolve('dist/server',config.main);
+ await writeFile(wrapper,`import app from ${JSON.stringify('./'+relative(dirname(wrapper),entry))};\nimport {meteredWorker} from ${JSON.stringify('./'+relative(dirname(wrapper),worker))};\nexport default meteredWorker(app);\n`);
+ return {modulesRoot:parse(entry).root,modules:[wrapper,worker,entry,...assets].map(path=>({type:'ESModule',path}))};
+}
+async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhookResponse,identityResponse,meter=false}={}){
  const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
  const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[],aiCalls=[];
  const config=JSON.parse(await readFile('dist/server/wrangler.json','utf8'));
  const vars={AUTH_LOCAL:'false',AUTH_ORIGIN:origin,OWNER_EMAIL:'owner@example.test',SESSION_SECRET:randomBytes(32).toString('hex'),VAULT_KEY:randomBytes(32).toString('hex'),SETUP_TOKEN:randomBytes(32).toString('hex'),MAIL_PROVIDER:'resend',MAIL_FROM:'auth@example.test',MAIL_API_KEY:'test-only-provider-key',...bindings};
  const options={...convertV4MiniflareOptions({
-  host:'127.0.0.1',port,https:true,modulesRoot:resolve('dist/server'),modules:[config.main,...(await readdir('dist/server/assets')).filter(f=>f.endsWith('.js')).map(f=>'assets/'+f)].map(f=>({type:'ESModule',path:resolve('dist/server',f)})),
+  host:'127.0.0.1',port,https:true,...await workerModules(config,directory,meter),
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
   assets:{directory:resolve('dist/client'),routerConfig:{has_user_worker:true}},d1Databases:{DB:'blotter-test'},bindings:vars,
   // Paid provider boundaries only; the built application stays unchanged.

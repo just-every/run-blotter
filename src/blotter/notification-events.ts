@@ -1,7 +1,7 @@
 // NOTIFY-001: native events project safe summaries, never client names, file
 // names, audit detail, provider errors or identifiers from client content.
 import { firmSettings, localClock } from './firm';
-import { id, rows, stmt } from './model';
+import { id, rows, stmt, type Data } from './model';
 import { ownerSql } from './tasks';
 
 const statusActions = "'job.status','job.signed_off'";
@@ -30,14 +30,21 @@ const failureSources = [
 const failed = `(d.delivery LIKE 'failed%' OR d.delivery LIKE 'rejected%' OR d.delivery LIKE 'rate_limited%'
   OR d.delivery LIKE 'not sent:%' OR d.delivery LIKE 'bounced%')`;
 
+// Triggers (0124) queue every send whose result is recorded, in the transaction that records it. The sync works
+// through that queue, so its cost follows new sends, not the history of old ones. A prefix ends in ':' and the
+// character after it bounds the range on the primary key.
+const queued = (db: D1Database, prefix: string) => rows(db,
+  'SELECT substr(source_key,?) id,changes FROM b_notification_queue WHERE source_key>=? AND source_key<? LIMIT 100', prefix.length + 1, prefix, prefix.slice(0, -1) + ';');
+// Clears only what was read: a change recorded since leaves a higher count and is kept for the next run.
+const clearQueue = (db: D1Database, prefix: string, items: Data[]) => stmt(db,
+  `DELETE FROM b_notification_queue WHERE (source_key,changes) IN (SELECT ?||json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?))`,
+  prefix, JSON.stringify(items.map(item => [item.id, item.changes])));
+
 async function projectFailures(db: D1Database) {
   // reminder.sent names the job, not the reminder. Delivery IDs distinguish
   // concurrent sends and catch a provider result written after another sync.
   for (;;) {
-    const groups = await Promise.all(failureSources.map(async source => ({ source, events: await rows(db,
-      `SELECT d.id FROM ${source.table} d WHERE ${failed}
-        AND NOT EXISTS(SELECT 1 FROM b_notification_events e WHERE e.source_key=?||d.id)
-        ORDER BY d.sent_at,d.id LIMIT 100`, source.key) })));
+    const groups = await Promise.all(failureSources.map(async source => ({ source, events: await queued(db, source.key) })));
     const statements: D1PreparedStatement[] = [];
     for (const { source, events } of groups) {
       if (!events.length) continue;
@@ -47,7 +54,8 @@ async function projectFailures(db: D1Database) {
         FROM ${source.table} d ${source.join} JOIN b_jobs j ON j.id=${source.job}
         WHERE d.id IN (SELECT value FROM json_each(?)) AND ${failed} AND ${activeRecipient('d.sent_by')}
           AND NOT EXISTS(SELECT 1 FROM b_notification_events e WHERE e.source_key=?||d.id)`, source.key, ids, source.key),
-      stmt(db, `INSERT OR IGNORE INTO b_notification_events(source_key) SELECT ?||id FROM ${source.table} WHERE id IN (SELECT value FROM json_each(?))`, source.key, ids));
+      stmt(db, `INSERT OR IGNORE INTO b_notification_events(source_key) SELECT ?||d.id FROM ${source.table} d WHERE d.id IN (SELECT value FROM json_each(?)) AND ${failed}`, source.key, ids),
+      clearQueue(db, source.key, events));
     }
     if (!statements.length) return;
     await db.batch(statements);
@@ -57,22 +65,23 @@ async function projectFailures(db: D1Database) {
 
 // A person already holding another job role is not alerted twice. Revoked
 // assignments leave the portable snapshot; assigning the person again is new.
-async function projectWork(db:D1Database) {
-  const source=`SELECT DISTINCT j.id,j.revision,p.value email FROM b_jobs j JOIN json_each(json_array(j.preparer_email,j.reviewer_email,j.manager_email,j.partner_email)) p WHERE p.value IS NOT NULL`;
+// Only the jobs queued by the 0124 triggers are compared: those whose roles or task owners were written.
+async function projectWork(db:D1Database,jobs:string) {
+  const source=`SELECT DISTINCT j.id,j.revision,p.value email FROM b_jobs j JOIN json_each(json_array(j.preparer_email,j.reviewer_email,j.manager_email,j.partner_email)) p WHERE p.value IS NOT NULL AND j.id IN (SELECT value FROM json_each(?1))`;
   await db.batch([
-    stmt(db,`${insertColumns} SELECT 'native-work:'||json_array(j.id,j.email,j.revision),j.email,'work_assigned',j.id,NULL,'Work assigned to you','in-app only',?
-      FROM (${source}) j WHERE ${activeRecipient('j.email')} AND NOT EXISTS(SELECT 1 FROM b_notification_job_owners p WHERE p.job_id=j.id AND p.email=j.email)`,new Date().toISOString()),
-    stmt(db,`DELETE FROM b_notification_job_owners WHERE NOT EXISTS(SELECT 1 FROM (${source}) j WHERE j.id=b_notification_job_owners.job_id AND j.email=b_notification_job_owners.email)`),
-    stmt(db,`INSERT OR IGNORE INTO b_notification_job_owners SELECT id,email FROM (${source})`),
+    stmt(db,`${insertColumns} SELECT 'native-work:'||json_array(j.id,j.email,j.revision),j.email,'work_assigned',j.id,NULL,'Work assigned to you','in-app only',?2
+      FROM (${source}) j WHERE ${activeRecipient('j.email')} AND NOT EXISTS(SELECT 1 FROM b_notification_job_owners p WHERE p.job_id=j.id AND p.email=j.email)`,jobs,new Date().toISOString()),
+    stmt(db,`DELETE FROM b_notification_job_owners WHERE job_id IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM (${source}) j WHERE j.id=b_notification_job_owners.job_id AND j.email=b_notification_job_owners.email)`,jobs),
+    stmt(db,`INSERT OR IGNORE INTO b_notification_job_owners SELECT id,email FROM (${source})`,jobs),
   ]);
 }
 
 // Compare the actual resolved task owner after every mutation, so named-task
 // handovers, role changes and offboarding share the same transactional producer.
-async function projectTasks(db:D1Database) {
+async function projectTasks(db:D1Database,jobs:string) {
   const changed=await rows(db,`SELECT j.id job_id,s.ordinal,${ownerSql} owner FROM b_job_steps s JOIN b_jobs j ON j.id=s.job_id
     LEFT JOIN b_notification_task_owners p ON p.job_id=j.id AND p.ordinal=s.ordinal
-    WHERE s.done_at IS NULL AND (p.job_id IS NULL OR p.email IS NOT ${ownerSql})`);
+    WHERE j.id IN (SELECT value FROM json_each(?)) AND s.done_at IS NULL AND (p.job_id IS NULL OR p.email IS NOT ${ownerSql})`,jobs);
   for(const task of changed) await db.batch([
     stmt(db,`${insertColumns} SELECT ?,?, 'task_assigned',?,NULL,'Task assigned to you','in-app only',?
       WHERE ? IS NOT NULL AND ${activeRecipient('?2')} AND NOT EXISTS(SELECT 1 FROM b_notification_task_owners WHERE job_id=?3 AND ordinal=?6 AND email IS ?2)`,
@@ -81,13 +90,27 @@ async function projectTasks(db:D1Database) {
   ]);
 }
 
+async function projectJobs(db:D1Database) {
+  for(;;) {
+    const jobs=await queued(db,'job:');
+    if(!jobs.length)return;
+    const ids=JSON.stringify(jobs.map(job=>job.id));
+    await projectWork(db,ids);
+    await projectTasks(db,ids);
+    await clearQueue(db,'job:',jobs).run();
+    if(jobs.length<100)return;
+  }
+}
+
+// Rows past the cursor only. The cursor never passes the newest row, so a restored trail that is shorter than the
+// one it was saved from is read from its end. Projections skip rows a marker already consumed.
+const unread = `a.rowid>MIN(COALESCE((SELECT position FROM b_notification_cursor WHERE name='audit'),0),(SELECT COALESCE(MAX(rowid),0) FROM b_audit))`;
+
 /** Called after successful native mutations. Discussion and review-specific
  * alerts already have their own producers and are not replayed here. */
 export async function syncNotificationEvents(db: D1Database) {
   for (;;) {
-    const events = await rows(db, `SELECT a.id FROM b_audit a
-      WHERE NOT EXISTS(SELECT 1 FROM b_notification_events e WHERE e.source_key='audit:'||a.id)
-      ORDER BY a.at,a.id LIMIT 100`);
+    const events = await rows(db, `SELECT a.id,a.rowid position FROM b_audit a WHERE ${unread} ORDER BY a.rowid LIMIT 100`);
     if (!events.length) break;
     const ids = JSON.stringify(events.map(e => e.id));
     await db.batch([
@@ -100,11 +123,11 @@ export async function syncNotificationEvents(db: D1Database) {
         'JOIN b_invoices i ON i.id=a.object_id JOIN b_jobs j ON j.id=i.job_id', 'i.owner_email',
         `a.action='payment.${state}' AND i.erased_at IS NULL`)),
       stmt(db, `INSERT OR IGNORE INTO b_notification_events(source_key) SELECT 'audit:'||id FROM b_audit WHERE id IN (SELECT value FROM json_each(?))`, ids),
+      stmt(db, `INSERT INTO b_notification_cursor(name,position) VALUES('audit',?) ON CONFLICT(name) DO UPDATE SET position=MAX(position,excluded.position)`, events.at(-1)!.position),
     ]);
     if (events.length < 100) break;
   }
-  await projectWork(db);
-  await projectTasks(db);
+  await projectJobs(db);
   await projectFailures(db);
 }
 

@@ -13,9 +13,10 @@ export async function deliverDigests(env:Bindings,at:Date) {
   for(const user of users) {
     const p=await personalSettings(db,user.email,firm),clock=localClock({...p,notificationStart:'00:00',notificationEnd:'00:00'},at);
     if(!p.digestEnabled||clock.localTime<p.digestTime||!outsideQuiet(p,at))continue;
-    const items=await rows(db,`SELECT DISTINCT n.job_id,j.due_date FROM b_notifications n JOIN b_jobs j ON j.id=n.job_id
-      WHERE n.to_email=? AND n.kind IN ('due_soon','overdue') AND j.status<>'signed_off' AND ${notificationAuthority}
-      AND j.due_date<=? AND n.id NOT LIKE 'held:%' ORDER BY j.due_date,n.job_id`,user.email,
+    // Driven from open work (0124 index); a person's alert history is only probed per due job.
+    const items=await rows(db,`SELECT dj.id job_id,dj.due_date FROM b_jobs dj WHERE dj.status<>'signed_off' AND dj.due_date<=?2
+      AND EXISTS(SELECT 1 FROM b_notifications n WHERE n.job_id=dj.id AND n.to_email=?1 AND n.kind IN ('due_soon','overdue') AND n.id NOT LIKE 'held:%' AND ${notificationAuthority})
+      ORDER BY dj.due_date,dj.id`,user.email,
       new Date(Date.parse(clock.localDate+'T00:00:00Z')+p.leadDays*86400000).toISOString().slice(0,10));
     if(!items.length)continue;
     const claimed=await stmt(db,"INSERT OR IGNORE INTO b_notification_digests VALUES(?,?,'pending',?)",user.email,clock.localDate,at.toISOString()).run();
