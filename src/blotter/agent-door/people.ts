@@ -21,6 +21,7 @@ export function people(env: Bindings): PeopleAdapter {
   return { ...operator, role, policyRole: binding?.role ?? null } as Person;
  };
  return {
+  businessStopped: native.businessStopped,
   async person(id) {const current=await read(id);if(current?.active)await retainAgentEvidence(env.DB);return current;},
   async sponsor(claims) {
    const settings=await stmt(env.DB,'SELECT owner_id FROM bs_settings WHERE singleton=1 AND stopped=0').first<{owner_id:string}>();

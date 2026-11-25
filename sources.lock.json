@@ -1924,7 +1924,7 @@
       "executable": false
     },
     "src/blotter/agent-door/people.ts": {
-      "sha256": "d97ea50f14594e53dfb8daf48f7e5a505283435713454f4f12517549bc30dd0c",
+      "sha256": "705492b8699fa09b2db5a563cbb7ac07ab31cbeb727805ebb3bd5e8b207d552c",
       "executable": false
     },
     "src/blotter/agent-door/proposals.ts": {
