@@ -38,17 +38,20 @@
     {
       "binding": "MAIL_PROVIDER",
       "environment": "MAIL_PROVIDER",
-      "optional": true
+      "optional": true,
+      "verifyStandIn": "resend"
     },
     {
       "binding": "MAIL_FROM",
       "environment": "MAIL_FROM",
-      "optional": true
+      "optional": true,
+      "verifyStandIn": "auth@example.test"
     },
     {
       "binding": "MAIL_API_KEY",
       "environment": "MAIL_API_KEY",
-      "optional": true
+      "optional": true,
+      "verifyStandIn": "test-only-provider-key"
     }
   ]
 }
