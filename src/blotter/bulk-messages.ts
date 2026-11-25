@@ -249,10 +249,11 @@ async function deliver(env: Bindings, deliveryId: string, to: string, subject: s
   if (!sender) return { status: 'failed', delivery: 'not sent: no mail provider is configured', providerMessageId: null };
   try {
     const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, ch => `&#${ch.charCodeAt(0)};`)}</p>`).join('');
-    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {}, ...(unsubscribe ? { unsubscribe: { url: unsubscribe, oneClick: true } } : {}),
+    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM ?? '', to: [to], subject, text: message, html, headers: {}, ...(unsubscribe ? { unsubscribe: { url: unsubscribe, oneClick: true } } : {}),
       ...(files.length ? { attachments: files.map(f => ({ filename: f.name, contentType: f.mime, content: Uint8Array.from(atob(f.content_base64), c => c.charCodeAt(0)) })) } : {}) }),
       { status: 'accepted', provider: 'demo mail', providerMessageId: null });
     if (result.status === 'development') return { status: 'accepted', delivery: 'suppressed in development (no email sent)', providerMessageId: null };
+    if (result.code === 'mail_off') return { status: 'failed', delivery: 'not sent: mail_off', providerMessageId: null };
     return { status: result.status === 'accepted' ? 'accepted' : result.status === 'uncertain' ? 'uncertain' : 'failed', delivery: `${result.status} by ${result.provider}`, providerMessageId: result.providerMessageId ?? null };
   } catch (error) { return { status: 'uncertain', delivery: `held: provider outcome uncertain (${error instanceof Error ? error.message : 'mail error'}); reconcile, never resend`, providerMessageId: null }; }
 }

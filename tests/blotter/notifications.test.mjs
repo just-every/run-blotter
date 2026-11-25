@@ -111,6 +111,23 @@ test('NOTIFY-001 / BASE-001: a real send failure creates an owned in-app excepti
  }finally{await h.close();}
 });
 
+test('A mail-off owner signs in once and a client reminder reports mail_off without contacting a provider',async()=>{
+ const h=await harness({bindings:{MAIL_PROVIDER:'none'}});
+ try{
+  const signIn=await h.request('/auth/magic-link',{email:'owner@example.test'});
+  assert.equal(signIn.status,503);
+  for(const [email,name,role] of [['jordan@example.test','Jordan Ellis','preparer'],['morgan@example.test','Morgan Chen','reviewer']]){
+   await h.json('/team',{email,name,role},h.owner);
+  }
+  const client=await h.json('/clients',{name:'Cedar Lane LLC',ein:'12-3456789',contactName:'Alex Rivera',contactEmail:'alex@example.test'},h.owner);
+  const template=await h.json('/templates',{name:'Monthly close',recurrence:'monthly',tasks:[{label:'Reconcile bank statement',assignee:'preparer'}],requests:'Bank statement'},h.owner);
+  const job=await h.json('/jobs',{clientId:client.id,templateId:template.id,periodStart:'2026-11-01',dueDate:'2026-11-23',dueNote:'Client agreed close date',preparerEmail:'jordan@example.test',reviewerEmail:'morgan@example.test'},h.owner);
+  const reminder=await h.json(`/jobs/${job.id}/reminders`,{},h.owner);
+  assert.match(reminder.delivery,/\bmail_off\b/);
+  assert.equal((await h.request(new URL(reminder.portalUrl).pathname)).status,200);
+  assert.equal(h.mails.length,0);
+ }finally{await h.close();}
+});
 
 test('NOTIFY-001 app: notification center, personal schedule and principal defaults at desktop and phone widths',async()=>{
  const h=await harness();try{

@@ -139,25 +139,30 @@ erasure journal (`--journal exports/newer.rer`, or the second file field in
 
 ## Deploy your installation
 
-You need a Cloudflare account with Workers and D1, a sending address verified
-with Resend, and a Resend API key for email sign-in and reminders. Never put
-credentials in Git, commands, screenshots or chat.
+You need a Cloudflare account with Workers and D1. The default deployment
+keeps outbound mail off. Never put credentials in Git, commands, screenshots
+or chat.
 
-1. Stop local serving (`rer dev --stop`) and commit your changes. In
-   `deploy.json`, set `MAIL_FROM` to your verified sending address. Keep the
-   project, package, Worker and D1 names unchanged, and keep `AUTH_LOCAL`
-   `false`.
+1. Stop local serving (`rer dev --stop`) and commit your changes. Keep the
+   project, package, Worker and D1 names unchanged, and leave `AUTH_LOCAL` set
+   to `false`. Set `MAIL_PROVIDER=none` for a Business without a mail provider.
 2. In your shell's private environment, supply `CLOUDFLARE_ACCOUNT_ID` and
    `CLOUDFLARE_API_TOKEN`, and `OWNER_EMAIL`, `SESSION_SECRET`, `SETUP_TOKEN`
-   and `MAIL_API_KEY`, plus `VAULT_KEY` to use the client credential vault.
+   and `VAULT_KEY` to use the client credential vault.
    Generate the session, setup and vault values as independent random strings
    of at least 32 characters, with your secret manager; keep `VAULT_KEY` with
    your backups, since archived credentials open only under the same key.
-3. Run `rer deploy --dry-run` to build and check the plan without provider
-   calls (it already needs the variables from step 2), then `rer deploy`. It creates or reuses the D1 database, applies the
-   migrations, deploys the Worker and its assets, checks health and prints the URL.
-4. Open the printed address's `/signin`, request a link for the owner email and
-   follow it. Confirm **Finish setup**, then open `/app`.
+3. Run `MAIL_PROVIDER=none rer deploy --dry-run` to build and check the plan
+   locally, then `rer deploy` when ready. Deploy creates or reuses the D1
+   database, applies the migrations, deploys the Worker and its assets, checks
+   health and prints the URL.
+4. Run `rer signin` from the deployed checkout with its Cloudflare credentials.
+   Open the one-time link and confirm **Finish setup** to enter the app.
+
+With mail off, email sign-in is unavailable and outbound messages report
+`mail_off`. To send email with Resend, supply `MAIL_PROVIDER=resend`, a verified
+`MAIL_FROM`, and a private `MAIL_API_KEY` when deploying. Once mail is configured,
+the owner can also request an email link at `/signin`.
 
 [RUN-LOCALLY.md](RUN-LOCALLY.md) and [SEED-COMMAND-CONTRACT.md](SEED-COMMAND-CONTRACT.md)
 describe every `rer` command. [OPERATIONS.md](OPERATIONS.md) covers running it.

@@ -6,7 +6,8 @@ import {mkdtemp,readFile,readdir,realpath,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {createServer} from 'node:net';
-import {randomBytes} from 'node:crypto';
+import {randomBytes,randomUUID} from 'node:crypto';
+import {ownerSigninDigest} from '../../src/modules/operator-auth/owner-signin-grant.mjs';
 const require=createRequire(await realpath('node_modules/wrangler/package.json'));
 const {Miniflare,convertV4MiniflareOptions}=require('miniflare');
 const {unstable_splitSqlQuery:splitSql}=require('wrangler');
@@ -23,7 +24,9 @@ async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhook
  const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
  const directory=await mkdtemp(join(tmpdir(),'blotter-http-')),origin=`https://127.0.0.1:${port}`,mails=[],aiCalls=[];
  const config=JSON.parse(await readFile('dist/server/wrangler.json','utf8'));
- const vars={AUTH_LOCAL:'false',AUTH_ORIGIN:origin,OWNER_EMAIL:'owner@example.test',SESSION_SECRET:randomBytes(32).toString('hex'),VAULT_KEY:randomBytes(32).toString('hex'),SETUP_TOKEN:randomBytes(32).toString('hex'),MAIL_PROVIDER:'resend',MAIL_FROM:'auth@example.test',MAIL_API_KEY:'test-only-provider-key',...bindings};
+ const mailOff=bindings.MAIL_PROVIDER==='none';
+ const mailSettings=mailOff?{}:{MAIL_FROM:'auth@example.test',MAIL_API_KEY:'test-only-provider-key'};
+ const vars={AUTH_LOCAL:'false',AUTH_ORIGIN:origin,OWNER_EMAIL:'owner@example.test',SESSION_SECRET:randomBytes(32).toString('hex'),VAULT_KEY:randomBytes(32).toString('hex'),SETUP_TOKEN:randomBytes(32).toString('hex'),MAIL_PROVIDER:'resend',...mailSettings,...bindings};
  const options={...convertV4MiniflareOptions({
   host:'127.0.0.1',port,https:true,modulesRoot:resolve('dist/server'),modules:[config.main,...(await readdir('dist/server/assets')).filter(f=>f.endsWith('.js')).map(f=>'assets/'+f)].map(f=>({type:'ESModule',path:resolve('dist/server',f)})),
   compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
@@ -60,12 +63,24 @@ async function start({bindings={},mailResponse,aiResponse,stripeResponse,webhook
   const result=await request('/auth/confirm',{token});assert.equal(result.status,303);
   const cookie=result.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ');await remember(cookie,email);return cookie;
  }
+ async function ownerSignin(db){
+  // Stand in for the authorised D1 write from the deploy operator's `rer signin`.
+  const token=randomBytes(32).toString('base64url'),now=Date.now();
+  const written=await db.prepare(`INSERT INTO oa_owner_signins(id,token_hash,operator_id,operator_version,created_at,expires_at)
+   SELECT ?,?,id,version,?,? FROM oa_operators WHERE email=? AND role='owner' AND status='active'`)
+   .bind(randomUUID(),await ownerSigninDigest(token),now,now+60_000,vars.OWNER_EMAIL).run();
+  assert.equal(written.meta.changes,1);
+  const result=await request('/auth/owner-signin',{token});assert.equal(result.status,303);
+  assert.equal((await request('/auth/owner-signin',{token})).status,400);
+  const cookie=result.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ');
+  await remember(cookie,vars.OWNER_EMAIL);return cookie;
+ }
  try{
   await mf.ready;let db=await mf.getD1Database('DB');
   for(const file of (await readdir('migrations/core')).filter(f=>f.endsWith('.sql')).sort())for(const sql of splitSql(await readFile(join('migrations/core',file),'utf8')))await db.prepare(sql).run();
   assert.equal((await request('/health')).status,200);
   const boot=await request('/auth/bootstrap',{token:vars.SETUP_TOKEN,displayName:'Principal'});assert.equal(boot.status,303,await boot.text());
-  const owner=vars.RER_DEMO?boot.headers.getSetCookie().map(s=>s.split(';')[0]).join('; '):await login(vars.OWNER_EMAIL);
+  const owner=vars.RER_DEMO?boot.headers.getSetCookie().map(s=>s.split(';')[0]).join('; '):mailOff?await ownerSignin(db):await login(vars.OWNER_EMAIL);
   if(vars.RER_DEMO)await remember(owner,vars.OWNER_EMAIL);
   // The Worker's Cron Trigger door, fired as of a chosen time.
   const scheduled=async at=>(await mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'17 * * * *'});

@@ -3,10 +3,17 @@ import { createMailSender, verifyWebhook } from './modules/mail/index.mjs'
 // MSG-002: provider delivery events are accepted only with the provider's webhook signature.
 export const verifyMailWebhook = input => verifyWebhook(input)
 
-export function operatorMail(env) {
+const disabledSender = Object.freeze({
+ async send() {
+  return { status: 'rejected', provider: 'none', providerMessageId: null, code: 'mail_off' }
+ },
+})
+
+export function operatorMail(env, { forSignIn = false } = {}) {
  if (env.RER_DEMO === '1' || env.AUTH_LOCAL === 'true') {
   return createMailSender({ provider: 'development', mode: 'development' })
  }
+ if (env.MAIL_PROVIDER === 'none') return forSignIn ? undefined : disabledSender
  if (!env.MAIL_PROVIDER || env.MAIL_PROVIDER === 'development') return undefined
  return {
   async send(message) {

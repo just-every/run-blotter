@@ -55,7 +55,7 @@ export interface Bindings {
  /** VAULT-001: the credential vault's own key, separate from the session secret. */
  VAULT_KEY?: string
  SETUP_TOKEN?: string
- MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare' | 'rer'
+ MAIL_PROVIDER?: 'none' | 'development' | 'resend' | 'sendgrid' | 'cloudflare' | 'rer'
  MAIL_RELAY_URL?: string
  MAIL_FROM?: string
  MAIL_API_KEY?: string
@@ -67,7 +67,8 @@ export interface Bindings {
 export const runtimeBindings = (env: Bindings): Bindings => env.RER_DEV_ORIGIN && env.AUTH_LOCAL === 'true' ? { ...env, AUTH_ORIGIN: env.RER_DEV_ORIGIN } : env
 export const authConfig = (env: Bindings): AuthConfig => ({ dependencies: true, origin: env.AUTH_ORIGIN, local: env.AUTH_LOCAL === 'true', OWNER_EMAIL: env.OWNER_EMAIL, SESSION_SECRET: env.SESSION_SECRET, SETUP_TOKEN: env.SETUP_TOKEN, MAIL_FROM: env.MAIL_FROM, branding: { productName: branding.name, accentColor: branding.primaryColor, signInPath: '/signin', theme: theme.href } })
 export function operatorAuth(env: Bindings) {
- const auth = createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '', hooks: { beforeMagicLink: async ({operator}) => operator.role === 'owner' || !(await env.DB.prepare('SELECT required FROM b_enterprise_connection WHERE id=1').first<{required:number}>())?.required, afterConfirm: async ({operator,method}) => {if(method==='email'&&operator.role!=='owner'&&(await env.DB.prepare('SELECT required FROM b_enterprise_connection WHERE id=1').first<{required:number}>())?.required)throw new AuthError('provider_required',403);} } })
+ const mailSender = operatorMail(env, { forSignIn: true })
+ const auth = createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender, clientIp: request => request.headers.get('CF-Connecting-IP') ?? '', hooks: { beforeMagicLink: async ({operator}) => operator.role === 'owner' || !(await env.DB.prepare('SELECT required FROM b_enterprise_connection WHERE id=1').first<{required:number}>())?.required, afterConfirm: async ({operator,method}) => {if(method==='email'&&operator.role!=='owner'&&(await env.DB.prepare('SELECT required FROM b_enterprise_connection WHERE id=1').first<{required:number}>())?.required)throw new AuthError('provider_required',403);} } })
  return {...auth, getSession: async (request:Request) => {const session=await auth.getSession(request);if(session)await enterpriseSessionGate(env.DB,session);return session;}}
 }
 

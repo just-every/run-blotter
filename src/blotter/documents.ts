@@ -95,12 +95,14 @@ export async function issueLink(db: D1Database, actor: Actor, jobId: string, ori
 export async function sendMail(bindings: ReturnType<typeof runtimeBindings>, deliveryId: string, to: string, subject: string, message: string, files: Data[] = []) {
   const sender = operatorMail(bindings);
   if (!sender) return 'not sent: no mail provider is configured';
-  insist(bindings.MAIL_FROM, 'Set MAIL_FROM to send client mail', 500);
+  const from = bindings.MAIL_FROM ?? '';
+  if (bindings.MAIL_PROVIDER !== 'none') insist(from, 'Set MAIL_FROM to send client mail', 500);
   try {
     const html = message.split('\n').map(line => `<p>${line.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)}</p>`).join('');
     // A demo copy reports the provider's acceptance without sending anything.
-    const result = await demoEffect(() => sender.send({ deliveryId, from: bindings.MAIL_FROM!, to: [to], subject, text: message, html, headers: {},
+    const result = await demoEffect(() => sender.send({ deliveryId, from, to: [to], subject, text: message, html, headers: {},
       ...(files.length ? { attachments: files.map(f => ({ filename: f.name, contentType: f.mime, content: Uint8Array.from(atob(f.content_base64), c => c.charCodeAt(0)) })) } : {}) }), { status: 'accepted', provider: 'demo mail', providerMessageId: null });
+    if (result.code === 'mail_off') return 'not sent: mail_off';
     return result.status === 'development' ? 'suppressed in development (no email sent)' : result.status === 'accepted' ? `accepted by ${result.provider}` : `${result.status} by ${result.provider}`;
   } catch (error) { return `failed: ${error instanceof Error ? error.message : 'mail error'}`; }
 }

@@ -92,6 +92,10 @@
       "default": "development",
       "options": [
         {
+          "value": "none",
+          "label": "Mail off"
+        },
+        {
           "value": "development",
           "label": "Local development (no email sent)"
         },

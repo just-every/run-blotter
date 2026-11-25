@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { totp } from './erasure-fixture.mjs';
-import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
+import { ArchiveVerifier, ContentVerifier, makePart } from '@runeditrun/rer/modules/portability/format';
 
 /** Age synthetic billing evidence in the public archive format to exercise confirmed expiry. */
 export async function historicalBillingArchive(source) {

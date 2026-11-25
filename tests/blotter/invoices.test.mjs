@@ -8,7 +8,7 @@ import { harness } from './harness.mjs';
 import { collectionsJourney, gateJourney, holdJourney, invoiceJourney, receivablesJourney } from './invoices-ui.mjs';
 import {stripeEdge} from './stripe-edge.mjs';
 import {assertInvoiceReport} from './invoice-report-proof.mjs';
-import { ArchiveVerifier, ContentVerifier, makePart } from '../../node_modules/@runeditrun/rer/modules/portability/format.mjs';
+import { ArchiveVerifier, ContentVerifier, makePart } from '@runeditrun/rer/modules/portability/format';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const acknowledge = 'erasure history unverified: supply your latest erasure journal';
